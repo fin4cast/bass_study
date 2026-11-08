@@ -65,11 +65,17 @@ async function run() {
     const restore = await measure('restore-production-api-parse-validate-atomic-IDB', () => store.restore(compact, { confirmed: true }));
     checks.restore = restore;
     checks.restoreTransaction = store.getLastTransaction();
-    const read = await measure('readSnapshot-native-IDB-and-full-validation', () => store.readSnapshot());
+    const read = await measure('readSnapshot-native-IDB-and-full-validation', () => store.readSnapshot({ fresh: true }));
+    if (params.get('afterFix') === 'true') {
+      checks.cacheReadIdentity = await measure('readSnapshot-cached-identity', () => store.readSnapshot()) === read;
+      try { await store.restore(JSON.stringify(emptySnapshot()), { confirmed: true, failAfterWrite: 1 }); }
+      catch (error) { checks.failedRestoreErrorCode = error && typeof error === 'object' && 'code' in error ? error.code : null; }
+      checks.failedRestoreCacheUnchanged = await store.readSnapshot() === read;
+    }
     checks.restoredHistoryCount = read.history.length;
     checks.firstQuestion = read.history[0]?.result.kind === 'screen' ? read.history[0].result.questions[0] : null;
     checks.lastId = read.history.at(-1)?.id;
-    const exported = await measure('exportBackup-production-api-full-read-validation-stringify', () => store.exportBackup());
+    const exported = await measure(params.get('afterFix') === 'true' ? 'exportBackup-production-api-cached-read-stringify' : 'exportBackup-production-api-full-read-validation-stringify', () => store.exportBackup());
     checks.exportBytes = new TextEncoder().encode(exported).byteLength;
     checks.exportCompact = !exported.includes('\n');
     checks.exportByteForByteEqual = exported === compact;
@@ -90,7 +96,18 @@ async function run() {
     checks.renderedElementCount = container.querySelectorAll('*').length;
     history.dispose();
     const full = mountHistory(container, options);
-    await measure('actual-history-UI-refresh-native-read-full-validation', () => full.refresh());
+    await measure(params.get('afterFix') === 'true' ? 'actual-history-UI-refresh-default-cached-read-drawer-closed' : 'actual-history-UI-refresh-native-read-full-validation', () => full.refresh());
+    if (params.get('afterFix') === 'true') {
+      const entry = read.history[0];
+      await measure('single-answer-write-and-actual-UI-commit-drawer-closed', async () => { await store.addHistory(entry); full.commitEntry(entry); });
+      const drawer = container.querySelector<HTMLDetailsElement>('details')!;
+      await measure('actual-history-drawer-opening-and-first-render', async () => {
+        const toggled = new Promise(resolve => drawer.addEventListener('toggle', resolve, { once: true }));
+        drawer.open = true; await toggled;
+      });
+      checks.openRenderedEntries = container.querySelectorAll('[data-history-entry]').length;
+      await measure('single-answer-write-and-actual-UI-commit-drawer-open', async () => { await store.addHistory(entry); full.commitEntry(entry); });
+    }
     full.dispose();
     await store.close();
     const reopened = createStudyStore();

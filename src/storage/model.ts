@@ -40,7 +40,7 @@ export interface StudySnapshot {
 export class StudyStorageError extends Error {
   constructor(public readonly code: string, message: string) { super(message); this.name = 'StudyStorageError'; }
 }
-export const MAX_BACKUP_BYTES = 10_485_760;
+export const MAX_BACKUP_BYTES = 67_108_864;
 
 const ROOT_IDS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const LEGACY_MODES = ['name-note', 'find-note', 'find-all', 'find-degree'] as const;
@@ -325,7 +325,7 @@ export function migrateBackup(value: unknown): StudySnapshot {
 }
 
 export function parseBackup(json: string): StudySnapshot {
-  if (typeof json !== 'string' || json.length > MAX_BACKUP_BYTES || new TextEncoder().encode(json).byteLength > MAX_BACKUP_BYTES) throw new StudyStorageError('INVALID_BACKUP', 'Нужен JSON-файл размером не более 10 МиБ.');
+  if (typeof json !== 'string' || json.length > MAX_BACKUP_BYTES || new TextEncoder().encode(json).byteLength > MAX_BACKUP_BYTES) throw new StudyStorageError('INVALID_BACKUP', 'Нужен JSON-файл размером не более 64 МиБ.');
   let value: unknown;
   try { value = JSON.parse(json); } catch { throw new StudyStorageError('INVALID_BACKUP', 'Не удалось прочитать JSON резервной копии.'); }
   return migrateBackup(value);
@@ -371,6 +371,7 @@ export interface HistoryGroupSummary {
   readonly meanFirstResponseMs: number | null;
 }
 
+/** Derives from records already validated at the storage/import boundary. */
 export function getHistorySummary(history: readonly HistoryEntry[]) {
   const groups = new Map<string, { mode: QuizMode; context: QuestionContext; questions: StoredQuestion[] }>();
   let screenSessions = 0; let manualSessions = 0; let manualDurationMs = 0;
@@ -398,15 +399,29 @@ export function getHistorySummary(history: readonly HistoryEntry[]) {
     corrected: total('corrected'), errors: total('errors'), hints: total('hints'), skipped: total('skipped'), interrupted: total('interrupted'), groups: summaries });
 }
 
+/** Derives from validated records; never replays all quiz answers on the UI path. */
 export function getReviewPositionIds(history: readonly HistoryEntry[]): readonly string[] {
   const ids = new Set<string>();
+  const pitches = new Map<string, { midi: number; pitchClass: number }>();
+  const pitch = (id: string) => {
+    let value = pitches.get(id);
+    if (!value) { const found = position(id); value = { midi: found.midi, pitchClass: found.pitchClass }; pitches.set(id, value); }
+    return value;
+  };
   for (const entry of history) {
     if (entry.result.kind !== 'screen') continue;
+    const targetClasses = new Set<number>();
+    const targetHeights = new Set<number>();
     for (const question of entry.result.questions) {
       if (question.independentCorrect) continue;
       if (entry.result.mode === 'name-note') {
         if (question.targetPositionId) ids.add(question.targetPositionId);
-      } else for (const id of entry.result.context.positionIds) if (question.targetMidi === null ? position(id).pitchClass === question.target.pitchClass : position(id).midi === question.targetMidi) ids.add(id);
+      } else if (question.targetMidi === null) targetClasses.add(question.target.pitchClass);
+      else targetHeights.add(question.targetMidi);
+    }
+    if (targetClasses.size || targetHeights.size) for (const id of entry.result.context.positionIds) {
+      const available = pitch(id);
+      if (targetClasses.has(available.pitchClass) || targetHeights.has(available.midi)) ids.add(id);
     }
   }
   const order = ['E', 'A', 'D', 'G'];

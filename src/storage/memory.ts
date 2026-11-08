@@ -1,6 +1,6 @@
 import {
   MAX_BACKUP_BYTES, StudyStorageError, emptySnapshot, parseBackup, validateHistoryEntry,
-  validatePreferences, validatePreset, validateSnapshot,
+  validatePreferences, validatePreset,
   type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot,
 } from './model';
 
@@ -15,7 +15,10 @@ export function createMemoryStudyStore() {
   }
   function remove(kind: 'presets' | 'history', id: string) {
     if (typeof id !== 'string' || !id.trim() || id.length > 160) throw new StudyStorageError('INVALID_DATA', 'Некорректный ID удаляемой записи.');
-    snapshot = validateSnapshot({ ...snapshot, [kind]: snapshot[kind].filter(item => item.id !== id) });
+    snapshot = Object.freeze({ ...snapshot, [kind]: Object.freeze(snapshot[kind].filter(item => item.id !== id)) });
+  }
+  function remember(kind: 'presets' | 'history', value: Preset | HistoryEntry) {
+    snapshot = Object.freeze({ ...snapshot, [kind]: Object.freeze([...snapshot[kind].filter(item => item.id !== value.id), value].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) });
   }
   function previewImport(json: string) {
     const imported = parseBackup(json);
@@ -23,24 +26,24 @@ export function createMemoryStudyStore() {
   }
   return {
     open: () => enqueue(() => ({ name: 'bass-study-memory', version: 2 })),
-    readSnapshot: () => enqueue(() => validateSnapshot(snapshot)),
+    readSnapshot: (_options: { fresh?: boolean } = {}) => enqueue(() => snapshot),
     async savePreferences(preferences: AppPreferences) {
       const validated = validatePreferences(preferences);
-      return enqueue(() => { snapshot = validateSnapshot({ ...snapshot, preferences: validated }); });
+      return enqueue(() => { snapshot = Object.freeze({ ...snapshot, preferences: validated }); });
     },
     async savePreset(preset: Preset) {
       const validated = validatePreset(preset);
-      return enqueue(() => { snapshot = validateSnapshot({ ...snapshot, presets: [...snapshot.presets.filter(item => item.id !== validated.id), validated] }); });
+      return enqueue(() => remember('presets', validated));
     },
     deletePreset: (id: string) => enqueue(() => remove('presets', id)),
     async addHistory(entry: HistoryEntry) {
       const validated = validateHistoryEntry(entry);
-      return enqueue(() => { snapshot = validateSnapshot({ ...snapshot, history: [...snapshot.history.filter(item => item.id !== validated.id), validated] }); });
+      return enqueue(() => remember('history', validated));
     },
     deleteHistory: (id: string) => enqueue(() => remove('history', id)),
     exportBackup: () => enqueue(() => {
-      const json = JSON.stringify(snapshot, null, 2);
-      if (new TextEncoder().encode(json).byteLength > MAX_BACKUP_BYTES) throw new StudyStorageError('BACKUP_TOO_LARGE', 'Копия превышает предел 10 МиБ. Уменьшите историю перед экспортом.');
+      const json = JSON.stringify(snapshot);
+      if (new TextEncoder().encode(json).byteLength > MAX_BACKUP_BYTES) throw new StudyStorageError('BACKUP_TOO_LARGE', 'Копия превышает предел 64 МиБ. Для такого объёма нужен расширенный формат архива.');
       return json;
     }),
     previewImport,

@@ -4,7 +4,7 @@ import { createMemoryStudyStore } from '../src/storage/memory';
 import { annotatePositions, createStructure, getPosition } from '../src/music';
 import { createManualPracticeResult, nextQuestion, revealAnswer, skipQuestion, startQuiz, submitAnswer, type QuizMode } from '../src/training';
 import {
-  DEFAULT_PREFERENCES, emptySnapshot, getHistorySummary, getReviewPositionIds, makeManualHistory, makeScreenHistory,
+  DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, emptySnapshot, getHistorySummary, getReviewPositionIds, makeManualHistory, makeScreenHistory,
   originalLocalDate, parseBackup, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
   type HistoryEntry, type ScreenHistoryEntry,
 } from '../src/storage/model';
@@ -21,6 +21,40 @@ function manual() {
 }
 
 describe('явное временное хранилище', () => {
+  it('возвращает immutable снимок без повторной проверки всей истории; смена настроек сохраняет историю по ссылке', async () => {
+    const store = createMemoryStudyStore();
+    await store.addHistory(completed());
+    const before = await store.readSnapshot();
+    expect(await store.readSnapshot()).toBe(before);
+    expect(await store.readSnapshot({ fresh: true })).toBe(before);
+    await store.savePreferences({ ...before.preferences, player: { ...before.preferences.player, bpm: 86 } });
+    const after = await store.readSnapshot();
+    expect(after).not.toBe(before);
+    expect(after.history).toBe(before.history);
+    expect(after.history[0]).toBe(before.history[0]);
+    expect(before.preferences.player.bpm).toBe(80);
+    expect(Object.isFrozen(after)).toBe(true);
+    const copy = await store.exportBackup();
+    expect(copy).toBe(JSON.stringify(after));
+    expect(MAX_BACKUP_BYTES).toBe(64 * 1024 * 1024);
+    expect(parseBackup(copy)).toEqual(after);
+  });
+
+  it('отказ валидации и отмена восстановления не меняют опубликованный снимок', async () => {
+    const store = createMemoryStudyStore();
+    await store.addHistory(completed());
+    const before = await store.readSnapshot();
+    await expect(store.savePreferences({ ...before.preferences, player: { ...before.preferences.player, bpm: -1 } })).rejects.toMatchObject({ code: 'INVALID_DATA' });
+    await expect(store.restore('{broken', { confirmed: true })).rejects.toMatchObject({ code: 'INVALID_BACKUP' });
+    await store.restore(JSON.stringify(emptySnapshot()), { confirmed: false });
+    expect(await store.readSnapshot()).toBe(before);
+    const firstEntry = before.history[0];
+    await store.addHistory(manual());
+    const after = await store.readSnapshot();
+    expect(after.history.find(item => item.id === firstEntry.id)).toBe(firstEntry);
+    expect(before.history).toHaveLength(1);
+  });
+
   it('сериализует соседние записи без потери истории и не раскрывает изменяемые ссылки', async () => {
     const store = createMemoryStudyStore();
     expect(await store.open()).toEqual({ name: 'bass-study-memory', version: 2 });

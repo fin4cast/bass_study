@@ -51,6 +51,12 @@ try {
       assert.equal(evidence.checks.exportCompact, true); assert.equal(evidence.checks.restore.status, 'restored');
       assert.equal(evidence.checks.exportByteForByteEqual, true);
       assert.equal(evidence.checks.restoredQuestions, 29200); assert.equal(evidence.checks.restoredAttempts, 58400);
+      if (afterFix) {
+        assert.equal(evidence.checks.cacheReadIdentity, true);
+        assert.equal(evidence.checks.failedRestoreErrorCode, 'INJECTED_ABORT');
+        assert.equal(evidence.checks.failedRestoreCacheUnchanged, true);
+        assert.equal(evidence.checks.openRenderedEntries, 10);
+      }
       assert.deepEqual(evidence.checks.restoreTransaction, { successfulWrites: 1461, aborted: false });
     } else { assert.equal(evidence.checks.currentCapPreservedEmptyDatabase, true); assert.equal(evidence.checks.currentCapErrorCode, 'INVALID_BACKUP'); }
     reports.push({ browserVersion: browser.version(), candidate, servedSourceTransforms: [...new Set(changes)], ...evidence });

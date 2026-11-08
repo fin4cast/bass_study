@@ -27,6 +27,13 @@ export function createStudyStore() {
   let opening: Promise<IDBDatabase> | null = null;
   let queue: Promise<void> = Promise.resolve();
   let lastTransaction = { successfulWrites: 0, aborted: false };
+  let cachedSnapshot: StudySnapshot | null = null;
+
+  function rememberRecord(kind: 'presets' | 'history', value: Preset | HistoryEntry) {
+    if (!cachedSnapshot || !database) return;
+    const records = [...cachedSnapshot[kind].filter(item => item.id !== value.id), value].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    cachedSnapshot = Object.freeze({ ...cachedSnapshot, [kind]: Object.freeze(records) });
+  }
 
   async function getDatabase(): Promise<IDBDatabase> {
     if (database) return database;
@@ -62,7 +69,10 @@ export function createStudyStore() {
       request.onsuccess = () => {
         if (rejected) { request.result.close(); return; }
         database = request.result;
-        database.onversionchange = () => { database?.close(); database = null; };
+        const connection = database;
+        const invalidate = () => { if (database === connection) { database = null; cachedSnapshot = null; } };
+        connection.onversionchange = () => { connection.close(); invalidate(); };
+        connection.onclose = invalidate;
         resolve(database);
       };
     });
@@ -86,8 +96,11 @@ export function createStudyStore() {
     });
   }
 
-  async function read(): Promise<StudySnapshot> {
+  async function read(fresh = false): Promise<StudySnapshot> {
     const db = await getDatabase();
+    if (!fresh && cachedSnapshot) return cachedSnapshot;
+    // A failed fresh validation must never leave an older snapshot appearing current.
+    if (fresh) cachedSnapshot = null;
     const transaction = db.transaction([...STORES], 'readonly');
     const done = completion(transaction);
     const [preferences, presets, history] = await Promise.all([
@@ -95,7 +108,9 @@ export function createStudyStore() {
       requestValue<unknown[]>(transaction.objectStore('presets').getAll()),
       requestValue<unknown[]>(transaction.objectStore('history').getAll()), done,
     ]);
-    return validateSnapshot({ format: 'bass-study-backup', schemaVersion: 2, preferences: preferences ?? DEFAULT_PREFERENCES, presets, history });
+    const snapshot = validateSnapshot({ format: 'bass-study-backup', schemaVersion: 2, preferences: preferences ?? DEFAULT_PREFERENCES, presets, history });
+    if (database === db) cachedSnapshot = snapshot;
+    return snapshot;
   }
 
   async function write(name: typeof STORES[number], value: unknown, key?: IDBValidKey): Promise<void> {
@@ -117,6 +132,7 @@ export function createStudyStore() {
     const done = completion(transaction, true);
     transaction.objectStore(name).delete(id).addEventListener('success', () => { lastTransaction.successfulWrites++; });
     await done;
+    if (cachedSnapshot && database === db) cachedSnapshot = Object.freeze({ ...cachedSnapshot, [name]: Object.freeze(cachedSnapshot[name].filter(item => item.id !== id)) });
   }
 
   function previewImport(json: string) {
@@ -126,18 +142,22 @@ export function createStudyStore() {
 
   return {
     open: () => enqueue(async () => { const db = await getDatabase(); return { name: db.name, version: db.version }; }),
-    readSnapshot: () => enqueue(read),
+    /** The application holds the writer lease. Use fresh for explicit external-change checks. */
+    readSnapshot: (options: { fresh?: boolean } = {}) => enqueue(() => read(options.fresh === true)),
     async savePreferences(preferences: AppPreferences) {
       const validated = validatePreferences(preferences);
-      return enqueue(() => write('preferences', validated, 'current'));
+      return enqueue(async () => {
+        await write('preferences', validated, 'current');
+        if (cachedSnapshot && database) cachedSnapshot = Object.freeze({ ...cachedSnapshot, preferences: validated });
+      });
     },
-    async savePreset(preset: Preset) { const validated = validatePreset(preset); return enqueue(() => write('presets', validated)); },
+    async savePreset(preset: Preset) { const validated = validatePreset(preset); return enqueue(async () => { await write('presets', validated); rememberRecord('presets', validated); }); },
     deletePreset: (id: string) => enqueue(() => remove('presets', id)),
-    async addHistory(entry: HistoryEntry) { const validated = validateHistoryEntry(entry); return enqueue(() => write('history', validated)); },
+    async addHistory(entry: HistoryEntry) { const validated = validateHistoryEntry(entry); return enqueue(async () => { await write('history', validated); rememberRecord('history', validated); }); },
     deleteHistory: (id: string) => enqueue(() => remove('history', id)),
     exportBackup: () => enqueue(async () => {
-      const json = JSON.stringify(await read(), null, 2);
-      if (new TextEncoder().encode(json).byteLength > MAX_BACKUP_BYTES) throw new StudyStorageError('BACKUP_TOO_LARGE', 'Копия превышает предел 10 МиБ. Данные в базе сохранены; уменьшите историю перед экспортом.');
+      const json = JSON.stringify(await read());
+      if (new TextEncoder().encode(json).byteLength > MAX_BACKUP_BYTES) throw new StudyStorageError('BACKUP_TOO_LARGE', 'Копия превышает предел 64 МиБ. Данные в базе сохранены; для такого объёма нужен расширенный формат архива.');
       return json;
     }),
     previewImport,
@@ -163,10 +183,11 @@ export function createStudyStore() {
           if (lastTransaction.successfulWrites === options.failAfterWrite) { injectedAbort = true; transaction.abort(); }
         }));
         await done;
+        if (database === db) cachedSnapshot = snapshot;
         return { status: 'restored' as const, presets: snapshot.presets.length, history: snapshot.history.length };
       });
     },
-    close: () => enqueue(async () => { database?.close(); database = null; }),
+    close: () => enqueue(async () => { database?.close(); database = null; cachedSnapshot = null; }),
     getLastTransaction() { return { ...lastTransaction }; },
   };
 }

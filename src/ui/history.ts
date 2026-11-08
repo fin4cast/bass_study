@@ -3,6 +3,7 @@ import { STRUCTURES, formatMidi, getPosition, type StringId } from '../music';
 import { createManualPracticeResult, type QuestionContext } from '../training';
 import {
   createStudyStore,
+  MAX_BACKUP_BYTES,
   getHistorySummary,
   getReviewPositionIds,
   makeManualHistory,
@@ -82,10 +83,13 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
   let importConfirmed = false;
   const revokeTimers = new Set<ReturnType<typeof setTimeout>>();
   const blobUrls = new Set<string>();
+  let derived: { history: readonly HistoryEntry[]; summary: ReturnType<typeof getHistorySummary>; groups: ReturnType<typeof reviewGroups> } | null = null;
 
   container.classList.add('history-section');
   container.innerHTML = `<details class="history-drawer"><summary><span class="history-summary-label"><span class="history-icon" aria-hidden="true">≡</span><strong>Мои занятия и настройки</strong><small data-history-count>История · пресеты · резервная копия</small></span><span class="history-save-status" data-testid="history-save-status" role="status" aria-live="polite"></span><span class="history-chevron" aria-hidden="true">⌄</span></summary><div class="history-body" data-testid="history-body"></div></details>`;
   const body = container.querySelector<HTMLElement>('.history-body')!;
+  const drawer = container.querySelector<HTMLDetailsElement>('.history-drawer')!;
+  drawer.addEventListener('toggle', () => { if (drawer.open) render(); }, { signal: controller.signal });
 
   function setSaveStatus(message: string, kind: StatusKind) {
     status = message;
@@ -102,8 +106,10 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
       body.innerHTML = `<p class="history-loading">${statusKind === 'error' ? 'Данные пока не прочитаны. Можно повторить чтение; текущая работа с грифом остаётся доступной.' : 'Загружаем настройки и историю этого браузера…'}</p>${statusKind === 'error' ? '<button class="secondary-button" type="button" data-history-action="refresh">Повторить чтение</button>' : ''}`;
       return;
     }
-    const summary = getHistorySummary(snapshot.history);
-    const groups = reviewGroups();
+    container.querySelector<HTMLElement>('[data-history-count]')!.textContent = `${snapshot.history.length} записей · ${snapshot.presets.length} пресетов`;
+    if (!drawer.open) { body.innerHTML = ''; return; }
+    if (!derived || derived.history !== snapshot.history) derived = { history: snapshot.history, summary: getHistorySummary(snapshot.history), groups: reviewGroups() };
+    const { summary, groups } = derived;
     const review = groups.find(group => group.key === reviewContextKey) ?? groups[0];
     reviewContextKey = review?.key ?? null;
     const reviewIds = review?.ids ?? [];
@@ -139,14 +145,14 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
   function reviewGroups() {
     const groups = new Map<string, { key: string; context: QuestionContext; entries: HistoryEntry[]; ids: readonly string[] }>();
     for (const entry of [...(snapshot?.history ?? [])].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))) {
-      if (entry.result.kind !== 'screen' || getReviewPositionIds([entry]).length === 0) continue;
+      if (entry.result.kind !== 'screen') continue;
       const context = entry.result.context;
       const key = JSON.stringify({ ...context, positionIds: [...context.positionIds].sort() });
       const existing = groups.get(key);
       if (existing) existing.entries.push(entry);
       else groups.set(key, { key, context, entries: [entry], ids: [] });
     }
-    return [...groups.values()].map(group => ({ ...group, ids: getReviewPositionIds(group.entries) }));
+    return [...groups.values()].map(group => ({ ...group, ids: getReviewPositionIds(group.entries) })).filter(group => group.ids.length > 0);
   }
 
   function importPreviewMarkup(): string {
@@ -154,11 +160,11 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     return `<div class="backup-preview" data-testid="backup-preview"><h4 id="restore-preview-title" tabindex="-1">Проверь копию перед заменой</h4><p>${escapeHtml(pendingFilename)} · ${preview.presets} пресетов · ${preview.history} записей истории</p><p class="restore-warning">Текущие настройки, пресеты и история будут полностью заменены содержимым файла. Объединения записей нет. До замены можно экспортировать текущую копию.</p><label class="restore-confirm"><input type="checkbox" data-history-confirm${importConfirmed ? ' checked' : ''}${busy ? ' disabled' : ''}><span>Понимаю, что текущие данные будут заменены</span></label><div class="backup-actions"><button class="restore-button" type="button" data-history-action="confirm-restore"${!importConfirmed || busy ? ' disabled' : ''}>Заменить данные копией</button><button class="text-button" type="button" data-history-action="cancel-restore"${busy ? ' disabled' : ''}>Отменить импорт</button></div></div>`;
   }
 
-  async function refresh() {
+  async function refresh(readOptions: { fresh?: boolean } = {}) {
     const version = ++refreshVersion;
     try {
       await options.flush();
-      const next = await options.store.readSnapshot();
+      const next = await options.store.readSnapshot(readOptions);
       if (disposed || version !== refreshVersion) return;
       snapshot = next;
       if (status === 'Читаем локальные данные…') {
@@ -240,6 +246,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
       importConfirmed = false;
       void perform(async () => {
         await options.flush();
+        if (file.size > MAX_BACKUP_BYTES) throw new RangeError(`Копия должна быть не больше ${MAX_BACKUP_BYTES / 1024 / 1024} МиБ.`);
         const json = await file.text();
         const nextPreview = options.store.previewImport(json);
         pendingImport = json;
@@ -264,7 +271,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     if (historyDelete) { void perform(async () => { await write(() => options.store.deleteHistory(historyDelete)); actionNotice = 'Запись истории удалена.'; }); return; }
     const action = target?.closest<HTMLButtonElement>('[data-history-action]')?.dataset.historyAction;
     if (!action || busy) return;
-    if (action === 'refresh') { void refresh(); return; }
+    if (action === 'refresh') { void refresh({ fresh: true }); return; }
     if (action === 'show-more') { visibleEntries += 10; render(); return; }
     if (action === 'refresh-draft') { render(); return; }
     if (action === 'cancel-restore') {
@@ -308,6 +315,14 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
   render();
   return {
     refresh,
+    commitEntry(entry: HistoryEntry) {
+      if (disposed || !snapshot) return;
+      const history = [...snapshot.history];
+      const index = history.findIndex(item => item.id === entry.id);
+      if (index === -1) history.push(entry); else history[index] = entry;
+      snapshot = { ...snapshot, history };
+      render();
+    },
     clearActionError() { actionError = ''; },
     setSaveStatus,
     dispose() {

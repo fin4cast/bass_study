@@ -6,7 +6,8 @@ import { runStorageBrowserChecks } from './helpers/storage-browser-harness.mjs';
 
 const checks = [];
 const check = (name, run, options = {}) => checks.push({ name, run, ...options });
-const snapshot = page => page.evaluate(() => window.p5.store.readSnapshot());
+// Native assertions bypass the adapter cache; cache behaviour has separate cases.
+const snapshot = page => page.evaluate(() => window.p5.store.readSnapshot({ fresh: true }));
 const seed = page => page.evaluate(() => window.p5.seed());
 const backup = page => page.evaluate(() => window.p5.store.exportBackup());
 
@@ -39,7 +40,7 @@ check('native-preferences-queue-preserves-concurrent-history-and-presets', async
       pending.push(window.p5.store.savePreferences({ ...preferences, player: { ...preferences.player, bpm: 100 + index } }));
       pending.push(window.p5.store.addHistory(window.p5.manual(`concurrent-${index}`)));
     }
-    await Promise.all(pending); return window.p5.store.readSnapshot();
+    await Promise.all(pending); return window.p5.store.readSnapshot({ fresh: true });
   });
   assert.equal(state.preferences.player.bpm, 107); assert.equal(state.presets.length, 2); assert.equal(state.history.length, 10);
   assert.deepEqual(state.history.filter(item => item.id.startsWith('fixture-')).map(item => item.id), ['fixture-manual', 'fixture-screen']);
@@ -53,7 +54,7 @@ check('native-history-upsert-and-deletes-touch-only-requested-records', async ({
     await window.p5.store.addHistory(window.p5.manual('fixture-manual', 'Обновлённая заметка.'));
     await window.p5.store.deletePreset('fixture-preset-b');
     await window.p5.store.deleteHistory('fixture-screen');
-    return window.p5.store.readSnapshot();
+    return window.p5.store.readSnapshot({ fresh: true });
   });
   assert.equal(after.history.length, 1); assert.equal(after.history[0].result.note, 'Обновлённая заметка.');
   assert.deepEqual(after.presets.map(item => item.id), ['fixture-preset-a']); assert.deepEqual(after.preferences, before.preferences);
@@ -79,7 +80,7 @@ check('native-export-clean-context-restore-full-replacement', async ({ page, fre
 check('native-cancel-and-validation-refusals-never-change-existing-data', async ({ page }) => {
   const before = await seed(page);
   const results = await page.evaluate(async () => {
-    const current = JSON.parse(await window.p5.store.exportBackup()); const clone = () => structuredClone(current);
+    const current = await window.p5.store.readSnapshot({ fresh: true }); const clone = () => structuredClone(current);
     const mutations = [
       ['broken-json', '{broken', 'INVALID_BACKUP'],
       ['unknown-format', JSON.stringify({ ...clone(), format: 'another-app' }), 'UNSUPPORTED_FORMAT'],
@@ -94,11 +95,11 @@ check('native-cancel-and-validation-refusals-never-change-existing-data', async 
     ];
     const results = [];
     const cancelled = await window.p5.store.restore(JSON.stringify(window.p5.emptySnapshot()), { confirmed: false });
-    results.push({ name: 'cancel', result: cancelled, unchanged: JSON.stringify(await window.p5.store.readSnapshot()) === JSON.stringify(current) });
+    results.push({ name: 'cancel', result: cancelled, unchanged: JSON.stringify(await window.p5.store.readSnapshot({ fresh: true })) === JSON.stringify(current) });
     for (const [name, json, expected] of mutations) {
       let failure = null;
       try { await window.p5.store.restore(json, { confirmed: true }); } catch (error) { failure = { code: error.code, message: error.message }; }
-      results.push({ name, expected, failure, unchanged: JSON.stringify(await window.p5.store.readSnapshot()) === JSON.stringify(current) });
+      results.push({ name, expected, failure, unchanged: JSON.stringify(await window.p5.store.readSnapshot({ fresh: true })) === JSON.stringify(current) });
     }
     return results;
   });
@@ -110,13 +111,16 @@ check('native-cancel-and-validation-refusals-never-change-existing-data', async 
 check('native-abort-after-successful-put-rolls-back-clears-and-all-stores', async ({ page }) => {
   const before = await seed(page);
   const outcome = await page.evaluate(async () => {
+    const cachedBefore = await window.p5.store.readSnapshot(); const rawBefore = await window.p5.readRaw();
     const replacement = window.p5.emptySnapshot(); let failure = null;
     try { await window.p5.store.restore(JSON.stringify(replacement), { confirmed: true, failAfterWrite: 1 }); }
     catch (error) { failure = { code: error.code, message: error.message }; }
-    return { failure, transaction: window.p5.store.getLastTransaction(), after: await window.p5.store.readSnapshot() };
+    const transaction = window.p5.store.getLastTransaction();
+    const cachedAfter = await window.p5.store.readSnapshot(); const freshAfter = await window.p5.store.readSnapshot({ fresh: true });
+    return { failure, transaction, cacheReferenceUnchanged: cachedAfter === cachedBefore, after: cachedAfter, freshAfter, rawBefore, rawAfter: await window.p5.readRaw() };
   });
   assert.equal(outcome.failure?.code, 'INJECTED_ABORT'); assert.deepEqual(outcome.transaction, { successfulWrites: 1, aborted: true });
-  assert.deepEqual(outcome.after, before);
+  assert.equal(outcome.cacheReferenceUnchanged, true); assert.deepEqual(outcome.after, before); assert.deepEqual(outcome.freshAfter, before); assert.deepEqual(outcome.rawAfter, outcome.rawBefore);
   await page.reload(); await page.waitForFunction(() => window.p5?.ready); assert.deepEqual(await snapshot(page), before);
   return outcome;
 });
@@ -127,6 +131,7 @@ check('native-real-browser-quota-refusal-preserves-state-and-recovers', async ({
   // browser refusal rather than assuming every tiny write must exceed it.
   // Atomic rollback with populated stores is independently checked above.
   const before = await snapshot(page);
+  await page.evaluate(async () => { window.p5.quotaCachedBefore = await window.p5.store.readSnapshot(); window.p5.quotaRawBefore = await window.p5.readRaw(); });
   const quotaBefore = await cdp.send('Storage.getUsageAndQuota', { origin: fixtureOrigin }); let outcome;
   try {
     await cdp.send('Storage.overrideQuotaForOrigin', { origin: fixtureOrigin, quotaSize: 1 });
@@ -135,10 +140,12 @@ check('native-real-browser-quota-refusal-preserves-state-and-recovers', async ({
       let failure = null;
       try { await window.p5.store.addHistory(window.p5.manual('quota-must-not-save', 'Н'.repeat(2000))); }
       catch (error) { failure = { code: error.code, message: error.message }; }
-      return { failure, transaction: window.p5.store.getLastTransaction(), after: await window.p5.store.readSnapshot() };
+      const transaction = window.p5.store.getLastTransaction(); const cachedAfter = await window.p5.store.readSnapshot();
+      return { failure, transaction, cacheReferenceUnchanged: cachedAfter === window.p5.quotaCachedBefore, after: cachedAfter,
+        freshAfter: await window.p5.store.readSnapshot({ fresh: true }), rawBefore: window.p5.quotaRawBefore, rawAfter: await window.p5.readRaw() };
     });
     assert.equal(outcome.failure?.code, 'QUOTA', 'The actual native write must fail under the browser quota override');
-    assert.equal(outcome.transaction.aborted, true); assert.deepEqual(outcome.after, before);
+    assert.equal(outcome.transaction.aborted, true); assert.equal(outcome.cacheReferenceUnchanged, true); assert.deepEqual(outcome.after, before); assert.deepEqual(outcome.freshAfter, before); assert.deepEqual(outcome.rawAfter, outcome.rawBefore);
     outcome.quotaDuring = quotaDuring;
   } finally { await cdp.send('Storage.overrideQuotaForOrigin', { origin: fixtureOrigin }); }
   await page.evaluate(() => window.p5.store.addHistory(window.p5.manual('after-quota-reset')));
@@ -156,6 +163,84 @@ check('native-full-browser-process-restart-keeps-original-history-date', async (
     assert.equal(actual.history[0].localDate, '2026-11-09'); return { restartedWholeBrowser: true, actual };
   } finally { await closeContext(reopened.context); }
 }, { scope: 'persistent' });
+
+check('native-cache-explicit-fresh-read-sees-external-writer-and-reopen', async ({ page }) => {
+  await seed(page);
+  const evidence = await page.evaluate(async () => {
+    const store = window.p5.store; const first = await store.readSnapshot(); const second = await store.readSnapshot();
+    const other = window.p5.createStore();
+    try { await other.savePreferences({ ...first.preferences, player: { ...first.preferences.player, bpm: 109 } }); }
+    finally { await other.close(); }
+    const known = await store.readSnapshot(); const refreshed = await store.readSnapshot({ fresh: true }); const cachedRefreshed = await store.readSnapshot();
+    await store.close(); const reopened = await store.readSnapshot();
+    return { sameCachedReference: first === second, externalWriteDoesNotPretendAutoSync: known === first,
+      cacheIsFrozen: Object.isFrozen(first) && Object.isFrozen(first.preferences) && Object.isFrozen(first.history),
+      knownBpm: known.preferences.player.bpm, refreshedBpm: refreshed.preferences.player.bpm,
+      freshBecomesCached: refreshed === cachedRefreshed, refreshed, reopened, raw: await window.p5.readRaw() };
+  });
+  assert.equal(evidence.sameCachedReference, true); assert.equal(evidence.cacheIsFrozen, true); assert.equal(evidence.externalWriteDoesNotPretendAutoSync, true);
+  assert.equal(evidence.knownBpm, 96); assert.equal(evidence.refreshedBpm, 109); assert.equal(evidence.freshBecomesCached, true);
+  assert.deepEqual(evidence.reopened, evidence.refreshed); assert.deepEqual(evidence.raw.preferences, evidence.refreshed.preferences);
+  return evidence;
+});
+
+check('native-successful-commits-update-cache-without-full-read-and-match-fresh-database', async ({ page }) => {
+  await seed(page);
+  const operations = await page.evaluate(async () => {
+    const store = window.p5.store; const prototype = IDBObjectStore.prototype; const originals = {}; const counts = { get: 0, getAll: 0, openCursor: 0 };
+    for (const name of Object.keys(counts)) { originals[name] = prototype[name]; prototype[name] = function (...args) { counts[name]++; return originals[name].apply(this, args); }; }
+    const rows = [];
+    async function verify(name, operation) {
+      const before = await store.readSnapshot(); for (const key of Object.keys(counts)) counts[key] = 0;
+      await operation(); const cached = await store.readSnapshot(); const callsBeforeFresh = { ...counts };
+      const fresh = await store.readSnapshot({ fresh: true });
+      rows.push({ name, callsBeforeFresh, explicitFreshCalls: { ...counts }, referenceChanged: cached !== before,
+        frozen: Object.isFrozen(cached), cacheMatchesFresh: JSON.stringify(cached) === JSON.stringify(fresh),
+        presets: fresh.presets.length, history: fresh.history.length, bpm: fresh.preferences.player.bpm });
+    }
+    try {
+      const preferences = (await store.readSnapshot()).preferences;
+      await verify('savePreferences', () => store.savePreferences({ ...preferences, player: { ...preferences.player, bpm: 108 } }));
+      await verify('savePreset', () => store.savePreset({ id: 'cache-preset', name: 'Кеш после commit', createdAt: '2026-11-08T09:00:00.000Z', preferences }));
+      await verify('addHistory', () => store.addHistory(window.p5.manual('cache-history')));
+      await verify('deletePreset', () => store.deletePreset('fixture-preset-b'));
+      await verify('deleteHistory', () => store.deleteHistory('fixture-screen'));
+      await verify('restore', () => store.restore(JSON.stringify(window.p5.emptySnapshot()), { confirmed: true }));
+      return rows;
+    } finally { for (const [name, original] of Object.entries(originals)) prototype[name] = original; }
+  });
+  for (const operation of operations) {
+    assert.deepEqual(operation.callsBeforeFresh, { get: 0, getAll: 0, openCursor: 0 }, operation.name);
+    assert.ok(operation.explicitFreshCalls.getAll >= 2, operation.name); assert.equal(operation.referenceChanged, true, operation.name);
+    assert.equal(operation.frozen, true); assert.equal(operation.cacheMatchesFresh, true, operation.name);
+  }
+  assert.equal(operations[0].bpm, 108); assert.equal(operations[1].presets, 3); assert.equal(operations[2].history, 3);
+  assert.equal(operations[3].presets, 2); assert.equal(operations[4].history, 2); assert.equal(operations[5].history, 0); assert.equal(operations[5].presets, 0);
+  return { observer: 'Native IDB read-method wrappers only count calls and always invoke the originals; no returned data or failures are replaced.', operations };
+});
+
+check('native-unexpected-database-close-invalidates-cache-after-isolated-browser-clear', async ({ page, cdp, fixtureOrigin }) => {
+  const before = await seed(page); assert.equal(before.history.length, 2);
+  await page.evaluate(async () => {
+    window.p5.beforeUnexpectedClose = await window.p5.store.readSnapshot(); window.p5.observedDatabaseClose = false;
+    await new Promise((resolve, reject) => {
+      const request = indexedDB.open('bass-study'); request.onerror = () => reject(request.error);
+      request.onsuccess = () => { request.result.addEventListener('close', () => { window.p5.observedDatabaseClose = true; }); resolve(); };
+    });
+  });
+  // This origin belongs solely to the runner's clean, isolated fixture context.
+  await cdp.send('Storage.clearDataForOrigin', { origin: fixtureOrigin, storageTypes: 'indexeddb' });
+  await page.waitForFunction(() => window.p5.observedDatabaseClose === true);
+  const cleared = await page.evaluate(async () => {
+    const current = await window.p5.store.readSnapshot();
+    return { cacheWasInvalidated: current !== window.p5.beforeUnexpectedClose, current, fresh: await window.p5.store.readSnapshot({ fresh: true }), raw: await window.p5.readRaw() };
+  });
+  assert.equal(cleared.cacheWasInvalidated, true); assert.deepEqual(cleared.current.history, []); assert.deepEqual(cleared.current.presets, []);
+  assert.deepEqual(cleared.current, cleared.fresh); assert.deepEqual(cleared.raw.history, []);
+  await page.evaluate(() => window.p5.store.addHistory(window.p5.manual('after-unexpected-close')));
+  const recovered = await snapshot(page); assert.deepEqual(recovered.history.map(entry => entry.id), ['after-unexpected-close']);
+  return { clearedOnlyIsolatedOrigin: fixtureOrigin, observedRealDatabaseClose: true, cleared, recoveredIds: recovered.history.map(entry => entry.id) };
+});
 
 // Product scenarios follow the visible storage controls; no product test API is used.
 
@@ -273,6 +358,27 @@ check('ui-completed-screen-result-is-saved-once-and-survives-preference-changes'
   const changed = await uiBackup(page); assert.deepEqual(changed.history, first.history);
   await page.reload(); await openHistory(page); assert.deepEqual((await uiBackup(page)).history, first.history);
   return { entry, savedOnce: true, preferenceChangePreservedHistory: true };
+}, { scope: 'ui' });
+
+check('ui-lazy-history-opens-current-own-commits-and-partial-upsert-keeps-one-id', async ({ page }) => {
+  await uiRange(page, 0); await page.getByRole('button', { name: 'Задания', exact: true }).click();
+  await page.getByLabel('Тип задания', { exact: true }).selectOption('name-note'); await page.getByLabel('Материал заданий', { exact: true }).selectOption('chromatic');
+  await page.getByLabel('Количество вопросов', { exact: true }).fill('1'); await page.getByLabel('Количество вопросов', { exact: true }).press('Tab');
+  assert.equal(await page.locator('.history-drawer').evaluate(element => element.open), false);
+  await page.locator('[data-training-action="start"]').click(); await page.locator('[data-choice="pc:5"]').click(); await uiSaved(page);
+  await openHistory(page); const initial = await uiBackup(page); assert.equal(initial.history.length, 1);
+  const id = initial.history[0].id; assert.equal(initial.history[0].result.questions[0].outcome, 'interrupted');
+  assert.equal(await page.locator(`[data-history-entry="${id}"]`).count(), 1);
+  await page.locator('.history-drawer > summary').click();
+  await page.locator('[data-choice="pc:4"]').click(); await page.locator('[data-training-action="next"]').click(); await uiSaved(page);
+  await openHistory(page); const completed = await uiBackup(page);
+  assert.equal(completed.history.length, 1); assert.equal(completed.history[0].id, id); assert.equal(completed.history[0].result.questions[0].outcome, 'corrected');
+  assert.equal(completed.history[0].result.questions[0].errors, 1); assert.equal(completed.history[0].result.questions[0].independentCorrect, false);
+  assert.equal(await page.locator(`[data-history-entry="${id}"]`).count(), 1); assert.match(await page.locator(`[data-history-entry="${id}"]`).innerText(), /ошибок 1/);
+  await page.locator('.history-drawer > summary').click(); await page.getByLabel('Тоника', { exact: true }).selectOption('G'); await uiSaved(page);
+  await openHistory(page); assert.equal(await page.locator(`[data-history-entry="${id}"]`).count(), 1);
+  const afterPreference = await uiBackup(page); assert.deepEqual(afterPreference.history, completed.history);
+  return { sameSessionHistoryId: id, initiallyClosed: true, partialOutcome: 'interrupted', completedOutcome: 'corrected', historyCount: completed.history.length, latestOwnCommitsVisibleOnOpen: true };
 }, { scope: 'ui' });
 
 check('ui-manual-practice-has-self-report-source-and-consumes-duration', async ({ page }) => {

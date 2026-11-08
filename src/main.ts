@@ -150,7 +150,7 @@ function persistSession(session: QuizSession) {
     let metadata = sessionMetadata.get(session.questions);
     if (!metadata) { metadata = { id: `screen-${crypto.randomUUID()}`, occurredAt: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }; sessionMetadata.set(session.questions, metadata); }
     const entry = makeScreenHistory(session, metadata);
-    if (entry) void writes.run(() => store.addHistory(entry), metadata.id).then(() => history?.refresh()).catch(() => {});
+    if (entry) void writes.run(() => store.addHistory(entry), metadata.id).then(() => history?.commitEntry(entry)).catch(() => {});
   } catch (failure) { history?.setSaveStatus(`Результат не сохранён: ${failure instanceof Error ? failure.message : String(failure)}`, 'error'); }
 }
 
@@ -393,7 +393,7 @@ sequencePlayer = mountPlayer(byId('player-mount'), () => training?.getCurrentSeq
 });
 history = mountHistory(byId('history-mount'), {
   store: {
-    readSnapshot: () => store.readSnapshot(),
+    readSnapshot: options => store.readSnapshot(options),
     savePreset: value => store.savePreset(value),
     deletePreset: id => store.deletePreset(id),
     addHistory: value => store.addHistory(value),
