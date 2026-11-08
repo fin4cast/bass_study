@@ -44,6 +44,9 @@ export function createThemeController(options: ThemeOptions = {}) {
     if (meta) meta.content = getComputedStyle(root).getPropertyValue('--surface-canvas').trim();
     const picker = document.querySelector<HTMLSelectElement>('#theme-preference');
     if (picker) picker.value = preference;
+    document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.themeChoice === resolved));
+    });
   }
   const systemChanged = () => { if (preference === 'system') apply(); };
   system.addEventListener('change', systemChanged);

@@ -57,7 +57,7 @@ async function summary(page) {
   return page.getByTestId('ear-summary').locator('[data-ear-result]').evaluateAll(nodes => Object.fromEntries(nodes.map(node => [node.dataset.earResult, Number(node.textContent)])));
 }
 async function openHistory(page) {
-  await ready(page); const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await drawer.locator('summary').first().click();
+  await ready(page); const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click();
   await page.getByLabel('Тип записей истории', { exact: true }).waitFor();
 }
 async function exportUi(page) {

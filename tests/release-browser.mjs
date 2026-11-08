@@ -53,7 +53,7 @@ async function saved(page) {
 }
 async function openHistory(page) {
   await ready(page); const drawer = page.locator('.history-drawer');
-  if (!await drawer.evaluate(element => element.open)) await drawer.locator('summary').first().click();
+  if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click();
   await page.getByLabel('Название пресета', { exact: true }).waitFor();
 }
 async function exportUi(page) {
@@ -220,13 +220,13 @@ check('exact-height-mode-shows-A1-and-accepts-only-current-height', async ({ pag
 check('chromatic-interval-mode-accepts-sharp-four-and-flat-five-by-height', async ({ page }) => {
   await scope(page, { first: 0, last: 3 }); await quiz(page, 'find-interval');
   const material = page.getByLabel('Материал заданий', { exact: true }); assert.ok(await material.isDisabled()); assert.equal(await material.inputValue(), 'chromatic');
-  await page.getByLabel('Интервал от тоники', { exact: true }).selectOption('#4'); await quizAction(page, 'start').click();
+  await page.getByRole('combobox', { name: 'Интервал от тоники', exact: true }).selectOption('#4'); await quizAction(page, 'start').click();
   assert.match(await page.getByTestId('quiz-prompt').innerText(), /♯4.*C/);
   await page.locator('[data-answer-position="E:1"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /не подходит/);
   await page.locator('[data-answer-position="E:2"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /Верно.*F♯/);
-  await page.getByLabel('Интервал от тоники', { exact: true }).selectOption('b5'); await quizAction(page, 'start').click();
+  await page.getByRole('combobox', { name: 'Интервал от тоники', exact: true }).selectOption('b5'); await quizAction(page, 'start').click();
   assert.match(await page.getByTestId('quiz-prompt').innerText(), /♭5.*C/); await page.locator('[data-answer-position="E:2"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /Верно.*G♭/);
-  await scope(page, { first: 0, last: 0 }); await page.getByLabel('Интервал от тоники', { exact: true }).selectOption('#4'); await quizAction(page, 'start').click();
+  await scope(page, { first: 0, last: 0 }); await page.getByRole('combobox', { name: 'Интервал от тоники', exact: true }).selectOption('#4'); await quizAction(page, 'start').click();
   assert.equal(await page.getByTestId('quiz-question').count(), 0); assert.match(await page.getByTestId('training-error').innerText(), /отсутствует|диапазон|интервал/i);
   return { sharpFourPosition: 'E:2', flatFivePosition: 'E:2', scope: 'chromatic', impossibleIntervalExplained: true };
 }, { scope: 'ui' });
@@ -236,7 +236,7 @@ check('revealed-interval-svg-and-feedback-use-contextual-enharmonic-names', asyn
   const evidence = [];
   for (const example of cases) {
     await scope(page, { root: example.root, first: example.fret, last: example.fret }); await quiz(page, 'find-interval');
-    await page.getByLabel('Интервал от тоники', { exact: true }).selectOption(example.interval); await quizAction(page, 'start').click();
+    await page.getByRole('combobox', { name: 'Интервал от тоники', exact: true }).selectOption(example.interval); await quizAction(page, 'start').click();
     const position = page.locator(`[data-answer-position="E:${example.fret}"]`); assert.equal(await position.locator('text').count(), 0);
     await quizAction(page, 'hint').click(); assert.deepEqual(await position.locator('text').allTextContents(), [example.name]);
     const feedback = await page.getByTestId('quiz-feedback').innerText(); assert.ok(feedback.includes(example.name)); assert.ok(!feedback.includes(example.rejectedName));
@@ -360,7 +360,15 @@ async function keyboardText(page, locator, value) {
   await revealControl(locator, true); await tabTo(page, locator); await page.keyboard.press('Control+A'); await page.keyboard.type(String(value)); await page.keyboard.press('Tab');
 }
 async function keyboardSelect(page, locator, index) {
-  await revealControl(locator, true); await tabTo(page, locator); await page.keyboard.press('Home'); for (let step = 0; step < index; step++) await page.keyboard.press('ArrowDown'); await page.keyboard.press('Tab');
+  await revealControl(locator, true);
+  if (await locator.evaluate(element => element.classList.contains('select-picker-native'))) {
+    const trigger = locator.locator('..').locator('.select-picker-trigger');
+    await tabTo(page, trigger); await page.keyboard.press('Enter'); await page.keyboard.press('Home');
+    for (let step = 0; step < index; step++) await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Enter'); await page.keyboard.press('Tab');
+  } else {
+    await tabTo(page, locator); await page.keyboard.press('Home'); for (let step = 0; step < index; step++) await page.keyboard.press('ArrowDown'); await page.keyboard.press('Tab');
+  }
 }
 async function keyboardActivate(page, locator) { await tabTo(page, locator); await page.keyboard.press('Enter'); }
 async function keyboardExport(page) {
@@ -396,7 +404,7 @@ check('keyboard-only-full-practice-survives-browser-reopen-at-stable-origin', as
     await keyboardActivate(page, page.locator('[data-player-action="start"]'));
     await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.currentPosition === 'E:0');
     await delay(900); await keyboardActivate(page, page.locator('[data-player-action="stop"]'));
-    await keyboardActivate(page, page.locator('.history-drawer > summary'));
+    await keyboardActivate(page, page.locator('#open-history'));
     await keyboardText(page, page.getByLabel('Комфортный темп', { exact: true }), 76);
     await keyboardText(page, page.getByLabel('Заметка к практике', { exact: true }), 'Полный сценарий только клавиатурой.');
     await keyboardActivate(page, historyAction(page, 'save-manual')); await saved(page);
@@ -420,12 +428,14 @@ check('actual-web-lock-prevents-second-writer-and-hands-off-after-close', async 
   const before = await exportUi(page); const second = await context.newPage(); await second.goto(origin);
   await second.waitForFunction(() => document.querySelector('main')?.inert && !document.querySelector('#retry-tab')?.hidden);
   assert.match(await second.locator('#persistence-message').innerText(), /друг.*вклад|открыт.*вклад/i);
-  assert.ok(await second.locator('#theme-preference').isDisabled(), 'A blocked second writer cannot change the global theme');
+  assert.equal(await second.locator('[data-theme-choice]').count(), 2);
+  for (const choice of ['light', 'dark']) assert.ok(await second.locator(`[data-theme-choice="${choice}"]`).isDisabled(), 'A blocked second writer cannot change the global theme');
   assert.ok(await second.locator('#open-introduction').isDisabled(), 'A blocked second writer cannot persist an onboarding choice');
   assert.deepEqual((await exportUi(page)).profile, before.profile, 'Opening the blocked tab must leave the confirmed owner profile unchanged');
   const locks = await page.evaluate(async () => (await navigator.locks.query()).held.map(lock => lock.name)); assert.ok(locks.includes('bass-study:writer'));
   await page.close(); await second.locator('#retry-tab').click(); await ready(second); const after = await exportUi(second);
-  assert.ok(await second.locator('#theme-preference').isEnabled()); assert.ok(await second.locator('#open-introduction').isEnabled());
+  for (const choice of ['light', 'dark']) assert.ok(await second.locator(`[data-theme-choice="${choice}"]`).isEnabled());
+  assert.ok(await second.locator('#open-introduction').isEnabled());
   assert.deepEqual(after, before); assert.equal(await second.getByLabel('Тоника', { exact: true }).inputValue(), 'F');
   return { nativeHeldLocks: locks, blockedSecondWriter: true, blockedGlobalProfileControls: true, confirmedOwnerProfileUnchanged: true, explicitReloadAfterRelease: true, preservedHistoryIds: after.history.map(entry => entry.id) };
 }, { scope: 'ui' });

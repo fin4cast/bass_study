@@ -147,7 +147,7 @@ export const DEFAULT_PREFERENCES: AppPreferences = immutable({
   tracks: null, input: { deviceId: '' },
   harmony: DEFAULT_HARMONY_PREFERENCES,
   activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 },
-  study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 5, fretMax: 8,
+  study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12,
     box: createBoxSelection({ root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a', anchorString: 'E', anchorFret: 5 }), showFingers: false },
   training: { mode: 'study', quizMode: 'name-note', scope: 'structure', intervalDegree: '#4', count: 10, pattern: 'ascending', sequenceScope: 'structure', reviewPositionIds: [], questionPolicy: 'random-v1' },
   player: { bpm: 80, duration: 'eighth', repeat: 'once', countIn: true, showPulse: true, from: null, to: null,

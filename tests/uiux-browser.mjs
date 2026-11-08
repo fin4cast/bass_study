@@ -11,7 +11,7 @@ async function ready(page, free = true) {
   if (free && await page.locator('[data-intro="free"]').isVisible()) await page.locator('[data-intro="free"]').click();
 }
 async function module(page, name) { await page.locator(`[data-app-module="${name}"]`).click(); }
-async function history(page) { const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await drawer.locator(':scope > summary').click(); }
+async function history(page) { const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click(); await page.getByLabel('Название пресета', { exact: true }).waitFor(); }
 async function exportUi(page) {
   await history(page); const pending = page.waitForEvent('download'); await page.locator('[data-history-action="export"]').click();
   return JSON.parse(await readFile(await (await pending).path(), 'utf8'));
@@ -35,12 +35,26 @@ async function waitRaw(page, store, predicate, timeout = 7000) {
   assert.fail(`Native ${store} did not reach the expected state: ${JSON.stringify(value)}`);
 }
 async function theme(page, choice) {
-  await page.getByLabel('Тема оформления', { exact: true }).selectOption(choice);
+  await page.getByRole('group', { name: 'Тема оформления', exact: true }).locator(`[data-theme-choice="${choice}"]`).click();
   await page.waitForFunction(value => document.documentElement.dataset.themePreference === value, choice);
   // Wait for the existing border/background transition before reading colours.
   await delay(170);
 }
+async function restoreUi(page, copy) {
+  await history(page);
+  await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name: 'theme-profile.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(copy)) });
+  await page.getByTestId('backup-preview').waitFor();
+  assert.ok(await page.locator('[data-history-action="confirm-restore"]').isDisabled());
+  await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check();
+  await page.locator('[data-history-action="confirm-restore"]').click();
+  await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); await ready(page);
+}
 async function area(page) { const details = page.locator('#area-settings'); if (!await details.evaluate(element => element.open)) await details.locator(':scope > summary').click(); }
+async function assertFourStringsPerPart(page) {
+  const parts = await page.locator('#fretboard-container svg.study-fretboard').evaluateAll(nodes => nodes.map(svg => ({ names: [...svg.querySelectorAll('.string-name')].map(node => node.textContent), strings: svg.querySelectorAll('.bass-string').length })));
+  assert.ok(parts.length > 0, 'The selected display range must contain a board part');
+  for (const part of parts) { assert.deepEqual(part.names, ['G', 'D', 'A', 'E']); assert.equal(part.strings, 4); }
+}
 async function sequence(page) {
   await module(page, 'foundation'); await page.locator('[data-training-mode="sequence"]').click();
   await page.getByLabel('Повтор', { exact: true }).selectOption('infinite');
@@ -81,19 +95,22 @@ async function contrast(page, label) {
 
 check('themes-preserve-running-sequence-focus-and-authoritative-profile', async ({ page }) => {
   await ready(page); await sequence(page);
+  const chooser = page.getByRole('group', { name: 'Тема оформления', exact: true });
+  assert.deepEqual(await chooser.locator('button').evaluateAll(buttons => buttons.map(button => button.dataset.themeChoice)), ['light', 'dark']);
   await page.locator('[data-player-action="start"]').click();
   await page.waitForFunction(() => document.querySelector('#player-mount').dataset.playerState === 'running');
   const contexts = await page.evaluate(() => window.__notationAudioContexts.length);
   const evidence = [];
-  for (const choice of ['dark', 'light', 'system']) {
-    const picker = page.getByLabel('Тема оформления', { exact: true }); await picker.focus(); await theme(page, choice);
+  for (const choice of ['dark', 'light']) {
+    const button = chooser.locator(`[data-theme-choice="${choice}"]`); await button.focus(); await theme(page, choice);
     assert.equal(await page.locator('#player-mount').getAttribute('data-player-state'), 'running');
     assert.equal(await page.evaluate(() => window.__notationAudioContexts.length), contexts);
-    assert.equal(await page.evaluate(() => document.activeElement?.id), 'theme-preference');
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset.themeChoice), choice);
+    assert.equal(await button.getAttribute('aria-pressed'), 'true');
+    assert.equal(await chooser.locator('[aria-pressed="true"]').count(), 1);
     evidence.push({ choice, resolved: await page.locator('html').getAttribute('data-theme') });
   }
-  await page.emulateMedia({ colorScheme: 'dark' }); await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
-  await page.emulateMedia({ colorScheme: 'light' }); await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
+  for (const colorScheme of ['dark', 'light']) { await page.emulateMedia({ colorScheme }); assert.equal(await page.locator('html').getAttribute('data-theme'), 'light', 'An explicit light preference must ignore system colour-scheme changes'); }
   await page.locator('[data-player-action="stop"]').click(); await theme(page, 'dark');
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('bass-study-theme-v1') || 'null')?.preference === 'dark');
   assert.equal((await raw(page, 'profile', 'current')).theme, 'dark');
@@ -105,8 +122,11 @@ check('themes-preserve-running-sequence-focus-and-authoritative-profile', async 
   return { evidence, audioContextsUnchanged: contexts, presetDoesNotChangeTheme: true, existingHistoryPreserved: before.history.length };
 });
 
-check('corrupt-boot-cache-falls-back-to-system-before-first-frame', async ({ page, context }) => {
-  await ready(page); await theme(page, 'system'); await page.emulateMedia({ colorScheme: 'dark' });
+check('imported-system-profile-survives-binary-chooser-and-corrupt-first-frame-cache', async ({ page, context }) => {
+  await ready(page); await theme(page, 'light');
+  const incoming = await exportUi(page); incoming.profile.theme = 'system';
+  await restoreUi(page, incoming); await page.emulateMedia({ colorScheme: 'dark' });
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('bass-study-theme-v1') || 'null')?.preference === 'system');
   await context.addInitScript(() => {
     localStorage.setItem('bass-study-theme-v1', '{broken-json');
@@ -117,7 +137,15 @@ check('corrupt-boot-cache-falls-back-to-system-before-first-frame', async ({ pag
   assert.equal(first.preference, 'system'); assert.equal(first.resolved, 'dark');
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
   assert.equal((await raw(page, 'profile', 'current')).theme, 'system');
-  return { first, method: 'Real first requestAnimationFrame after reload; browser colour-scheme media emulation, not an OS setting change.' };
+  const chooser = page.getByRole('group', { name: 'Тема оформления', exact: true });
+  assert.equal(await chooser.locator('button').count(), 2);
+  assert.equal(await chooser.locator('[data-theme-choice="dark"]').getAttribute('aria-pressed'), 'true');
+  await page.emulateMedia({ colorScheme: 'light' }); await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
+  assert.equal(await chooser.locator('[data-theme-choice="light"]').getAttribute('aria-pressed'), 'true');
+  assert.equal((await raw(page, 'profile', 'current')).theme, 'system', 'Resolving the imported profile must not rewrite it');
+  await theme(page, 'dark'); await waitRaw(page, 'profile', profiles => profiles.some(profile => profile.theme === 'dark'));
+  assert.equal((await raw(page, 'profile', 'current')).theme, 'dark');
+  return { first, legacySystemImportedThroughRealBackup: true, systemPreservedUntilExplicitChoice: true, binaryChoices: ['light', 'dark'], method: 'Real JSON preview/confirmation and native readonly IndexedDB; real first requestAnimationFrame after reload, browser colour-scheme media emulation, not an OS setting change.' };
 });
 
 check('guided-four-steps-do-not-create-graded-history-and-choice-survives-reload', async ({ page }) => {
@@ -140,6 +168,8 @@ check('guided-four-steps-do-not-create-graded-history-and-choice-survives-reload
 
 check('default-box-and-quiz-use-exact-positions-interval-explicitly-uses-chromatic-area', async ({ page, resultDir }) => {
   await ready(page);
+  const displayRange = async () => [await page.getByLabel('Первый лад', { exact: true }).inputValue(), await page.getByLabel('Последний лад', { exact: true }).inputValue()];
+  assert.deepEqual(await displayRange(), ['0', '12']);
   const expected = ['A:5', 'A:7', 'D:5', 'D:7', 'E:5', 'E:8', 'G:5', 'G:7'];
   assert.deepEqual(await page.locator('#fretboard-container .in-box').evaluateAll(nodes => nodes.map(node => node.dataset.position).sort()), expected);
   await page.locator('[data-training-mode="quiz"]').click(); await page.getByLabel('Тип задания', { exact: true }).selectOption('find-note');
@@ -160,34 +190,33 @@ check('default-box-and-quiz-use-exact-positions-interval-explicitly-uses-chromat
   await page.getByLabel('Тоника', { exact: true }).selectOption('C'); await page.getByLabel('Структура', { exact: true }).selectOption('major-triad');
   const compact = [];
   for (const [string, fret, emptyString] of [['E', 8, 'G'], ['A', 3, 'E']]) {
-    const option = await page.locator('#box-select option').evaluateAll((options, fret) => options.find(option => new RegExp(`^Тоника C · лад ${fret}$`).test(option.textContent.trim()))?.value, fret);
+    const option = await page.locator('#box-select option').evaluateAll((options, { string, fret }) => options.find(option => option.textContent.trim() === `Тоника C · лад ${fret} · ${string}`)?.value, { string, fret });
     assert.notEqual(option, undefined); await page.locator('#box-select').selectOption(option);
-    assert.deepEqual(await page.locator('#fretboard-container .string-name').allTextContents(), ['G', 'D', 'A', 'E']);
-    assert.equal(await page.locator('#fretboard-container .bass-string').count(), 4);
+    assert.deepEqual(await displayRange(), ['0', '12'], 'Material and form selection must preserve the independent display window');
+    await assertFourStringsPerPart(page);
     assert.equal(await page.locator(`#fretboard-container [data-position^="${emptyString}:"]`).count(), 0);
     assert.equal(await page.locator('#fretboard-container .string-caption').count(), 0);
     compact.push({ rootString: string, rootFret: fret, emptyString, visibleStringNames: ['G', 'D', 'A', 'E'] });
   }
-  await page.getByRole('checkbox', { name: 'Пальцы (в квадрате)', exact: true }).check();
+  await page.locator('#show-fingers').check();
   assert.equal(await page.locator('.finger-label').count(), 4);
   const fingers = await exportUi(page); assert.equal(fingers.preferences.study.showFingers, true);
   await page.reload(); await ready(page);
-  assert.ok(await page.getByRole('checkbox', { name: 'Пальцы (в квадрате)', exact: true }).isChecked());
+  assert.ok(await page.locator('#show-fingers').isChecked());
   assert.equal(await page.locator('.finger-label').count(), 4);
-  assert.deepEqual(await page.locator('#fretboard-container .string-name').allTextContents(), ['G', 'D', 'A', 'E']);
-  await page.getByRole('checkbox', { name: 'Пальцы (в квадрате)', exact: true }).uncheck();
+  await assertFourStringsPerPart(page);
+  await page.locator('#show-fingers').uncheck();
   await page.getByLabel('Тоника', { exact: true }).selectOption('G'); await page.getByLabel('Структура', { exact: true }).selectOption('major');
-  await page.locator('#box-select').selectOption({ label: 'Тоника G · лад 3' });
+  await page.locator('#box-select').selectOption({ label: 'Тоника G · лад 3 · E' });
   await page.setViewportSize({ width: 1366, height: 768 });
   for (const choice of ['light', 'dark']) {
     await theme(page, choice);
-    assert.deepEqual(await page.locator('#fretboard-container .string-name').allTextContents(), ['G', 'D', 'A', 'E']);
-    assert.equal(await page.locator('#fretboard-container .bass-string').count(), 4);
+    await assertFourStringsPerPart(page);
     assert.equal(await page.locator('#fretboard-container [data-position^="G:"]').count(), 0);
     assert.equal(await page.locator('#fretboard-container .string-caption').count(), 0);
     await page.screenshot({ path: join(resultDir, `p8-user-four-strings-${choice}.png`), fullPage: true });
   }
-  return { defaultExactIds: expected, chromaticIntervalArea: 16, majorPentatonicStartsWithB: true, compact, fingerPreferenceSurvivesReload: true, userExample: { root: 'G', structure: 'major', option: 'Тоника G · лад 3', strings: ['G', 'D', 'A', 'E'], emptyString: 'G', screenshots: ['p8-user-four-strings-light.png', 'p8-user-four-strings-dark.png'] } };
+  return { defaultExactIds: expected, chromaticIntervalArea: 16, majorPentatonicStartsWithB: true, compact, fingerPreferenceSurvivesReload: true, userExample: { root: 'G', structure: 'major', option: 'Тоника G · лад 3 · E', strings: ['G', 'D', 'A', 'E'], emptyString: 'G', screenshots: ['p8-user-four-strings-light.png', 'p8-user-four-strings-dark.png'] } };
 });
 
 check('draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deletion', async ({ page }) => {
@@ -210,7 +239,7 @@ check('draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deleti
   await page.locator('[data-delete-history]').first().click(); await page.getByRole('dialog').getByRole('button', { name: 'Удалить', exact: true }).click();
   await waitRaw(page, 'history', values => values.length === 0);
   await note.fill('Удалить только этот черновик'); await waitRaw(page, 'practiceDrafts', values => values.some(draft => draft.note === 'Удалить только этот черновик'));
-  const drawer = page.locator('.history-drawer'); await drawer.locator(':scope > summary').click(); await drawer.locator(':scope > summary').click();
+  const drawer = page.locator('.history-drawer'); await drawer.locator(':scope > summary').click(); await history(page);
   await page.locator('[data-history-action="delete-draft"]').click(); await page.getByRole('dialog').getByRole('button', { name: 'Удалить черновик', exact: true }).click();
   await waitRaw(page, 'practiceDrafts', values => values.length === 0);
   return { invalidBpmDidNotBlockNote: true, restoredNote: true, oneManualEntry: true, materialPreserved: 'harmony', deletionRequiredConfirmation: true };
@@ -238,31 +267,37 @@ check('six-modules-errors-and-empty-states-have-computed-light-and-dark-contrast
 
 check('meaningful-SVG-labels-fingers-focus-notation-and-TAB-masks-have-actual-contrast', async ({ page }) => {
   await ready(page); await page.getByLabel('Тоника', { exact: true }).selectOption('C'); await page.getByLabel('Структура', { exact: true }).selectOption('major');
-  const compactE8 = await page.locator('#box-select option').evaluateAll(options => options.find(option => option.textContent.trim() === 'Тоника C · лад 8')?.value);
+  const compactE8 = await page.locator('#box-select option').evaluateAll(options => options.find(option => option.textContent.trim() === 'Тоника C · лад 8 · E')?.value);
   assert.notEqual(compactE8, undefined); await page.locator('#box-select').selectOption(compactE8);
-  await page.getByRole('checkbox', { name: 'Пальцы (в квадрате)', exact: true }).check();
+  await page.locator('#show-fingers').check();
   const evidence = [];
   for (const choice of ['light', 'dark']) {
     await theme(page, choice);
     for (const mode of ['notes', 'degrees']) {
       await page.locator(`[data-label-mode="${mode}"]`).click();
-      await page.locator('#fretboard-container [data-position="E:8"]').focus(); await page.keyboard.press('ArrowRight');
+      // Quiet positions outside the form gain a visible note label when chosen.
+      await page.locator('#fretboard-container [data-position="E:9"]').focus(); await page.keyboard.press('Enter'); await page.keyboard.press('ArrowRight');
       const rows = await page.evaluate(() => {
         const rgb = value => { const a = value.match(/[\d.]+/g)?.map(Number); if (!a || a.length < 3) throw new Error(`Expected computed SVG RGB: ${value}`); return a.slice(0, 3); };
         const lum = values => values.map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((s, v, i) => s + v * [.2126, .7152, .0722][i], 0);
         const ratio = (a, b) => (Math.max(lum(a), lum(b)) + .05) / (Math.min(lum(a), lum(b)) + .05);
-        const stops = [...document.querySelectorAll('#board-grain stop')].map(stop => rgb(getComputedStyle(stop).stopColor));
+        const boardStops = element => {
+          const stops = [...element.closest('svg').querySelectorAll('linearGradient stop')].map(stop => rgb(getComputedStyle(stop).stopColor));
+          if (!stops.length) throw new Error('Expected actual gradient stops for each visible board part.');
+          return stops;
+        };
         const commonOpacity = element => { let opacity = 1; for (let parent = element; parent; parent = parent.parentElement) opacity *= Number(getComputedStyle(parent).opacity); return opacity; };
         const composite = (fg, bg, opacity) => fg.map((channel, index) => channel * opacity + bg[index] * (1 - opacity));
         const result = [];
         for (const text of document.querySelectorAll('#fretboard-container [data-position-label], #fretboard-container .finger-label')) {
           const position = text.closest('[data-position]'), marker = position.querySelector(text.classList.contains('finger-label') ? '.finger-background' : '.note-marker');
+          const stops = boardStops(text);
           const fill = rgb(getComputedStyle(text).fill), bg = rgb(getComputedStyle(marker).fill), opacity = commonOpacity(text);
           result.push({ kind: text.classList.contains('finger-label') ? 'finger' : position.classList.contains('root-position') ? 'root-label' : position.classList.contains('outside-box') ? 'outside-label' : 'normal-label', text: text.textContent, position: position.dataset.position, opacity, ratio: Math.min(...stops.map(stop => ratio(composite(fill, stop, opacity), composite(bg, stop, commonOpacity(marker))))), threshold: 4.5 });
         }
         const active = document.activeElement, ring = active?.querySelector?.('.position-focus');
         if (!ring || Number(getComputedStyle(ring).opacity) === 0) throw new Error('A visible keyboard focus ring is required.');
-        const stroke = rgb(getComputedStyle(ring).stroke); result.push({ kind: 'board-focus', ratio: Math.min(...stops.map(stop => ratio(stroke, stop))), threshold: 3 });
+        const stroke = rgb(getComputedStyle(ring).stroke); result.push({ kind: 'board-focus', ratio: Math.min(...boardStops(ring).map(stop => ratio(stroke, stop))), threshold: 3 });
         return result;
       });
       assert.ok(rows.some(row => row.kind === 'outside-label')); assert.ok(rows.some(row => row.kind === 'finger')); assert.ok(rows.some(row => row.kind === 'root-label'));

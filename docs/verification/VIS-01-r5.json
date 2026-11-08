@@ -1,0 +1,191 @@
+{
+  "baseline": "d0bb2d5",
+  "browser": "157.0.4341.42",
+  "checks": [
+    "Default 52 positions / 8 form notes; approved 46/18; current four-bar brand geometry.",
+    "Octave A1–A2 full and A2 fragment; one shared physical A2; layers independent; off-scale selection preserves groups; clipped complete source marked partial; leading fragment; boundary-only clipped group suppressed; dynamic terminology; binary theme with focus preserved.",
+    "Picker 4-column arrow navigation, Tab closes popup without losing next focus, Escape return, outside click activates next control on first click.",
+    "Arrow/Home/End focus does not choose; Enter chooses; outside-form chromatic B1 selectable.",
+    "All six structures and twelve tonics; complete current-model forms; C triad retains four rows with unused string empty.",
+    "Exact overlap 4, separate square fingers 8, hidden note labels, details preserved.",
+    "Invalid range shows no stale board or selection; repair works; empty strings keep geometry.",
+    "Off-screen complete form explicitly expands display without silently narrowing previous range; complete0–24 retains100positions."
+  ],
+  "layouts": [
+    {
+      "width": 1440,
+      "range": [
+        0,
+        12
+      ],
+      "parts": 1,
+      "positions": 52,
+      "large": 8
+    },
+    {
+      "width": 1440,
+      "range": [
+        12,
+        24
+      ],
+      "parts": 1,
+      "positions": 52,
+      "large": 1
+    },
+    {
+      "width": 1366,
+      "range": [
+        0,
+        12
+      ],
+      "parts": 1,
+      "positions": 52,
+      "large": 9
+    },
+    {
+      "width": 1366,
+      "range": [
+        12,
+        24
+      ],
+      "parts": 1,
+      "positions": 52,
+      "large": 1
+    },
+    {
+      "width": 1024,
+      "range": [
+        0,
+        12
+      ],
+      "parts": 1,
+      "positions": 52,
+      "large": 9
+    },
+    {
+      "width": 1024,
+      "range": [
+        12,
+        24
+      ],
+      "parts": 1,
+      "positions": 52,
+      "large": 1
+    },
+    {
+      "width": 736,
+      "range": [
+        0,
+        12
+      ],
+      "parts": 2,
+      "positions": 52,
+      "large": 9
+    },
+    {
+      "width": 736,
+      "range": [
+        12,
+        24
+      ],
+      "parts": 2,
+      "positions": 52,
+      "large": 1
+    },
+    {
+      "width": 320,
+      "range": [
+        0,
+        12
+      ],
+      "parts": 3,
+      "positions": 52,
+      "large": 9
+    },
+    {
+      "width": 320,
+      "range": [
+        12,
+        24
+      ],
+      "parts": 3,
+      "positions": 52,
+      "large": 1
+    }
+  ],
+  "contrast": [
+    {
+      "theme": "light",
+      "values": [
+        {
+          "selector": ".s-field-label",
+          "foreground": "rgb(99, 113, 104)",
+          "background": "rgb(240, 242, 236)",
+          "ratio": 4.549111921000155
+        },
+        {
+          "selector": ".s-picker-button",
+          "foreground": "rgb(39, 55, 46)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 12.558353969410325
+        },
+        {
+          "selector": ".s-note:not(.is-quiet)",
+          "foreground": "rgb(60, 41, 19)",
+          "background": "rgb(243, 193, 128)",
+          "ratio": 8.395692246984686
+        },
+        {
+          "selector": ".s-nav-button.is-current",
+          "foreground": "rgb(52, 93, 66)",
+          "background": "rgb(250, 250, 247)",
+          "ratio": 7.196802729445665
+        },
+        {
+          "selector": ".s-board-caption",
+          "foreground": "rgb(99, 113, 104)",
+          "background": "rgb(250, 250, 247)",
+          "ratio": 4.907083624508339
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "values": [
+        {
+          "selector": ".s-field-label",
+          "foreground": "rgb(176, 190, 176)",
+          "background": "rgb(32, 44, 37)",
+          "ratio": 7.482949171983657
+        },
+        {
+          "selector": ".s-picker-button",
+          "foreground": "rgb(237, 244, 232)",
+          "background": "rgb(38, 51, 43)",
+          "ratio": 11.758918919148202
+        },
+        {
+          "selector": ".s-note:not(.is-quiet)",
+          "foreground": "rgb(60, 41, 19)",
+          "background": "rgb(243, 193, 128)",
+          "ratio": 8.395692246984686
+        },
+        {
+          "selector": ".s-nav-button.is-current",
+          "foreground": "rgb(189, 213, 171)",
+          "background": "rgb(28, 36, 32)",
+          "ratio": 10.033034773940141
+        },
+        {
+          "selector": ".s-board-caption",
+          "foreground": "rgb(176, 190, 176)",
+          "background": "rgb(28, 36, 32)",
+          "ratio": 8.1948156808353
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "requests": [],
+  "status": "passed"
+}

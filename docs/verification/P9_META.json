@@ -1,0 +1,184 @@
+{
+  "generatedAt": "2026-11-08T17:23:52.421Z",
+  "gitHead": "d0bb2d5a1cd1eebaa3d4107cd0d63a25eff40759",
+  "scope": "Approved VIS-01 r5 and shared application shell, working tree after accepted 1.4.0; no release, commit, push or other-screen functional redesign.",
+  "node": "v24.18.0",
+  "edge": "157.0.4341.42",
+  "unit": {
+    "passed": 360,
+    "failed": 0,
+    "files": 21,
+    "normalization": "Only absolute repository path prefixes removed from strings; outcomes and test counts preserved."
+  },
+  "browser": {
+    "passed": 222,
+    "failed": 0,
+    "runners": [
+      {
+        "source": "p2-edge.json",
+        "target": "P9_FRETBOARD.json",
+        "passed": 15,
+        "sha256": "fdfd556cc574e943ae790ff40091146bddd9f7484c403da968b609b70995ff30"
+      },
+      {
+        "source": "p3-edge.json",
+        "target": "P9_TRAINING.json",
+        "passed": 22,
+        "sha256": "97dfb98ede1049c7079d60592bd0dfc537f6cd1870d4408b07535d67526785b1"
+      },
+      {
+        "source": "p4-edge.json",
+        "target": "P9_AUDIO.json",
+        "passed": 27,
+        "sha256": "612b4a4fccaba74399751b15b1ecf4372d6bda511dc7b74430e4c8ab76f88eaf"
+      },
+      {
+        "source": "p5-edge.json",
+        "target": "P9_STORAGE.json",
+        "passed": 23,
+        "sha256": "af1f7f7f93766fdced11d896d66a17735fd9fcb94e99670e52b455a25b1d42fd"
+      },
+      {
+        "source": "p6-edge.json",
+        "target": "P9_RELEASE.json",
+        "passed": 21,
+        "sha256": "fe1f894b6165333411c605430aca8d7a4c434f28d97d7e2c6cee3dadbe104688"
+      },
+      {
+        "source": "p7-ear-edge.json",
+        "target": "P9_EAR.json",
+        "passed": 23,
+        "sha256": "698cdf93eaee64b7b2b0fc8877e279e69248124e26dfaa5887a45e33091b5d13"
+      },
+      {
+        "source": "p7-harmony-edge.json",
+        "target": "P9_HARMONY.json",
+        "passed": 20,
+        "sha256": "213d7ad2f07d46cc39821a430e7489ada7dd2b40f0628ddfdb34010f143f6fdb"
+      },
+      {
+        "source": "p7-notation-edge.json",
+        "target": "P9_NOTATION.json",
+        "passed": 13,
+        "sha256": "0d8df853a8b96943ed210e5c3185b7c3dfada1aed390553342169d3da74407c5"
+      },
+      {
+        "source": "p7-tracks-edge.json",
+        "target": "P9_TRACKS.json",
+        "passed": 22,
+        "sha256": "464995f9c13c88563100678ec5872cc473f8962accb104b79bb0a1fa3411c39b"
+      },
+      {
+        "source": "p7-input-edge.json",
+        "target": "P9_INPUT.json",
+        "passed": 20,
+        "sha256": "622703997d56080d5760222f4404f11fcc2e04e21b920797d0dde940918cc9e3"
+      },
+      {
+        "source": "p8-uiux-edge.json",
+        "target": "P9_UIUX.json",
+        "passed": 9,
+        "sha256": "bcd10c5e9ee69e11c581fbab6cc57c38de955f8e28bf5ebbeb11e24ddf2b4e2a"
+      },
+      {
+        "source": "p9-design-edge.json",
+        "target": "P9_DESIGN.json",
+        "passed": 7,
+        "sha256": "ecb65e18afe96d38efa1ae0d99f9e4cd65f0dd0f9e886066843ae1cc3a577261"
+      }
+    ]
+  },
+  "staticServer": {
+    "owned": false,
+    "reuseRequested": true,
+    "indexVerifiedByteForByte": true,
+    "shutdown": false,
+    "restart": false
+  },
+  "sourceSha256": {
+    "package.json": "6100aafd792e830483338ce95f923aa2c19e16825af31df4793b1a4cf9e2441c",
+    "src/main.ts": "d0d0b9ff46f59a38f15818cac1a07881c50675e3308d58a9c7582e0c224e9cea",
+    "src/styles.css": "c6aa384bfeec3b6d1916bdfc20fcb798e8e50915accf751d24ce804de7c5f798",
+    "src/theme.css": "569b80c611600b6233806ffc3b43299a5b53ceef8c1ad0fa01d2aa1ec62e3df4",
+    "src/app/theme.ts": "b08a5088a9ecc3a71528d4422074abdafaf89cd9caf1f89f8f9d91750b736ab9",
+    "src/storage/model.ts": "ac512ed1dbd8b1d9c3b478a7bf1b44c77a72d6ff20dc85dc3e05752dd71465dc",
+    "src/music/octaves.ts": "349410630cdbdf0758438d5302c2c60af6cbaf8c421548c08ac7f5338af0de7c",
+    "src/ui/fretboard.ts": "f462e97245a48bffdcb65c58b3bc762e04729756e6898333dfddc71df8acb982",
+    "src/ui/fretboard.css": "e879fb1e3bb95260992608b6e16484f9a6077ac0a8dd046dd2bfdad0b2cf9f74",
+    "src/ui/select-picker.ts": "7fc68ace2d046a963b9f55afeb6ed62db985441ee6a0933802603e0bf589635d",
+    "src/ui/select-picker.css": "6a5713e6df165b158f2914b9725698d734b51778e57df4d2eca2f09fef002da5",
+    "src/ui/study-details.ts": "55e16f4a7008b4a919cbfbd624cec6d9e2b470496075e26e169b5821c5aaa1a9"
+  },
+  "assetSha256": {
+    "dist/index.html": "9adffd8f23a1adce2bb19f70d40dd012859c6c4abaf17472e23764008c4ed24c",
+    "dist/assets/index-BgRJke53.css": "2076c676efd502aa088b1d101e2657926a43c17498a5c5504b2ce4b6a9a206f3",
+    "dist/assets/index-DAUqFgU_.js": "b019e215c4271b07fc910e5df00b98a71fe2bc6d9dd0a75e1beae0e7273d6c27"
+  },
+  "testSha256": {
+    "tests/audio-browser.mjs": "ae8222edd4e14ecf7f3352577e0aa1ca751b835eb89a21d9b1f7a0d9f624cf53",
+    "tests/audio-plan.test.ts": "b9f90161ed44cc008e09316b0e46ae1f3da14d8456cda9b628303f8f23fc417b",
+    "tests/boxes.test.ts": "9e2bef9d4a53cbcd9adc9b83d816564602bfd3fccd99e9e35ae019b5cf5ac10b",
+    "tests/browser.mjs": "5e12df9913a3c6b8909be80bb048a94d5a8e906913dcda49a7bf9e125db15d09",
+    "tests/constraints.test.ts": "abf041793dc294cdd2402936bc33ef15c67144d597aeb8d76a99ad209df711fd",
+    "tests/cue.test.ts": "5259b6ce44f71690f3cb805c3d0831a108d845f6b14cbf7a3fac61894daed257",
+    "tests/design-browser.mjs": "762bcc91770e826ad8efe3cf8b6861edc174f14376662f681b150a6a615e1d9a",
+    "tests/ear-browser.mjs": "c578719352f52d0602f3e8d084320e098ee850738161df1d846f21de9f214cac",
+    "tests/ear.test.ts": "9627f08e70268e64a30fd541f635636eb9cee99f0e82beb441a07cb1ab577f78",
+    "tests/fretboard.test.ts": "f2812d27962dfe32d1c2be43c7cb456f49c6e26036fe904b6af80caaed776393",
+    "tests/harmony-audio-plan.test.ts": "8786728fec481a4c71ec312d413da323fda9939518593e4810ffa9ec69097f19",
+    "tests/harmony-browser.mjs": "dc79f60888c850b24d86c01de4dab81fd006658cf398d5626924f98d1db0b92b",
+    "tests/harmony.test.ts": "e56fac3d9b378ee4fcc2c903f187073702f8bb5a041ab744cceafe734f469c00",
+    "tests/helpers/audio-browser-harness.mjs": "bf46ba0a80c9c2082b3ca711463d81e998b433603e012f45c88763a4b94da7d6",
+    "tests/helpers/ear-browser-harness.mjs": "337d5063680ab1961eaf87de39d0c918cb75c8558fd70106f497582bfcacbeff",
+    "tests/helpers/harmony-browser-harness.mjs": "6517539bb913acb737b43077fe121fa7067ba41ad8f1cdcd3983e708ae4d5058",
+    "tests/helpers/input-browser-harness.mjs": "8e3d768491c5497fd0830276c65805c64b74213a1396cae992eee5ebb8e54ed1",
+    "tests/helpers/notation-browser-harness.mjs": "936a64c6ccbab6c0c59d66c002b9956f9c48aaecc54d217d638b1586a7c0153b",
+    "tests/helpers/release-browser-harness.mjs": "f3e051525acf7d129751db68a2af7fab0ca99a207cc17fd1e7571a16567b9341",
+    "tests/helpers/static-server-ownership.mjs": "38807cc0caea2a91d1143eb7daac672c613887cdde107cee8f446e3114218c14",
+    "tests/helpers/storage-browser-harness.mjs": "fe96c99e2554d1fb4c6497b100759c52a11d99ba5463e745b99646f675e633b2",
+    "tests/helpers/tracks-browser-harness.mjs": "1c6db3b9b62659c753dbdb580c8f88845647795ef6c0e19bf1175da69f0d726f",
+    "tests/helpers/training-browser-harness.mjs": "22368cb649ffe16200d8db4a6288204bdb980740bd2d775af0f093e212cbda32",
+    "tests/input-browser.mjs": "c26429a59a61cf79d28a5bc3484aa10d57ebbc0965fd1fcc52aeee35555845aa",
+    "tests/music.test.ts": "980dc622bd90fe281e7664f4a03f7e172b661124751e75474d2bca1f4f2a3e93",
+    "tests/notation-browser.mjs": "de787a3fdd7c23e37b50189dd45a66026c32e1ac747f1457cd8c8cb136a5be0e",
+    "tests/notation.test.ts": "aa19440370d63add86e25e43eccaef65f831f23dd3d9238789fec6a730d014d6",
+    "tests/octaves.test.ts": "eb597bd6246f58575cdac882ea79c3f0121610c4fc30ef7a762a358372ab3c59",
+    "tests/pitch.test.ts": "4f22bc91c55ff97f91d6f9bf6edd91b2e9f7b81d6da136c6f8cac95c2ad33411",
+    "tests/practice-drafts.test.ts": "8161f3296bb50111babff09e34c4a25bd71a54eed53c1aacb9a0b2d7c69b221c",
+    "tests/release-browser.mjs": "c979ad094d3fceacf5ff7def68427f8949b2b6392989c8cbb4d3ea66d36ca374",
+    "tests/results.test.ts": "88d9a179bb59a6df42266c53364c136ebebc010dce6bd835f48aa14e12bb43b3",
+    "tests/route.test.ts": "4a0c3b339da27d852cc228f725238093d9e50fac60fdcc2bab3cc9ec09064680",
+    "tests/storage-browser.mjs": "6b5e82014609e5708335f5d4a58e48b4f4e4d7e35d4e1a463e420d5c0e953cba",
+    "tests/storage-model.test.ts": "3644266a6cdd488de310994d4892b4102da2aada6eafab0390992474d32baee6",
+    "tests/storage-v6.test.ts": "291cbd9999b023be7c41d591a4c720a2da69bc53aa2dfd21a18768ae8cd51c83",
+    "tests/theme.test.ts": "01b100efdafdefb81407a64bbefc693ef050fb08ffa177fbd81d63ed1f7eb19e",
+    "tests/tracks-browser.mjs": "a59f769d597bc383e1e09c21a27f7a5b55cf84a0f22fabbf5cb681da1975601c",
+    "tests/tracks-model.test.ts": "d75905fa84d269ce58a91bd53a24810412ea42ab09e3d9f8e1d3409698a94220",
+    "tests/training-browser.mjs": "5d80cb75236b4be596ba91b17214c93123fa8bb6315a883d80e566012fc246e1",
+    "tests/training.test.ts": "0eb085cff6756105641f0bba60d45cd3638ebc563c5bc9774c0a14c3da734733",
+    "tests/uiux-browser.mjs": "d7ed53dc5bb2bbbaccde39af19dce0156b3aba15ea6580eaeac39a3607e34f9f",
+    "tests/write-queue.test.ts": "83bf9d0917b961a170da63cd0cdc6aef5a3165396fb75c2bb4646b92511d2d39"
+  },
+  "finalChecks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "docs": {
+      "status": "passed",
+      "documents": 32,
+      "localLinksAndAnchors": 1032
+    },
+    "diffWhitespace": "passed",
+    "newSourceWhitespace": "passed",
+    "sourceBuildTestAndRawHashes": "matched"
+  },
+  "commitPreparation": {
+    "scope": "P9 only; parallel music-bank sources/references and their shared-document edits excluded from index without modifying their worktree content.",
+    "stagedDocs": {
+      "documents": 29,
+      "localLinksAndAnchors": 906,
+      "status": "passed"
+    },
+    "stagedWhitespace": "passed",
+    "verifiedProductSourceBuildAndTests": "unchanged"
+  }
+}

@@ -52,10 +52,11 @@ async function check(name, operation) {
     await page.goto(origin);
     await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
     await page.waitForSelector('[data-position="E:5"]');
-    await page.locator('#area-settings > summary').click();
+    if (!await page.locator('#area-settings').evaluate(el => el.open)) await page.locator('#area-settings > summary').click();
     // P2 retains its explicit free-map baseline; P8 tests the new default form.
     await page.getByLabel('Учебная форма', { exact: true }).selectOption('');
     await setRange(0, 12);
+    await at('E:5').click();
     const evidence = await operation();
     report.checks.push({ name, status: 'passed', durationMs: Math.round(performance.now() - start), evidence });
     console.log(`PASS ${name}`);
@@ -178,7 +179,7 @@ try {
     await setStrings(['E']);
     await setRange(0, 3);
     assert.equal(await positions().count(), 4);
-    assert.deepEqual(await positions().evaluateAll(nodes => nodes.map(node => Number(node.getAttribute('data-midi')))), [28, 29, 30, 31]);
+    assert.deepEqual(await positions().evaluateAll(nodes => nodes.map(node => Number(node.getAttribute('data-midi'))).sort((a, b) => a - b)), [28, 29, 30, 31]);
     assert.equal(await page.locator('[data-position][data-note-name="A"]').count(), 0);
     return { string: 'E', range: [0, 3], exactMidi: [28, 29, 30, 31] };
   });
@@ -222,18 +223,18 @@ try {
 
   await check('same-height-different-string-and-octave', async () => {
     await at('E:5').click();
-    await page.getByTestId('selection-detail').locator('summary').click();
+    if (!await page.locator('.note-technical').evaluate(el => el.open)) await page.locator('.note-technical > summary').click();
     assert.match(await detail().innerText(), /A1/);
-    assert.match(await detail().innerText(), /33/);
+    assert.match(await page.locator('.note-technical').innerText(), /33/);
     await at('A:0').click();
-    await page.getByTestId('selection-detail').locator('summary').click();
+    if (!await page.locator('.note-technical').evaluate(el => el.open)) await page.locator('.note-technical > summary').click();
     assert.match(await detail().innerText(), /A1/);
-    assert.match(await detail().innerText(), /33/);
+    assert.match(await page.locator('.note-technical').innerText(), /33/);
     assert.equal(await selectedPosition(), 'A:0');
     await at('E:12').click();
-    await page.getByTestId('selection-detail').locator('summary').click();
+    if (!await page.locator('.note-technical').evaluate(el => el.open)) await page.locator('.note-technical > summary').click();
     assert.match(await detail().innerText(), /E2/);
-    assert.match(await detail().innerText(), /40/);
+    assert.match(await page.locator('.note-technical').innerText(), /40/);
     return { sameHeightPositions: ['E:5', 'A:0'], sameHeightMidi: 33, octavePosition: 'E:12', octaveMidi: 40 };
   });
 
@@ -329,9 +330,9 @@ try {
     await page.goto(origin);
     await page.waitForSelector('[data-position="E:5"]');
     await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
-    assert.equal(await positions().count(), 16);
+    assert.equal(await positions().count(), 52);
     assert.match(await page.locator('#box-select option:checked').innerText(), /^Форма A/);
-    assert.equal(await firstFret().inputValue(), '5'); assert.equal(await lastFret().inputValue(), '8');
+    assert.equal(await firstFret().inputValue(), '0'); assert.equal(await lastFret().inputValue(), '12');
     assert.deepEqual(externalRequests, []);
     const sentinel = await page.evaluate(async () => {
       try { await fetch('https://example.com/p2-network-sentinel'); return 'unexpected-success'; }

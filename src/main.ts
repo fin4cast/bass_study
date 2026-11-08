@@ -1,4 +1,8 @@
 import './styles.css';
+import './ui/fretboard.css';
+import { renderStudyFretboard, renderOctaveLegend, type StudyFretboardOptions } from './ui/fretboard';
+import { enhanceSelect } from './ui/select-picker';
+import { renderStudySelection, renderStudyInterval, renderStudyConnections } from './ui/study-details';
 import { mountTraining } from './ui/training';
 import { mountPlayer } from './ui/player';
 import { mountHistory } from './ui/history';
@@ -11,7 +15,7 @@ import { mountRoute, type RouteStep } from './ui/route';
 import type { EarSession } from './ear';
 import type { RouteResult } from './route';
 import { createWriteQueue } from './app/write-queue';
-import { createThemeController, type ThemePreference } from './app/theme';
+import { createThemeController } from './app/theme';
 import { createPracticeDrafts } from './app/practice-drafts';
 import { mountIntroduction } from './ui/introduction';
 import { getBoxCatalogue, getBoxInstance, type BoxSelection, type BoxInstance } from './music/boxes';
@@ -42,8 +46,8 @@ const state = {
   strings: [...STRING_ORDER],
   fretMin: 0,
   fretMax: 12,
-  selectedId: 'E:5' as string | null,
-  activeId: 'E:5' as string | null,
+  selectedId: 'A:7' as string | null,
+  activeId: 'A:7' as string | null,
   box: null as BoxSelection | null,
 };
 
@@ -54,12 +58,16 @@ app.innerHTML = `
   <div class="app-shell">
     <header class="site-header">
       <a class="brand" href="#" aria-label="bass.study — к началу страницы"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>bass<span class="brand-dot">.</span>study</a>
-      <span class="header-caption">Личный тренажёр бас-гитары</span>
-      <button type="button" id="open-introduction" class="text-button" disabled>Введение</button>
-      <label class="theme-picker"><span>Тема</span><select id="theme-preference" aria-label="Тема оформления" disabled><option value="system">Системная</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select></label>
-      <span class="local-badge"><span aria-hidden="true"></span>Локально</span>
+      <nav class="module-navigation" aria-label="Раздел тренажёра"><span class="eyebrow">ПРАКТИКА</span><button type="button" data-app-module="foundation" aria-pressed="true" aria-current="page" disabled>Гриф и практика</button><button type="button" data-app-module="ear" aria-pressed="false" disabled>Слух</button><button type="button" data-app-module="harmony" aria-pressed="false" disabled>Аккомпанемент</button><button type="button" data-app-module="tracks" aria-pressed="false" disabled>Аудиодорожки</button><button type="button" data-app-module="input" aria-pressed="false" disabled>Аудиовход</button><button type="button" data-app-module="route" aria-pressed="false" disabled>Маршрут занятия</button></nav>
+      <div class="nav-bottom">
+        <button type="button" id="open-history" class="text-button" aria-expanded="false" disabled>Мои занятия</button>
+        <button type="button" id="open-introduction" class="text-button" disabled>Введение</button>
+        <div class="theme-control"><span>Тема</span><div class="segmented" role="group" aria-label="Тема оформления"><button type="button" data-theme-choice="light" aria-pressed="false" disabled>Светлая</button><button type="button" data-theme-choice="dark" aria-pressed="false" disabled>Тёмная</button></div></div>
+        <span class="local-badge"><span aria-hidden="true"></span><span id="local-save-status" role="status">Локальный тренажёр</span></span>
+      </div>
     </header>
 
+    <div class="app-content">
     <div id="persistence-banner" class="persistence-banner" role="status"><span id="persistence-message">Читаем локальные настройки…</span><button type="button" id="retry-save" hidden>Повторить сохранение</button><button type="button" id="retry-tab" hidden>Проверить снова</button></div>
     <main inert aria-busy="true">
       <section class="intro" aria-labelledby="page-title">
@@ -68,7 +76,6 @@ app.innerHTML = `
       </section>
       <section id="onboarding-mount" aria-label="Введение" hidden></section>
 
-      <nav class="module-navigation" aria-label="Раздел тренажёра"><button type="button" data-app-module="foundation" aria-pressed="true">Гриф и практика</button><button type="button" data-app-module="ear" aria-pressed="false">Слух</button><button type="button" data-app-module="harmony" aria-pressed="false">Аккомпанемент</button><button type="button" data-app-module="tracks" aria-pressed="false">Аудиодорожки</button><button type="button" data-app-module="input" aria-pressed="false">Аудиовход</button><button type="button" data-app-module="route" aria-pressed="false">Маршрут занятия</button></nav>
       <div id="route-session-mount"></div>
       <section id="ear-mount" aria-label="Слуховые задания" hidden></section>
       <section id="harmony-mount" aria-label="Аккомпанемент" hidden></section>
@@ -76,60 +83,61 @@ app.innerHTML = `
       <section id="input-mount" aria-label="Диагностический аудиовход" hidden></section>
       <section id="route-mount" aria-label="Маршрут занятия" hidden></section>
       <section class="workspace" aria-label="Изучение грифа">
-        <div id="mode-nav-mount"></div>
-        <div class="settings-panel">
-          <div class="section-title"><span class="section-number">01</span><h2>Что изучаем</h2></div>
+        <div class="workspace-main">
+          <div class="study-heading"><div><p class="eyebrow">ИЗУЧЕНИЕ ГРИФА</p><h1 id="structure-heading"></h1><p id="study-context" class="study-context"></p></div><button type="button" id="toggle-study-settings" class="secondary-button" aria-controls="study-settings" aria-expanded="true">Параметры</button></div>
+          <div id="mode-nav-mount"></div>
+          <div class="board-toolbar"><span id="board-range" class="board-caption"></span><span id="position-count" class="sr-only"></span><fieldset class="label-field"><legend class="sr-only">Подписи на грифе</legend><div class="segmented" aria-label="Подписи на грифе"><button type="button" data-label-mode="notes" aria-pressed="true">Ноты</button><button type="button" data-label-mode="degrees" aria-pressed="false">Ступени</button><button type="button" data-label-mode="hidden" aria-pressed="false">Без подписей</button></div></fieldset></div>
+          <div id="training-mount"></div>
+          <div id="player-mount" hidden></div>
+          <div id="sequence-view-controls" class="segmented" aria-label="Представление последовательности" hidden><button type="button" data-sequence-view="board" aria-pressed="true">Гриф</button><button type="button" data-sequence-view="notation" aria-pressed="false">Ноты и TAB</button><button type="button" id="return-to-notation" hidden>Вернуться к выбранной ноте в записи</button></div>
+          <section id="notation-mount" aria-label="Нотная запись и табулатура последовательности" hidden></section>
+          <div class="fretboard-section">
+            <div class="board-scroll" id="board-scroll"><div id="fretboard-container"></div></div>
+            <div class="board-footer"><div class="legend"><span><i class="legend-root" aria-hidden="true"></i>Тоника</span><span><i class="legend-note" aria-hidden="true"></i><span id="material-legend">Ноты формы</span></span><span id="interval-legend"><i class="legend-interval" aria-hidden="true"></i>Интервал</span></div></div>
+            <div id="octave-legend"></div>
+          </div>
+          <section class="selection-section" aria-label="Выбранная нота и её связи"><div id="selection-detail" data-testid="selection-detail"></div><div id="interval-detail"></div></section>
+          <div class="structure-summary"><div id="structure-notes" class="note-pills" data-testid="structure-notes" aria-label="Ноты выбранной структуры"></div><div class="formula"><span class="sr-only">Формула</span><strong id="structure-formula" data-testid="structure-formula"></strong></div></div>
+          <div id="connections" class="connections"></div>
+          <p class="board-navigation">Стрелки — перемещение фокуса · Enter / пробел — выбрать · Home / End — края диапазона</p>
+        </div>
+        <aside class="settings-panel" id="study-settings" aria-label="Параметры изучения">
+          <div class="section-title"><h2>Что изучаем</h2><button type="button" id="close-study-settings" class="text-button">Свернуть</button></div>
           <div class="musical-controls">
             <label class="field root-field" for="root-note"><span>Тоника</span><select id="root-note" aria-label="Тоника">${ROOTS.map((root, i) => `<option value="${root}"${root === state.root ? ' selected' : ''}>${ROOT_LABELS[i]}</option>`).join('')}</select></label>
             <label class="field structure-field" for="structure"><span>Структура</span><select id="structure" aria-label="Структура">${STRUCTURES.map(item => `<option value="${item.id}"${item.id === state.structureId ? ' selected' : ''}>${escapeHtml(item.name)}</option>`).join('')}</select></label>
-            <fieldset class="label-field"><legend>Подписи на грифе</legend><div class="segmented" aria-label="Подписи на грифе"><button type="button" data-label-mode="notes" aria-pressed="true">Ноты</button><button type="button" data-label-mode="degrees" aria-pressed="false">Ступени</button><button type="button" data-label-mode="hidden" aria-pressed="false">Без подписей</button></div></fieldset>
           </div>
-          <div id="box-controls"><label class="field"><span>Учебная форма</span><select id="box-select" aria-label="Учебная форма"></select></label><label><input type="checkbox" id="show-fingers"> Пальцы (в квадрате)</label><label class="field" id="neighbor-field" hidden><span>Общие позиции с соседом</span><select id="box-neighbor" aria-label="Соседняя форма"><option value="next">Следующая</option><option value="previous">Предыдущая</option></select></label><p id="box-neighbor-name"></p><p id="box-notice" role="status"></p><details class="learning-help"><summary>О формах</summary><p>Это версионированный учебный каталог bass.study, а не универсальная нумерация или единственная аппликатура. Закрытые формы целиком помещаются на ладах 1–24. Свободная карта включает открытые струны. Круг — ступень, квадрат — рекомендуемый палец. Общие физические позиции с выбранной соседней формой отмечены контуром.</p></details><details class="learning-help"><summary>Ступени и знаки</summary><p>Ступень — место звука относительно тоники: 1 — тоника, 3 — терция, 5 — квинта. Альтерация ♭ понижает ступень на полутон, ♯ повышает: ♭3 — малая терция. Номер ступени не является номером пальца.</p><p>Нота с цифрой обозначает звучащую октаву: C2 и C3 — разные высоты одной ноты. В басовой записи нота написана на октаву выше звучания. Трезвучие содержит три разных звука по терциям; повтор тоники выше не добавляет четвёртый класс ноты.</p></details></div>
-          <details id="area-settings"><summary>Струны и свободный диапазон</summary>
+          <div id="box-controls"><label class="field"><span>Учебная форма</span><select id="box-select" aria-label="Учебная форма"></select></label><p id="box-material-caption" class="settings-hint"></p><div class="display-controls"><h2>Отображение</h2><label class="switch-row"><span>Номера пальцев<small id="fingers-hint" hidden>Для учебной формы</small></span><input class="control-switch" type="checkbox" role="switch" id="show-fingers"></label><label class="switch-row"><span>Октавные участки</span><input class="control-switch" type="checkbox" role="switch" id="show-octaves" checked></label><label class="switch-row"><span>Интервал от тоники</span><input class="control-switch" type="checkbox" role="switch" id="show-interval" checked></label><p class="settings-hint">Линия соединяет тонику и выбранную ноту.</p></div><label class="field" id="neighbor-field" hidden><span>Направление</span><select id="box-neighbor" aria-label="Соседняя форма"><option value="next">Следующая</option><option value="previous">Предыдущая</option></select></label><p id="box-neighbor-name"></p><label id="neighbor-switch-row" class="switch-row"><span>Показать пересечение</span><input class="control-switch" type="checkbox" role="switch" id="show-neighbor"></label><p id="box-notice" role="status"></p><button type="button" id="show-whole-form" class="text-button" hidden>Показать форму целиком ↗</button></div>
+          <details id="area-settings" open><summary>Область грифа</summary>
           <div class="scope-controls">
-            <fieldset class="string-field"><legend>Струны</legend><div class="string-switches">${STRING_ORDER.map(string => `<label class="string-switch"><input type="checkbox" value="${string}" aria-label="Струна ${string}" checked><span>${string}</span></label>`).join('')}</div></fieldset>
             <fieldset class="range-field"><legend>Лады <span class="range-hint">включая границы</span></legend><div class="range-inputs"><label><span class="sr-only">Первый лад</span><input id="fret-min" aria-label="Первый лад" type="number" min="0" max="24" step="1" value="0"></label><span class="range-dash" aria-hidden="true">—</span><label><span class="sr-only">Последний лад</span><input id="fret-max" aria-label="Последний лад" type="number" min="0" max="24" step="1" value="12"></label></div></fieldset>
             <div class="range-presets" aria-label="Быстрый диапазон"><button type="button" data-range="0,5">0–5</button><button type="button" data-range="0,12" aria-pressed="true">0–12</button><button type="button" data-range="12,24">12–24</button></div>
-            <p class="range-description">Лад 0 — открытая струна.<br> Модель грифа: 0–24 лада.</p>
+            <fieldset class="string-field"><legend>Ноты на струнах</legend><div class="string-switches">${STRING_ORDER.map(string => `<label class="string-switch"><input type="checkbox" value="${string}" aria-label="Струна ${string}" checked><span>${string}</span></label>`).join('')}</div></fieldset>
+            <p class="range-description">Выключенная струна остаётся пустой. Ручной выбор струн включает свободную область. Лад 0 — открытая струна.</p>
           </div>
           </details>
           <p id="range-error" class="range-error" data-testid="range-error" role="alert" hidden></p>
-        </div>
-
-        <div class="structure-summary">
-          <div><p class="eyebrow summary-eyebrow">ВЫБРАННАЯ СТРУКТУРА</p><h2 id="structure-heading"></h2></div>
-          <div id="structure-notes" class="note-pills" data-testid="structure-notes" aria-label="Ноты выбранной структуры"></div>
-          <div class="formula"><span>Формула</span><strong id="structure-formula" data-testid="structure-formula"></strong></div>
-        </div>
-
-        <div id="training-mount"></div>
-        <div id="player-mount" hidden></div>
-        <div id="sequence-view-controls" class="segmented" aria-label="Представление последовательности" hidden><button type="button" data-sequence-view="board" aria-pressed="true">Гриф</button><button type="button" data-sequence-view="notation" aria-pressed="false">Ноты и TAB</button><button type="button" id="return-to-notation" hidden>Вернуться к выбранной ноте в записи</button></div>
-        <section id="notation-mount" aria-label="Нотная запись и табулатура последовательности" hidden></section>
-        <div class="fretboard-section">
-          <div class="board-header"><div class="section-title"><span class="section-number">02</span><h2>Исследуй позиции</h2></div><span id="position-count" class="position-count"></span></div>
-          <div class="board-scroll" id="board-scroll"><div id="fretboard-container"></div></div>
-          <div class="board-footer"><div class="legend"><span><i class="legend-root" aria-hidden="true"></i>Тоника</span><span><i class="legend-note" aria-hidden="true"></i>Нота структуры</span><span><i class="legend-selected" aria-hidden="true"></i>Выбранная позиция</span></div><p class="board-navigation">Стрелки — перемещение · Enter / пробел — выбрать</p></div>
-        </div>
+          <details class="learning-help"><summary>Ступени, пальцы и формы</summary><p>Ступень — место звука относительно тоники: 1 — тоника, 3 — терция, 5 — квинта. ♭ понижает ступень на полутон. Квадрат — рекомендуемый палец, круг — нота или ступень.</p><p>Нота с цифрой обозначает звучащую октаву: C2 и C3 — разные высоты. В басовой записи нота написана на октаву выше звучания. Трезвучие содержит три разных звука; повтор тоники не добавляет четвёртый класс ноты.</p><p>Формы — учебный каталог bass.study, а не универсальная нумерация или единственная аппликатура. Материал выбранной формы сохраняется целиком; область показа не ограничивает задания формы.</p></details>
+        </aside>
       </section>
 
-      <section class="selection-section" aria-label="Выбранная нота и её связи"><div id="selection-detail" data-testid="selection-detail"></div><div id="connections" class="connections"></div></section>
-      <section id="history-mount" aria-label="История и настройки"></section>
+      <section id="history-mount" aria-label="История и настройки" hidden></section>
       <p id="selection-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
-      <footer class="page-footer"><span>Маленький участок. Понятная структура. Больше уверенности на грифе.</span><span>E · A · D · G</span></footer>
     </main>
+    </div>
   </div>
 `;
 
 const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const neighborDetails = document.createElement('details'); neighborDetails.id = 'box-neighbor-details'; neighborDetails.className = 'learning-help';
 const neighborSummary = document.createElement('summary'); neighborSummary.textContent = 'Соседняя форма';
-const neighborField = byId('neighbor-field'); neighborField.before(neighborDetails); neighborDetails.append(neighborSummary, neighborField, byId('box-neighbor-name'));
+const neighborField = byId('neighbor-field'); neighborField.before(neighborDetails); neighborDetails.append(neighborSummary, neighborField, byId('box-neighbor-name'), byId('neighbor-switch-row'));
 const rootSelect = byId<HTMLSelectElement>('root-note');
 const structureSelect = byId<HTMLSelectElement>('structure');
 const minInput = byId<HTMLInputElement>('fret-min');
 const maxInput = byId<HTMLInputElement>('fret-max');
 const container = byId('fretboard-container');
+const selectPickers = [enhanceSelect(rootSelect, { gridColumns: 4 }), enhanceSelect(structureSelect), enhanceSelect(byId<HTMLSelectElement>('box-select')), enhanceSelect(byId<HTMLSelectElement>('box-neighbor'))];
 let positions: readonly AnnotatedPosition[] = [];
 let structure = createStructure(state.root, state.structureId);
 let training: ReturnType<typeof mountTraining> | undefined;
@@ -145,6 +153,10 @@ let introduction: ReturnType<typeof mountIntroduction> | undefined;
 let sequenceView: 'board' | 'notation' = 'board';
 let profile: GlobalProfile = DEFAULT_PROFILE;
 let showFingers = false;
+let showOctaves = true;
+let showInterval = true;
+let showNeighbor = false;
+let settingsOpen = true;
 let boxes: readonly BoxInstance[] = [];
 let bindingKey = '';
 let activeModule: AppPreferences['activeModule'] = 'foundation';
@@ -176,6 +188,8 @@ function showPersistenceStatus() {
   const error = failures.length > 0 || preferenceIssue !== '';
   byId('persistence-message').textContent = message;
   byId('persistence-banner').classList.toggle('has-error', error);
+  byId('persistence-banner').hidden = persistent && !error;
+  byId('local-save-status').textContent = error ? 'Ошибка сохранения' : pending ? 'Сохранение…' : dirty ? 'Черновик занятия' : persistent ? 'Локально · сохранено' : 'Только в памяти';
   byId('retry-save').hidden = failures.length === 0;
   history?.setSaveStatus(message, error ? 'error' : pending || dirty ? 'saving' : persistent ? 'saved' : 'memory');
 }
@@ -187,8 +201,8 @@ function setProfile(value: GlobalProfile) {
   const confirmed = structuredClone(value);
   void writes.run(async () => { await store.saveProfile(confirmed); if (persistent) theme.confirmPreference(confirmed.theme); }, 'profile').catch(() => {});
 }
-function enableHeader(enabled: boolean) { byId<HTMLSelectElement>('theme-preference').disabled = !enabled; byId<HTMLButtonElement>('open-introduction').disabled = !enabled; }
-byId<HTMLSelectElement>('theme-preference').addEventListener('change', event => theme.setPreference((event.target as HTMLSelectElement).value as ThemePreference));
+function enableHeader(enabled: boolean) { document.querySelectorAll<HTMLButtonElement>('.site-header button').forEach(button => { button.disabled = !enabled; }); }
+document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach(button => button.addEventListener('click', () => { const value = button.dataset.themeChoice; if (value === 'light' || value === 'dark') theme.setPreference(value); }));
 const drafts = createPracticeDrafts({ getStore: () => store, write: (operation, key) => writes.run(operation, key), supersede: key => writes.supersede(key), resolveSuperseded: key => writes.resolveSuperseded(key),
   onCommit() { history?.updatePracticeContext(); showPersistenceStatus(); }, onEntry(entry) { history?.commitEntry(entry); if (entry.routeRef) route?.linkSession(entry.id, 'manual', entry.routeRef.step, entry.routeRef.routeId); },
   onChange() { history?.updatePracticeContext(); showPersistenceStatus(); },
@@ -296,6 +310,8 @@ function updateModuleVisibility() {
   const foundation = activeModule === 'foundation';
   document.querySelector<HTMLElement>('.workspace')!.hidden = !foundation;
   document.querySelector<HTMLElement>('.selection-section')!.hidden = !foundation || foundationMode === 'quiz';
+  byId('connections').hidden = !foundation || foundationMode === 'quiz';
+  document.querySelector<HTMLElement>('.board-toolbar')!.hidden = foundationMode === 'quiz';
   document.querySelector<HTMLElement>('.fretboard-section')!.hidden = foundationMode === 'quiz' || (foundationMode === 'sequence' && sequenceView === 'notation');
   document.querySelector<HTMLElement>('.structure-summary')!.hidden = foundationMode === 'quiz';
   document.querySelector<HTMLElement>('.label-field')!.hidden = foundationMode === 'quiz';
@@ -311,7 +327,10 @@ function updateModuleVisibility() {
   byId('route-mount').hidden = activeModule !== 'route';
   ear?.setVisible(activeModule === 'ear');
   accompaniment?.setVisible(activeModule === 'harmony');
-  document.querySelectorAll<HTMLElement>('[data-app-module]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.appModule === activeModule)));
+  document.querySelectorAll<HTMLElement>('[data-app-module]').forEach(button => { const selected = button.dataset.appModule === activeModule; button.setAttribute('aria-pressed', String(selected)); if (selected) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current'); });
+  document.querySelector<HTMLElement>('.intro')!.hidden = foundation;
+  byId('study-context').hidden = foundationMode === 'quiz';
+  byId('structure-heading').textContent = foundationMode === 'quiz' ? 'Задания на грифе' : `${structure.root} · ${structure.name}`;
   byId('page-title').textContent = ({ foundation: 'Гриф и практика', ear: 'Слух', harmony: 'Аккомпанемент', tracks: 'Аудиодорожки', input: 'Аудиовход', route: 'Маршрут занятия' })[activeModule];
   document.querySelector<HTMLElement>('.intro-copy > p')!.textContent = ({ foundation: 'Найди ноты и ступени в выбранной области грифа E–A–D–G.', ear: 'Сравни тонику и целевой звук, затем выбери ступень.', harmony: 'Слушай C–F–G–C и играй своё сопровождение.', tracks: 'Загрузи личную запись и повторяй точный фрагмент.', input: 'Проверь уровень и частоту сигнала; это диагностика без оценки исполнения.', route: 'Один музыкальный материал: 3 минуты грифа, 3 минуты слуха и 4 минуты практики.' })[activeModule];
 }
@@ -338,11 +357,15 @@ function openRouteStep(step: RouteStep, session: RouteSession | null, initial: b
   drafts.capture();
   routeNavigation = true;
   try {
+    const repairView = !rangeIsValid();
     const same = JSON.stringify(state.box) === JSON.stringify(material.box) && (state.box !== null || JSON.stringify(positions.map(position => position.id).sort()) === JSON.stringify([...material.referencePositionIds].sort()));
-    if (!same || state.root !== material.root.replaceAll('♭', 'b').replaceAll('♯', '#') || state.structureId !== material.structureId) {
+    if (!same || repairView || state.root !== material.root.replaceAll('♭', 'b').replaceAll('♯', '#') || state.structureId !== material.structureId) {
       training?.finishCurrentSession('Применён материал маршрута'); sequencePlayer?.stop(); state.root = material.root.replaceAll('♭', 'b').replaceAll('♯', '#'); state.structureId = material.structureId;
       applyBox(material.box);
       if (!material.box) { const frets = material.referencePositionIds.map(id => Number(id.split(':')[1])); state.strings = STRING_ORDER.filter(string => material.referencePositionIds.some(id => id.startsWith(`${string}:`))); state.fretMin = Math.min(...frets); state.fretMax = Math.max(...frets); }
+      else if (repairView) { const frets = material.referencePositionIds.map(id => Number(id.split(':')[1])); state.fretMin = Math.min(state.fretMin, ...frets); state.fretMax = Math.max(state.fretMax, ...frets); }
+      minInput.value = String(state.fretMin); maxInput.value = String(state.fretMax);
+      byId('range-error').hidden = true; minInput.setAttribute('aria-invalid', 'false'); maxInput.setAttribute('aria-invalid', 'false');
       updateView();
     }
     switchModule(step === 'ear' ? 'ear' : 'foundation');
@@ -407,8 +430,14 @@ function updateView(announce = false) {
   positions = annotatePositions(getPositions({ strings: state.strings, fretMin: state.fretMin, fretMax: state.fretMax }), structure);
   boxes = getBoxCatalogue(state.root, state.structureId);
   const boxSelect = byId<HTMLSelectElement>('box-select');
-  boxSelect.innerHTML = '<option value="">Свободный диапазон</option>' + boxes.map((box, index) => `<option value="${index}"${JSON.stringify(box.selection) === JSON.stringify(state.box) ? ' selected' : ''}>${box.selection.shapeId.startsWith('penta-') ? `Форма ${box.selection.shapeId.slice(-1).toUpperCase()} · ` : ''}${escapeHtml(box.label)}</option>`).join('');
-  if (state.box) byId('box-notice').textContent = 'Обычные задания и последовательность используют только точные позиции этой полной формы.';
+  boxSelect.innerHTML = '<option value="">Свободный диапазон</option>' + boxes.map((box, index) => `<option value="${index}"${JSON.stringify(box.selection) === JSON.stringify(state.box) ? ' selected' : ''}>${box.selection.shapeId.startsWith('penta-') ? `Форма ${box.selection.shapeId.slice(-1).toUpperCase()} · ${box.window.fretMin}–${box.window.fretMax}` : `${escapeHtml(box.label)} · ${box.selection.anchorString}`}</option>`).join('');
+  const box = state.box ? getBoxInstance(state.box) : null;
+  const outside = box && rangeIsValid() && (box.window.fretMin < state.fretMin || box.window.fretMax > state.fretMax);
+  byId('show-whole-form').hidden = !outside;
+  if (box) byId('box-notice').textContent = outside ? 'Часть формы находится вне области показа. Её учебный материал сохраняется целиком.' : '';
+  const formLabel = box ? box.selection.shapeId.startsWith('penta-') ? `Форма ${box.selection.shapeId.slice(-1).toUpperCase()} · ${box.window.fretMin}–${box.window.fretMax}` : `${box.label} · ${box.selection.anchorString}` : 'Свободный диапазон';
+  byId('study-context').textContent = formLabel;
+  byId('box-material-caption').textContent = box ? `${box.positions.length} позиций · ${box.label}` : 'Свободная область по струнам и ладам.';
   rootSelect.value = state.root; structureSelect.value = state.structureId;
   document.querySelectorAll<HTMLInputElement>('.string-switch input').forEach(input => { input.checked = state.strings.includes(input.value as StringId); });
   if (!positions.some(position => position.id === state.selectedId)) {
@@ -425,6 +454,8 @@ function updateView(announce = false) {
   document.querySelectorAll<HTMLButtonElement>('[data-range]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.range === `${state.fretMin},${state.fretMax}`)));
   renderBoard();
   renderSelection(announce);
+  for (const picker of selectPickers) picker.refresh();
+  updateModuleVisibility();
   training?.refreshContext();
   syncPracticeBinding();
   sequencePlayer?.refreshContext();
@@ -432,80 +463,61 @@ function updateView(announce = false) {
   savePreferences();
 }
 
-function renderBoard() {
-  const focusedId = document.activeElement instanceof Element ? document.activeElement.closest<SVGGElement>('[data-position]')?.dataset.position : undefined;
+function boardOptions(): StudyFretboardOptions {
   const box = state.box ? getBoxInstance(state.box) : null;
   const boxIds = new Set(box?.referencePositionIds ?? []);
-  const currentBoxIndex = box ? boxes.findIndex(other => JSON.stringify(other.selection) === JSON.stringify(box.selection)) : -1;
+  const index = box ? boxes.findIndex(other => JSON.stringify(other.selection) === JSON.stringify(box.selection)) : -1;
   const direction = byId<HTMLSelectElement>('box-neighbor').value === 'previous' ? -1 : 1;
-  const neighbor = currentBoxIndex >= 0 ? boxes[currentBoxIndex + direction] : undefined;
-  const sharedIds = new Set(box && neighbor ? neighbor.referencePositionIds.filter(id => boxIds.has(id)) : []);
-  byId('neighbor-field').hidden = !box || !box.selection.shapeId.startsWith('penta-');
-  neighborDetails.hidden = !box || !box.selection.shapeId.startsWith('penta-');
-  byId('box-neighbor-name').textContent = box && box.selection.shapeId.startsWith('penta-') ? neighbor ? `Сосед: форма ${neighbor.selection.shapeId.slice(-1).toUpperCase()} · ${neighbor.label}. Общих позиций: ${sharedIds.size}.` : 'С этой стороны нет полной формы на ладах 1–24.' : '';
-  const emptyMessage = positions.length === 0 ? '<div class="empty-state" data-testid="empty-state"><h3>Выбери хотя бы одну струну</h3><p>Четыре струны остаются на месте; ноты появятся на включённых струнах.</p></div>' : '';
-  const rows = STRING_ORDER;
-  const columnCount = state.fretMax - state.fretMin + 1;
-  const cell = 72;
-  const left = 82;
-  const right = 24;
-  const top = 58;
-  const rowGap = 72;
-  const width = left + columnCount * cell + right;
-  // Keep a physical fret cell readable without enlarging a compact form to the
-  // whole laptop width. All four string rows retain the same natural height.
-  const canvasWidth = width;
-  const height = top + (rows.length - 1) * rowGap + 58;
-  const x = (fret: number) => left + (fret - state.fretMin + 0.5) * cell;
-  const y = (string: StringId) => top + rows.indexOf(string) * rowGap;
-  const frets = Array.from({ length: columnCount }, (_, index) => index + state.fretMin);
-  const selected = positions.find(position => position.id === state.selectedId);
-  container.innerHTML = `${emptyMessage}<svg class="fretboard" data-testid="fretboard" viewBox="0 0 ${canvasWidth} ${height}" style="min-width:${canvasWidth}px;height:${height}px" aria-labelledby="board-title board-description">
-    <title id="board-title">Гриф четырёхструнного баса</title><desc id="board-description">Струны сверху вниз G, D, A, E. Выберите позицию мышью или перейдите стрелками и нажмите Enter. Лады от ${state.fretMin} до ${state.fretMax} включительно.</desc>
-    <defs><linearGradient id="board-grain" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--board-top)"/><stop offset="1" stop-color="var(--board-bottom)"/></linearGradient></defs>
-    <rect class="board-surface" x="${left}" y="24" width="${columnCount * cell}" height="${height - 48}" rx="3" fill="url(#board-grain)"/>
-    ${frets.map(fret => `<text class="fret-number" x="${x(fret)}" y="15" text-anchor="middle">${fret === 0 ? '0' : fret}</text><line class="fret-wire${fret === 0 ? ' nut-line' : ''}" x1="${left + (fret - state.fretMin + 1) * cell}" y1="24" x2="${left + (fret - state.fretMin + 1) * cell}" y2="${height - 24}"/>`).join('')}
-    ${frets.filter(fret => [3, 5, 7, 9, 12, 15, 17, 19, 21, 24].includes(fret)).map(fret => fret % 12 === 0 ? `<circle class="fret-inlay" cx="${x(fret) - 5}" cy="${height - 34}" r="2.5"/><circle class="fret-inlay" cx="${x(fret) + 5}" cy="${height - 34}" r="2.5"/>` : `<circle class="fret-inlay" cx="${x(fret)}" cy="${height - 34}" r="2.5"/>`).join('')}
-    ${rows.map(string => `<text class="string-name" x="27" y="${y(string) + 5}" text-anchor="middle">${string}</text><line class="bass-string string-${string}" x1="${left - 17}" y1="${y(string)}" x2="${width - right}" y2="${y(string)}"/>`).join('')}
-    ${positions.map(position => {
-      const text = state.labelMode === 'notes' ? position.noteName : position.degree ?? '';
-      const samePitch = selected && selected.midi === position.midi && selected.id !== position.id;
-      const isSelected = selected?.id === position.id;
-      return `<g role="button" class="position${position.inStructure ? ' in-structure' : ' outside-structure'}${box ? boxIds.has(position.id) ? ' in-box' : ' outside-box' : ''}${sharedIds.has(position.id) ? ' shared-box-position' : ''}${position.isRoot ? ' root-position' : ''}${isSelected ? ' selected-position' : ''}${samePitch ? ' same-pitch-position' : ''}" data-position="${position.id}" data-note-name="${escapeHtml(position.noteName)}" data-midi="${position.midi}" data-root="${position.isRoot}" data-in-structure="${position.inStructure}" transform="translate(${x(position.fret)},${y(position.string)})" tabindex="${position.id === state.activeId ? 0 : -1}" aria-label="${escapeHtml(positionLabel(position))}${showFingers && box?.fingers[position.id] ? `, рекомендуемый палец ${box.fingers[position.id]}` : ''}" aria-pressed="${isSelected}">
-        <title>${escapeHtml(positionLabel(position))}</title>
-        <rect class="position-hit" x="-34" y="-31" width="68" height="62" rx="5"/>
-        <circle class="position-focus" r="29"/><circle class="position-selection" r="25"/>
-        <circle class="note-marker" r="${position.inStructure ? 19 : 5}"/>
-        ${position.isRoot ? '<circle class="root-ring" r="15"/>' : ''}
-        ${state.labelMode !== 'hidden' && position.inStructure ? `<text data-position-label text-anchor="middle" dy=".35em">${escapeHtml(text)}</text>` : ''}
-        ${showFingers && box?.fingers[position.id] ? `<rect class="finger-background" x="14" y="-30" width="16" height="16" rx="2"/><text class="finger-label" x="22" y="-18" text-anchor="middle">${box.fingers[position.id]}</text>` : ''}
-      </g>`;
-    }).join('')}
-  </svg>`;
+  const neighbor = index >= 0 ? boxes[index + direction] : undefined;
+  const overlap = new Set(box && neighbor ? neighbor.referencePositionIds.filter(id => boxIds.has(id)) : []);
+  neighborDetails.hidden = !box?.selection.shapeId.startsWith('penta-');
+  byId('neighbor-field').hidden = neighborDetails.hidden;
+  byId('box-neighbor-name').textContent = neighborDetails.hidden ? '' : neighbor ? 'Форма ' + neighbor.selection.shapeId.slice(-1).toUpperCase() + ' · общих позиций ' + overlap.size : 'С этой стороны нет полной формы.';
+  byId<HTMLInputElement>('show-neighbor').disabled = !neighbor;
+  return { width: container.getBoundingClientRect().width || 640, positions, structure, fretMin: state.fretMin, fretMax: state.fretMax, selectedId: state.selectedId, activeId: state.activeId, box, showFingers, showOctaves, showInterval, sharedIds: showNeighbor ? overlap : new Set<string>(), labelMode: state.labelMode };
+}
+
+function renderBoard() {
+  const focusedId = document.activeElement instanceof Element && container.contains(document.activeElement) ? document.activeElement.closest<SVGGElement>('[data-position]')?.dataset.position : undefined;
+  byId('board-range').textContent = rangeIsValid() ? 'Лады ' + state.fretMin + '–' + state.fretMax + ' · G–D–A–E' : 'Диапазон требует исправления';
+  const fingers = byId<HTMLInputElement>('show-fingers');
+  fingers.disabled = !state.box || !rangeIsValid() || positions.length === 0;
+  byId('fingers-hint').hidden = !fingers.disabled;
+  byId('fingers-hint').textContent = !state.box ? 'Для учебной формы' : 'После исправления области';
+  if (!rangeIsValid()) {
+    container.innerHTML = '<div class="study-range-empty"><h2>Проверь диапазон ладов</h2><p>Укажи целые границы от 0 до 24: первый лад не больше последнего.</p></div>';
+    byId('octave-legend').innerHTML = '';
+    byId('interval-legend').hidden = true;
+    return;
+  }
+  const options = boardOptions();
+  container.innerHTML = renderStudyFretboard(options);
+  byId('octave-legend').innerHTML = renderOctaveLegend(options);
+  byId('material-legend').textContent = state.box ? 'Ноты формы' : state.structureId.endsWith('triad') ? 'Звуки трезвучия' : 'Ноты гаммы';
+  byId('interval-legend').hidden = !showInterval;
   sequencePlayer?.refreshHighlight();
   if (focusedId) focusPosition(focusedId);
 }
 
 function renderSelection(announce: boolean) {
-  const selected = positions.find(position => position.id === state.selectedId);
-  if (!selected) {
-    byId('selection-detail').innerHTML = '<div class="selection-card selection-empty"><p class="eyebrow">ВЫБРАННАЯ ПОЗИЦИЯ</p><h2>Пока нет позиции</h2><p>Включи струну, чтобы продолжить исследование.</p></div>';
-    byId('connections').innerHTML = '';
-    if (announce) byId('selection-status').textContent = 'Нет доступных позиций. Выберите хотя бы одну струну.';
+  const technicalOpen = byId('connections').querySelector<HTMLDetailsElement>('.note-technical')?.open ?? false;
+  const connectionsOpen = byId('connections').querySelector<HTMLDetailsElement>('.study-connections')?.open ?? false;
+  const selected = rangeIsValid() ? positions.find(position => position.id === state.selectedId) : undefined;
+  if (!rangeIsValid()) {
+    byId('selection-detail').innerHTML = '<div class="selection-card selection-empty"><p>Выбор недоступен: исправь диапазон.</p></div>';
+    byId('interval-detail').innerHTML = ''; byId('connections').innerHTML = '';
+    if (announce) byId('selection-status').textContent = 'Неверный диапазон. Выбор недоступен.';
     return;
   }
-  const fullName = formatMidi(selected.midi, selected.noteName);
-  const samePitch = positions.filter(position => position.midi === selected.midi && position.id !== selected.id);
-  const otherOctaves = positions.filter(position => position.pitchClass === selected.pitchClass && position.midi !== selected.midi);
-  byId('selection-detail').innerHTML = `<div class="selection-card"><div class="selected-heading"><p class="eyebrow">ВЫБРАННАЯ ПОЗИЦИЯ</p><span class="selection-kind${selected.isRoot ? ' is-root' : selected.inStructure ? '' : ' outside'}">${selected.isRoot ? 'Тоника' : selected.inStructure ? `Ступень ${escapeHtml(selected.degree ?? '')}` : 'Вне структуры'}</span></div><div class="selected-note"><h2>${escapeHtml(fullName)}</h2><div><strong>Струна ${selected.string} · ${selected.fret === 0 ? 'открытая' : `лад ${selected.fret}`}</strong><span>${selected.inStructure ? `Входит в ${structure.root} · ${escapeHtml(structure.name.toLowerCase())}` : 'Не входит в выбранную структуру'}</span></div></div><dl class="note-facts"><div><dt>Звучащая высота</dt><dd>${escapeHtml(fullName)}</dd></div><div><dt>MIDI</dt><dd>${selected.midi}</dd></div><div><dt>Частота</dt><dd>${selected.frequency.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Гц</dd></div></dl></div>`;
-  byId('connections').innerHTML = `<div class="connections-heading"><span class="section-number">03</span><h2>Та же нота — разные места</h2></div><p class="connections-intro">Связи в выбранном диапазоне. Одинаковая высота и другая октава — разные случаи.</p><div class="connection-group"><h3>Та же высота <span>${samePitch.length}</span></h3><div class="connection-buttons">${connectionButtons(samePitch, 'same') || '<p class="no-connections">Других позиций в этом диапазоне нет.</p>'}</div></div><div class="connection-group"><h3>Другие октавы <span>${otherOctaves.length}</span></h3><div class="connection-buttons">${connectionButtons(otherOctaves, 'octave') || '<p class="no-connections">Другие октавы вне выбранной области.</p>'}</div></div>`;
-  const facts = byId('selection-detail').querySelector('dl');
-  if (facts) { const details = document.createElement('details'); details.className = 'learning-help note-technical'; const summary = document.createElement('summary'); summary.textContent = 'Технические сведения: MIDI и частота'; facts.before(details); details.append(summary, facts); }
-  if (announce) byId('selection-status').textContent = positionLabel(selected);
-}
-
-function connectionButtons(items: readonly AnnotatedPosition[], kind: string): string {
-  return [...items].sort((a, b) => a.midi - b.midi || STRING_ORDER.indexOf(a.string) - STRING_ORDER.indexOf(b.string)).map(position => `<button class="connection-button" type="button" data-connect="${position.id}" data-connection-kind="${kind}"><strong>${escapeHtml(formatMidi(position.midi, position.noteName))}</strong><span>${position.string} · ${position.fret === 0 ? 'откр.' : `${position.fret} лад`}</span><span aria-hidden="true">↗</span></button>`).join('');
+  const options = { positions, selectedId: state.selectedId, structure, box: state.box ? getBoxInstance(state.box) : null };
+  byId('selection-detail').innerHTML = renderStudySelection(options, technicalOpen);
+  byId('interval-detail').innerHTML = renderStudyInterval(options);
+  byId('connections').innerHTML = renderStudyConnections(options, connectionsOpen);
+  // Technical data stays a disclosure below the primary musical information.
+  const technical = byId('selection-detail').querySelector('.note-technical');
+  if (technical) byId('connections').append(technical);
+  document.querySelectorAll<HTMLElement>('[data-scale-note]').forEach(element => element.classList.toggle('is-current', Boolean(selected && element.dataset.scaleNote === selected.noteName)));
+  if (announce) byId('selection-status').textContent = selected ? positionLabel(selected) : 'Нет доступных позиций. Выберите хотя бы одну струну.';
 }
 
 function focusPosition(id: string, scroll = false) {
@@ -517,7 +529,7 @@ function focusPosition(id: string, scroll = false) {
 }
 
 function selectPosition(id: string, focus = true) {
-  if (!positions.some(position => position.id === id)) return;
+  if (!rangeIsValid() || !positions.some(position => position.id === id)) return;
   state.selectedId = id;
   state.activeId = id;
   renderBoard();
@@ -527,9 +539,8 @@ function selectPosition(id: string, focus = true) {
 
 function applyBox(selection: BoxSelection | null) {
   state.box = selection;
-  if (selection) { const box = getBoxInstance(selection); state.strings = STRING_ORDER.filter(string => box.positions.some(position => position.string === string)); state.fretMin = box.window.fretMin; state.fretMax = box.window.fretMax;
+  if (selection) { const box = getBoxInstance(selection); state.strings = STRING_ORDER.filter(string => box.positions.some(position => position.string === string));
     state.selectedId = (box.positions.find(position => position.isRoot) ?? box.positions[0]).id; state.activeId = state.selectedId;
-    minInput.value = String(state.fretMin); maxInput.value = String(state.fretMax); byId('range-error').hidden = true; minInput.setAttribute('aria-invalid', 'false'); maxInput.setAttribute('aria-invalid', 'false');
   }
   byId('box-notice').textContent = selection ? 'Обычные задания и последовательность используют только точные позиции этой полной формы.' : 'Свободная область: позиции выбираются по струнам и ладам.';
 }
@@ -549,6 +560,20 @@ structureSelect.addEventListener('change', () => changeMaterial(() => { const pr
 byId<HTMLSelectElement>('box-select').addEventListener('change', event => changeMaterial(() => applyBox(boxes[Number((event.target as HTMLSelectElement).value)]?.selection && (event.target as HTMLSelectElement).value !== '' ? boxes[Number((event.target as HTMLSelectElement).value)].selection : null)));
 byId<HTMLInputElement>('show-fingers').addEventListener('change', event => { showFingers = (event.target as HTMLInputElement).checked; renderBoard(); savePreferences(); });
 byId<HTMLSelectElement>('box-neighbor').addEventListener('change', renderBoard);
+byId<HTMLInputElement>('show-neighbor').addEventListener('change', event => { showNeighbor = (event.target as HTMLInputElement).checked; renderBoard(); });
+byId<HTMLInputElement>('show-octaves').addEventListener('change', event => { showOctaves = (event.target as HTMLInputElement).checked; renderBoard(); });
+byId<HTMLInputElement>('show-interval').addEventListener('change', event => { showInterval = (event.target as HTMLInputElement).checked; renderBoard(); });
+function toggleSettings(open: boolean) { settingsOpen = open; document.querySelector<HTMLElement>('.workspace')!.classList.toggle('panel-closed', !open); byId('toggle-study-settings').setAttribute('aria-expanded', String(open)); if (!open) byId('toggle-study-settings').focus(); }
+byId('toggle-study-settings').addEventListener('click', () => toggleSettings(!settingsOpen));
+byId('close-study-settings').addEventListener('click', () => toggleSettings(false));
+byId('show-whole-form').addEventListener('click', () => {
+  if (!state.box || !rangeIsValid()) return;
+  const box = getBoxInstance(state.box);
+  minInput.value = String(Math.min(state.fretMin, box.window.fretMin));
+  maxInput.value = String(Math.max(state.fretMax, box.window.fretMax));
+  applyRange();
+});
+byId('interval-detail').addEventListener('click', event => { const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-interval-target]')?.dataset.intervalTarget : null; if (target) selectPosition(target); });
 document.querySelectorAll<HTMLButtonElement>('[data-label-mode]').forEach(button => button.addEventListener('click', () => {
   state.labelMode = button.dataset.labelMode as LabelMode;
   updateView();
@@ -566,7 +591,6 @@ function rangeIsValid() {
 }
 
 function applyRange() {
-  drafts.capture(); leaveRoute();
   const min = Number(minInput.value);
   const max = Number(maxInput.value);
   const valid = rangeIsValid();
@@ -574,14 +598,18 @@ function applyRange() {
   minInput.setAttribute('aria-invalid', String(!valid));
   maxInput.setAttribute('aria-invalid', String(!valid));
   if (!valid) {
+    drafts.capture(); leaveRoute(); sequencePlayer?.stop();
     byId<HTMLDetailsElement>('area-settings').open = true;
-    byId('range-error').textContent = 'Укажи целые лады от 0 до 24: первый не больше последнего. На грифе сохранён последний корректный диапазон.';
+    byId('range-error').textContent = 'Укажи целые лады от 0 до 24: первый не больше последнего.';
+    positions = [];
+    renderBoard(); renderSelection(true);
     training?.refreshContext();
+    syncPracticeBinding();
     return;
   }
+  if (!state.box) { drafts.capture(); leaveRoute(); }
   state.fretMin = min;
   state.fretMax = max;
-  applyBox(null); byId('box-notice').textContent = 'Область изменена вручную: включён свободный диапазон. Прежняя форма не обрезается.';
   updateView(true);
 }
 minInput.addEventListener('input', applyRange);
@@ -625,8 +653,17 @@ byId('connections').addEventListener('click', event => {
   if (button?.dataset.connect) selectPosition(button.dataset.connect);
 });
 
+let lastBoardWidth = 0;
+const boardResizeObserver = new ResizeObserver(entries => { const width = Math.floor(entries[0]?.contentRect.width ?? 0); if (width > 0 && width !== lastBoardWidth) { lastBoardWidth = width; renderBoard(); } });
+boardResizeObserver.observe(container);
+
+function practiceFullPositions() {
+  if (!rangeIsValid()) return [];
+  const box = state.box ? getBoxInstance(state.box) : null;
+  return box ? annotatePositions(getPositions({ strings: STRING_ORDER.filter(string => box.positions.some(note => note.string === string)), fretMin: box.window.fretMin, fretMax: box.window.fretMax }), structure) : positions;
+}
 updateView();
-training = mountTraining(byId('training-mount'), () => ({ positions: rangeIsValid() ? state.box ? getBoxInstance(state.box).positions : positions : [], fullPositions: rangeIsValid() ? positions : [], box: state.box, structure }), {
+training = mountTraining(byId('training-mount'), () => ({ positions: rangeIsValid() ? state.box ? getBoxInstance(state.box).positions : positions : [], fullPositions: practiceFullPositions(), box: state.box, structure }), {
   navigationContainer: byId('mode-nav-mount'),
   onRouteExit: leaveRoute,
   onPreferencesChange: savePreferences,
@@ -676,7 +713,14 @@ sequencePlayer = mountPlayer(byId('player-mount'), () => training?.getCurrentSeq
   },
 });
 notation = mountNotation(byId('notation-mount'), () => { const preferences = sequencePlayer?.getPreferences(); return { positions: training?.getCurrentSequence()?.notes ?? [], duration: sequencePlayer?.getDuration() ?? 'eighth', fragment: { from: preferences?.from ?? 1, to: preferences?.to ?? training?.getCurrentSequence()?.notes.length ?? 1 } }; }, {
-  onSelect: (_index, positionId, action) => { selectPosition(positionId, false); if (action === 'show-position') { sequenceView = 'board'; updateModuleVisibility(); byId('return-to-notation').hidden = false; focusPosition(positionId, true); } },
+  onSelect: (_index, positionId, action) => {
+    if (action === 'show-position' && rangeIsValid() && !positions.some(position => position.id === positionId)) {
+      const note = training?.getCurrentSequence()?.notes.find(position => position.id === positionId);
+      if (note) { state.fretMin = Math.min(state.fretMin, note.fret); state.fretMax = Math.max(state.fretMax, note.fret); minInput.value = String(state.fretMin); maxInput.value = String(state.fretMax); updateView(); }
+    }
+    selectPosition(positionId, false);
+    if (action === 'show-position' && positions.some(position => position.id === positionId)) { sequenceView = 'board'; updateModuleVisibility(); byId('return-to-notation').hidden = false; focusPosition(positionId, true); }
+  },
 });
 document.querySelectorAll<HTMLElement>('[data-sequence-view]').forEach(button => button.addEventListener('click', () => { sequenceView = button.dataset.sequenceView as 'board' | 'notation'; updateModuleVisibility(); }));
 byId('return-to-notation').addEventListener('click', () => { sequenceView = 'notation'; updateModuleVisibility(); void notation?.refreshContext().then(() => byId('notation-mount').querySelector<SVGElement>('[data-notation-index][tabindex="0"]')?.focus()); });
@@ -718,7 +762,7 @@ function updateRouteInset() {
 }
 const routeInsetObserver = new ResizeObserver(updateRouteInset); routeInsetObserver.observe(byId('route-session-mount'));
 introduction = mountIntroduction(byId('onboarding-mount'), { onChoice(choice, completed) { setProfile({ ...profile, onboarding: { version: 1, choice, completed } }); },
-  onMaterial() { const material = createRouteMaterial(); const box = getBoxInstance(material.box!); applyPreferences({ ...lastValidPreferences, activeModule: 'foundation', study: { ...lastValidPreferences.study, root: 'C', structureId: 'major-triad', strings: STRING_ORDER.filter(string => box.positions.some(position => position.string === string)), fretMin: box.window.fretMin, fretMax: box.window.fretMax, box: material.box }, training: { ...lastValidPreferences.training, mode: 'study', reviewPositionIds: [], questionPolicy: 'random-v1' } }); savePreferences(); },
+  onMaterial() { const material = createRouteMaterial(); const box = getBoxInstance(material.box!); applyPreferences({ ...lastValidPreferences, activeModule: 'foundation', study: { ...lastValidPreferences.study, root: 'C', structureId: 'major-triad', strings: STRING_ORDER.filter(string => box.positions.some(position => position.string === string)), fretMin: Math.min(lastValidPreferences.study.fretMin, box.window.fretMin), fretMax: Math.max(lastValidPreferences.study.fretMax, box.window.fretMax), box: material.box }, training: { ...lastValidPreferences.training, mode: 'study', reviewPositionIds: [], questionPolicy: 'random-v1' } }); savePreferences(); },
   onPosition(id) { selectPosition(id, true); }, onBeforeListen() { sequencePlayer?.stop(); accompaniment?.stop(); tracks?.stop(); inputMonitor?.stop(); ear?.pauseListening(); },
 });
 byId('open-introduction').addEventListener('click', () => introduction?.open());
@@ -783,11 +827,27 @@ history = mountHistory(byId('history-mount'), {
 });
 byId('retry-save').addEventListener('click', () => { if (!retiring) void writes.retry().then(() => { if (!writes.failureCount) history?.clearActionError(); return history?.refresh(); }); });
 byId('retry-tab').addEventListener('click', () => location.reload());
+const historyDrawer = byId('history-mount').querySelector<HTMLDetailsElement>('.history-drawer')!;
+byId('open-history').addEventListener('click', () => {
+  const open = !historyDrawer.open;
+  byId('history-mount').hidden = !open;
+  historyDrawer.open = open;
+  byId('open-history').setAttribute('aria-expanded', String(open));
+  if (open) { historyDrawer.scrollIntoView({ block: 'start' }); historyDrawer.querySelector('summary')?.focus({ preventScroll: true }); }
+});
+historyDrawer.addEventListener('toggle', () => {
+  byId('open-history').setAttribute('aria-expanded', String(historyDrawer.open));
+  if (!historyDrawer.open) {
+    if (historyDrawer.contains(document.activeElement)) byId('open-history').focus({ preventScroll: true });
+    byId('history-mount').hidden = true;
+  }
+});
 
 async function initialize() {
   writerLease = await acquireWriterLease();
   if (retiring) { writerLease.release(); return; }
   if (!writerLease.acquired) {
+    byId('persistence-banner').hidden = false;
     byId('persistence-message').textContent = 'Занятие уже открыто в другой вкладке. Закрой её и нажми «Проверить снова».';
     byId('retry-tab').hidden = false;
     return;
@@ -816,12 +876,15 @@ async function initialize() {
   if (profile.onboarding.choice === null) introduction?.open(profile);
 }
 void initialize().catch(failure => {
+  byId('persistence-banner').hidden = false;
   byId('persistence-message').textContent = `Не удалось подготовить страницу: ${failure instanceof Error ? failure.message : String(failure)}`;
   byId('persistence-banner').classList.add('has-error');
 });
 function retire() {
   if (retirement) return retirement;
   main.inert = true;
+  boardResizeObserver.disconnect();
+  for (const picker of selectPickers) picker.dispose();
   enableHeader(false);
   routeInsetObserver.disconnect();
   sequencePlayer?.stop();

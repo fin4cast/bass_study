@@ -1,0 +1,61 @@
+.study-fretboard-parts { display: grid; gap: 16px; min-width: 0; }
+.study-fretboard-part { min-width: 0; }
+.study-board-part-caption { margin: 0 0 6px; color: var(--text-secondary); font-size: 12px; }
+svg.study-fretboard { display: block; width: 100%; height: 346px; min-width: 0; overflow: visible; border-radius: 10px; background: var(--study-board-background, var(--board-bottom, #1a2b22)); }
+.study-fretboard .board-gradient-top { stop-color: var(--study-board-top, var(--board-top, #1a2b22)); }
+.study-fretboard .board-gradient-bottom { stop-color: var(--study-board-bottom, var(--board-bottom, #1a2b22)); }
+.study-fretboard .fret-number { fill: var(--study-board-text, var(--board-text)); font-size: 13px; font-weight: 400; }
+.study-fretboard .string-name { fill: var(--study-board-text, var(--board-text)); font-size: 16px; font-weight: 400; }
+.study-fretboard .fret-wire { stroke: var(--study-board-wire, var(--board-line)); stroke-width: 1.2; }
+.study-fretboard .nut-line { stroke: var(--study-board-wire, var(--board-line)); stroke-width: 4; }
+.study-fretboard .fret-inlay { fill: var(--study-board-text, var(--board-text)); opacity: .28; }
+.study-fretboard .bass-string { stroke: var(--study-board-string, var(--board-line)); }
+.study-fretboard .bass-string-shadow { stroke: var(--study-board-string-shadow, #0b150f); }
+.study-fretboard .bass-string.string-G { stroke-width: 1.2; }
+.study-fretboard .bass-string.string-D { stroke-width: 1.8; }
+.study-fretboard .bass-string.string-A { stroke-width: 2.6; }
+.study-fretboard .bass-string.string-E { stroke-width: 3.4; }
+.study-fretboard .bass-string-shadow.string-G { stroke-width: 3.2; }
+.study-fretboard .bass-string-shadow.string-D { stroke-width: 3.8; }
+.study-fretboard .bass-string-shadow.string-A { stroke-width: 4.6; }
+.study-fretboard .bass-string-shadow.string-E { stroke-width: 5.4; }
+.study-fretboard .form-fret-shade { fill: var(--study-board-note, var(--board-dot)); opacity: .075; }
+.study-fretboard .form-fret-cap { stroke: var(--study-board-root, var(--board-root)); stroke-width: 2; }
+.study-fretboard .position { outline: none; cursor: pointer; opacity: 1; }
+.study-fretboard .position .position-hit, .study-fretboard .position.in-box .position-hit { fill: transparent; stroke: none; }
+.study-fretboard .position .note-marker { fill: var(--study-board-note, var(--board-dot)); stroke: var(--study-board-note-border, var(--board-text)); stroke-width: 1.8; stroke-dasharray: none; pointer-events: none; }
+.study-fretboard .position.root-position.is-large .note-marker { fill: var(--study-board-root, var(--board-root)); stroke: var(--study-board-root, var(--board-root)); }
+.study-fretboard .position .root-ring { display: none; }
+.study-fretboard .position.is-quiet .note-marker { r: 3; fill: transparent; stroke: var(--study-board-quiet, #7f9585); stroke-width: 1; stroke-dasharray: none; opacity: 1; }
+.study-fretboard .position.is-quiet:hover .note-marker, .study-fretboard .position.is-quiet:focus-visible .note-marker { r: 5; fill: var(--study-board-note, var(--board-dot)); stroke: var(--study-board-note, var(--board-dot)); }
+.study-fretboard .position text { fill: var(--study-board-note-text, var(--board-dot-text)); font-size: 18px; font-weight: 650; pointer-events: none; }
+.study-fretboard .position.root-position.is-large [data-position-label] { fill: var(--study-board-root-text, var(--board-root-text)); }
+.study-fretboard .position.is-interval-target .note-marker { fill: var(--study-board-link, var(--board-same)); stroke: var(--study-board-link, var(--board-same)); }
+.study-fretboard .position.is-interval-target [data-position-label] { fill: var(--study-board-link-text, #15313e); }
+.study-fretboard .position .position-selection { fill: none; stroke: var(--study-board-selection, var(--board-text)); stroke-width: 2; stroke-dasharray: none; opacity: 0; }
+.study-fretboard .position.selected-position .position-selection { opacity: 1; }
+.study-fretboard .position.same-pitch-position .position-selection { opacity: .85; stroke: var(--study-board-same, var(--board-same)); stroke-dasharray: 3 3; }
+.study-fretboard .position.shared-box-position:not(.selected-position) .position-selection { opacity: 1; stroke: var(--study-board-shared, var(--board-octave)); stroke-width: 2; stroke-dasharray: 3 3; }
+.study-fretboard .position .position-focus { fill: none; stroke: var(--study-board-focus, var(--board-focus)); stroke-width: 2.5; opacity: 0; }
+.study-fretboard .position:focus-visible .position-focus { opacity: 1; }
+.study-fretboard .position:hover .note-marker { stroke: var(--study-board-focus, var(--board-focus)); stroke-width: 2; }
+.study-fretboard .position .finger-background { fill: var(--study-board-finger, var(--board-top)); stroke: var(--study-board-root, var(--board-root)); stroke-width: 1; pointer-events: none; }
+.study-fretboard .position .finger-label { fill: var(--study-board-text, var(--board-text)); font-size: 11px; font-weight: 700; }
+.study-fretboard .position.is-playing .note-marker, .study-fretboard .position.playing-position .note-marker { fill: var(--study-board-note, var(--board-dot)); stroke: var(--study-board-playing, var(--board-playing)); stroke-width: 3; }
+.study-fretboard .position.root-position.is-playing .note-marker { fill: var(--study-board-root, var(--board-root)); }
+.study-fretboard .position.is-playing .position-selection, .study-fretboard .position.playing-position .position-selection { opacity: 1; stroke: var(--study-board-playing, var(--board-playing)); stroke-dasharray: 4 2; }
+.study-fretboard .position.is-quiet .position-selection { opacity: 0; }
+.study-fretboard .study-interval-link { fill: none; stroke: var(--study-board-link, var(--board-same)); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+.study-fretboard .octave-tone-0 { fill: var(--study-octave-first, #3b5939); stroke: var(--study-octave-first-line, #6e8d61); }
+.study-fretboard .octave-tone-1 { fill: var(--study-octave-second, #345768); stroke: var(--study-octave-second-line, #638d9d); }
+.study-fretboard .octave-underlay { fill-opacity: .68; stroke-opacity: .65; stroke-width: 1; }
+.study-fretboard .octave-boundary { fill-opacity: .85; stroke: none; }
+.study-octave-legend { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 12px 24px; margin-top: 17px; padding: 0 0 16px; border-bottom: 1px solid var(--border); color: var(--text-primary); }
+.study-octave-item { display: flex; align-items: flex-start; gap: 9px; min-width: 0; }
+.study-octave-item strong, .study-octave-item small { display: block; }
+.study-octave-item strong { font-size: 13px; font-weight: 600; }
+.study-octave-item small { color: var(--text-secondary); font-size: 11px; margin-top: 1px; }
+.study-octave-swatch { width: 13px; height: 25px; border-radius: 4px; flex-shrink: 0; margin-top: 3px; }
+.study-octave-item.octave-tone-0 .study-octave-swatch { background: var(--study-octave-first-swatch, light-dark(#c6d6b9, #48633e)); }
+.study-octave-item.octave-tone-1 .study-octave-swatch { background: var(--study-octave-second-swatch, light-dark(#bed8e0, #3d6877)); }
+.study-octave-description { flex-basis: 100%; margin: 0; color: var(--text-secondary); font-size: 11px; }

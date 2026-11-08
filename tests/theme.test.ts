@@ -21,14 +21,17 @@ describe('подтверждённая подсказка темы', () => {
     const listeners = new Set<() => void>();
     const media = { matches: false, addEventListener: (_: string, fn: () => void) => listeners.add(fn), removeEventListener: (_: string, fn: () => void) => listeners.delete(fn) };
     const meta = { content: '' }, picker = { value: '' };
+    const buttons = ['light', 'dark'].map(themeChoice => ({ dataset: { themeChoice }, setAttribute: vi.fn() }));
     const setItem = vi.fn(), onChange = vi.fn();
-    vi.stubGlobal('document', { documentElement: root, querySelector: (selector: string) => selector.startsWith('meta') ? meta : picker });
+    vi.stubGlobal('document', { documentElement: root, querySelector: (selector: string) => selector.startsWith('meta') ? meta : picker, querySelectorAll: () => buttons });
     vi.stubGlobal('window', { matchMedia: () => media });
     vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: () => root.dataset.theme === 'dark' ? '#151d19' : '#f5f3ec' }));
     vi.stubGlobal('localStorage', { setItem });
     const theme = createThemeController({ onChange });
     theme.setPreference('dark');
     expect(root.dataset.theme).toBe('dark'); expect(picker.value).toBe('dark');
+    expect(buttons[0].setAttribute).toHaveBeenLastCalledWith('aria-pressed', 'false');
+    expect(buttons[1].setAttribute).toHaveBeenLastCalledWith('aria-pressed', 'true');
     expect(meta.content).toBe('#151d19'); expect(onChange).toHaveBeenCalledWith('dark');
     expect(setItem).not.toHaveBeenCalled();
     theme.confirmPreference('dark');

@@ -1,0 +1,179 @@
+{
+  "format": "bass-study-design-catalogue-check",
+  "revision": "r5",
+  "executedAt": "2026-11-08T16:44:14.171Z",
+  "status": "passed",
+  "gitHead": "d0bb2d5a1cd1eebaa3d4107cd0d63a25eff40759",
+  "scope": "Read-only extraction of octaveGroups, octaveUnderlays and drawBoard into Node VM; actual pure musical model; generated markup checks without a browser, audio, storage or application startup.",
+  "oracle": {
+    "openMidi": {
+      "E": 28,
+      "A": 33,
+      "D": 38,
+      "G": 43
+    },
+    "rootPitchClasses": {
+      "C": 0,
+      "Db": 1,
+      "D": 2,
+      "Eb": 3,
+      "E": 4,
+      "F": 5,
+      "F#": 6,
+      "G": 7,
+      "Ab": 8,
+      "A": 9,
+      "Bb": 10,
+      "B": 11
+    },
+    "structureIntervals": {
+      "major": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ],
+      "natural-minor": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "major-pentatonic": [
+        0,
+        2,
+        4,
+        7,
+        9
+      ],
+      "minor-pentatonic": [
+        0,
+        3,
+        5,
+        7,
+        10
+      ],
+      "major-triad": [
+        0,
+        4,
+        7
+      ],
+      "minor-triad": [
+        0,
+        3,
+        7
+      ]
+    },
+    "completion": "Unique visible material MIDI pitches must contain every independent interval including the lower tonic and +12 upper tonic. Physical occurrences with the same MIDI do not substitute for missing pitches."
+  },
+  "inputs": {
+    "viewSha256": "1363e08741cf7f91a2e32e2712bf738e2b657fd566538791e80e55315944dc70",
+    "modelBundleSha256": "030b93b8e19dc093f1b5f7bc0db4d3588dacff1df9bacd02d093185bb0e8b56e",
+    "functionSha256": {
+      "octaveGroups": "dbea9b81f18894ea6f534a9e3b318d64abf8a030f9ae1f0859824948cc6d8029",
+      "octaveUnderlays": "2304c1257ff745fcdc281b540d41d023c789b061aa5e98e2fa2ffc421000b89a",
+      "activeNotes": "688144b71b8d89eed4eb3648af9de96505fc1d05cb6e109cee119fa01eb2c9b8",
+      "drawBoard": "263131173544c35c3f8d9fd04f9884f7a813bde18d52543394743965978c3f2f",
+      "noteLabel": "c015cfdf5b1c3a400d328b39d58c4433d0c7ef00072afeeab70a4d41cd6dbb14"
+    }
+  },
+  "ranges": [
+    [
+      0,
+      12
+    ],
+    [
+      0,
+      24
+    ]
+  ],
+  "counts": {
+    "rootStructurePairs": 72,
+    "catalogueInstances": 378,
+    "catalogueCases": 756,
+    "freeCases": 144,
+    "totalCases": 900,
+    "groups": 1461,
+    "completeGroups": 684,
+    "fragmentGroups": 777,
+    "clippedGroups": 75,
+    "groupsWithRepeatedMidi": 432,
+    "casesWithSharedBoundary": 456,
+    "sharedBoundaryPhysicalPositions": 1216,
+    "renderedBoards": 900,
+    "physicalButtons": 68400,
+    "noteCoordinateChecks": 78336,
+    "visibleBoundaryOnlyGroupsRejected": 9
+  },
+  "perStructure": {
+    "major": {
+      "catalogueInstances": 42,
+      "catalogueCases": 84,
+      "freeCases": 24
+    },
+    "natural-minor": {
+      "catalogueInstances": 42,
+      "catalogueCases": 84,
+      "freeCases": 24
+    },
+    "major-pentatonic": {
+      "catalogueInstances": 105,
+      "catalogueCases": 210,
+      "freeCases": 24
+    },
+    "minor-pentatonic": {
+      "catalogueInstances": 105,
+      "catalogueCases": 210,
+      "freeCases": 24
+    },
+    "major-triad": {
+      "catalogueInstances": 42,
+      "catalogueCases": 84,
+      "freeCases": 24
+    },
+    "minor-triad": {
+      "catalogueInstances": 42,
+      "catalogueCases": 84,
+      "freeCases": 24
+    }
+  },
+  "controls": {
+    "boundaryOnlyAfterVisibility": {
+      "root": "C",
+      "structure": "major-pentatonic",
+      "form": "penta-e:-7:E",
+      "range": [
+        3,
+        3
+      ],
+      "expectedGroupStarts": [
+        24
+      ],
+      "actualGroupStarts": [
+        24
+      ],
+      "extraTonicOnlyGroupRejected": true
+    },
+    "missingUniquePitchControls": 6,
+    "fullOctaveWithRepeatedPhysicalPitches": true,
+    "octaveToggleOff": true,
+    "invalidRange": true,
+    "emptyMaterial": true,
+    "additionalCases": {
+      "total": 11,
+      "withGeneratedMarkup": 8,
+      "pureGuardChecks": 3
+    }
+  },
+  "limitations": [
+    "No browser/computed-style or actual interaction validation in this report.",
+    "Catalogue membership is supplied by the current product model; this checks grouping against independent MIDI arithmetic, not a separate reconstruction of fingering catalogues."
+  ],
+  "countScope": "counts and perStructure describe the 900-case primary sweep only. Additional controls are counted separately."
+}

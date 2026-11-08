@@ -25,7 +25,7 @@ async function ready(page) { await page.waitForFunction(() => document.querySele
 async function openInput(page) { await ready(page); await page.locator('[data-app-module="input"]').click(); await page.getByTestId('input-status').waitFor(); }
 async function stateIs(page, state) { await page.waitForFunction(state => document.querySelector('#input-mount')?.dataset.inputState === state, state); }
 async function connectUi(page, context, origin) { await allow(context, origin); await action(page, 'connect').click(); await stateIs(page, 'running'); await page.waitForFunction(() => document.querySelector('[data-testid="input-note"]').textContent !== '—'); }
-async function openHistory(page) { const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await drawer.locator('summary').first().click(); await page.getByLabel('Название пресета', { exact: true }).waitFor(); }
+async function openHistory(page) { const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click(); await page.getByLabel('Название пресета', { exact: true }).waitFor(); }
 async function saved(page) { await page.waitForFunction(() => document.querySelector('[data-testid="history-save-status"]')?.dataset.status === 'saved'); }
 async function exportUi(page) { await openHistory(page); const downloading = page.waitForEvent('download'); await page.locator('[data-history-action="export"]').click(); const download = await downloading; return JSON.parse(await readFile(await download.path(), 'utf8')); }
 

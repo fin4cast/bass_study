@@ -338,7 +338,7 @@ describe('обычные JSON-значения без побочных эффе�
 describe('настройки и пресеты', () => {
   it('defaults соответствуют реальным экранным настройкам и полному фрагменту', () => {
     const result = validatePreferences(DEFAULT_PREFERENCES);
-    expect(result.study).toMatchObject({ root: 'A', structureId: 'minor-pentatonic', strings: ['G', 'D', 'A', 'E'], fretMin: 5, fretMax: 8, box: { shapeId: 'penta-a', anchorFret: 5 } });
+    expect(result.study).toMatchObject({ root: 'A', structureId: 'minor-pentatonic', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12, box: { shapeId: 'penta-a', anchorFret: 5 } });
     expect(result.training).toMatchObject({ mode: 'study', quizMode: 'name-note', count: 10, pattern: 'ascending', reviewPositionIds: [] });
     expect(result.player).toMatchObject({ bpm: 80, duration: 'eighth', repeat: 'once', from: null, to: null, ladderStart: 60, ladderEnd: 100, bassVolume: 70, clickVolume: 50 });
     expect(result).not.toBe(DEFAULT_PREFERENCES);

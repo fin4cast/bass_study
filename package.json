@@ -25,7 +25,8 @@
     "docs:check": "node scripts/check-docs.mjs",
     "build": "npm run check && vite build",
     "start": "node scripts/serve.mjs",
-    "test:uiux": "node tests/uiux-browser.mjs"
+    "test:uiux": "node tests/uiux-browser.mjs",
+    "test:design": "node tests/design-browser.mjs"
   },
   "devDependencies": {
     "playwright": "1.65.0",

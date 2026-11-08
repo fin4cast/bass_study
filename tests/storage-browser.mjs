@@ -310,7 +310,7 @@ async function revealControl(locator) {
 async function openHistory(page) {
   await uiReady(page);
   const drawer = page.locator('.history-drawer');
-  if (!await drawer.evaluate(element => element.open)) await drawer.locator('summary').first().click();
+  if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click();
   await page.getByLabel('Название пресета', { exact: true }).waitFor({ state: 'visible' });
 }
 async function uiBackup(page) {

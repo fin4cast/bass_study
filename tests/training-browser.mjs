@@ -334,7 +334,7 @@ async function selectCompactC(page) {
   await page.getByLabel('Тоника', { exact: true }).selectOption('C');
   await page.getByLabel('Структура', { exact: true }).selectOption('major-triad');
   const box = page.getByLabel('Учебная форма', { exact: true });
-  const value = await box.locator('option').evaluateAll(nodes => nodes.find(node => /Тоника C · лад 8$/.test(node.textContent))?.value);
+  const value = await box.locator('option').evaluateAll(nodes => nodes.find(node => /Тоника C · лад 8 · E$/.test(node.textContent))?.value);
   assert.ok(value, 'The public catalogue must explicitly name tonic C and fret8'); await box.selectOption(value);
 }
 
@@ -369,7 +369,7 @@ check('interval-explicitly-uses-full-chromatic-range-and-keeps-spelling', async 
   await selectCompactC(page); await page.getByRole('button', { name: 'Задания', exact: true }).click();
   await page.getByLabel('Тип задания', { exact: true }).selectOption('find-interval');
   await disclose(page, '[data-training-details="quiz"]');
-  await page.getByLabel('Интервал от тоники', { exact: true }).selectOption('b5');
+  await page.getByRole('combobox', { name: 'Интервал от тоники', exact: true }).selectOption('b5');
   assert.match(await page.getByTestId('training-content').innerText(), /хроматические позиции|бокса временно отключены/);
   await start(page); const ids = await page.getByTestId('quiz-answer-board').locator('[data-answer-position]').evaluateAll(nodes => nodes.map(node => node.dataset.answerPosition));
   assert.ok(ids.includes('A:9') && ids.length > 4, 'F-sharp/G-flat A9 is outside the exact triad form but inside the chromatic rectangle');

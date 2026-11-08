@@ -36,7 +36,7 @@ async function setupUi(page, files = uiFiles()) {
 }
 async function stateIs(page, value) { await page.waitForFunction(value => document.querySelector('#tracks-mount')?.dataset.tracksState === value, value, { polling: 20 }); }
 async function fieldValue(page, label, value) { const field = page.getByLabel(label, { exact: true }); await field.fill(String(value)); await field.press('Tab'); }
-async function openHistory(page) { await ready(page); const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await drawer.locator('summary').first().click(); await page.getByLabel('Название пресета', { exact: true }).waitFor(); }
+async function openHistory(page) { await ready(page); const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click(); await page.getByLabel('Название пресета', { exact: true }).waitFor(); }
 async function exportUi(page) { await openHistory(page); const pending = page.waitForEvent('download'); await page.locator('[data-history-action="export"]').click(); const download = await pending; return JSON.parse(await readFile(await download.path(), 'utf8')); }
 async function restoreUi(page, backup) {
   await openHistory(page); await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name: 'tracks-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });

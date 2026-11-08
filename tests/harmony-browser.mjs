@@ -35,7 +35,7 @@ async function setupUi(page, { bpm = 120, countIn = false, repeat = 'infinite' }
   await page.getByLabel('Повтор сопровождения', { exact: true }).selectOption(repeat); await page.getByLabel('Отсчёт сопровождения', { exact: true }).setChecked(countIn);
 }
 async function saved(page) { await page.waitForFunction(() => document.querySelector('[data-testid="history-save-status"]')?.dataset.status === 'saved'); }
-async function openHistory(page) { await ready(page); const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await drawer.locator('summary').first().click(); await page.getByLabel('Название пресета', { exact: true }).waitFor(); }
+async function openHistory(page) { await ready(page); const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click(); await page.getByLabel('Название пресета', { exact: true }).waitFor(); }
 async function exportUi(page) { await openHistory(page); const downloading = page.waitForEvent('download'); await page.locator('[data-history-action="export"]').click(); const download = await downloading; return JSON.parse(await readFile(await download.path(), 'utf8')); }
 
 check('pcm-four-bars-have-sixteen-independent-bass-pitches-clicks-and-pad-triads', 'api', async ({ page }) => {
