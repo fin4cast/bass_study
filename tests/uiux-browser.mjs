@@ -57,7 +57,7 @@ async function assertFourStringsPerPart(page) {
 }
 async function sequence(page) {
   await module(page, 'foundation'); await page.locator('[data-training-mode="sequence"]').click();
-  await page.getByLabel('Повтор', { exact: true }).selectOption('infinite');
+  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite');
   await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
 }
 

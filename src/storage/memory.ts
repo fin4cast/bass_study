@@ -26,7 +26,7 @@ export function createMemoryStudyStore() {
     return { snapshot: imported, presets: imported.presets.length, history: imported.history.length, requiresConfirmation: true as const, replacement: 'full' as const };
   }
   return {
-    open: () => enqueue(() => ({ name: 'bass-study-memory', version: 6 })),
+    open: () => enqueue(() => ({ name: 'bass-study-memory', version: 7 })),
     readSnapshot: (_options: { fresh?: boolean } = {}) => enqueue(() => snapshot),
     async saveProfile(profile: GlobalProfile) { const validated = validateProfile(profile); return enqueue(() => { snapshot = Object.freeze({ ...snapshot, profile: validated }); }); },
     async upsertPracticeDraft(draft: PracticeDraft) { const validated = validatePracticeDraft(draft); return enqueue(() => { const merged = mergePracticeDraft(snapshot.practiceDrafts.find(item => item.id === validated.id), validated); remember('practiceDrafts', merged); return merged; }); },

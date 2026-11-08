@@ -5,3 +5,4 @@ test-results/
 playwright-report/
 experiments/p1/results/
 *.log
+public/vendor/music-bank/

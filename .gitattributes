@@ -1,0 +1,3 @@
+# Снимки P10 сохраняют исходные байты для проверки SHA-256.
+docs/verification/P10*.json -text
+docs/verification/P10*.tap -text

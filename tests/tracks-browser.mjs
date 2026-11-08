@@ -32,9 +32,10 @@ const tracksAction = (page, name) => page.locator(`[data-tracks-action="${name}"
 async function ready(page) { await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert); const free = page.locator('[data-intro="free"]'); if (await free.isVisible()) await free.click(); }
 async function setupUi(page, files = uiFiles()) {
   await ready(page); await page.locator('[data-app-module="tracks"]').click();
-  if (files) { await page.getByLabel('Новый набор аудиофайлов', { exact: true }).setInputFiles(files); await page.waitForFunction(() => document.querySelector('#tracks-mount')?.dataset.tracksReady === 'true'); }
+  await page.locator('[data-bank-view="audio"]').click();
+  if (files) { await page.getByLabel('Новый набор аудиофайлов', { exact: true }).setInputFiles(files); await page.waitForFunction(() => document.querySelector('#legacy-tracks-mount')?.dataset.tracksReady === 'true'); }
 }
-async function stateIs(page, value) { await page.waitForFunction(value => document.querySelector('#tracks-mount')?.dataset.tracksState === value, value, { polling: 20 }); }
+async function stateIs(page, value) { await page.waitForFunction(value => document.querySelector('#legacy-tracks-mount')?.dataset.tracksState === value, value, { polling: 20 }); }
 async function fieldValue(page, label, value) { const field = page.getByLabel(label, { exact: true }); await field.fill(String(value)); await field.press('Tab'); }
 async function openHistory(page) { await ready(page); const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click(); await page.getByLabel('Название пресета', { exact: true }).waitFor(); }
 async function exportUi(page) { await openHistory(page); const pending = page.waitForEvent('download'); await page.locator('[data-history-action="export"]').click(); const download = await pending; return JSON.parse(await readFile(await download.path(), 'utf8')); }
@@ -194,13 +195,13 @@ check('live-early-pause-and-disposal-cancel-voices-and-release-decoded-bindings'
 
 check('ui-local-file-selection-shows-shared-material-and-clear-scope-limits', 'ui', async ({ page }) => {
   await setupUi(page, null); assert.ok(await page.getByTestId('tracks-empty').isVisible());
-  assert.match(await page.locator('#tracks-mount').innerText(), /автоматического выравнивания.*нет/);
-  assert.match(await page.locator('#tracks-mount .tracks-intro').innerText(), /четырёх.*64 МиБ/);
-  await page.getByLabel('Новый набор аудиофайлов', { exact: true }).setInputFiles(uiFiles()); await page.waitForFunction(() => document.querySelector('#tracks-mount')?.dataset.tracksReady === 'true');
+  assert.match(await page.locator('#legacy-tracks-mount').innerText(), /автоматического выравнивания.*нет/);
+  assert.match(await page.locator('#legacy-tracks-mount .tracks-intro').innerText(), /четырёх.*64 МиБ/);
+  await page.getByLabel('Новый набор аудиофайлов', { exact: true }).setInputFiles(uiFiles()); await page.waitForFunction(() => document.querySelector('#legacy-tracks-mount')?.dataset.tracksReady === 'true');
   assert.equal(await page.locator('[data-track-id]').count(), 2); assert.equal(await page.locator('[data-track-bound="true"]').count(), 2);
   assert.match(await page.getByTestId('tracks-rate-warning').innerText(), /исходная высота.*B исключается.*тишиной/);
   assert.equal(await page.getByLabel('Начало фрагмента A', { exact: true }).inputValue(), '0'); assert.equal(await page.getByLabel('Конец фрагмента B', { exact: true }).inputValue(), '2');
-  const copy = await exportUi(page); assert.equal(copy.schemaVersion, 6); assert.equal(copy.preferences.activeModule, 'tracks'); assert.equal(copy.preferences.tracks.tracks.length, 2);
+  const copy = await exportUi(page); assert.equal(copy.schemaVersion, 7); assert.equal(copy.preferences.activeModule, 'tracks'); assert.equal(copy.preferences.tracks.tracks.length, 2);
   assert.ok(await page.getByTestId('manual-unavailable').isVisible());
   assert.ok(await page.locator('[data-history-action="save-manual"]').isHidden());
   return { loadStatus: await page.getByTestId('tracks-load-status').innerText(), manifest: copy.preferences.tracks, externalUploadRequests: 0 };
@@ -213,7 +214,7 @@ check('ui-exact-native-B-and-subsecond-fragment-show-hundredths-without-truncati
   const validity = await end.evaluate(input => ({ valid: input.validity.valid, mismatch: input.validity.stepMismatch, overflow: input.validity.rangeOverflow, value: input.value, max: input.max }));
   assert.equal(validity.valid, true); assert.equal(validity.mismatch, false); assert.equal(validity.overflow, false);
   near(Number(validity.value), duration, 1e-12); assert.equal(validity.value, validity.max);
-  assert.match(await page.locator('#tracks-mount').innerText(), /Минимум фрагмента — 0,05 с/);
+  assert.match(await page.locator('#legacy-tracks-mount').innerText(), /Минимум фрагмента — 0,05 с/);
   await fieldValue(page, 'Начало фрагмента A', .1); await fieldValue(page, 'Конец фрагмента B', .36);
   await tracksAction(page, 'play').click(); await stateIs(page, 'finished');
   assert.equal(await page.getByTestId('tracks-position').innerText(), '0:00,36 / 0:02,73');
@@ -229,12 +230,12 @@ check('ui-set-A-and-B-here-captures-position-and-never-resumes-implicitly', 'ui'
   assert.equal(await page.getByLabel('Начало фрагмента A', { exact: true }).inputValue(), '0.25');
   await seek.fill('.7'); await seek.press('Tab'); await tracksAction(page, 'to-here').click();
   assert.equal(await page.getByLabel('Конец фрагмента B', { exact: true }).inputValue(), '0.7');
-  assert.notEqual(await page.locator('#tracks-mount').getAttribute('data-tracks-state'), 'playing');
+  assert.notEqual(await page.locator('#legacy-tracks-mount').getAttribute('data-tracks-state'), 'playing');
   await tracksAction(page, 'full-clip').click(); await tracksAction(page, 'play').click(); await stateIs(page, 'playing');
   await page.waitForFunction(() => Number(document.querySelector('[data-tracks-setting="seek"]').value) > .2);
   await tracksAction(page, 'from-here').click(); await stateIs(page, 'paused');
   const captured = Number(await page.getByLabel('Начало фрагмента A', { exact: true }).inputValue()); assert.ok(captured > .2 && captured < 1.5);
-  await delay(150); assert.equal(await page.locator('#tracks-mount').getAttribute('data-tracks-state'), 'paused');
+  await delay(150); assert.equal(await page.locator('#legacy-tracks-mount').getAttribute('data-tracks-state'), 'paused');
   assert.match(await page.getByTestId('tracks-notice').innerText(), /на паузе/);
   const copy = await exportUi(page); near(copy.preferences.tracks.clip.from, captured, 1e-12);
   return { stoppedClip: [.25, .7], liveCapturedA: captured, noImplicitResume: true };
@@ -296,12 +297,12 @@ check('ui-live-mute-seek-pause-and-module-leave-preserve-one-common-timeline', '
 check('ui-reload-keeps-only-metadata-and-rebinds-renamed-source-by-sha-not-name', 'ui', async ({ page }) => {
   await setupUi(page); const copy = await exportUi(page), portable = copy.preferences.tracks;
   await page.reload(); await ready(page); await page.getByTestId('tracks-missing').waitFor();
-  assert.equal(await page.locator('#tracks-mount').getAttribute('data-tracks-ready'), 'false'); assert.equal(await page.locator('[data-track-bound="false"]').count(), 2); assert.ok(await tracksAction(page, 'play').isDisabled());
+  assert.equal(await page.locator('#legacy-tracks-mount').getAttribute('data-tracks-ready'), 'false'); assert.equal(await page.locator('[data-track-bound="false"]').count(), 2); assert.ok(await tracksAction(page, 'play').isDisabled());
   assert.match(await page.getByTestId('tracks-missing').innerText(), /SHA-256.*JSON нет|SHA-256.*размер|только названия/);
   await page.getByLabel('Исходный файл дорожки 1', { exact: true }).setInputFiles(wavPayload({ name: 'long.wav', duration: 2, frequency: 56 }));
   await page.getByTestId('tracks-error').waitFor({ state: 'visible' }); assert.match(await page.getByTestId('tracks-error').innerText(), /SHA-256/); assert.equal(await page.locator('[data-track-bound="true"]').count(), 0);
-  await page.getByLabel('Исходный файл дорожки 1', { exact: true }).setInputFiles(wavPayload({ name: 'renamed.wav', duration: 2, frequency: 55 })); await page.waitForFunction(() => document.querySelector('#tracks-mount').dataset.tracksBound === '1');
-  assert.ok(await tracksAction(page, 'play').isDisabled()); await page.getByLabel('Исходный файл дорожки 2', { exact: true }).setInputFiles(wavPayload({ name: 'renamed-short.wav', duration: .75, frequency: 110 })); await page.waitForFunction(() => document.querySelector('#tracks-mount').dataset.tracksReady === 'true');
+  await page.getByLabel('Исходный файл дорожки 1', { exact: true }).setInputFiles(wavPayload({ name: 'renamed.wav', duration: 2, frequency: 55 })); await page.waitForFunction(() => document.querySelector('#legacy-tracks-mount').dataset.tracksBound === '1');
+  assert.ok(await tracksAction(page, 'play').isDisabled()); await page.getByLabel('Исходный файл дорожки 2', { exact: true }).setInputFiles(wavPayload({ name: 'renamed-short.wav', duration: .75, frequency: 110 })); await page.waitForFunction(() => document.querySelector('#legacy-tracks-mount').dataset.tracksReady === 'true');
   assert.deepEqual((await exportUi(page)).preferences.tracks, portable); await tracksAction(page, 'play').click(); await stateIs(page, 'playing'); await tracksAction(page, 'stop').click();
   return { metadataUnchanged: portable, wrongContentRejected: true, renamedExactFilesAccepted: true, originalFilenameNotAnIdentityKey: true };
 });
@@ -310,9 +311,9 @@ check('ui-json-restore-stops-playback-and-requires-source-files-again', 'ui', as
   await setupUi(page); await fieldValue(page, 'Начало фрагмента A', .25); await page.getByLabel('Повторять аудиофрагмент', { exact: true }).check(); const copy = await exportUi(page);
   assert.ok(!/data:audio|blob:|base64|channelData|arrayBuffer/.test(JSON.stringify(copy.preferences.tracks)));
   await tracksAction(page, 'play').click(); await stateIs(page, 'playing'); await restoreUi(page, copy);
-  await stateIs(page, 'stopped'); assert.ok(await page.getByTestId('tracks-missing').isVisible()); assert.ok(await tracksAction(page, 'play').isDisabled()); assert.equal(await page.locator('#tracks-mount').getAttribute('data-tracks-bound'), '0');
+  await stateIs(page, 'stopped'); assert.ok(await page.getByTestId('tracks-missing').isVisible()); assert.ok(await tracksAction(page, 'play').isDisabled()); assert.equal(await page.locator('#legacy-tracks-mount').getAttribute('data-tracks-bound'), '0');
   const restored = await exportUi(page); assert.deepEqual(restored, copy);
-  await page.getByLabel('Привязать исходные файлы', { exact: true }).setInputFiles(uiFiles()); await page.waitForFunction(() => document.querySelector('#tracks-mount').dataset.tracksReady === 'true'); await tracksAction(page, 'play').click(); await stateIs(page, 'playing'); await tracksAction(page, 'stop').click();
+  await page.getByLabel('Привязать исходные файлы', { exact: true }).setInputFiles(uiFiles()); await page.waitForFunction(() => document.querySelector('#legacy-tracks-mount').dataset.tracksReady === 'true'); await tracksAction(page, 'play').click(); await stateIs(page, 'playing'); await tracksAction(page, 'stop').click();
   return { metadataOnlyJson: true, restoredManifest: restored.preferences.tracks, restoreStoppedAndDiscardedBuffers: true, bulkRebindSucceeded: true };
 });
 
@@ -336,9 +337,9 @@ check('ui-errors-and-explicit-load-cancellation-preserve-the-previous-ready-set'
 check('native-hidden-tab-pauses-real-tracks-and-needs-explicit-resume', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
   await setupUi(page); await page.getByLabel('Повторять аудиофрагмент', { exact: true }).check(); await tracksAction(page, 'play').click(); await stateIs(page, 'playing'); await delay(250);
   const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront();
-  await page.waitForFunction(() => document.hidden && document.querySelector('#tracks-mount')?.dataset.tracksState === 'paused');
+  await page.waitForFunction(() => document.hidden && document.querySelector('#legacy-tracks-mount')?.dataset.tracksState === 'paused');
   await page.bringToFront(); await page.waitForFunction(() => !document.hidden); await delay(100); const paused = Number(await page.getByLabel('Позиция аудиофрагмента', { exact: true }).inputValue());
-  await delay(200); assert.equal(await page.locator('#tracks-mount').getAttribute('data-tracks-state'), 'paused'); near(Number(await page.getByLabel('Позиция аудиофрагмента', { exact: true }).inputValue()), paused, .000001); assert.match(await page.getByTestId('tracks-play-status').innerText(), /скрывалась.*явно/);
+  await delay(200); assert.equal(await page.locator('#legacy-tracks-mount').getAttribute('data-tracks-state'), 'paused'); near(Number(await page.getByLabel('Позиция аудиофрагмента', { exact: true }).inputValue()), paused, .000001); assert.match(await page.getByTestId('tracks-play-status').innerText(), /скрывалась.*явно/);
   await tracksAction(page, 'play').click(); await stateIs(page, 'playing'); await page.waitForFunction(paused => Number(document.querySelector('[data-tracks-setting="seek"]').value) > paused + .1, paused);
   await tracksAction(page, 'stop').click(); await stateIs(page, 'stopped'); await other.close();
   return { realNativeVisibilityTransition: true, pausePosition: paused, noSyntheticVisibilityEvent: true, explicitResumeRequired: true };

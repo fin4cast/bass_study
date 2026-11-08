@@ -53,7 +53,7 @@ async function setupUi(page, { last = 3, bpm = 120, repeat = 'infinite', countIn
   await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
   await page.getByLabel('Темп, BPM', { exact: true }).fill(String(bpm));
   await page.getByLabel('Длительность нот', { exact: true }).selectOption(duration);
-  await page.getByLabel('Повтор', { exact: true }).selectOption(repeat);
+  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption(repeat);
   await page.getByLabel('Отсчёт перед стартом', { exact: true }).setChecked(countIn);
 }
 

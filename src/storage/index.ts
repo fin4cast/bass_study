@@ -5,6 +5,7 @@ import {
   migrateV3Preferences, migrateV3Preset, migrateV3HistoryEntry,
   migrateV4Preferences, migrateV4Preset, migrateV4HistoryEntry,
   migrateV5Preferences, migrateV5Preset, migrateV5HistoryEntry,
+  migrateV6Preferences, migrateV6Preset, migrateV6HistoryEntry,
   DEFAULT_PROFILE, validateProfile, validatePracticeDraft, mergePracticeDraft, applyDraftDrain,
   type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
 } from './model';
@@ -12,7 +13,7 @@ import {
 export * from './model';
 export { createMemoryStudyStore } from './memory';
 export const STUDY_DB_NAME = 'bass-study';
-export const STUDY_DB_VERSION = 6;
+export const STUDY_DB_VERSION = 7;
 const STORES = ['preferences', 'presets', 'history', 'profile', 'practiceDrafts'] as const;
 
 function storageError(error: unknown): StudyStorageError {
@@ -55,15 +56,16 @@ export function createStudyStore() {
         if (!db.objectStoreNames.contains('history')) db.createObjectStore('history', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('profile')) db.createObjectStore('profile');
         if (!db.objectStoreNames.contains('practiceDrafts')) db.createObjectStore('practiceDrafts', { keyPath: 'id' });
-        request.transaction!.objectStore('profile').put(DEFAULT_PROFILE, 'current');
-        if (event.oldVersion >= 1 && event.oldVersion <= 5) {
+        if (event.oldVersion < 6) request.transaction!.objectStore('profile').put(DEFAULT_PROFILE, 'current');
+        if (event.oldVersion >= 1 && event.oldVersion <= 6) {
           const transaction = request.transaction!;
           const migrations = event.oldVersion === 1
             ? { preferences: migrateV1Preferences, presets: migrateV1Preset, history: migrateV1HistoryEntry }
             : event.oldVersion === 2 ? { preferences: migrateV2Preferences, presets: migrateV2Preset, history: migrateV2HistoryEntry }
             : event.oldVersion === 3 ? { preferences: migrateV3Preferences, presets: migrateV3Preset, history: migrateV3HistoryEntry }
             : event.oldVersion === 4 ? { preferences: migrateV4Preferences, presets: migrateV4Preset, history: migrateV4HistoryEntry }
-            : { preferences: migrateV5Preferences, presets: migrateV5Preset, history: migrateV5HistoryEntry };
+            : event.oldVersion === 5 ? { preferences: migrateV5Preferences, presets: migrateV5Preset, history: migrateV5HistoryEntry }
+            : { preferences: migrateV6Preferences, presets: migrateV6Preset, history: migrateV6HistoryEntry };
           let aborted = false;
           for (const name of ['preferences', 'presets', 'history'] as const) {
             const cursorRequest = transaction.objectStore(name).openCursor();
@@ -72,6 +74,17 @@ export function createStudyStore() {
               const cursor = cursorRequest.result;
               if (!cursor) return;
               try { cursor.update(migrations[name](cursor.value)); cursor.continue(); }
+              catch (error) { aborted = true; migrationFailure = error; transaction.abort(); }
+            };
+          }
+          // Версия 6 уже владеет этими данными: проверить, не перезаписывая.
+          if (event.oldVersion === 6) for (const name of ['profile', 'practiceDrafts'] as const) {
+            const cursorRequest = transaction.objectStore(name).openCursor();
+            cursorRequest.onsuccess = () => {
+              if (aborted) return;
+              const cursor = cursorRequest.result;
+              if (!cursor) return;
+              try { if (name === 'profile') validateProfile(cursor.value); else validatePracticeDraft(cursor.value); cursor.continue(); }
               catch (error) { aborted = true; migrationFailure = error; transaction.abort(); }
             };
           }
@@ -123,7 +136,7 @@ export function createStudyStore() {
       requestValue<unknown>(transaction.objectStore('profile').get('current')),
       requestValue<unknown[]>(transaction.objectStore('practiceDrafts').getAll()), done,
     ]);
-    const snapshot = validateSnapshot({ format: 'bass-study-backup', schemaVersion: 6, preferences: preferences ?? DEFAULT_PREFERENCES, presets, history, profile: profile ?? DEFAULT_PROFILE, practiceDrafts });
+    const snapshot = validateSnapshot({ format: 'bass-study-backup', schemaVersion: 7, preferences: preferences ?? DEFAULT_PREFERENCES, presets, history, profile: profile ?? DEFAULT_PROFILE, practiceDrafts });
     if (database === db) cachedSnapshot = snapshot;
     return snapshot;
   }

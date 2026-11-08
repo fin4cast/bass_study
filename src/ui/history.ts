@@ -105,7 +105,11 @@ function presetDescription(preferences: AppPreferences): string {
   const { activeModule, study, training, player } = preferences;
   if (activeModule === 'ear') return `Слух · ${preferences.ear.root} · ${preferences.ear.quality === 'major' ? 'мажорное' : 'минорное'} трезвучие · ${preferences.ear.count} вопросов · ${preferences.ear.bpm} BPM`;
   if (activeModule === 'harmony') return `Аккомпанемент C–F–G–C · бас 1–3–5–3 · ${preferences.harmony.bpm} BPM`;
-  if (activeModule === 'tracks') return preferences.tracks ? `Личные записи · ${preferences.tracks.tracks.map(track => track.name).join(', ')} · фрагмент ${preferences.tracks.clip.from}–${preferences.tracks.clip.to} с · скорость ×${preferences.tracks.rate}. Исходные файлы выбираются заново.` : 'Личные записи · набор не выбран';
+  if (activeModule === 'tracks') {
+    const bank = preferences.musicBank;
+    if (bank?.file) return `Табулатура и ноты · ${bank.file.artist ? bank.file.artist + ' — ' : ''}${bank.file.title || bank.file.name} · ${bank.tracks.length} партий · скорость ×${bank.speed}. Исходный файл выбирается заново.`;
+    return preferences.tracks ? `Личные записи · ${preferences.tracks.tracks.map(track => track.name).join(', ')} · фрагмент ${preferences.tracks.clip.from}–${preferences.tracks.clip.to} с · скорость ×${preferences.tracks.rate}. Исходные файлы выбираются заново.` : 'Табулатура и ноты · материал не выбран';
+  }
   if (activeModule === 'input') return `Аудиовход · ${preferences.input.deviceId ? 'сохранённый выбор устройства' : 'устройство по умолчанию'} · подключение только по кнопке`;
   if (activeModule === 'route') return 'Маршрут C major · гриф → слух → практика · 10 активных минут';
   const mode = training.mode === 'study' ? 'Изучение грифа' : training.mode === 'quiz' ? `Задания: ${MODE_NAMES[training.quizMode]}` : `Последовательности · ${player.bpm} BPM`;

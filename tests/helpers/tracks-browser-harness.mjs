@@ -10,7 +10,7 @@ import { createServer } from 'vite';
 
 const loopback = url => ['localhost', '127.0.0.1', '[::1]'].includes(new URL(url).hostname);
 
-export async function runTracksBrowserChecks(checks) {
+export async function runTracksBrowserChecks(checks, suite = {}) {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   const origin = 'http://localhost:4173';
   const fixtureOrigin = 'http://127.0.0.1:4193';
@@ -20,7 +20,7 @@ export async function runTracksBrowserChecks(checks) {
   const report = {
     generatedAt: new Date().toISOString(), platform: process.platform, architecture: process.arch,
     node: process.version, browserChannel: 'msedge', browserVersion: null, origin, fixtureOrigin,
-    scope: 'R019 actual decoded local WAV PCM, shared stem timeline, live playback and Tracks UI; physical output muted, no hardware latency measurement.',
+    scope: suite.scope ?? 'R019 actual decoded local WAV PCM, shared stem timeline, live playback and Tracks UI; physical output muted, no hardware latency measurement.',
     networkIsolation: 'Fresh Edge contexts with cache disabled; non-loopback page HTTP requests aborted. No user profile or Windows network adapter change.',
     staticServer: { reuseRequested, owned: false, mode: 'not-started' },
     checks: [], externalRequests: [], pageErrors: [], cleanupErrors: [],
@@ -172,8 +172,9 @@ export async function runTracksBrowserChecks(checks) {
     report.failed = report.checks.filter(check => check.status === 'failed').length;
     report.status = !report.setupError && report.failed === 0 && report.cleanupErrors.length === 0 ? 'passed' : 'failed';
     await mkdir(resultDir, { recursive: true });
-    await writeFile(join(resultDir, 'p7-tracks-edge.json'), JSON.stringify(report, null, 2) + '\n');
-    console.log(`${report.status}: ${report.passed} passed, ${report.failed} failed; report test-results/p7-tracks-edge.json`);
+    const reportFile = suite.reportFile ?? 'p7-tracks-edge.json';
+    await writeFile(join(resultDir, reportFile), JSON.stringify(report, null, 2) + '\n');
+    console.log(`${report.status}: ${report.passed} passed, ${report.failed} failed; report test-results/${reportFile}`);
     process.exitCode = report.status === 'passed' ? 0 : 1;
   }
 }

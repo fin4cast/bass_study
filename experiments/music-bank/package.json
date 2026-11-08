@@ -1,0 +1,16 @@
+{
+  "name": "bass-study-music-bank-probe",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "postinstall": "node prepare-vendor.mjs",
+    "prepare:vendor": "node prepare-vendor.mjs",
+    "inspect": "node inspect.mjs",
+    "start": "node server.mjs",
+    "test:browser": "node browser-check.mjs"
+  },
+  "dependencies": {
+    "@coderline/alphatab": "1.9.0"
+  }
+}

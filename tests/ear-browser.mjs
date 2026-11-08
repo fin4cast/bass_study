@@ -224,7 +224,7 @@ check('ui-ear-preferences-and-three-route-links-persist-without-fret-filter-depe
 
 check('ui-ear-history-filter-counts-reload-and-backup-replacement-stay-separate', 'ui', async ({ page }) => {
   await configure(page); await start(page); const oracle = await fullListen(page); await choice(page, oracle.degree).click(); await action(page, 'next').click();
-  const exported = await exportUi(page); assert.equal(exported.schemaVersion, 6); assert.equal(exported.history[0].result.kind, 'ear');
+  const exported = await exportUi(page); assert.equal(exported.schemaVersion, 7); assert.equal(exported.history[0].result.kind, 'ear');
   assert.match(await page.getByTestId('ear-history-summary').innerText(), /Слух — отдельно/); assert.match(await page.getByTestId('ear-history-summary').innerText(), /1 самостоятельных/);
   await page.getByLabel('Тип записей истории', { exact: true }).selectOption('screen'); assert.equal(await page.getByTestId('history-list').locator('[data-history-entry]').count(), 0);
   await page.getByLabel('Тип записей истории', { exact: true }).selectOption('ear'); assert.equal(await page.getByTestId('history-list').locator('[data-history-kind="ear"]').count(), 1);
@@ -299,7 +299,7 @@ check('guided-route-shares-exact-material-and-links-screen-ear-results', 'ui', a
   assert.deepEqual(await page.getByTestId('sequence-route').locator('[data-sequence-position]').evaluateAll(nodes => nodes.map(node => node.dataset.sequencePosition)), expectedIds);
   assert.equal(await page.getByLabel('Длительность нот', { exact: true }).inputValue(), 'quarter');
   assert.equal(await page.getByLabel('Темп, BPM', { exact: true }).inputValue(), '60');
-  assert.equal(await page.getByLabel('Повтор', { exact: true }).inputValue(), 'infinite');
+  assert.equal(await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).inputValue(), 'infinite');
   assert.ok(await page.getByLabel('Отсчёт перед стартом', { exact: true }).isChecked());
   await routeAction(page, 'stop').click(); const exported = await exportUi(page);
   const route = exported.history.find(entry => entry.result.kind === 'route'); const screen = exported.history.find(entry => entry.result.kind === 'screen'); const ear = exported.history.find(entry => entry.result.kind === 'ear');

@@ -1,0 +1,4471 @@
+{
+  "generatedAt": "2026-11-08T17:45:21.212Z",
+  "manifest": {
+    "format": "bass-study-alphatab-local-patch",
+    "version": 1,
+    "upstream": {
+      "package": "@coderline/alphatab",
+      "version": "1.9.0",
+      "coreSha256": "7d5e9412c6d0a692c569f4b8a1afda0ef76be044f2538e6f8f43e907a2cf588e",
+      "license": "MPL-2.0"
+    },
+    "channelLayout": "music-bank-channels-v1",
+    "modifiedCoreSha256": "a9098da4f6c70a21868f923181f8a13ff2237eb1dfec74d9e4e841532e739a71",
+    "helperSha256": "67ae0f302353a52d203688b262a230035c3c1765fd10f350c80199cc2ef478bf",
+    "changes": [
+      {
+        "name": "Импорт единой модели виртуальных каналов",
+        "occurrences": 1
+      },
+      {
+        "name": "Обобщённый предикат ударных",
+        "occurrences": 1
+      },
+      {
+        "name": "consolidate: отдельные каналы всех партий",
+        "occurrences": 1
+      },
+      {
+        "name": "Sequencer: программы мелодических инструментов",
+        "occurrences": 1
+      },
+      {
+        "name": "Sequencer: загрузка сэмплов всех ударных",
+        "occurrences": 1
+      },
+      {
+        "name": "Live transpose: звучащие ударные",
+        "occurrences": 2
+      },
+      {
+        "name": "Synth: выбор drum bank и program fallback",
+        "occurrences": 1
+      },
+      {
+        "name": "GPIF: значок ударных",
+        "occurrences": 1
+      },
+      {
+        "name": "SoundFont exclusive class ограничена своей партией",
+        "occurrences": 1
+      },
+      {
+        "name": "MIDI note-on velocity0 гасит ноту только своего канала",
+        "occurrences": 1
+      }
+    ],
+    "assets": [
+      {
+        "path": "alphaTab.js",
+        "sourceSha256": "0f4bf9f02bce1b81fd8b029a84cdd18d5340cb31b9f232f6b7cc9c278c52ff8a",
+        "sha256": "414a19d9885a325c690114ddbdd027442337b870cc655e4be4ccd6bedacf76e7"
+      },
+      {
+        "path": "alphaTab.worker.js",
+        "sourceSha256": "fc0bcc606840dc22d0328a0d1cf213c2b430e69ee4618403d77edc657cb05d5f",
+        "sha256": "967d2c5ea0750d7ffd65219c39f778545e2ea4097a43a1ce3254ed73571819ab"
+      },
+      {
+        "path": "alphaTab.worklet.js",
+        "sourceSha256": "b69937dcd2a2cd32ac193b52904a0f63c2548ffcabc822a4529a48ce4b9b959c",
+        "sha256": "2e5daddf5a14d712bbce4b7f0d5d4b82289021e875a256c8cc6db63c3a30e95f"
+      },
+      {
+        "path": "channel-layout.js",
+        "sourceSha256": "67ae0f302353a52d203688b262a230035c3c1765fd10f350c80199cc2ef478bf",
+        "sha256": "67ae0f302353a52d203688b262a230035c3c1765fd10f350c80199cc2ef478bf"
+      },
+      {
+        "path": "alphaTab.core.js",
+        "sourceSha256": "7d5e9412c6d0a692c569f4b8a1afda0ef76be044f2538e6f8f43e907a2cf588e",
+        "sha256": "a9098da4f6c70a21868f923181f8a13ff2237eb1dfec74d9e4e841532e739a71"
+      }
+    ],
+    "note": "Локальная поставка музбанка bass_study. Исходники npm и GP не изменены; PCM не хранится."
+  },
+  "node": "v24.18.0",
+  "checks": [
+    {
+      "name": "Алгоритм: детерминизм, непересечение и отказ до частичной записи",
+      "status": "passed",
+      "details": {
+        "tracks": 24,
+        "virtualChannels": 40,
+        "maxChannel": 121
+      }
+    },
+    {
+      "name": "sample-01: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 4,
+        "independentlyAudible": 4,
+        "channels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            9
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-02: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 7,
+        "independentlyAudible": 7,
+        "channels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            11,
+            12
+          ],
+          [
+            9
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-03: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 5,
+        "independentlyAudible": 5,
+        "channels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            9
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-04: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 8,
+        "independentlyAudible": 8,
+        "channels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            11,
+            12
+          ],
+          [
+            9
+          ],
+          [
+            13,
+            14
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-05: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 3,
+        "independentlyAudible": 2,
+        "channels": [
+          [
+            0,
+            1
+          ],
+          [
+            9
+          ],
+          [
+            25
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-06: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 9,
+        "independentlyAudible": 9,
+        "channels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            9
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            11,
+            12
+          ],
+          [
+            13,
+            14
+          ],
+          [
+            15,
+            16
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-07: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 1,
+        "independentlyAudible": 1,
+        "channels": [
+          [
+            0,
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-08: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 9,
+        "independentlyAudible": 9,
+        "channels": [
+          [
+            0,
+            1
+          ],
+          [
+            9
+          ],
+          [
+            25
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            11,
+            12
+          ],
+          [
+            13,
+            14
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-09: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 3,
+        "independentlyAudible": 3,
+        "channels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            9
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-10: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 3,
+        "independentlyAudible": 3,
+        "channels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            9
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-11: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 4,
+        "independentlyAudible": 4,
+        "channels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            9
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-12: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 1,
+        "independentlyAudible": 1,
+        "channels": [
+          [
+            0,
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-13: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 6,
+        "independentlyAudible": 6,
+        "channels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            9
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-14: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "unsupported": true
+      }
+    },
+    {
+      "name": "sample-15: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 1,
+        "independentlyAudible": 1,
+        "channels": [
+          [
+            0,
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sample-16: структура, музыкальные события и отдельный PCM каждой партии",
+      "status": "passed",
+      "details": {
+        "tracks": 2,
+        "independentlyAudible": 2,
+        "channels": [
+          [
+            0,
+            1
+          ],
+          [
+            9
+          ]
+        ]
+      }
+    },
+    {
+      "name": "SoundFont choke-group: отключённая вторая партия не гасит первую",
+      "status": "passed",
+      "details": {
+        "baseline": {
+          "frames": 52920,
+          "sampleRate": 44100,
+          "channels": 2,
+          "peak": 0.1406007707118988,
+          "rms": 0.0058791491817933575,
+          "sha256": "308ddf5af6d04c54533e895759c9915a2c993fb98c345bd70e1f16806d4e11ce"
+        },
+        "actual": {
+          "frames": 52920,
+          "sampleRate": 44100,
+          "channels": 2,
+          "peak": 0.1406007707118988,
+          "rms": 0.0058791491817933575,
+          "sha256": "308ddf5af6d04c54533e895759c9915a2c993fb98c345bd70e1f16806d4e11ce"
+        },
+        "difference": {
+          "peak": 0,
+          "rms": 0
+        }
+      }
+    },
+    {
+      "name": "NoteOn velocity0: отключённая вторая партия не гасит первую",
+      "status": "passed",
+      "details": {
+        "baseline": {
+          "frames": 52920,
+          "sampleRate": 44100,
+          "channels": 2,
+          "peak": 0.1406007707118988,
+          "rms": 0.0058791491817933575,
+          "sha256": "308ddf5af6d04c54533e895759c9915a2c993fb98c345bd70e1f16806d4e11ce"
+        },
+        "actual": {
+          "frames": 52920,
+          "sampleRate": 44100,
+          "channels": 2,
+          "peak": 0.1406007707118988,
+          "rms": 0.0058791491817933575,
+          "sha256": "308ddf5af6d04c54533e895759c9915a2c993fb98c345bd70e1f16806d4e11ce"
+        },
+        "difference": {
+          "peak": 0,
+          "rms": 0
+        }
+      }
+    },
+    {
+      "name": "Extended drums: штатный fallback неизвестного drum program",
+      "status": "passed",
+      "details": {
+        "reference": {
+          "frames": 52920,
+          "sampleRate": 44100,
+          "channels": 2,
+          "peak": 0.1406007707118988,
+          "rms": 0.0058791491817933575,
+          "sha256": "308ddf5af6d04c54533e895759c9915a2c993fb98c345bd70e1f16806d4e11ce"
+        },
+        "actual": {
+          "frames": 52920,
+          "sampleRate": 44100,
+          "channels": 2,
+          "peak": 0.1406007707118988,
+          "rms": 0.0058791491817933575,
+          "sha256": "308ddf5af6d04c54533e895759c9915a2c993fb98c345bd70e1f16806d4e11ce"
+        },
+        "difference": {
+          "peak": 0,
+          "rms": 0
+        }
+      }
+    },
+    {
+      "name": "Extended melodic: program-change, pitch-bend, per-note-bend и транспозиция",
+      "status": "passed",
+      "details": {
+        "channels": [
+          20,
+          21
+        ],
+        "programs": [
+          33,
+          27
+        ],
+        "scoreTranspose": 3,
+        "liveTranspose": -2,
+        "reference": {
+          "frames": 97020,
+          "sampleRate": 44100,
+          "channels": 2,
+          "peak": 0.17954795062541962,
+          "rms": 0.03848044924424915,
+          "sha256": "6a18df934db57ed574c9c1c0e203f5cc42cd629750eeecffccf3114811fb93e5"
+        },
+        "actual": {
+          "frames": 97020,
+          "sampleRate": 44100,
+          "channels": 2,
+          "peak": 0.17954795062541962,
+          "rms": 0.03848044924424915,
+          "sha256": "6a18df934db57ed574c9c1c0e203f5cc42cd629750eeecffccf3114811fb93e5"
+        },
+        "difference": {
+          "peak": 0,
+          "rms": 0
+        }
+      }
+    },
+    {
+      "name": "Повторная подготовка vendor даёт те же байты",
+      "status": "passed",
+      "details": {
+        "coreSha256": "a9098da4f6c70a21868f923181f8a13ff2237eb1dfec74d9e4e841532e739a71",
+        "helperSha256": "67ae0f302353a52d203688b262a230035c3c1765fd10f350c80199cc2ef478bf"
+      }
+    }
+  ],
+  "files": [
+    {
+      "id": "sample-01",
+      "path": "m/Metal Molly/Metallica - Enter Sandman.gp3",
+      "channels": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          9
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "Bass",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 31200,
+          "expectedStartTick": 31200,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.06644774973392487,
+            "rms": 0.016057477184007417,
+            "sha256": "531d5c006e4d4a7e7cc45cdeb52de2093eb6d47da084d4764a9a158e95855c32"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.06644774973392487,
+            "rms": 0.01605747718400741,
+            "sha256": "1ff4e93ad67b8e0262594660686a62075873af03101e7785c352554f8b81d935"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.016611937433481216,
+            "rms": 0.0040090460823432586,
+            "sha256": "9ad8688d995dd57b5104d7a6eaa7518560a2425a9b649580cb2f5db2041458be"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 3.725290298461914e-9,
+            "rms": 5.782321558354009e-10
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24966849003753233
+        },
+        {
+          "index": 1,
+          "name": "Guitar 1",
+          "channels": [
+            2,
+            3
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.1945599764585495,
+            "rms": 0.04656224456814574,
+            "sha256": "4eb8915bc7034086e0e626e78045b31084163af0ce6690c994921d3cf9f924ac"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.1945599764585495,
+            "rms": 0.04656224456814574,
+            "sha256": "4eb8915bc7034086e0e626e78045b31084163af0ce6690c994921d3cf9f924ac"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.048639994114637375,
+            "rms": 0.011641253000224356,
+            "sha256": "ec094a8fb7e48ef42b5e4c0ca9bc8b1a5c4697aabe6224351aa4b6961e8f4cff"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25001485878084995
+        },
+        {
+          "index": 2,
+          "name": "Guitar 2",
+          "channels": [
+            4,
+            5
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 15360,
+          "expectedStartTick": 15360,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.4080539643764496,
+            "rms": 0.08637375516619582,
+            "sha256": "f63f599d960c2e8c7e850e5ce4ff72fcdd7742f959a563231cb7fc5bbcf1461a"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.4080539345741272,
+            "rms": 0.08637375511676926,
+            "sha256": "49ab019823467814a7ce489880dd16d78afd1916792bef9e826b4f313bd58621"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.1020134910941124,
+            "rms": 0.021593438791548954,
+            "sha256": "a4a6646c1684be4967477b1cf3f0371c1c042f3e2d6c936e6abc7ed01f7a574e"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 5.960464477539063e-8,
+            "rms": 4.926631868391774e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 3,
+          "name": "Drums",
+          "channels": [
+            9
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 1440,
+          "expectedStartTick": 1440,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.15987858176231384,
+            "rms": 0.006617850699880677,
+            "sha256": "e7d683557f438bfa30e015f484222990db0a29a468bb53eab7d913e887ee8306"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.15987858176231384,
+            "rms": 0.006617850699880677,
+            "sha256": "e7d683557f438bfa30e015f484222990db0a29a468bb53eab7d913e887ee8306"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.03996964544057846,
+            "rms": 0.0016544626749701692,
+            "sha256": "9e50c06e2ed7729f8a6cb7c94d198cd7ebfd9b8dd2d60af75c12cfcd25fda625"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-02",
+      "path": "m/Metallica/Metallica - Enter Sandman.gp3",
+      "channels": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          11,
+          12
+        ],
+        [
+          9
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "James Hetfield (Clean)",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 3360,
+          "expectedStartTick": 3360,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.09725089371204376,
+            "rms": 0.012895841657481448,
+            "sha256": "caa01eacdd1d960d48eb6df0397385a060cb92c3fa0f6b960eaf72ab065e4775"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.09725089371204376,
+            "rms": 0.012895841657481448,
+            "sha256": "caa01eacdd1d960d48eb6df0397385a060cb92c3fa0f6b960eaf72ab065e4775"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.02431272342801094,
+            "rms": 0.0032239262024010367,
+            "sha256": "46224fd6f83c78b014463e906994ce35bcc5969484c7000c100e9d815c7622a6"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2499973470541719
+        },
+        {
+          "index": 1,
+          "name": "Kirk Hammett (Lead)",
+          "channels": [
+            2,
+            3
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 18720,
+          "expectedStartTick": 18720,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.3357977867126465,
+            "rms": 0.07962979570575117,
+            "sha256": "b52397946a2af633e62ba57b8990ac8e73596002dd5fb56cc9158126485ba58a"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.3357977867126465,
+            "rms": 0.07962979568646662,
+            "sha256": "772e62a59359ed703bce5b99945d4de171641cf515e5907b9861eedf02f312ae"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.08394944667816162,
+            "rms": 0.019907448926437792,
+            "sha256": "b65518f3e6713c7947f7ecaa4f811c3e705ca3e280a272552cc06467da16dca7"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 2.9802322387695312e-8,
+            "rms": 4.507999736131441e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 2,
+          "name": "James Hetfield (Rhythm)",
+          "channels": [
+            4,
+            5
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 49440,
+          "expectedStartTick": 49440,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.16952107846736908,
+            "rms": 0.03920783521575656,
+            "sha256": "6dbb01f0bcf49d906655bce621ad0772d8ca5cbc62da2ce2316097cb24a74a13"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.16952109336853027,
+            "rms": 0.039207835225951775,
+            "sha256": "c74cac247c3d782da69b8fbdf6ab34dfc1fe8cbaab9a14034737af54fc3eb982"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04238026961684227,
+            "rms": 0.00980265780213997,
+            "sha256": "ebd6183f0b966be937c4c6b348f900488160d42c09bbd328b3c809be562962ee"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 1.4901161193847656e-8,
+            "rms": 1.4369165756229574e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25001782802332706
+        },
+        {
+          "index": 3,
+          "name": "Kirk Hammett (Rhythm)",
+          "channels": [
+            6,
+            7
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 49440,
+          "expectedStartTick": 49440,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.18952159583568573,
+            "rms": 0.04800769870431394,
+            "sha256": "04deedbb661bdf9edf89056c9324ac4bb80ac4a06b704fd011d3c3432df4872e"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.18952159583568573,
+            "rms": 0.048007698717456124,
+            "sha256": "f4c9b9ed877052669e797e91bc1bcec297d716aedeac48015f71dc892c133a42"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04738039895892143,
+            "rms": 0.012001924676078485,
+            "sha256": "87acd05c5dd86c4aaf70d41126eef4666e300f2b9476e1e01b9c1179ceccf7ab"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 1.4901161193847656e-8,
+            "rms": 2.352211134220654e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 4,
+          "name": "12-String Acoustic",
+          "channels": [
+            8,
+            10
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 410400,
+          "expectedStartTick": 410400,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.08215319365262985,
+            "rms": 0.0202854863076363,
+            "sha256": "ca6eda19c72765d0a2a25e0fa8f44aecb42b856550fbb4dfa0dcda4c32b984b3"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.08215319365262985,
+            "rms": 0.02028548630804081,
+            "sha256": "dfb21caedcd11b860e92454854fade2900adf6e3f1773ecc55d3bba7c2be77ef"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.020538298413157463,
+            "rms": 0.005072020039198398,
+            "sha256": "f14d295d8717c204387a3018c78b2473f9969c67e8daddda188412e07ef6cc64"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 7.450580596923828e-9,
+            "rms": 6.692463954136139e-10
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2500319668101365
+        },
+        {
+          "index": 5,
+          "name": "Jason Newsted (Bass)",
+          "channels": [
+            11,
+            12
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 34560,
+          "expectedStartTick": 34560,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2622414231300354,
+            "rms": 0.05818231147128399,
+            "sha256": "34de783b5792fbedc7fdb948c7a42baae41a4094b1125f11e2ce3075ce8b07c2"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2622414231300354,
+            "rms": 0.05818231146650061,
+            "sha256": "9aaeff23706595dd2acfdf071aba28ce6393d117d7b3f919064b4b927f680cd3"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.06556035578250885,
+            "rms": 0.0145480997574417,
+            "sha256": "12a969df043ee49de371c89fbe449a1dac5731a8d4a859bab5b24e229ad3ec32"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 2.9802322387695312e-8,
+            "rms": 2.163276747894127e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2500433446103623
+        },
+        {
+          "index": 6,
+          "name": "Lars Ulrich (Drums)",
+          "channels": [
+            9
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 4800,
+          "expectedStartTick": 4800,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.13505537807941437,
+            "rms": 0.005590344154615305,
+            "sha256": "11662eb2f93a4abebe47cd5223d148ac914807d2110e233f062aeaadbfe4908e"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.13505537807941437,
+            "rms": 0.005590344154615305,
+            "sha256": "11662eb2f93a4abebe47cd5223d148ac914807d2110e233f062aeaadbfe4908e"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.03376384451985359,
+            "rms": 0.0013975860386538262,
+            "sha256": "30a9319e94f36d09f5b6233411e401afefa644d371044a79bba7f0311cbed89e"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-03",
+      "path": "b/Beatles (The)/Beatles (The) - Come Together (2).gp3",
+      "channels": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          9
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "Guitar 1",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.023647192865610123,
+            "rms": 0.002371298625637092,
+            "sha256": "6569fd48bdd1a30edf66217cada12d7741a0811cf817ebab35afb0d7ac8e2463"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.023647192865610123,
+            "rms": 0.002371298625637092,
+            "sha256": "6569fd48bdd1a30edf66217cada12d7741a0811cf817ebab35afb0d7ac8e2463"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.005911798216402531,
+            "rms": 0.0005922870166206322,
+            "sha256": "31327c2448bc1715d2894f55050c3c465f4425adc0504e28a137883f8849c275"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24977327200259464
+        },
+        {
+          "index": 1,
+          "name": "Bass",
+          "channels": [
+            2,
+            3
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.19139833748340607,
+            "rms": 0.07334218174211778,
+            "sha256": "a4be9bb4887e6c32b60d96aba58a216e5a2124047abb78c5b54f6700e7a3aaee"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.19139833748340607,
+            "rms": 0.07334218174211778,
+            "sha256": "a4be9bb4887e6c32b60d96aba58a216e5a2124047abb78c5b54f6700e7a3aaee"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04784958437085152,
+            "rms": 0.01833860001667257,
+            "sha256": "7e97efa2bebdf9c01bd1d34cab309fd6ea0e1534c3bfdc7820c85850f1c9430b"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25004164835392906
+        },
+        {
+          "index": 2,
+          "name": "Vocal",
+          "channels": [
+            4,
+            5
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.011075885966420174,
+            "rms": 0.0016465849212549577,
+            "sha256": "014b84dcce6a93cb0c7683395aff47cf9a15a9c0c3edfd23fd7c63d4ac7a6105"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.011075885966420174,
+            "rms": 0.0016465849212549577,
+            "sha256": "014b84dcce6a93cb0c7683395aff47cf9a15a9c0c3edfd23fd7c63d4ac7a6105"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.0027689714916050434,
+            "rms": 0.00040896521188247767,
+            "sha256": "e9e4b46599cb21756ee2a740654173f016e15fb5e76f30c9196ab1f3deb59919"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24837177032495936
+        },
+        {
+          "index": 3,
+          "name": "Guitar 2",
+          "channels": [
+            6,
+            7
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 176640,
+          "expectedStartTick": 176640,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.036728739738464355,
+            "rms": 0.0078565999272717,
+            "sha256": "53e19e9d60415814eddae79c61a4e8c7221364a214b306f91f3d462c6b50a6d6"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.036728739738464355,
+            "rms": 0.0078565999272717,
+            "sha256": "53e19e9d60415814eddae79c61a4e8c7221364a214b306f91f3d462c6b50a6d6"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.009182184934616089,
+            "rms": 0.001964149981817925,
+            "sha256": "ac73e9332fbcfd193731baa6d2f972c371989c9c7af6b3e2e47f5f5f90389d42"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 4,
+          "name": "Drums",
+          "channels": [
+            9
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.8587077260017395,
+            "rms": 0.03948198632717036,
+            "sha256": "8d09c853d41e5de87e3223e1967feef303b91e8c6fe2b60633a7290c7428fb47"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.8587077260017395,
+            "rms": 0.039481986334564824,
+            "sha256": "2336473f4552322235362de66e920e116f752d1fb848b800eefcacf1c8b6c353"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.21467693150043488,
+            "rms": 0.009870500640669317,
+            "sha256": "5b2be7b635fb97e702b3215f572b03d9495b284dda4c4cddc83b2fcd640df2a7"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 5.960464477539063e-8,
+            "rms": 1.0296567146230723e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2500001028032555
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-04",
+      "path": "j/Jackson, Michael/Jackson, Michael - Billie Jean.gp3",
+      "channels": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          11,
+          12
+        ],
+        [
+          9
+        ],
+        [
+          13,
+          14
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 50880,
+          "expectedStartTick": 50880,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.11930995434522629,
+            "rms": 0.04507085816975173,
+            "sha256": "26d98c520a2da6cf02f4a77f413a03a8249c4e93a8c27cb0be5cdfb4224f05bd"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.11930995434522629,
+            "rms": 0.04507085816975173,
+            "sha256": "26d98c520a2da6cf02f4a77f413a03a8249c4e93a8c27cb0be5cdfb4224f05bd"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.029827488586306572,
+            "rms": 0.011269234987289682,
+            "sha256": "d021d44631fc225ae4e5c3c0ab2c6b69a3586917f5c913b0e25410ca4e672c4e"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2500337345440822
+        },
+        {
+          "index": 1,
+          "name": "",
+          "channels": [
+            2,
+            3
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 126720,
+          "expectedStartTick": 126720,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2919982969760895,
+            "rms": 0.08706535873399056,
+            "sha256": "3f0f54b966443993ab852d8bf13d09c6ab36dca619d9b3990aed784330f2064e"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2919982969760895,
+            "rms": 0.08706535871489829,
+            "sha256": "5cf72a6ee5b47f8dfea6bd2afe411a77934c5d218cdb60f61a950282205c87c1"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.07299957424402237,
+            "rms": 0.02176633968349764,
+            "sha256": "a734379dfc34fc3ebb7bcc0d172f38a36092b4a0525dd07d9a896dacc672bdce"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 2.9802322387695312e-8,
+            "rms": 4.2065075160778e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 2,
+          "name": "",
+          "channels": [
+            4,
+            5
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 172800,
+          "expectedStartTick": 172800,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.0750168040394783,
+            "rms": 0.008463211307212002,
+            "sha256": "e861832dd7cfff3d3af93f5f7483021539604bf4402ef8e203d3f72eb79e1633"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.0750168040394783,
+            "rms": 0.008463211308381182,
+            "sha256": "69614d122d3f50edcd01eb6a0ac2638e7027db6c915649048c4a3cac75bfe74d"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.018754201009869576,
+            "rms": 0.0021156862282973535,
+            "sha256": "4c42944d121112b80eb89ffd6483327f343700f8e0ac79cdc21aafe7a957f506"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 7.450580596923828e-9,
+            "rms": 1.4407268887135808e-10
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24998622290033717
+        },
+        {
+          "index": 3,
+          "name": "",
+          "channels": [
+            6,
+            7
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 149760,
+          "expectedStartTick": 149760,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.058403246104717255,
+            "rms": 0.012658809783467046,
+            "sha256": "bf3b998295d905100b7c94bd62bc52803c9722d127d71448adfbc51a8c368885"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.058403246104717255,
+            "rms": 0.012658809776924296,
+            "sha256": "6e4ccdcccd61fe25b7a0fc140af1db3d48a89c7ff535ad8ed6521e9a97a15c82"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.014600811526179314,
+            "rms": 0.0031647024458667616,
+            "sha256": "6f313929be2f3858a57b09a716ba3fa01cc9d51c867fc6fd4eab023ede905e36"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 3.725290298461914e-9,
+            "rms": 6.214613364264366e-10
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 4,
+          "name": "",
+          "channels": [
+            8,
+            10
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 132000,
+          "expectedStartTick": 132000,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.016140621155500412,
+            "rms": 0.004223050103814163,
+            "sha256": "16081268f66e2569af6d9d16355718660dace40d662b31e638dc7161c9c762d8"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.016140621155500412,
+            "rms": 0.004223050103814163,
+            "sha256": "16081268f66e2569af6d9d16355718660dace40d662b31e638dc7161c9c762d8"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.004035155288875103,
+            "rms": 0.0010549691607683635,
+            "sha256": "e709ec953ac8e73c5ac0236bf5d3c064115315c4afc5f669e91224c82132603c"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24981213455543408
+        },
+        {
+          "index": 5,
+          "name": "",
+          "channels": [
+            11,
+            12
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 34560,
+          "expectedStartTick": 34560,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04296191409230232,
+            "rms": 0.006345742210057262,
+            "sha256": "7c947c020b9124ffd6c251a371d24d6b86dd33e001655bf5bc82f18823a9ebce"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04296191409230232,
+            "rms": 0.006345742210179799,
+            "sha256": "2fa393ba990ffadc5c9120c63a97ca64cf2d001beaa2f0082dfdcd8e3f16cc52"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.01074047852307558,
+            "rms": 0.00158437137120775,
+            "sha256": "f89159d85a56d0771f3c3b02a2c3ceaa5d8a43df98f95aa2498b9006f3f03cad"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 3.725290298461914e-9,
+            "rms": 2.1875438611110106e-10
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24967471396753338
+        },
+        {
+          "index": 6,
+          "name": "",
+          "channels": [
+            9
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.1525861769914627,
+            "rms": 0.016660867514718288,
+            "sha256": "9200d55d7e5e63e102e624f01365c98557158dfda555aac1b427aa35710b14a9"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.1525861769914627,
+            "rms": 0.016660867514718288,
+            "sha256": "9200d55d7e5e63e102e624f01365c98557158dfda555aac1b427aa35710b14a9"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.03814654424786568,
+            "rms": 0.004165179171905171,
+            "sha256": "eb372e7c982339ccf4b8d9def3ab3ad22861f7bc0b16ef5787adb5eb305813dc"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24999773680605963
+        },
+        {
+          "index": 7,
+          "name": "",
+          "channels": [
+            13,
+            14
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 7680,
+          "expectedStartTick": 7680,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.09801692515611649,
+            "rms": 0.025014518189382766,
+            "sha256": "e8261ceb60fb5a5c05dcba0164f62323c12492b83ca8d02340afedce8de42e5c"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.09801692515611649,
+            "rms": 0.025014518189696095,
+            "sha256": "771ec47bf50005769c2798bb6940298749b403b5b2ac45152f2c0c6dadbed70a"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.024449380114674568,
+            "rms": 0.006251421089202655,
+            "sha256": "edf57afa50802f51451e4ca142795760ac9ebe69c756f44fa9bfb5e2a9b436ea"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 7.450580596923828e-9,
+            "rms": 4.3719930662069663e-10
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24991171294500591
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-05",
+      "path": "0/0 Art/0 Art - Solo Batterie.gp4",
+      "channels": [
+        [
+          0,
+          1
+        ],
+        [
+          9
+        ],
+        [
+          25
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "Watcha-and-aqme",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "empty"
+        },
+        {
+          "index": 1,
+          "name": "Percussions",
+          "channels": [
+            9
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.34647440910339355,
+            "rms": 0.05854026022868358,
+            "sha256": "6dd831eb56cf4890a68b724bb51ede75fdbeb02e52ea67d8f0655da2dd88c8ae"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.34647440910339355,
+            "rms": 0.05854026022868358,
+            "sha256": "6dd831eb56cf4890a68b724bb51ede75fdbeb02e52ea67d8f0655da2dd88c8ae"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.08661860227584839,
+            "rms": 0.014635065057170896,
+            "sha256": "ad47d75b484f58a93709279f766df2a7ecfbc3bb202e353e2dc28316a1219d37"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 2,
+          "name": "Percussions",
+          "channels": [
+            25
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 195840,
+          "expectedStartTick": 195840,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.18246516585350037,
+            "rms": 0.015839860576263378,
+            "sha256": "9890f414fd2fa49a05f2c964bfe320391e9682e0a0762fff3fd2d080a7e58ce8"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.18246516585350037,
+            "rms": 0.015839860576263378,
+            "sha256": "9890f414fd2fa49a05f2c964bfe320391e9682e0a0762fff3fd2d080a7e58ce8"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04561629146337509,
+            "rms": 0.0039599651440658445,
+            "sha256": "302c4025d64e1e4b5d0fca44f01f034f17c7c25c2ace489f88f117911c6b7001"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-06",
+      "path": "0/0 Art/0 Art - Spirit Forest.gp4",
+      "channels": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          9
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          11,
+          12
+        ],
+        [
+          13,
+          14
+        ],
+        [
+          15,
+          16
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "Piste 1",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2822416126728058,
+            "rms": 0.06571746656400321,
+            "sha256": "1bf2d448d148d5b197c31a57f6298a67020a1e5c6973b05c5ed16a9f02d253ca"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2822416126728058,
+            "rms": 0.06571746656400321,
+            "sha256": "1bf2d448d148d5b197c31a57f6298a67020a1e5c6973b05c5ed16a9f02d253ca"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.07056040316820145,
+            "rms": 0.016429366641000802,
+            "sha256": "44e5c919e6bf225efd37c6fc6f6b14bc5c11c77772d084c9abd0a8e994c5477c"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 1,
+          "name": "Piste 2",
+          "channels": [
+            2,
+            3
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 7680,
+          "expectedStartTick": 7680,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.1528991013765335,
+            "rms": 0.03302978547841342,
+            "sha256": "6cd5798fb04641ad4e5dda7147bf108b2673cc6c142841061ba9b8834f9f47ec"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.1528991013765335,
+            "rms": 0.03302978547499846,
+            "sha256": "65278062160bc5352030faf06c6965278d2f615041fec3b1a59bedd804518d17"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.03822477534413338,
+            "rms": 0.008257446369603355,
+            "sha256": "77744fc10b470add21da44677d0ba0c9fbb72e6d3a44c05bf5b2d14d641fe6c0"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 1.4901161193847656e-8,
+            "rms": 1.608049655745872e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 2,
+          "name": "Piste 3",
+          "channels": [
+            4,
+            5
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 7680,
+          "expectedStartTick": 7680,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.20135372877120972,
+            "rms": 0.05108276639703911,
+            "sha256": "c53f49e8b55e87381804ab9db50b2090bd50f50eb4d958b64400a40ed7e199c4"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.20135372877120972,
+            "rms": 0.05108276639703911,
+            "sha256": "c53f49e8b55e87381804ab9db50b2090bd50f50eb4d958b64400a40ed7e199c4"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.05033843219280243,
+            "rms": 0.012771664517305548,
+            "sha256": "699b00956192adf7d667acad01cbb74810348481199cc3e87061dda22c6608f6"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2500190459153721
+        },
+        {
+          "index": 3,
+          "name": "Percussions",
+          "channels": [
+            9
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 7680,
+          "expectedStartTick": 7680,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.6543644070625305,
+            "rms": 0.05884760071088735,
+            "sha256": "bb8fef27905a22d956f9e386884ce0f90fb8f86f53b46edf8bc54988b7ef666f"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.6543643474578857,
+            "rms": 0.05884760069407661,
+            "sha256": "8025a7b475164a5ca819fcd1ebfda02e93c35effc488a05cbe7ebdce5d498c61"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.16359110176563263,
+            "rms": 0.014711900177721837,
+            "sha256": "69cf08b42cea3accde79e42e5a778fc8746524000b32ae00f998e86b33d79677"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 5.960464477539063e-8,
+            "rms": 3.091312193342466e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 4,
+          "name": "Piste 5",
+          "channels": [
+            6,
+            7
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 20160,
+          "expectedStartTick": 20160,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2164856344461441,
+            "rms": 0.05118543925624094,
+            "sha256": "0de152e64e2b2fa1c5454ea124c88f2df276c4a57b0b1c3a53e300491cf728ee"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2164856195449829,
+            "rms": 0.051185439227918704,
+            "sha256": "9abd5e461da570e33b9cd735ff2aeacea7b0f3c0128bfc6239852606b1be5aae"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.054121408611536026,
+            "rms": 0.012810731333259485,
+            "sha256": "51dba73955773e07dcb9b854ccd5c3cbae1cf26b967547634bd68c5e7bf38492"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 1.4901161193847656e-8,
+            "rms": 2.3132859897075008e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2502807735834268
+        },
+        {
+          "index": 5,
+          "name": "Piste 6",
+          "channels": [
+            8,
+            10
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 47040,
+          "expectedStartTick": 47040,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.22550642490386963,
+            "rms": 0.03951935965182149,
+            "sha256": "7a769ee7a3fa60b111f7f2894c163c5ad2d09fe898e4eec7d1c4373843162480"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.22550642490386963,
+            "rms": 0.03951935964803637,
+            "sha256": "9cb2bb6303b2d4f932201a91b079997c81512ceb9e175e0ca3380336bea20c33"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.05637660622596741,
+            "rms": 0.009875802282368756,
+            "sha256": "f007775c7d18e800d53520563fa8bbb103b8df7d9862f88b9f564288f0d4070f"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 2.2351741790771484e-8,
+            "rms": 1.8142471040603723e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24989783157869488
+        },
+        {
+          "index": 6,
+          "name": "Piste 7",
+          "channels": [
+            11,
+            12
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 15360,
+          "expectedStartTick": 15360,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.18091470003128052,
+            "rms": 0.03620988776618096,
+            "sha256": "b80fc56cd1c90b7bffd362ea3abbe35c353642f61b53412d2abbddbf29375984"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.18091470003128052,
+            "rms": 0.036209887762119135,
+            "sha256": "3f2bc80ec51ee683594aba68b2504790e34d698e33eadbd20d7b65fe9be13ef8"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04522867500782013,
+            "rms": 0.009056173671641245,
+            "sha256": "982f77cda6b2b530e447bcc49851bd95467dbbfb5792ffad339aa7faecfa6fe1"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 1.4901161193847656e-8,
+            "rms": 1.0928859966288272e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25010222981413
+        },
+        {
+          "index": 7,
+          "name": "Piste 8",
+          "channels": [
+            13,
+            14
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 7680,
+          "expectedStartTick": 7680,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.18266965448856354,
+            "rms": 0.07712561819925969,
+            "sha256": "e781c19d0af17043f75ab3c2c09ff345c19c20a85deb9956ab1ff6231a7cd854"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.18266965448856354,
+            "rms": 0.07712561819925969,
+            "sha256": "e781c19d0af17043f75ab3c2c09ff345c19c20a85deb9956ab1ff6231a7cd854"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.045667413622140884,
+            "rms": 0.01928140454981492,
+            "sha256": "40bdab75b6079363bfd4d8374fc0123dd8fe13d76e43c579ca33e8c82a1e84bc"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 8,
+          "name": "Piste 9",
+          "channels": [
+            15,
+            16
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 61440,
+          "expectedStartTick": 61440,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.14686793088912964,
+            "rms": 0.035034337645003015,
+            "sha256": "f207c850704c35eb27b3a4cefe07e10eb1674ca8d02da1cbcc822c0b179d2a0d"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.14686793088912964,
+            "rms": 0.035034337645003015,
+            "sha256": "f207c850704c35eb27b3a4cefe07e10eb1674ca8d02da1cbcc822c0b179d2a0d"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.03671698272228241,
+            "rms": 0.008758584411250754,
+            "sha256": "8a6e88879ba8a318bb4c6aafe9e9611e857adedf1776d0fc7dae3ee81aa54740"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-07",
+      "path": "j/Jackson, Michael/Jackson, Michael - Billie Jean (2).gp4",
+      "channels": [
+        [
+          0,
+          1
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "Chitarra",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 960,
+          "expectedStartTick": 960,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.14103764295578003,
+            "rms": 0.033416921210815305,
+            "sha256": "754d2bca984465d70b31685bc6bff37c998d65dfd1c3e3aac1f6eab6874fdd10"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.14103764295578003,
+            "rms": 0.033416921210815305,
+            "sha256": "754d2bca984465d70b31685bc6bff37c998d65dfd1c3e3aac1f6eab6874fdd10"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.03525941073894501,
+            "rms": 0.008356471271818147,
+            "sha256": "2b71b9a7a97e489c9558bbc89e840fdd0c8f956070b98846f4316a3023591b46"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2500670609090581
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-08",
+      "path": "j/Jackson, Michael/Jackson, Michael - Billie Jean.gp4",
+      "channels": [
+        [
+          0,
+          1
+        ],
+        [
+          9
+        ],
+        [
+          25
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          11,
+          12
+        ],
+        [
+          13,
+          14
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "Basse",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 11520,
+          "expectedStartTick": 11520,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.10631083697080612,
+            "rms": 0.023152632797098897,
+            "sha256": "3b4164ece383457d753bcc834b97a361d8e5fe27e8f1b1056e53dfa2ee4232cf"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.10631083697080612,
+            "rms": 0.023152632785433263,
+            "sha256": "e6da86b88adfafd3428fdfb6a205bcafa66ba9f7d80029c9cd39d78a86e4903f"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.02657770924270153,
+            "rms": 0.005787870753810837,
+            "sha256": "a58055e1f28fdfb88fe65257a2e3363d3e92bb6eabcb9eaf3e2a39abde2b4099"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 7.450580596923828e-9,
+            "rms": 8.96675499680666e-10
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24998758476124913
+        },
+        {
+          "index": 1,
+          "name": "Drums",
+          "channels": [
+            9
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 3840,
+          "expectedStartTick": 3840,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2015300989151001,
+            "rms": 0.02170585543263712,
+            "sha256": "6b64b1661be73e14a46863b3fe0ea33ad5a48bca859d5043e2acae934853a680"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2015300989151001,
+            "rms": 0.02170585543263712,
+            "sha256": "6b64b1661be73e14a46863b3fe0ea33ad5a48bca859d5043e2acae934853a680"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.050382524728775024,
+            "rms": 0.00542646385815928,
+            "sha256": "b79e55046100b735d4fb680c739c02849fff8670bfba5b1cf4254d293f81e122"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 2,
+          "name": "Percussions",
+          "channels": [
+            25
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 11520,
+          "expectedStartTick": 11520,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.11653885245323181,
+            "rms": 0.004745024512256078,
+            "sha256": "b20c83a4dfae6c94c1a21f1ea417faf97fe79dee7f7cb09ad8019451919fe79b"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.11653885245323181,
+            "rms": 0.004745024512256078,
+            "sha256": "b20c83a4dfae6c94c1a21f1ea417faf97fe79dee7f7cb09ad8019451919fe79b"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.029134713113307953,
+            "rms": 0.0011862561280640196,
+            "sha256": "a568a0bc79bb349e03edc8146e596556c77877825b84020fff45f22e90f5db32"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 3,
+          "name": "Chorused piano",
+          "channels": [
+            2,
+            3
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 42240,
+          "expectedStartTick": 42240,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.18738150596618652,
+            "rms": 0.04033365924552134,
+            "sha256": "29025498e07fe52a9256b43a086a1af781878795b50db36ef68b4dcc566f578d"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.18738150596618652,
+            "rms": 0.04033365923977915,
+            "sha256": "24c076b95e3a9ec752c38a9ddaeaad6747f44e45cfe25006e5f503b201cb540a"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04684537649154663,
+            "rms": 0.010082917105382895,
+            "sha256": "0997c812c5a97e0acccf5945e4aa077b139342c54c7783ecc66c5562b02ffed9"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 1.4901161193847656e-8,
+            "rms": 1.3554291515519067e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24998766028159236
+        },
+        {
+          "index": 4,
+          "name": "Voix ",
+          "channels": [
+            4,
+            5
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 58080,
+          "expectedStartTick": 58080,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.23204286396503448,
+            "rms": 0.05393842809702519,
+            "sha256": "a9901d77880d77450a0421b5c3589f4f92e2b257d8a29e1c27d36da4a49d1bef"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.23204286396503448,
+            "rms": 0.05393842810041774,
+            "sha256": "7ec78bfd8b9a132c23a63ea964c755c7919e00b56c3d468388fe6e53c989cc8b"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.058118294924497604,
+            "rms": 0.013485267517389397,
+            "sha256": "d64e9288043b9c434c0c4b637143e5c12cb298d51cca308b0900130ae6c63d39"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 1.4901161193847656e-8,
+            "rms": 2.3583399608994607e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2500122453166769
+        },
+        {
+          "index": 5,
+          "name": "Guitar",
+          "channels": [
+            6,
+            7
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 180480,
+          "expectedStartTick": 180480,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.05927145108580589,
+            "rms": 0.007515420461684438,
+            "sha256": "78efafac89c1355fb0e508ea286d0111a7a1f74a46439bf80682c0833c954976"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.05927145108580589,
+            "rms": 0.007515420461684438,
+            "sha256": "78efafac89c1355fb0e508ea286d0111a7a1f74a46439bf80682c0833c954976"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.014817862771451473,
+            "rms": 0.0018787529803136528,
+            "sha256": "9104d5cbc661188119984ea14a89985b0aa067a44f73368f4858611de9a48aec"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24998640992769766
+        },
+        {
+          "index": 6,
+          "name": "Strings 1",
+          "channels": [
+            8,
+            10
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 211200,
+          "expectedStartTick": 211200,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.024162951856851578,
+            "rms": 0.005427056877218651,
+            "sha256": "8611039d3a9b9e328c28986dc8c0c552bc0eba5ea8c6b5e35c8e26623c91569a"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.024162951856851578,
+            "rms": 0.005427056877218651,
+            "sha256": "8611039d3a9b9e328c28986dc8c0c552bc0eba5ea8c6b5e35c8e26623c91569a"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.0060407379642128944,
+            "rms": 0.0013567642193046629,
+            "sha256": "ccaadbc9a01f1381bd032249213d241421c480967b1660931250646305d48aeb"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 7,
+          "name": "Strings 2",
+          "channels": [
+            11,
+            12
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 343680,
+          "expectedStartTick": 343680,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.10196227580308914,
+            "rms": 0.028458506531630248,
+            "sha256": "c4e6b698af24e41d3b786dc6b93ba50d482b137f3cf158bed85707fd151a62e5"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.10196227580308914,
+            "rms": 0.02845850652593913,
+            "sha256": "a208b96ee52b69796f03276a0e4ce33d76baeb13b8232fa16256f89f4d7ec398"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.025563882663846016,
+            "rms": 0.007114501976701126,
+            "sha256": "7cbf906510ab932403ba6bc654461bfd46e0125773379f9b48a27bfd9407ca88"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 1.4901161193847656e-8,
+            "rms": 1.2802515320755868e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24999561972072226
+        },
+        {
+          "index": 8,
+          "name": "Synth Brass",
+          "channels": [
+            13,
+            14
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 351840,
+          "expectedStartTick": 351840,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.01753169298171997,
+            "rms": 0.007918459063615053,
+            "sha256": "c9167582aa29511fddcbb60bdb6523e50598e482bc8a1a11cca6f37df61afcbe"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.01753169298171997,
+            "rms": 0.007918459063615045,
+            "sha256": "4ec0ec7e33be0a56bb4dc9b2e14693c85a29e6a8715a4c9f0aeeeff50bf7b969"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.004382923245429993,
+            "rms": 0.001982909195395089,
+            "sha256": "2050ec2ffd7b5665ed8f371c7d7c47e0a5f4ebc06fa022bbb4ece1510585efc0"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 1.862645149230957e-9,
+            "rms": 1.1157315022200336e-10
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25041604426629716
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-09",
+      "path": "3/31 Minutos/31 Minutos - Mico El Micвfono.gp4",
+      "channels": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          9
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "Cosas raras 1",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04114026203751564,
+            "rms": 0.011156702794075851,
+            "sha256": "69cde0e390b5d1dd09c646b78374966383d8f12471cc8d276cb8f323d99204e0"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04114026203751564,
+            "rms": 0.011156702793430263,
+            "sha256": "b36eac33ec9f9c4a449688a369195afd494594b3843e0fd758497ccc7b373277"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.01028506550937891,
+            "rms": 0.002787832532649285,
+            "sha256": "d686230bfed9a963afa45909186de810ea391fc4c6fa1eafc2842c757641551e"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 3.725290298461914e-9,
+            "rms": 2.2695373424080848e-10
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2498796090660055
+        },
+        {
+          "index": 1,
+          "name": "Cosas Raras 2",
+          "channels": [
+            2,
+            3
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.10063516348600388,
+            "rms": 0.020293189269064604,
+            "sha256": "0704fa2068880beaad35599f7f9c60e4f32780cda14944c085385222ce1f07d3"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.10063516348600388,
+            "rms": 0.020293189269544206,
+            "sha256": "583be1de704bb9f7c37ac6e3722c3a4f629aa6b89b2776caa742e98f8b26cfc1"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.02515879087150097,
+            "rms": 0.005073362072026846,
+            "sha256": "ce4f416dbe66c1353560721bc42e40a98997620c9a8b2b2799b885c91d468c4a"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 7.450580596923828e-9,
+            "rms": 1.8747278539440998e-10
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2500031909602693
+        },
+        {
+          "index": 2,
+          "name": "Percusión",
+          "channels": [
+            9
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 30720,
+          "expectedStartTick": 30720,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.10629715025424957,
+            "rms": 0.00910510748010178,
+            "sha256": "09d7affae091263bc388f662cae40901d620cd84263b0667d156956e118e1ba6"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.10629715025424957,
+            "rms": 0.00910510748010178,
+            "sha256": "09d7affae091263bc388f662cae40901d620cd84263b0667d156956e118e1ba6"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.026574287563562393,
+            "rms": 0.002276276870025445,
+            "sha256": "5c1a31e6d75a1ca7ca49f5a926add40b75d721cc0b88c994ab1ae13dfca1003e"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-10",
+      "path": "a/Alter Bridge/Alter Bridge - In Loving Memory.gp5",
+      "channels": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          9
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "Guitar 1",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.19424188137054443,
+            "rms": 0.041088758540338104,
+            "sha256": "c3bead23e2198bbba9602851a82c6b0921a13ad9569a2b145d1ac71080d78471"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.19424188137054443,
+            "rms": 0.041088758540338104,
+            "sha256": "c3bead23e2198bbba9602851a82c6b0921a13ad9569a2b145d1ac71080d78471"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04856047034263611,
+            "rms": 0.010273546890368508,
+            "sha256": "e2ae51e307a9d00ff3183a0c824cf39273ca752936f24182a650120c57634dd0"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2500330322777372
+        },
+        {
+          "index": 1,
+          "name": "Guitar 2",
+          "channels": [
+            2,
+            3
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 200160,
+          "expectedStartTick": 200160,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.31737279891967773,
+            "rms": 0.06268773358746392,
+            "sha256": "f3f55627480411a28eb9b45eb3e0ec6266e9deda2d3eb09236b8a6d6adbb971e"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.31737276911735535,
+            "rms": 0.06268773359118542,
+            "sha256": "f22f751e26eefd17df2d114121fbeeea4e83175281df3eb3504d4a454cc89f02"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.07934319972991943,
+            "rms": 0.015671943877938008,
+            "sha256": "54e1a3553a04cfe1a6160f686054c6cfd74eea2f1103d5ca6cf1bee65d8b597d"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 2.9802322387695312e-8,
+            "rms": 2.4696742112993003e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2500001671949427
+        },
+        {
+          "index": 2,
+          "name": "Drums",
+          "channels": [
+            9
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 93120,
+          "expectedStartTick": 93120,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.07823638617992401,
+            "rms": 0.013440914515413856,
+            "sha256": "0ddfd0e1c765a67e671413ae88d27c31845af638cef928e4763eb1e170d0ec16"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.07823638617992401,
+            "rms": 0.013440914516952441,
+            "sha256": "75a11dc7e3f981b4c2e491b9ca3afc7e0659d732f2986120c3bf376d4a062b25"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.019559096544981003,
+            "rms": 0.0033601222897105955,
+            "sha256": "773305fafd8be9405adbb92c81f882519baa9531af9a0c291ece8f4212d18faf"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 7.450580596923828e-9,
+            "rms": 7.097552839973668e-10
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24999208839973303
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-11",
+      "path": "a/Anon/Anon - Blue Techno Pancakes.gp5",
+      "channels": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          9
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "sekacnaP",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 46080,
+          "expectedStartTick": 46080,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04322061687707901,
+            "rms": 0.006529174684371996,
+            "sha256": "86fcaa47312a5ff84f3bd2503b6639caad6a183297a018db8ec2aa6333ec97c2"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04322061687707901,
+            "rms": 0.006529174686040726,
+            "sha256": "9d608dc2b54593a2d1dd46c5f7b88308f4c7973cbba8945cf2e7c23dd0125cc8"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.010805154219269753,
+            "rms": 0.001632293671092999,
+            "sha256": "abc7c24197ccc1db255c67830947dc203d4ea092bf1cf25981c6b73de4214adc"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 3.725290298461914e-9,
+            "rms": 3.1875803839403866e-10
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        },
+        {
+          "index": 1,
+          "name": "erA",
+          "channels": [
+            2,
+            3
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 30720,
+          "expectedStartTick": 30720,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2177148312330246,
+            "rms": 0.053992865537424134,
+            "sha256": "9db63f9cfc72f723735c055bb39e78240fe534a353f07d9ff6658798fe03ee0e"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2177148312330246,
+            "rms": 0.053992865537424134,
+            "sha256": "9db63f9cfc72f723735c055bb39e78240fe534a353f07d9ff6658798fe03ee0e"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.05442870780825615,
+            "rms": 0.013498136356504199,
+            "sha256": "1352e593bf50adeb8fb52db6d51cb98c13c0ed834695bc8c8750dd9e77874c01"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24999851780691693
+        },
+        {
+          "index": 2,
+          "name": "ehT",
+          "channels": [
+            4,
+            5
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.028386132791638374,
+            "rms": 0.010196653386991572,
+            "sha256": "c1a52dff411b7671089c0e86c85317fd2997a021b3d9f4fbe79f07a609139580"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.028386132791638374,
+            "rms": 0.010196653386991572,
+            "sha256": "c1a52dff411b7671089c0e86c85317fd2997a021b3d9f4fbe79f07a609139580"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.007096533197909594,
+            "rms": 0.002555781017275391,
+            "sha256": "7ddf1c25c467487292c204f2dbd879d4c67e3fce9db967b78edb2a4b51f20918"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2506490041660081
+        },
+        {
+          "index": 3,
+          "name": "liveD",
+          "channels": [
+            9
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 15360,
+          "expectedStartTick": 15360,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.02786809764802456,
+            "rms": 0.005597992835592249,
+            "sha256": "ea6342a3973e18c6c5091eb80a11e1c5e2a091a207649646ce9b840b1219d86d"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.02786809764802456,
+            "rms": 0.005597992835592249,
+            "sha256": "ea6342a3973e18c6c5091eb80a11e1c5e2a091a207649646ce9b840b1219d86d"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.00696702441200614,
+            "rms": 0.0013994982088980621,
+            "sha256": "eace9d679204194cb556426569d02f360a3b85ba831b480fea9388fc4d4f023c"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-12",
+      "path": "b/Barrios, Agustin/Barrios Mangore, Augustin - Estudio De Concierto.gp5",
+      "channels": [
+        [
+          0,
+          1
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "Classical guitar",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.17458733916282654,
+            "rms": 0.0372981214084261,
+            "sha256": "6af03a1f60cb8cbe2b0e14c3ef3d0840c892361e55d84121f628e5b5b4d26295"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.17458733916282654,
+            "rms": 0.0372981214084261,
+            "sha256": "6af03a1f60cb8cbe2b0e14c3ef3d0840c892361e55d84121f628e5b5b4d26295"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.043646834790706635,
+            "rms": 0.009322519385154422,
+            "sha256": "9a65f5296eb93595f4fd44d7c1e76073e619d6b442ebf94d2f8e57095e5bc75a"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24994608396143916
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-13",
+      "path": "b/Black Sabbath/Black Sabbath - Symptom Of The Universe (2).gp5",
+      "channels": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "Guitar 1",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2927224636077881,
+            "rms": 0.062295862672284666,
+            "sha256": "9dca83d1565a50444e471ac7a9284ec6355fd4b584c5f2575686e9044acf5b4a"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.2927224636077881,
+            "rms": 0.062295862672284666,
+            "sha256": "9dca83d1565a50444e471ac7a9284ec6355fd4b584c5f2575686e9044acf5b4a"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.07318061590194702,
+            "rms": 0.01557511027510114,
+            "sha256": "7944a59159b9c45ef31c0182e0fe9a97382aea50bd0266e9c1cd4498ae00f41d"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2500183737246885
+        },
+        {
+          "index": 1,
+          "name": "Guitar 2",
+          "channels": [
+            2,
+            3
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 652800,
+          "expectedStartTick": 652800,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.24505092203617096,
+            "rms": 0.058522708247262994,
+            "sha256": "6c695add7e76cdd690f148134b7e1dd3a5033306dac3fcc2e162dcd5c3538dc5"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.24505092203617096,
+            "rms": 0.05852270823791182,
+            "sha256": "4bc12a67ff98af0f4883f872567abc3a76862d9d5e56a9a406e50611388ab0b1"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.06126273050904274,
+            "rms": 0.014630577449721682,
+            "sha256": "60080ad122e12190398257cd70f1c4157e720728dbc14a4a027d673a4405c1a9"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 2.9802322387695312e-8,
+            "rms": 1.982234225599889e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24999829788987815
+        },
+        {
+          "index": 2,
+          "name": "Guitar 3",
+          "channels": [
+            4,
+            5
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 731520,
+          "expectedStartTick": 731520,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.24274003505706787,
+            "rms": 0.057099753426442204,
+            "sha256": "ac75e2b4a88cc9d07fe8ff9f740c08c8b09b8d760a3b4f659bc8b4d9b24897f1"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.24274003505706787,
+            "rms": 0.05709975339971005,
+            "sha256": "520fc392b85a8cfef901e99a803e5dba4ba3b5da078ff4f5ac508b683ae24477"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.06068500876426697,
+            "rms": 0.014274389045344763,
+            "sha256": "81f5ce37c65418bdf1fd1711d7c8ff62128b3cf8eca9809c31fcf8819d10d842"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 1.4901161193847656e-8,
+            "rms": 2.2315213908435736e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2499903797961843
+        },
+        {
+          "index": 3,
+          "name": "Guitar 4",
+          "channels": [
+            6,
+            7
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 729600,
+          "expectedStartTick": 729600,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.19644910097122192,
+            "rms": 0.059564078965944865,
+            "sha256": "bb8a4a71781b04f2c9b785ca39605c6d291b111718f4f81c81805a8514d11cc6"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.19644910097122192,
+            "rms": 0.0595640789585902,
+            "sha256": "7a352e7f3800742f9653ba728fa9361318bc94e91882bee4189029cae97a6dd5"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04937614127993584,
+            "rms": 0.014894096169328823,
+            "sha256": "c50ce6c8bdbfbf6afcd941bc80ef56e9306666e74e6dd25386375ba37a31532b"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 1.4901161193847656e-8,
+            "rms": 1.865204279669219e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.250051649045801
+        },
+        {
+          "index": 4,
+          "name": "Guitar 5",
+          "channels": [
+            8,
+            10
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 775680,
+          "expectedStartTick": 775680,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.20341287553310394,
+            "rms": 0.04742569870521753,
+            "sha256": "b50f44eec28d4097da9d0ff35cdca7f30242c484ced53b2a4022e7cc0d70c79c"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.20341287553310394,
+            "rms": 0.04742569870419244,
+            "sha256": "c82a14d8678275d6b49c7fe68424d25241dae8b025e8410f1e60618a687b02cf"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.050853218883275986,
+            "rms": 0.011856940238398285,
+            "sha256": "09768acee1817ab10b51368f8489ac0fc2e8ea425ea5f4e00b4f335519cfc37e"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 1.4901161193847656e-8,
+            "rms": 1.595225328528706e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25001087094355967
+        },
+        {
+          "index": 5,
+          "name": "Percussion",
+          "channels": [
+            9
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 29760,
+          "expectedStartTick": 29760,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.6769753098487854,
+            "rms": 0.07778460987405555,
+            "sha256": "06d883446b3a569301a373cbc89c5f92cb7834a0fecd28738a019e75bc191fc9"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.6769753694534302,
+            "rms": 0.07778460989013768,
+            "sha256": "4afa4bdf02adbe49569840a2fee907ff8a7bfb64f2158c9bdc8835964517094c"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.16928865015506744,
+            "rms": 0.01944657015632239,
+            "sha256": "892f9b28e7b004f517e0bd2d497272dd52051081570967903ff69068ef51de02"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 5.960464477539063e-8,
+            "rms": 4.0842657662345245e-9
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25000536980013366
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-14",
+      "path": "a/Adams, Bryan/Adams, Bryan - Its Only Love.gtp",
+      "status": "unsupported-gtp"
+    },
+    {
+      "id": "sample-15",
+      "path": "Svoy_sredi_chuzhikh_chuzhoy_sredi_svoikh_-_videorazbor.gpx",
+      "channels": [
+        [
+          0,
+          1
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "Acoustic Guitar (Steel)",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 7200,
+          "expectedStartTick": 7200,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.055381711572408676,
+            "rms": 0.013316571499102304,
+            "sha256": "85377e05e55c0f4d6ad6c0cf16cec80a4091e4f312e274ff24836a397bf4d32d"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.055381711572408676,
+            "rms": 0.013316571499102304,
+            "sha256": "85377e05e55c0f4d6ad6c0cf16cec80a4091e4f312e274ff24836a397bf4d32d"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.013845427893102169,
+            "rms": 0.0033293501861227353,
+            "sha256": "235b6513ffa5f94abac531fb4f53e789918dfcf82c2858a33e077e78fdb99abd"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.2500155679220566
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "sample-16",
+      "path": "d/Dream Theater/Dream Theatre - Regression (3)",
+      "channels": [
+        [
+          0,
+          1
+        ],
+        [
+          9
+        ]
+      ],
+      "tracks": [
+        {
+          "index": 0,
+          "name": "John Petrucci - 6 Strings Guitar",
+          "channels": [
+            0,
+            1
+          ],
+          "percussion": false,
+          "status": "passed",
+          "startTick": 15360,
+          "expectedStartTick": 15360,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.048755399882793427,
+            "rms": 0.0069531450207852225,
+            "sha256": "0776d2c85dbc65e0692bebaaaac6ec06903a1b2dcb217df3716f2c715cc1fdc0"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.048755399882793427,
+            "rms": 0.006953145021087928,
+            "sha256": "a94d1acd133af327e3bf84e5337a4840606963a3b9d00e329a0334d96abed372"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.012188849970698357,
+            "rms": 0.0017346778084708597,
+            "sha256": "8a92c0d5e4697282f9f89d5361495f27a83d6ded981f11afac5cbbbae253178e"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 3.725290298461914e-9,
+            "rms": 3.320764737804047e-10
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.24948103387536733
+        },
+        {
+          "index": 1,
+          "name": "Mike Portnoy - Drum",
+          "channels": [
+            9
+          ],
+          "percussion": true,
+          "status": "passed",
+          "startTick": 0,
+          "expectedStartTick": 0,
+          "full": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.16907376050949097,
+            "rms": 0.012070475271242321,
+            "sha256": "1127431cb5b5233b9f07e2a346cf8fb3188a16c81921fd02c8a2aee90488afa8"
+          },
+          "expected": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.16907376050949097,
+            "rms": 0.012070475271242321,
+            "sha256": "1127431cb5b5233b9f07e2a346cf8fb3188a16c81921fd02c8a2aee90488afa8"
+          },
+          "quiet": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0.04226844012737274,
+            "rms": 0.0030176188178105802,
+            "sha256": "26bc6b1fd1615c0764cbdf5a10145ddc640781b43a22d63c21004d9d35b5a460"
+          },
+          "muted": {
+            "frames": 52920,
+            "sampleRate": 44100,
+            "channels": 2,
+            "peak": 0,
+            "rms": 0,
+            "sha256": "3f763f0f20fab2c0fe4384bdb32a62c088b24dd5c4cb0a74045393ef160bdf93"
+          },
+          "differenceFromStockSingleTrack": {
+            "peak": 0,
+            "rms": 0
+          },
+          "soloVsMuteOtherTracks": {
+            "peak": 0,
+            "rms": 0
+          },
+          "rmsQuarterToFull": 0.25
+        }
+      ],
+      "status": "passed"
+    }
+  ],
+  "scope": "Продуктовый public/vendor/music-bank/alphaTab.js: настоящий Node DSP/PCM из локального SoundFont. Вывод в устройство и браузерный live отдельно; PCM не сохраняется.",
+  "limitations": [
+    "Целевая выборка 16 файлов и независимые синтетические музыкальные примеры, не весь каталог.",
+    "Виртуальные каналы предназначены только для внутреннего проигрывателя; SMF/MIDI-экспорт требует отдельного преобразования."
+  ],
+  "completedAt": "2026-11-08T17:45:24.550Z",
+  "summary": {
+    "passed": 22,
+    "failed": 0,
+    "pcmTracksPassed": 65
+  }
+}

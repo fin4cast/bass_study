@@ -48,7 +48,7 @@ check('native-v6-draft-drain-aborts-after-real-history-put-and-retries-once', as
 });
 
 check('native-indexeddb-schema-preferences-presets-and-distinct-results', async ({ page }) => {
-  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 6); assert.deepEqual(empty.presets, []); assert.deepEqual(empty.history, []);
+  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 7); assert.deepEqual(empty.presets, []); assert.deepEqual(empty.history, []);
   const state = await seed(page);
   assert.equal(state.format, 'bass-study-backup'); assert.equal(state.preferences.player.bpm, 96);
   assert.deepEqual(state.presets.map(item => item.name), ['Нижняя струна', 'Исходная область']);
@@ -63,7 +63,7 @@ check('native-indexeddb-schema-preferences-presets-and-distinct-results', async 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => { const db = request.result; const result = { name: db.name, version: db.version, stores: [...db.objectStoreNames] }; db.close(); resolve(result); };
   }));
-  assert.deepEqual(schema, { name: 'bass-study', version: 6, stores: ['history', 'practiceDrafts', 'preferences', 'presets', 'profile'] });
+  assert.deepEqual(schema, { name: 'bass-study', version: 7, stores: ['history', 'practiceDrafts', 'preferences', 'presets', 'profile'] });
   return { schema, state };
 });
 
@@ -120,7 +120,7 @@ check('native-cancel-and-validation-refusals-never-change-existing-data', async 
     const mutations = [
       ['broken-json', '{broken', 'INVALID_BACKUP'],
       ['unknown-format', JSON.stringify({ ...clone(), format: 'another-app' }), 'UNSUPPORTED_FORMAT'],
-      ['future-version', JSON.stringify({ ...clone(), schemaVersion: 7 }), 'UNSUPPORTED_VERSION'],
+      ['future-version', JSON.stringify({ ...clone(), schemaVersion: 8 }), 'UNSUPPORTED_VERSION'],
       ['wrong-bpm-type', (() => { const value = clone(); value.preferences.player.bpm = '96'; return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['duplicate-presets', (() => { const value = clone(); value.presets.push(value.presets[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['duplicate-history', (() => { const value = clone(); value.history.push(value.history[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
@@ -358,7 +358,7 @@ check('ui-settings-reload-presets-apply-delete-and-download-export', async ({ pa
   await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
   await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill('Мой нижний участок'); await historyAction(page, 'save-preset').click();
   await page.getByTestId('preset-list').getByText('Мой нижний участок', { exact: true }).waitFor();
-  const exported = await uiBackup(page); assert.equal(exported.schemaVersion, 6); assert.equal(exported.presets.length, 1);
+  const exported = await uiBackup(page); assert.equal(exported.schemaVersion, 7); assert.equal(exported.presets.length, 1);
   assert.deepEqual(exported.preferences.study, { root: 'C', structureId: 'major', labelMode: 'degrees', strings: ['E'], fretMin: 0, fretMax: 3, box: null, showFingers: false });
   assert.equal(exported.preferences.player.bpm, 96); assert.equal(exported.preferences.player.countIn, false);
   await page.reload(); await openHistory(page);
@@ -410,7 +410,7 @@ check('ui-import-preview-cancel-confirm-and-full-replacement', async ({ page, fi
 check('ui-restore-after-nonzero-practice-does-not-add-old-clock-to-imported-draft', async ({ page }) => {
   await uiRange(page, 0); await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
   await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  await page.getByLabel('Повтор', { exact: true }).selectOption('infinite'); await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
+  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite'); await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
   async function playFor(milliseconds) {
     await page.locator('[data-player-action="start"]').click();
     await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerState === 'running' && document.querySelector('#player-mount')?.dataset.currentPosition === 'E:0');
@@ -432,7 +432,7 @@ check('ui-invalid-import-shows-error-and-preserves-valid-data', async ({ page, f
   const incoming = await fixtureBackup(page, fixtureUrl); await confirmImport(page, incoming); const before = await uiBackup(page);
   const mutations = [
     ['broken.json', '{broken'],
-    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 7 })],
+    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 8 })],
     ['corrupt.json', (() => { const value = structuredClone(incoming); value.history[1].result.questions[0].errors = 0; return JSON.stringify(value); })()],
   ];
   const errors = [];
@@ -486,7 +486,7 @@ check('ui-lazy-history-opens-current-own-commits-and-partial-upsert-keeps-one-id
 check('ui-manual-practice-has-self-report-source-and-consumes-duration', async ({ page }) => {
   await uiRange(page, 0); await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
   await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck(); await page.getByLabel('Повтор', { exact: true }).selectOption('infinite');
+  await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck(); await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite');
   await page.locator('[data-player-action="start"]').click();
   await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerState === 'running' && document.querySelector('#player-mount')?.dataset.currentPosition);
   await delay(700); await page.locator('[data-player-action="stop"]').click();

@@ -1,0 +1,83 @@
+{
+  "format": "bass-study-alphatab-local-patch",
+  "version": 1,
+  "upstream": {
+    "package": "@coderline/alphatab",
+    "version": "1.9.0",
+    "coreSha256": "7d5e9412c6d0a692c569f4b8a1afda0ef76be044f2538e6f8f43e907a2cf588e",
+    "license": "MPL-2.0"
+  },
+  "channelLayout": "music-bank-channels-v1",
+  "modifiedCoreSha256": "a9098da4f6c70a21868f923181f8a13ff2237eb1dfec74d9e4e841532e739a71",
+  "helperSha256": "67ae0f302353a52d203688b262a230035c3c1765fd10f350c80199cc2ef478bf",
+  "changes": [
+    {
+      "name": "Импорт единой модели виртуальных каналов",
+      "occurrences": 1
+    },
+    {
+      "name": "Обобщённый предикат ударных",
+      "occurrences": 1
+    },
+    {
+      "name": "consolidate: отдельные каналы всех партий",
+      "occurrences": 1
+    },
+    {
+      "name": "Sequencer: программы мелодических инструментов",
+      "occurrences": 1
+    },
+    {
+      "name": "Sequencer: загрузка сэмплов всех ударных",
+      "occurrences": 1
+    },
+    {
+      "name": "Live transpose: звучащие ударные",
+      "occurrences": 2
+    },
+    {
+      "name": "Synth: выбор drum bank и program fallback",
+      "occurrences": 1
+    },
+    {
+      "name": "GPIF: значок ударных",
+      "occurrences": 1
+    },
+    {
+      "name": "SoundFont exclusive class ограничена своей партией",
+      "occurrences": 1
+    },
+    {
+      "name": "MIDI note-on velocity0 гасит ноту только своего канала",
+      "occurrences": 1
+    }
+  ],
+  "assets": [
+    {
+      "path": "alphaTab.js",
+      "sourceSha256": "0f4bf9f02bce1b81fd8b029a84cdd18d5340cb31b9f232f6b7cc9c278c52ff8a",
+      "sha256": "414a19d9885a325c690114ddbdd027442337b870cc655e4be4ccd6bedacf76e7"
+    },
+    {
+      "path": "alphaTab.worker.js",
+      "sourceSha256": "fc0bcc606840dc22d0328a0d1cf213c2b430e69ee4618403d77edc657cb05d5f",
+      "sha256": "967d2c5ea0750d7ffd65219c39f778545e2ea4097a43a1ce3254ed73571819ab"
+    },
+    {
+      "path": "alphaTab.worklet.js",
+      "sourceSha256": "b69937dcd2a2cd32ac193b52904a0f63c2548ffcabc822a4529a48ce4b9b959c",
+      "sha256": "2e5daddf5a14d712bbce4b7f0d5d4b82289021e875a256c8cc6db63c3a30e95f"
+    },
+    {
+      "path": "channel-layout.js",
+      "sourceSha256": "67ae0f302353a52d203688b262a230035c3c1765fd10f350c80199cc2ef478bf",
+      "sha256": "67ae0f302353a52d203688b262a230035c3c1765fd10f350c80199cc2ef478bf"
+    },
+    {
+      "path": "alphaTab.core.js",
+      "sourceSha256": "7d5e9412c6d0a692c569f4b8a1afda0ef76be044f2538e6f8f43e907a2cf588e",
+      "sha256": "a9098da4f6c70a21868f923181f8a13ff2237eb1dfec74d9e4e841532e739a71"
+    }
+  ],
+  "note": "Локальная поставка музбанка bass_study. Исходники npm и GP не изменены; PCM не хранится."
+}

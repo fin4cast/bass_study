@@ -1,0 +1,724 @@
+{
+  "generatedAt": "2026-11-08T18:08:57.065Z",
+  "platform": "win32",
+  "architecture": "x64",
+  "node": "v24.18.0",
+  "browserChannel": "msedge",
+  "browserVersion": "157.0.4341.42",
+  "origin": "http://localhost:4173",
+  "fixtureOrigin": "http://127.0.0.1:4192",
+  "scope": "R020 explicit diagnostic capture from Chromium native fake WAV devices only; no physical microphone/interface, grading or latency measurement.",
+  "networkIsolation": "Fresh Edge contexts with cache disabled; non-loopback page HTTP requests aborted. Only isolated test profiles and fake WAV capture flags; permissions granted explicitly to loopback test origins. No user profile or Windows network adapter change.",
+  "staticServer": {
+    "reuseRequested": true,
+    "owned": false,
+    "mode": "external-reused",
+    "indexVerifiedByteForByte": true,
+    "restartAllowed": false,
+    "shutdownAllowed": false
+  },
+  "checks": [
+    {
+      "name": "native-enumeration-does-not-request-permission-or-start-capture",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 707,
+      "evidence": {
+        "devices": [
+          {
+            "id": "",
+            "label": "",
+            "groupId": ""
+          }
+        ],
+        "permissionBefore": "prompt",
+        "permissionAfter": "prompt",
+        "getUserMediaCalls": 0
+      }
+    },
+    {
+      "name": "native-A1-capture-reports-actual-settings-and-silent-analysis-branches",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 960,
+      "evidence": {
+        "state": {
+          "state": "running",
+          "error": null,
+          "requested": {
+            "channelCount": {
+              "ideal": 1
+            },
+            "echoCancellation": false,
+            "autoGainControl": false,
+            "noiseSuppression": false
+          },
+          "settings": {
+            "autoGainControl": false,
+            "channelCount": 2,
+            "deviceId": "default",
+            "echoCancellation": false,
+            "groupId": "9d4208b5bb6640832453f62d762113eae7b743321b9264594a4a8afc7ac3a519",
+            "latency": 0.01,
+            "noiseSuppression": false,
+            "sampleRate": 44100,
+            "sampleSize": 16,
+            "voiceIsolation": false
+          },
+          "supportedConstraints": {
+            "aspectRatio": true,
+            "autoGainControl": true,
+            "brightness": true,
+            "channelCount": true,
+            "colorTemperature": true,
+            "contrast": true,
+            "deviceId": true,
+            "displaySurface": true,
+            "echoCancellation": true,
+            "exposureCompensation": true,
+            "exposureMode": true,
+            "exposureTime": true,
+            "facingMode": true,
+            "focusDistance": true,
+            "focusMode": true,
+            "frameRate": true,
+            "groupId": true,
+            "height": true,
+            "iso": true,
+            "latency": true,
+            "noiseSuppression": true,
+            "pan": true,
+            "pointsOfInterest": true,
+            "resizeMode": true,
+            "restrictOwnAudio": true,
+            "sampleRate": true,
+            "sampleSize": true,
+            "saturation": true,
+            "sharpness": true,
+            "suppressLocalAudioPlayback": true,
+            "tilt": true,
+            "torch": true,
+            "voiceIsolation": true,
+            "whiteBalanceMode": true,
+            "width": true,
+            "zoom": true
+          },
+          "device": {
+            "id": "default",
+            "label": "Fake Default Audio Input"
+          },
+          "context": {
+            "sampleRate": 48000,
+            "state": "running",
+            "outputBaseLatencySeconds": 0.010020833333333333,
+            "latencyHint": "interactive"
+          },
+          "level": {
+            "rms": 0.17760642817567526,
+            "peak": 0.2500168979167938,
+            "clipping": false,
+            "clippedSamples": 0,
+            "clipThreshold": 0.999
+          },
+          "pitch": {
+            "rms": 0.17785850136227332,
+            "acRms": 0.17769848795590326,
+            "windowMs": 170.66666666666666,
+            "downsampleFactor": 4,
+            "voiced": true,
+            "hz": 54.99996298274134,
+            "nearestMidi": 33,
+            "cents": -0.00116519200332732,
+            "confidence": 0.9999996876668099,
+            "reason": null
+          },
+          "trackCount": 1
+        },
+        "nativeSettings": {
+          "autoGainControl": false,
+          "channelCount": 2,
+          "deviceId": "default",
+          "echoCancellation": false,
+          "groupId": "9d4208b5bb6640832453f62d762113eae7b743321b9264594a4a8afc7ac3a519",
+          "latency": 0.01,
+          "noiseSuppression": false,
+          "sampleRate": 44100,
+          "sampleSize": 16,
+          "voiceIsolation": false
+        },
+        "destinationEdges": [
+          {
+            "source": "GainNode",
+            "destination": "AudioDestinationNode",
+            "gain": 0
+          }
+        ],
+        "capture": "Chromium fake WAV only; permission explicitly granted to fixture origin"
+      }
+    },
+    {
+      "name": "native-low-E1-WAV-keeps-sounding-octave",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 874,
+      "evidence": {
+        "rms": 0.1772317896910162,
+        "acRms": 0.1772286395783026,
+        "windowMs": 170.66666666666666,
+        "downsampleFactor": 4,
+        "voiced": true,
+        "hz": 41.20345155209842,
+        "nearestMidi": 28,
+        "cents": 0.00029151162124207985,
+        "confidence": 0.9999998123572675,
+        "reason": null
+      }
+    },
+    {
+      "name": "native-dominant-harmonic-WAV-retains-fundamental-or-refuses-ambiguity",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 1051,
+      "evidence": {
+        "rms": 0.2339991759960869,
+        "acRms": 0.23399721946124324,
+        "windowMs": 170.66666666666666,
+        "downsampleFactor": 4,
+        "voiced": true,
+        "hz": 41.203444227230456,
+        "nearestMidi": 28,
+        "cents": -0.00001625536114602255,
+        "confidence": 0.9999993087869173,
+        "reason": null
+      }
+    },
+    {
+      "name": "native-noise-WAV-is-not-invented-as-a-bass-note",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 938,
+      "evidence": {
+        "rms": 0.040560012988697595,
+        "acRms": 0.0405055280839484,
+        "windowMs": 170.66666666666666,
+        "downsampleFactor": 4,
+        "voiced": false,
+        "hz": null,
+        "nearestMidi": null,
+        "cents": null,
+        "confidence": 0.14441158591767655,
+        "reason": "noise"
+      }
+    },
+    {
+      "name": "native-500Hz-WAV-is-refused-outside-diagnostic-range",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 915,
+      "evidence": {
+        "rms": 0.20075985252327377,
+        "acRms": 0.20075883291889768,
+        "windowMs": 170.66666666666666,
+        "downsampleFactor": 4,
+        "voiced": false,
+        "hz": null,
+        "nearestMidi": null,
+        "cents": null,
+        "confidence": 0.49,
+        "reason": "out-of-range"
+      }
+    },
+    {
+      "name": "native-clipped-WAV-has-real-peak-and-clipping-flag",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 758,
+      "evidence": {
+        "rms": 0.6756983911014047,
+        "peak": 1.260562777519226,
+        "clipping": true,
+        "clippedSamples": 3551,
+        "clipThreshold": 0.999
+      }
+    },
+    {
+      "name": "native-three-restarts-stop-and-dispose-release-every-acquired-track",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 864,
+      "evidence": {
+        "runs": [
+          {
+            "state": "stopped",
+            "error": null,
+            "requested": {
+              "channelCount": {
+                "ideal": 1
+              },
+              "echoCancellation": false,
+              "autoGainControl": false,
+              "noiseSuppression": false
+            },
+            "settings": {
+              "autoGainControl": false,
+              "channelCount": 2,
+              "deviceId": "default",
+              "echoCancellation": false,
+              "groupId": "406774c68fa0e1e6319200194263221eb25be2421b9b85a471a84bb9c700871a",
+              "latency": 0.01,
+              "noiseSuppression": false,
+              "sampleRate": 44100,
+              "sampleSize": 16,
+              "voiceIsolation": false
+            },
+            "supportedConstraints": {
+              "aspectRatio": true,
+              "autoGainControl": true,
+              "brightness": true,
+              "channelCount": true,
+              "colorTemperature": true,
+              "contrast": true,
+              "deviceId": true,
+              "displaySurface": true,
+              "echoCancellation": true,
+              "exposureCompensation": true,
+              "exposureMode": true,
+              "exposureTime": true,
+              "facingMode": true,
+              "focusDistance": true,
+              "focusMode": true,
+              "frameRate": true,
+              "groupId": true,
+              "height": true,
+              "iso": true,
+              "latency": true,
+              "noiseSuppression": true,
+              "pan": true,
+              "pointsOfInterest": true,
+              "resizeMode": true,
+              "restrictOwnAudio": true,
+              "sampleRate": true,
+              "sampleSize": true,
+              "saturation": true,
+              "sharpness": true,
+              "suppressLocalAudioPlayback": true,
+              "tilt": true,
+              "torch": true,
+              "voiceIsolation": true,
+              "whiteBalanceMode": true,
+              "width": true,
+              "zoom": true
+            },
+            "device": {
+              "id": "default",
+              "label": "Fake Default Audio Input"
+            },
+            "context": null,
+            "level": {
+              "rms": 0,
+              "peak": 0,
+              "clipping": false,
+              "clippedSamples": 0,
+              "clipThreshold": 0.999
+            },
+            "pitch": null,
+            "trackCount": 0
+          },
+          {
+            "state": "stopped",
+            "error": null,
+            "requested": {
+              "channelCount": {
+                "ideal": 1
+              },
+              "echoCancellation": false,
+              "autoGainControl": false,
+              "noiseSuppression": false
+            },
+            "settings": {
+              "autoGainControl": false,
+              "channelCount": 2,
+              "deviceId": "default",
+              "echoCancellation": false,
+              "groupId": "406774c68fa0e1e6319200194263221eb25be2421b9b85a471a84bb9c700871a",
+              "latency": 0.01,
+              "noiseSuppression": false,
+              "sampleRate": 44100,
+              "sampleSize": 16,
+              "voiceIsolation": false
+            },
+            "supportedConstraints": {
+              "aspectRatio": true,
+              "autoGainControl": true,
+              "brightness": true,
+              "channelCount": true,
+              "colorTemperature": true,
+              "contrast": true,
+              "deviceId": true,
+              "displaySurface": true,
+              "echoCancellation": true,
+              "exposureCompensation": true,
+              "exposureMode": true,
+              "exposureTime": true,
+              "facingMode": true,
+              "focusDistance": true,
+              "focusMode": true,
+              "frameRate": true,
+              "groupId": true,
+              "height": true,
+              "iso": true,
+              "latency": true,
+              "noiseSuppression": true,
+              "pan": true,
+              "pointsOfInterest": true,
+              "resizeMode": true,
+              "restrictOwnAudio": true,
+              "sampleRate": true,
+              "sampleSize": true,
+              "saturation": true,
+              "sharpness": true,
+              "suppressLocalAudioPlayback": true,
+              "tilt": true,
+              "torch": true,
+              "voiceIsolation": true,
+              "whiteBalanceMode": true,
+              "width": true,
+              "zoom": true
+            },
+            "device": {
+              "id": "default",
+              "label": "Fake Default Audio Input"
+            },
+            "context": null,
+            "level": {
+              "rms": 0,
+              "peak": 0,
+              "clipping": false,
+              "clippedSamples": 0,
+              "clipThreshold": 0.999
+            },
+            "pitch": null,
+            "trackCount": 0
+          },
+          {
+            "state": "stopped",
+            "error": null,
+            "requested": {
+              "channelCount": {
+                "ideal": 1
+              },
+              "echoCancellation": false,
+              "autoGainControl": false,
+              "noiseSuppression": false
+            },
+            "settings": {
+              "autoGainControl": false,
+              "channelCount": 2,
+              "deviceId": "default",
+              "echoCancellation": false,
+              "groupId": "406774c68fa0e1e6319200194263221eb25be2421b9b85a471a84bb9c700871a",
+              "latency": 0.01,
+              "noiseSuppression": false,
+              "sampleRate": 44100,
+              "sampleSize": 16,
+              "voiceIsolation": false
+            },
+            "supportedConstraints": {
+              "aspectRatio": true,
+              "autoGainControl": true,
+              "brightness": true,
+              "channelCount": true,
+              "colorTemperature": true,
+              "contrast": true,
+              "deviceId": true,
+              "displaySurface": true,
+              "echoCancellation": true,
+              "exposureCompensation": true,
+              "exposureMode": true,
+              "exposureTime": true,
+              "facingMode": true,
+              "focusDistance": true,
+              "focusMode": true,
+              "frameRate": true,
+              "groupId": true,
+              "height": true,
+              "iso": true,
+              "latency": true,
+              "noiseSuppression": true,
+              "pan": true,
+              "pointsOfInterest": true,
+              "resizeMode": true,
+              "restrictOwnAudio": true,
+              "sampleRate": true,
+              "sampleSize": true,
+              "saturation": true,
+              "sharpness": true,
+              "suppressLocalAudioPlayback": true,
+              "tilt": true,
+              "torch": true,
+              "voiceIsolation": true,
+              "whiteBalanceMode": true,
+              "width": true,
+              "zoom": true
+            },
+            "device": {
+              "id": "default",
+              "label": "Fake Default Audio Input"
+            },
+            "context": null,
+            "level": {
+              "rms": 0,
+              "peak": 0,
+              "clipping": false,
+              "clippedSamples": 0,
+              "clipThreshold": 0.999
+            },
+            "pitch": null,
+            "trackCount": 0
+          }
+        ],
+        "calls": 3,
+        "liveTracksAfterDispose": 0
+      }
+    },
+    {
+      "name": "native-unavailable-exact-device-fails-without-auto-retry",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 861,
+      "evidence": {
+        "error": {
+          "name": "InputMonitorError",
+          "code": "DEVICE_CONSTRAINT",
+          "message": "Выбранное устройство или запрошенные параметры недоступны. Обнови список и выбери аудиовход заново."
+        },
+        "state": {
+          "state": "error",
+          "error": {
+            "code": "DEVICE_CONSTRAINT",
+            "message": "Выбранное устройство или запрошенные параметры недоступны. Обнови список и выбери аудиовход заново."
+          },
+          "requested": {
+            "deviceId": {
+              "exact": "bass-study-missing-device"
+            },
+            "channelCount": {
+              "ideal": 1
+            },
+            "echoCancellation": false,
+            "autoGainControl": false,
+            "noiseSuppression": false
+          },
+          "settings": null,
+          "supportedConstraints": {
+            "aspectRatio": true,
+            "autoGainControl": true,
+            "brightness": true,
+            "channelCount": true,
+            "colorTemperature": true,
+            "contrast": true,
+            "deviceId": true,
+            "displaySurface": true,
+            "echoCancellation": true,
+            "exposureCompensation": true,
+            "exposureMode": true,
+            "exposureTime": true,
+            "facingMode": true,
+            "focusDistance": true,
+            "focusMode": true,
+            "frameRate": true,
+            "groupId": true,
+            "height": true,
+            "iso": true,
+            "latency": true,
+            "noiseSuppression": true,
+            "pan": true,
+            "pointsOfInterest": true,
+            "resizeMode": true,
+            "restrictOwnAudio": true,
+            "sampleRate": true,
+            "sampleSize": true,
+            "saturation": true,
+            "sharpness": true,
+            "suppressLocalAudioPlayback": true,
+            "tilt": true,
+            "torch": true,
+            "voiceIsolation": true,
+            "whiteBalanceMode": true,
+            "width": true,
+            "zoom": true
+          },
+          "device": null,
+          "context": null,
+          "level": {
+            "rms": 0,
+            "peak": 0,
+            "clipping": false,
+            "clippedSamples": 0,
+            "clipThreshold": 0.999
+          },
+          "pitch": null,
+          "trackCount": 0
+        },
+        "autoRetry": false
+      }
+    },
+    {
+      "name": "ui-mount-navigation-refresh-and-reload-never-start-capture",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1274,
+      "evidence": {
+        "mountCaptureCalls": 0,
+        "refreshCaptureCalls": 0,
+        "reloadCaptureCalls": 0
+      }
+    },
+    {
+      "name": "ui-first-open-and-return-do-not-claim-the-visible-section-is-closed",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 922,
+      "evidence": {
+        "firstOpenNoticeHidden": true,
+        "returnedNoticeHidden": true,
+        "captureCalls": 0
+      }
+    },
+    {
+      "name": "ui-explicit-connect-displays-Hz-note-confidence-and-separate-track-context-settings",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1315,
+      "evidence": {
+        "trackSettings": {
+          "autoGainControl": false,
+          "channelCount": 2,
+          "deviceId": "default",
+          "echoCancellation": false,
+          "groupId": "a5c0d3aaddcf0a56c0958d35211d4cd537597f5d65b9087aa63164eac8ccdb85",
+          "latency": 0.01,
+          "noiseSuppression": false,
+          "sampleRate": 44100,
+          "sampleSize": 16,
+          "voiceIsolation": false
+        },
+        "hz": 55,
+        "soundingNote": "A1",
+        "levelHelp": "RMS — среднеквадратичный уровень сигнала за окно; пик — его кратковременный максимум. dBFS отсчитывает уровень от цифрового предела 0 dBFS: отрицательные значения ниже предела. Если появляется перегрузка, уменьши усиление на аудиоинтерфейсе. Изменение уровня здесь не управляет усилением устройства.",
+        "getUserMediaCalls": 1,
+        "latencyMeasured": false
+      }
+    },
+    {
+      "name": "ui-denied-native-permission-is-visible-and-not-automatically-retried",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1222,
+      "evidence": {
+        "permission": "native CDP denied on isolated origin",
+        "calls": 1,
+        "tracks": 0
+      }
+    },
+    {
+      "name": "ui-cancel-pending-native-acquisition-reaps-late-returned-tracks",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1620,
+      "evidence": {
+        "nativeAcquisitionDelayedOnlyByObserver": true,
+        "cancelledState": "stopped",
+        "lateTracksReleased": true
+      }
+    },
+    {
+      "name": "ui-device-selection-stops-current-input-and-requires-new-connect",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1429,
+      "evidence": {
+        "selectedDeviceId": "default",
+        "stoppedTracks": true,
+        "automaticReconnect": false
+      }
+    },
+    {
+      "name": "ui-native-track-ended-event-releases-input-and-shows-explanation",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1453,
+      "evidence": {
+        "method": "Controlled ended event on native fake MediaStreamTrack; no physical unplug claim",
+        "released": true,
+        "automaticReconnect": false
+      }
+    },
+    {
+      "name": "ui-device-preferences-preset-reload-and-schema-five-restore-never-capture",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1748,
+      "evidence": {
+        "schemaVersion": 7,
+        "selectedDeviceId": "default",
+        "exactRoundtrip": true,
+        "captureCallsDuringPresetReloadRestore": 0,
+        "historyEntries": 0
+      }
+    },
+    {
+      "name": "ui-module-leave-stops-native-tracks-and-return-does-not-auto-connect",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1473,
+      "evidence": {
+        "liveTracksAfterExit": 0,
+        "noAutoConnectOnReturn": true
+      }
+    },
+    {
+      "name": "ui-noise-uncertainty-layout-and-non-grading-labels-are-visible",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1547,
+      "evidence": {
+        "sizes": [
+          {
+            "viewport": 1366,
+            "document": 1366
+          },
+          {
+            "viewport": 800,
+            "document": 800
+          },
+          {
+            "viewport": 390,
+            "document": 390
+          }
+        ],
+        "uncertainWithoutInventedNote": true,
+        "screenshot": "test-results/p7-input-narrow.png",
+        "automaticGrading": false
+      }
+    },
+    {
+      "name": "native-real-hidden-tab-stops-all-tracks-and-return-needs-explicit-connect",
+      "scope": "native",
+      "status": "passed",
+      "durationMs": 1934,
+      "evidence": {
+        "actualDocumentHidden": true,
+        "method": "Isolated Edge/CDP noDefaults:true with native fake WAV device; real tab activation",
+        "stoppedTracks": true,
+        "explicitReconnectRequired": true
+      }
+    }
+  ],
+  "externalRequests": [],
+  "pageErrors": [],
+  "cleanupErrors": [],
+  "passed": 20,
+  "failed": 0,
+  "status": "passed"
+}

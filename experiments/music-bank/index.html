@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Музбанк · bass.study</title><link rel="stylesheet" href="/style.css"></head>
+<body data-layout="studio" data-theme="light">
+<div class="reference-bar"><span>VIS-06 · r1 <b>На утверждение</b></span><div class="layout-choice" aria-label="Варианты экрана"><button data-layout="studio" aria-pressed="true">A · Студия</button><button data-layout="reading" aria-pressed="false">B · Чтение</button></div><span class="reference-detail">Один материал · два способа управления</span></div>
+<div class="app-shell">
+<nav class="navigation" aria-label="Разделы тренажёра">
+<div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>bass<span class="brand-dot">.</span>study</span></div>
+<div class="nav-group"><span class="overline">ПРАКТИКА</span><span class="nav-item">Гриф и практика</span><span class="nav-item">Слух</span><span class="nav-item">Ритм</span><span class="nav-item current" aria-current="page">Музбанк</span><span class="nav-item">Аудиовход</span><span class="nav-item">Маршрут занятия</span></div>
+<div class="nav-bottom"><span class="nav-item">Мои занятия</span><div class="theme-choice" aria-label="Оформление"><button data-theme="light" aria-pressed="true">Светлая</button><button data-theme="dark" aria-pressed="false">Тёмная</button></div><span class="local-mark">Локальный тренажёр</span></div>
+</nav>
+<main class="main-area">
+<header class="page-heading"><div><span class="overline">ИГРА С АНСАМБЛЕМ</span><h1>Мой музбанк</h1></div><div class="file-actions"><label class="sr-only" for="sample">Файлы музбанка</label><select id="sample"><option value="">Выбрать песню…</option></select><label class="button file-button">Открыть файл<input id="local-file" type="file" class="sr-only"></label></div></header>
+<section class="song-heading"><div class="song-copy"><h2 id="title">Выбери свою музыку</h2><p id="song-info">Любые партии. Любой состав.</p></div><button id="toggle-mixer" aria-controls="mixer-panel" aria-expanded="true">Микшер <span aria-hidden="true">☷</span></button></section>
+<section class="transport" aria-label="Проигрывание" id="transport">
+<div class="transport-line"><div class="playback-buttons"><button id="play" class="primary" disabled><span aria-hidden="true">▶</span> Старт</button><button id="pause" disabled>Пауза</button><button id="stop" disabled>Стоп</button></div><label class="inline-field">Скорость<select id="speed"><option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.25">125%</option></select></label><label class="master-field">Громкость<input id="master" type="range" min="0" max="1" step="0.05" value="0.7"></label><output id="position" class="time-position">0:00 / 0:00</output></div>
+<label class="seek-label"><span class="sr-only">Позиция в песне</span><input id="seek" type="range" min="0" max="1" step="0.05" value="0"></label>
+<div class="range-line"><span class="range-label">Фрагмент · такты</span><label class="sr-only" for="from-bar">Первый такт</label><input id="from-bar" type="number" min="1" value="1"><span>—</span><label class="sr-only" for="to-bar">Последний такт</label><input id="to-bar" type="number" min="1" value="4"><button id="apply-range" class="quiet-button">Выбрать</button><label class="check-label"><input id="loop" type="checkbox">Повтор</label><button id="full-range" class="text-button">Вся песня</button><span id="current-bar" class="current-bar"></span></div>
+</section>
+<div class="work-area">
+<section class="sheet-pane" aria-label="Партитура">
+<div class="sheet-toolbar"><span id="sheet-label">Партитура</span><div class="sheet-options"><label class="check-label"><input id="show-staff" type="checkbox" checked>Ноты</label><label class="check-label"><input id="show-tab" type="checkbox" checked>TAB</label><label class="check-label follow-label"><input id="follow" type="checkbox" checked>Следовать</label></div></div>
+<div id="sheet-scroll" class="sheet-scroll" tabindex="0" aria-label="Прокрутка партитуры"><div id="score"></div><div id="score-empty" class="score-empty"><span aria-hidden="true">♫</span><h3>Музыка начинается с выбора</h3><p>Открой файл и выбери партии для чтения и звучания.</p></div></div>
+</section>
+<aside id="mixer-panel" class="mixer-panel" aria-label="Микшер инструментов"><div class="mixer-heading"><div><span class="overline">СОСТАВ АНСАМБЛЯ</span><h3>Инструменты <span id="track-count"></span></h3></div><button id="close-mixer" class="text-button" aria-label="Свернуть микшер">×</button></div><p class="mixer-hint">Показывай одни партии, слушай другие.</p><div class="mixer-scroll"><table class="mixer-table"><thead class="sr-only"><tr><th>Инструмент</th><th>Показывать</th><th>Звучит</th><th>Solo</th><th>Громкость</th></tr></thead><tbody id="tracks"></tbody></table><p id="mixer-empty">Партии появятся после выбора файла.</p></div></aside>
+</div>
+<footer class="status-line"><p id="status" role="status">Выбери файл. Звук запускается по кнопке.</p><p id="warning"></p></footer>
+</main>
+</div><script type="module" src="/app.mjs"></script></body></html>

@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "libraryRoot": "C:\\Users\\gavri\\OneDrive\\Desktop\\Mysongbook.Guitar.Pro.January.2006(55294.tabs)",
+  "selectionMethod": "Целевая выборка для локального эксперимента, не случайная и не оценка совместимости всего банка. reason основан на имени/предварительной строковой выборке; структурный импорт и воспроизведение проверяются отдельно. Исходные партитуры не копируются в репозиторий.",
+  "samples": [
+    {
+      "id": "sample-01",
+      "relativePath": "m/Metal Molly/Metallica - Enter Sandman.gp3",
+      "reason": "GP3; строковые имена Basse 1/Guitar 1/Guitar 2/Drums 8 указывают на ансамбль. Одинаковое имя с другим файлом в папке Metallica, другая контрольная сумма; каталог исполнителя ненадёжен.",
+      "extension": ".gp3",
+      "bytes": 36454,
+      "sha256": "bcade19bf93b41d42d22b2bc934c92aa516c03f5aaa11487a11b8d4b12ae3385",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076332e30304701000000000e",
+        "ascii": "FICHIER GUITAR PRO v3.00"
+      }
+    },
+    {
+      "id": "sample-02",
+      "relativePath": "m/Metallica/Metallica - Enter Sandman.gp3",
+      "reason": "GP3; альтернативный файл той же песни с тем же именем и другой контрольной суммой; сравнение аранжировок после разбора.",
+      "extension": ".gp3",
+      "bytes": 44802,
+      "sha256": "aa012636f0ca985c7544bf3bcc760c6664d221a0166dfb2ca3e2ad244f199532",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076332e303000003a8877560e",
+        "ascii": "FICHIER GUITAR PRO v3.00"
+      }
+    },
+    {
+      "id": "sample-03",
+      "relativePath": "b/Beatles (The)/Beatles (The) - Come Together (2).gp3",
+      "reason": "GP3; строковые имена Guitar 1/Bass/Vocal/Guitar 2/Drumsssions указывают на несколько партий; номер версии в имени.",
+      "extension": ".gp3",
+      "bytes": 23530,
+      "sha256": "c476585a76c201bce8cc4a4ab0d7051dfbb7465fab591561b2e13765477ecd8e",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076332e303000003a883f390e",
+        "ascii": "FICHIER GUITAR PRO v3.00"
+      }
+    },
+    {
+      "id": "sample-04",
+      "relativePath": "j/Jackson, Michael/Jackson, Michael - Billie Jean.gp3",
+      "reason": "GP3; сравнение одной песни между GP3 и двумя GP4. Состав должен определить импортёр.",
+      "extension": ".gp3",
+      "bytes": 61052,
+      "sha256": "1eef18067f640b7f272ccd214b36869bb09a548c44aaeceedf5415349f3efa4c",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076332e3030142ba70870970c",
+        "ascii": "FICHIER GUITAR PRO v3.00"
+      }
+    },
+    {
+      "id": "sample-05",
+      "relativePath": "0/0 Art/0 Art - Solo Batterie.gp4",
+      "reason": "GP4; по названию кандидат на отдельную ударную партию, для проверки percussion; состав ещё не разобран.",
+      "extension": ".gp4",
+      "bytes": 14721,
+      "sha256": "29263270d048f98d7db1e9452ed0388f223750424cbc53247a2f63c621c21ca2",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076342e30366101000000000e",
+        "ascii": "FICHIER GUITAR PRO v4.06"
+      }
+    },
+    {
+      "id": "sample-06",
+      "relativePath": "0/0 Art/0 Art - Spirit Forest.gp4",
+      "reason": "GP4; вторая аранжировка того же исполнителя для сравнения состава с Solo Batterie; состав ещё не разобран.",
+      "extension": ".gp4",
+      "bytes": 33592,
+      "sha256": "64464cd60e6efe2293bbd2b8f84df0fe3317ab5b3126c4358db191ddbff4514e",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076342e30366101000000000e",
+        "ascii": "FICHIER GUITAR PRO v4.06"
+      }
+    },
+    {
+      "id": "sample-07",
+      "relativePath": "j/Jackson, Michael/Jackson, Michael - Billie Jean (2).gp4",
+      "reason": "GP4; строковые Fingerstyle Picking/Chitarra указывают на сольную гитарную аранжировку. Сравнение с Billie Jean GP3/GP4.",
+      "extension": ".gp4",
+      "bytes": 6430,
+      "sha256": "32e99f3e74a63ca2b34c0140066f94a2cb2e8274a1d0535cb3c3fb0391dd71e6",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076342e30362501000000000c",
+        "ascii": "FICHIER GUITAR PRO v4.06"
+      }
+    },
+    {
+      "id": "sample-08",
+      "relativePath": "j/Jackson, Michael/Jackson, Michael - Billie Jean.gp4",
+      "reason": "GP4; альтернативная версия Billie Jean, заметно крупнее файла (2). Состав и различия должен определить импортёр.",
+      "extension": ".gp4",
+      "bytes": 45731,
+      "sha256": "e87574a5af76b4e87f2091439f97e806bdd410c50c87acf6543e69d0fe94a7c3",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076342e3036ab000c44f9bf0c",
+        "ascii": "FICHIER GUITAR PRO v4.06"
+      }
+    },
+    {
+      "id": "sample-09",
+      "relativePath": "3/31 Minutos/31 Minutos - Mico El Micвfono.gp4",
+      "reason": "GP4; реальный non-ASCII путь с вероятно искажённой старой кодировкой имени; проверка доступа и сохранения исходного пути.",
+      "extension": ".gp4",
+      "bytes": 4549,
+      "sha256": "74e3cad8c3b992c5504ec06e1c6a85b9d90498b04e67239cf7f05ccbcc4e41e5",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076342e3036ab000c44f9bf11",
+        "ascii": "FICHIER GUITAR PRO v4.06"
+      }
+    },
+    {
+      "id": "sample-10",
+      "relativePath": "a/Alter Bridge/Alter Bridge - In Loving Memory.gp5",
+      "reason": "GP5; образец распространённой песни в формате v5, состав ещё не разобран.",
+      "extension": ".gp5",
+      "bytes": 41430,
+      "sha256": "bcf2338c3c232b48e238c799d097ca0127c85297b67d0d85ae47b74e81ea10e0",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076352e3030120060fc120011",
+        "ascii": "FICHIER GUITAR PRO v5.00"
+      }
+    },
+    {
+      "id": "sample-11",
+      "relativePath": "a/Anon/Anon - Blue Techno Pancakes.gp5",
+      "reason": "GP5; другая авторская аранжировка для разнообразия тембров и структуры; состав ещё не разобран.",
+      "extension": ".gp5",
+      "bytes": 33409,
+      "sha256": "2d0777c3e9a9611da5012bc48461b248e7cf6482a4770629b6f3c5bf1747b3c2",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076352e3030120050fc120015",
+        "ascii": "FICHIER GUITAR PRO v5.00"
+      }
+    },
+    {
+      "id": "sample-12",
+      "relativePath": "b/Barrios, Agustin/Barrios Mangore, Augustin - Estudio De Concierto.gp5",
+      "reason": "GP5; по названию кандидат на сольную классическую гитару; проверить отсутствие баса/ударных вместо их предположения.",
+      "extension": ".gp5",
+      "bytes": 15208,
+      "sha256": "cf3a1799e18f84652b05d7e72fd0c07ccb9ebdeb1a657e999f91d0baf60ef3ae",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076352e30304700d4fb120015",
+        "ascii": "FICHIER GUITAR PRO v5.00"
+      }
+    },
+    {
+      "id": "sample-13",
+      "relativePath": "b/Black Sabbath/Black Sabbath - Symptom Of The Universe (2).gp5",
+      "reason": "GP5; рок-аранжировка с номером версии, кандидат на ансамблевую пробу; состав ещё не разобран.",
+      "extension": ".gp5",
+      "bytes": 49788,
+      "sha256": "9cb1f694fecece024e0006418d59d38dcc8b07c3b3db744a73796766382cf075",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076352e3030120050fc120018",
+        "ascii": "FICHIER GUITAR PRO v5.00"
+      }
+    },
+    {
+      "id": "sample-14",
+      "relativePath": "a/Adams, Bryan/Adams, Bryan - Its Only Love.gtp",
+      "reason": "GTP; старый формат GUITARE PRO v1.04 для отдельной проверки границ поддержки импортёра.",
+      "extension": ".gtp",
+      "bytes": 29368,
+      "sha256": "c7fab2cc4c33b1eb781e8710d053076cb5aa4e31d56460be0b8b2ef00dd0620d",
+      "signature": {
+        "hexPrefix": "194649434849455220475549544152452050524f2076312e3034000f00180065",
+        "ascii": "FICHIER GUITARE PRO v1.04"
+      }
+    },
+    {
+      "id": "sample-15",
+      "relativePath": "Svoy_sredi_chuzhikh_chuzhoy_sredi_svoikh_-_videorazbor.gpx",
+      "reason": "Единственный GPX в папке; контейнер BCFZ, отдельная ветка формата.",
+      "extension": ".gpx",
+      "bytes": 51411,
+      "sha256": "6c75de0c734404a1660120d4037319fb075a016a5c3c3a1a7d41832500204c0e",
+      "signature": {
+        "hexPrefix": "4243465a04e00200684868cd4c00018000003e0ffff7ffffff3b68ab5296c28b",
+        "ascii": "BCFZ"
+      }
+    },
+    {
+      "id": "sample-16",
+      "relativePath": "d/Dream Theater/Dream Theatre - Regression (3)",
+      "reason": "Файл без расширения, сигнатура GP3 v3.00; проверить определение формата по содержимому.",
+      "extension": "",
+      "bytes": 5380,
+      "sha256": "033688e1770f6687c4bb2619800b1c771c795361986d90c96975ba78d1828c19",
+      "signature": {
+        "hexPrefix": "1846494348494552204755495441522050524f2076332e30301200491de5770f",
+        "ascii": "FICHIER GUITAR PRO v3.00"
+      }
+    }
+  ]
+}

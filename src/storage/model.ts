@@ -11,6 +11,7 @@ import { beginEarListen, cancelEarListen, collectEarResults, completeEarListen, 
 import { getRouteResult, replayRouteResult, type RouteEvent, type RouteResult } from '../route';
 import { DEFAULT_HARMONY_PREFERENCES, type HarmonyPreferences } from '../harmony';
 import { validateTracksManifest, type TracksManifest } from '../tracks';
+import { validateMusicBankPreferences, type MusicBankPreferences } from '../music-bank/model';
 import { createBoxSelection, getBoxInstance, validateBoxSelection as validateDomainBoxSelection, type BoxSelection } from '../music/boxes';
 import type { StoredPracticeMaterial, PracticeMaterial } from '../training/results';
 import { DEFAULT_PROFILE, type GlobalProfile, type PracticeDraft, type DrainDraftRequest } from './contracts';
@@ -21,6 +22,7 @@ export type { RouteRef } from '../route';
 export interface AppPreferences {
   readonly activeModule: 'foundation' | 'ear' | 'route' | 'harmony' | 'tracks' | 'input';
   readonly tracks: TracksManifest | null;
+  readonly musicBank: MusicBankPreferences | null;
   readonly input: { readonly deviceId: string };
   readonly harmony: HarmonyPreferences;
   readonly ear: { readonly root: string; readonly quality: EarQuality; readonly count: number; readonly bpm: number };
@@ -56,7 +58,7 @@ export interface EarHistoryEntry extends HistoryEnvelope { readonly result: EarH
 export interface RouteHistoryEntry extends HistoryEnvelope { readonly result: RouteResult }
 export type HistoryEntry = ScreenHistoryEntry | ManualHistoryEntry | EarHistoryEntry | RouteHistoryEntry;
 export interface StudySnapshot {
-  readonly format: 'bass-study-backup'; readonly schemaVersion: 6; readonly preferences: AppPreferences;
+  readonly format: 'bass-study-backup'; readonly schemaVersion: 7; readonly preferences: AppPreferences;
   readonly profile: GlobalProfile; readonly practiceDrafts: readonly PracticeDraft[];
   readonly presets: readonly Preset[]; readonly history: readonly HistoryEntry[];
 }
@@ -144,7 +146,7 @@ export function originalLocalDate(occurredAt: string, timeZone: string): string 
 }
 
 export const DEFAULT_PREFERENCES: AppPreferences = immutable({
-  tracks: null, input: { deviceId: '' },
+  tracks: null, musicBank: null, input: { deviceId: '' },
   harmony: DEFAULT_HARMONY_PREFERENCES,
   activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 },
   study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12,
@@ -166,12 +168,17 @@ function positionIds(value: unknown, label: string, allowEmpty: boolean): string
 function position(id: string) { const [string, fret] = id.split(':'); return getPosition(string as StringId, Number(fret)); }
 
 export function validatePreferences(value: unknown): AppPreferences {
-  const data = object(value, ['activeModule', 'ear', 'harmony', 'tracks', 'input', 'study', 'training', 'player'], 'Настройки');
+  const data = object(value, ['activeModule', 'ear', 'harmony', 'tracks', 'musicBank', 'input', 'study', 'training', 'player'], 'Настройки');
   const input = object(data.input, ['deviceId'], 'Настройки аудиовхода');
   let tracks: TracksManifest | null = null;
   if (data.tracks !== null) {
     try { tracks = validateTracksManifest(data.tracks); }
     catch (failure) { invalid(`Настройки дорожек: ${failure instanceof Error ? failure.message : String(failure)}`); }
+  }
+  let musicBank: MusicBankPreferences | null = null;
+  if (data.musicBank !== null) {
+    try { musicBank = validateMusicBankPreferences(data.musicBank); }
+    catch (failure) { invalid(`Настройки раздела «Табулатура и ноты»: ${failure instanceof Error ? failure.message : String(failure)}`); }
   }
   const ear = object(data.ear, ['root', 'quality', 'count', 'bpm'], 'Настройки слуха');
   const harmony = object(data.harmony, ['bpm', 'countIn', 'repeat', 'bassVolume', 'padVolume', 'clickVolume', 'bassMuted', 'padMuted', 'clickMuted'], 'Настройки сопровождения');
@@ -197,7 +204,7 @@ export function validatePreferences(value: unknown): AppPreferences {
   if (ladderStart > ladderEnd) invalid('Конечный темп лестницы ниже начального.');
   return immutable({
     activeModule: oneOf(data.activeModule, ['foundation', 'ear', 'route', 'harmony', 'tracks', 'input'] as const, 'Раздел'),
-    tracks, input: { deviceId: text(input.deviceId, 'Устройство аудиовхода', 2048, true) },
+    tracks, musicBank, input: { deviceId: text(input.deviceId, 'Устройство аудиовхода', 2048, true) },
     harmony: { bpm: number(harmony.bpm, 40, 220, 'Темп сопровождения'), countIn: boolean(harmony.countIn, 'Отсчёт сопровождения'), repeat: oneOf(harmony.repeat, ['once', 'infinite'] as const, 'Повтор сопровождения'),
       bassVolume: number(harmony.bassVolume, 0, 100, 'Громкость басового рисунка'), padVolume: number(harmony.padVolume, 0, 100, 'Громкость гармонии'), clickVolume: number(harmony.clickVolume, 0, 100, 'Громкость клика сопровождения'),
       bassMuted: boolean(harmony.bassMuted, 'Отключение басового рисунка'), padMuted: boolean(harmony.padMuted, 'Отключение гармонии'), clickMuted: boolean(harmony.clickMuted, 'Отключение клика сопровождения') },
@@ -513,7 +520,7 @@ export function validateHistoryEntry(value: unknown, legacy = false): HistoryEnt
 export function validateSnapshot(value: unknown): StudySnapshot {
   const raw = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history', 'profile', 'practiceDrafts'], 'Резервная копия');
   if (raw.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
-  if (raw.schemaVersion !== 6) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  if (raw.schemaVersion !== 7) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
   // Import bytes are bounded by parseBackup; ordinary native writes must never make
   // an otherwise valid database unreadable merely by exceeding an arbitrary count.
   const presets = array(raw.presets, Number.MAX_SAFE_INTEGER, 'Пресеты').map(validatePreset);
@@ -522,7 +529,7 @@ export function validateSnapshot(value: unknown): StudySnapshot {
   if (new Set(presets.map(item => item.id)).size !== presets.length || new Set(history.map(item => item.id)).size !== history.length) invalid('ID пресетов или истории повторяются.');
   const byId = (a: { id: string }, b: { id: string }) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   if (new Set(practiceDrafts.map(item => item.id)).size !== practiceDrafts.length) invalid('ID черновиков повторяются.');
-  return immutable({ format: 'bass-study-backup', schemaVersion: 6, preferences: validatePreferences(raw.preferences), profile: validateProfile(raw.profile), practiceDrafts: practiceDrafts.sort(byId), presets: presets.sort(byId), history: history.sort(byId) });
+  return immutable({ format: 'bass-study-backup', schemaVersion: 7, preferences: validatePreferences(raw.preferences), profile: validateProfile(raw.profile), practiceDrafts: practiceDrafts.sort(byId), presets: presets.sort(byId), history: history.sort(byId) });
 }
 
 /** Exact schema-1 records are validated before adding schema-2 defaults. */
@@ -572,13 +579,24 @@ export function migrateV5Preferences(value: unknown): AppPreferences {
   const data = object(value, ['activeModule', 'ear', 'harmony', 'tracks', 'input', 'study', 'training', 'player'], 'Настройки версии 5');
   const study = object(data.study, ['root', 'structureId', 'labelMode', 'strings', 'fretMin', 'fretMax'], 'Настройки грифа версии 5');
   const training = object(data.training, ['mode', 'quizMode', 'scope', 'intervalDegree', 'count', 'pattern', 'sequenceScope', 'reviewPositionIds'], 'Настройки заданий версии 5');
-  return validatePreferences({ ...data, study: { ...study, box: null, showFingers: false }, training: { ...training, questionPolicy: 'random-v1' } });
+  return migrateV6Preferences({ ...data, study: { ...study, box: null, showFingers: false }, training: { ...training, questionPolicy: 'random-v1' } });
 }
 export function migrateV5Preset(value: unknown): Preset {
   const data = object(value, ['id', 'name', 'createdAt', 'preferences'], 'Пресет версии 5');
   return validatePreset({ ...data, preferences: migrateV5Preferences(data.preferences) });
 }
 export function migrateV5HistoryEntry(value: unknown): HistoryEntry { return validateHistoryEntry(value, true); }
+
+/** Версия 6 уже содержит профиль/черновики; меняются только настройки. */
+export function migrateV6Preferences(value: unknown): AppPreferences {
+  const data = object(value, ['activeModule', 'ear', 'harmony', 'tracks', 'input', 'study', 'training', 'player'], 'Настройки версии 6');
+  return validatePreferences({ ...data, musicBank: null });
+}
+export function migrateV6Preset(value: unknown): Preset {
+  const data = object(value, ['id', 'name', 'createdAt', 'preferences'], 'Пресет версии 6');
+  return validatePreset({ ...data, preferences: migrateV6Preferences(data.preferences) });
+}
+export function migrateV6HistoryEntry(value: unknown): HistoryEntry { return validateHistoryEntry(value); }
 
 export function migrateV1Preset(value: unknown): Preset {
   const data = object(value, ['id', 'name', 'createdAt', 'preferences'], 'Пресет версии 1');
@@ -599,8 +617,13 @@ export function migrateV1HistoryEntry(value: unknown): HistoryEntry {
 
 export function migrateBackup(value: unknown): StudySnapshot {
   const version = value && typeof value === 'object' ? Object.getOwnPropertyDescriptor(value, 'schemaVersion')?.value : undefined;
-  if (version !== undefined && ![1, 2, 3, 4, 5, 6].includes(version)) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
-  if (value && typeof value === 'object' && Object.getOwnPropertyDescriptor(value, 'schemaVersion')?.value === 6) return validateSnapshot(value);
+  if (version !== undefined && ![1, 2, 3, 4, 5, 6, 7].includes(version)) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  if (version === 7) return validateSnapshot(value);
+  if (version === 6) {
+    const previous = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history', 'profile', 'practiceDrafts'], 'Резервная копия версии 6');
+    return validateSnapshot({ ...previous, schemaVersion: 7, preferences: migrateV6Preferences(previous.preferences),
+      presets: array(previous.presets, Number.MAX_SAFE_INTEGER, 'Пресеты версии 6').map(migrateV6Preset) });
+  }
   const data = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history'], 'Резервная копия');
   if (data.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
   if (data.schemaVersion !== 1 && data.schemaVersion !== 2 && data.schemaVersion !== 3 && data.schemaVersion !== 4 && data.schemaVersion !== 5) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
@@ -609,7 +632,7 @@ export function migrateBackup(value: unknown): StudySnapshot {
     : data.schemaVersion === 3 ? { preferences: migrateV3Preferences, preset: migrateV3Preset, history: migrateV3HistoryEntry }
     : data.schemaVersion === 4 ? { preferences: migrateV4Preferences, preset: migrateV4Preset, history: migrateV4HistoryEntry }
     : { preferences: migrateV5Preferences, preset: migrateV5Preset, history: migrateV5HistoryEntry };
-  return validateSnapshot({ ...data, schemaVersion: 6, profile: DEFAULT_PROFILE, practiceDrafts: [], preferences: migrations.preferences(data.preferences),
+  return validateSnapshot({ ...data, schemaVersion: 7, profile: DEFAULT_PROFILE, practiceDrafts: [], preferences: migrations.preferences(data.preferences),
     presets: array(data.presets, Number.MAX_SAFE_INTEGER, 'Старые пресеты').map(migrations.preset),
     history: array(data.history, Number.MAX_SAFE_INTEGER, 'Старая история').map(migrations.history) });
 }
@@ -621,7 +644,7 @@ export function parseBackup(json: string): StudySnapshot {
   return migrateBackup(value);
 }
 
-export function emptySnapshot(): StudySnapshot { return validateSnapshot({ format: 'bass-study-backup', schemaVersion: 6, profile: DEFAULT_PROFILE, practiceDrafts: [], preferences: DEFAULT_PREFERENCES, presets: [], history: [] }); }
+export function emptySnapshot(): StudySnapshot { return validateSnapshot({ format: 'bass-study-backup', schemaVersion: 7, profile: DEFAULT_PROFILE, practiceDrafts: [], preferences: DEFAULT_PREFERENCES, presets: [], history: [] }); }
 
 function envelope(metadata: HistoryMetadata) {
   return { id: metadata.id, occurredAt: metadata.occurredAt, timeZone: metadata.timeZone, localDate: originalLocalDate(metadata.occurredAt, metadata.timeZone), routeRef: metadata.routeRef ?? null };

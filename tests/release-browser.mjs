@@ -13,7 +13,7 @@ const OPEN_MIDI = { E: 28, A: 33, D: 38, G: 43 };
 const midiForId = id => { const [string, fret] = id.split(':'); return OPEN_MIDI[string] + Number(fret); };
 
 function expectedMigration(literal) {
-  const expected = structuredClone(literal); expected.schemaVersion = 6;
+  const expected = structuredClone(literal); expected.schemaVersion = 7;
   if (literal.schemaVersion === 1) {
     expected.preferences.training.intervalDegree = '#4';
     for (const preset of expected.presets) preset.preferences.training.intervalDegree = '#4';
@@ -23,7 +23,7 @@ function expectedMigration(literal) {
     if (literal.schemaVersion <= 2) { preferences.activeModule = 'foundation'; preferences.ear = { root: 'A', quality: 'minor', count: 10, bpm: 80 }; }
     if (literal.schemaVersion <= 3) preferences.harmony = { bpm: 80, countIn: true, repeat: 'once', bassVolume: 70, padVolume: 45, clickVolume: 50, bassMuted: false, padMuted: false, clickMuted: false };
     if (literal.schemaVersion <= 4) { preferences.tracks = null; preferences.input = { deviceId: '' }; }
-    preferences.study.box = null; preferences.study.showFingers = false; preferences.training.questionPolicy = 'random-v1';
+    preferences.musicBank = null; preferences.study.box = null; preferences.study.showFingers = false; preferences.training.questionPolicy = 'random-v1';
   }
   expected.profile = { theme: 'system', onboarding: { version: 1, choice: null, completed: false } }; expected.practiceDrafts = [];
   for (const entry of expected.history) {
@@ -95,7 +95,7 @@ check('genuine-v1-indexeddb-upgrades-all-stores-to-v6-preserving-events-and-orig
   const seeded = await page.evaluate(() => window.p6.seedV1()); assert.equal(seeded.raw.version, 1);
   const upgraded = await page.evaluate(async () => { const store = await window.p6.loadCurrent(); await store.open(); return store.readSnapshot(); });
   assert.deepEqual(upgraded, expectedMigration(seeded.literal));
-  const raw = await page.evaluate(() => window.p6.rawRead()); assert.equal(raw.version, 6);
+  const raw = await page.evaluate(() => window.p6.rawRead()); assert.equal(raw.version, 7);
   assert.equal(upgraded.history.find(entry => entry.id === 'legacy-screen').localDate, '2026-11-07');
   assert.equal(upgraded.history.find(entry => entry.id === 'legacy-manual').localDate, '2026-11-09');
   await page.reload(); await page.waitForFunction(() => window.p6?.ready);
@@ -123,7 +123,7 @@ check('legacy-json-preview-and-restore-migrate-to-version-six', async ({ page })
     const afterCancel = await store.readSnapshot(); await store.restore(JSON.stringify(literal), { confirmed: true });
     return { preview, before, cancel, afterCancel, restored: await store.readSnapshot() };
   }, literal);
-  assert.equal(result.preview.snapshot.schemaVersion, 6); assert.equal(result.preview.requiresConfirmation, true);
+  assert.equal(result.preview.snapshot.schemaVersion, 7); assert.equal(result.preview.requiresConfirmation, true);
   assert.deepEqual(result.cancel, { status: 'cancelled' }); assert.deepEqual(result.afterCancel, result.before);
   assert.deepEqual(result.restored, expectedMigration(literal)); return result;
 });
@@ -137,7 +137,7 @@ check('genuine-v2-indexeddb-and-literal-json-migrate-to-v6-without-changing-old-
     return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
   }, seeded.literal);
   const expected = expectedMigration(seeded.literal);
-  assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected); assert.equal(result.raw.version, 6);
+  assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected); assert.equal(result.raw.version, 7);
   assert.deepEqual(result.restored.history, expectedMigration(seeded.literal).history); return { seededVersion: 2, ...result };
 });
 
@@ -150,7 +150,7 @@ check('genuine-v3-native-and-json-upgrade-preserve-screen-manual-ear-route-recor
     return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
   }, seeded.literal);
   const expected = expectedMigration(seeded.literal); assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected);
-  assert.deepEqual(result.restored.history, expectedMigration(seeded.literal).history); assert.equal(result.raw.version, 6); return { seededVersion: 3, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
+  assert.deepEqual(result.restored.history, expectedMigration(seeded.literal).history); assert.equal(result.raw.version, 7); return { seededVersion: 3, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
 });
 
 check('genuine-v4-native-and-json-upgrade-preserve-harmony-and-all-four-history-kinds', async ({ page }) => {
@@ -163,7 +163,7 @@ check('genuine-v4-native-and-json-upgrade-preserve-harmony-and-all-four-history-
   }, seeded.literal);
   const expected = expectedMigration(seeded.literal); assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected);
   assert.deepEqual(result.restored.history, expectedMigration(seeded.literal).history); assert.deepEqual(result.restored.preferences.harmony, seeded.literal.preferences.harmony);
-  assert.equal(result.raw.version, 6); return { seededVersion: 4, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
+  assert.equal(result.raw.version, 7); return { seededVersion: 4, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
 });
 
 for (const version of [5]) {
@@ -176,7 +176,7 @@ for (const version of [5]) {
     }, seeded.literal);
     const expected = expectedMigration(seeded.literal);
     assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected);
-    assert.equal(result.raw.version, 6); assert.deepEqual(result.raw.profile, expected.profile); assert.deepEqual(result.raw.practiceDrafts, []);
+    assert.equal(result.raw.version, 7); assert.deepEqual(result.raw.profile, expected.profile); assert.deepEqual(result.raw.practiceDrafts, []);
     return result;
   });
   check('bad-v5-native-record-rolls-back-new-stores-and-keeps-v5-data', async ({ page }) => {
@@ -247,9 +247,9 @@ check('revealed-interval-svg-and-feedback-use-contextual-enharmonic-names', asyn
 
 check('inactive-invalid-tempo-ladder-does-not-block-ordinary-play-or-canonical-preferences', async ({ page }) => {
   await scope(page); await page.getByRole('button', { name: 'Последовательности', exact: true }).click(); await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  await page.getByLabel('Повтор', { exact: true }).selectOption('ladder'); await page.getByLabel('Начальный темп', { exact: true }).fill('200'); await page.getByLabel('Целевой темп', { exact: true }).fill('80'); await page.getByLabel('Целевой темп', { exact: true }).press('Tab');
+  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('ladder'); await page.getByLabel('Начальный темп', { exact: true }).fill('200'); await page.getByLabel('Целевой темп', { exact: true }).fill('80'); await page.getByLabel('Целевой темп', { exact: true }).press('Tab');
   await page.locator('[data-player-action="start"]').click(); assert.match(await page.getByTestId('player-error').innerText(), /не меньше начального/);
-  await page.getByLabel('Повтор', { exact: true }).selectOption('once'); await page.getByLabel('Темп, BPM', { exact: true }).fill('96'); await page.getByLabel('Темп, BPM', { exact: true }).press('Tab');
+  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('once'); await page.getByLabel('Темп, BPM', { exact: true }).fill('96'); await page.getByLabel('Темп, BPM', { exact: true }).press('Tab');
   assert.ok(await page.getByTestId('player-error').isHidden()); await page.locator('[data-player-action="start"]').click();
   await page.waitForFunction(() => ['running', 'finishing', 'finished'].includes(document.querySelector('#player-mount')?.dataset.playerState));
   await page.locator('[data-player-action="stop"]').click(); await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill('Обычный темп после ошибки лестницы'); await historyAction(page, 'save-preset').click();
@@ -276,7 +276,7 @@ check('changing-active-quiz-count-archives-original-attempt-and-new-session-focu
 
 check('manual-draft-keeps-old-material-and-merges-new-runs-without-double-counting', async ({ page }) => {
   await scope(page); await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
-  await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic'); await page.getByLabel('Повтор', { exact: true }).selectOption('infinite');
+  await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic'); await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite');
   await page.getByLabel('Темп, BPM', { exact: true }).fill('120'); await page.getByLabel('Темп, BPM', { exact: true }).press('Tab'); await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
   async function playFor(milliseconds) { await page.locator('[data-player-action="start"]').click(); await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerState === 'running' && document.querySelector('#player-mount')?.dataset.currentPosition === 'E:0'); await delay(milliseconds); await page.locator('[data-player-action="stop"]').click(); }
   await playFor(650); await openHistory(page);
@@ -304,7 +304,7 @@ check('manual-draft-keeps-old-material-and-merges-new-runs-without-double-counti
 
 check('manual-practice-before-input-survives-reload-without-becoming-history', async ({ page }) => {
   await scope(page); await page.getByRole('button', { name: 'Последовательности', exact: true }).click(); await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  await page.getByLabel('Повтор', { exact: true }).selectOption('infinite'); await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
+  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite'); await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
   await page.locator('[data-player-action="start"]').click(); await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.currentPosition === 'E:0'); await delay(650); await page.locator('[data-player-action="stop"]').click();
   const before = await exportUi(page); assert.equal(before.history.length, 0); const draft = before.practiceDrafts.find(item => item.totalReferenceMs > 0); assert.ok(draft);
   await page.reload(); await ready(page); const reopened = await exportUi(page); assert.deepEqual(reopened.practiceDrafts, before.practiceDrafts); assert.equal(reopened.history.length, 0);
@@ -399,7 +399,7 @@ check('keyboard-only-full-practice-survives-browser-reopen-at-stable-origin', as
     await keyboardActivate(page, page.getByRole('button', { name: 'Последовательности', exact: true }));
     await keyboardSelect(page, page.getByLabel('Материал последовательности', { exact: true }), 1);
     await keyboardSelect(page, page.getByLabel('Длительность нот', { exact: true }), 0);
-    await keyboardSelect(page, page.getByLabel('Повтор', { exact: true }), 1);
+    await keyboardSelect(page, page.locator('#player-mount').getByLabel('Повтор', { exact: true }), 1);
     await tabTo(page, page.getByLabel('Отсчёт перед стартом', { exact: true })); await page.keyboard.press('Space');
     await keyboardActivate(page, page.locator('[data-player-action="start"]'));
     await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.currentPosition === 'E:0');

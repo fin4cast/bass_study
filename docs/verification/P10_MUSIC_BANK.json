@@ -1,0 +1,338 @@
+{
+  "generatedAt": "2026-11-08T18:14:44.144Z",
+  "platform": "win32",
+  "architecture": "x64",
+  "node": "v24.18.0",
+  "browserChannel": "msedge",
+  "browserVersion": "157.0.4341.42",
+  "origin": "http://localhost:4173",
+  "fixtureOrigin": "http://127.0.0.1:4193",
+  "scope": "Product music-bank Studio A, local files/folder, native schema7 persistence, independent real audio and UI; no physical latency claim.",
+  "networkIsolation": "Fresh Edge contexts with cache disabled; non-loopback page HTTP requests aborted. No user profile or Windows network adapter change.",
+  "staticServer": {
+    "reuseRequested": true,
+    "owned": false,
+    "mode": "external-reused",
+    "indexVerifiedByteForByte": true,
+    "restartAllowed": false,
+    "shutdownAllowed": false
+  },
+  "checks": [
+    {
+      "name": "product-15-real-files-render-independent-track-controls-and-reject-old-GTP",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 6479,
+      "evidence": {
+        "files": [
+          {
+            "id": "sample-01",
+            "tracks": 4,
+            "rendered": true
+          },
+          {
+            "id": "sample-02",
+            "tracks": 7,
+            "rendered": true
+          },
+          {
+            "id": "sample-03",
+            "tracks": 5,
+            "rendered": true
+          },
+          {
+            "id": "sample-04",
+            "tracks": 8,
+            "rendered": true
+          },
+          {
+            "id": "sample-05",
+            "tracks": 3,
+            "rendered": true
+          },
+          {
+            "id": "sample-06",
+            "tracks": 9,
+            "rendered": true
+          },
+          {
+            "id": "sample-07",
+            "tracks": 1,
+            "rendered": true
+          },
+          {
+            "id": "sample-08",
+            "tracks": 9,
+            "rendered": true
+          },
+          {
+            "id": "sample-09",
+            "tracks": 3,
+            "rendered": true
+          },
+          {
+            "id": "sample-10",
+            "tracks": 3,
+            "rendered": true
+          },
+          {
+            "id": "sample-11",
+            "tracks": 4,
+            "rendered": true
+          },
+          {
+            "id": "sample-12",
+            "tracks": 1,
+            "rendered": true
+          },
+          {
+            "id": "sample-13",
+            "tracks": 6,
+            "rendered": true
+          },
+          {
+            "id": "sample-14",
+            "rejected": true
+          },
+          {
+            "id": "sample-15",
+            "tracks": 1,
+            "rendered": true
+          },
+          {
+            "id": "sample-16",
+            "tracks": 2,
+            "rendered": true
+          }
+        ],
+        "productHiddenTestApi": false
+      }
+    },
+    {
+      "name": "product-independent-drums-live-volume-mute-solo-and-four-notation-states",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 7453,
+      "evidence": {
+        "full": {
+          "peak": 0.5812519788742065,
+          "windows": 60
+        },
+        "neighborMuted": {
+          "peak": 0.5812519788742065,
+          "windows": 62
+        },
+        "quiet": {
+          "peak": 0.14531299471855164,
+          "windows": 62
+        },
+        "silence": {
+          "peak": 0,
+          "windows": 63
+        },
+        "quarterToFull": 0.25,
+        "notationStates": 4
+      }
+    },
+    {
+      "name": "product-directory-search-pages-read-only-selected-file-and-no-full-catalogue-backup",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 20163,
+      "evidence": {
+        "count": 48602,
+        "matching": 3,
+        "sourceReads": 1,
+        "backupBytes": 1808,
+        "onlySelectedDescriptor": true
+      }
+    },
+    {
+      "name": "product-save-reload-content-rebind-export-restore-and-presets-keep-original-context",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 3144,
+      "evidence": {
+        "schema": 7,
+        "renameByContent": true,
+        "previewDidNotWrite": true,
+        "exactRestoredPreferences": true,
+        "rebindRequired": true
+      }
+    },
+    {
+      "name": "product-pending-file-disables-old-mixer-and-cancel-retains-exact-context",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1331,
+      "evidence": {
+        "pendingControlsDisabled": true,
+        "cancelledCandidateNotSaved": true
+      }
+    },
+    {
+      "name": "product-invalid-range-cannot-continue-previous-valid-loop",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1352,
+      "evidence": {
+        "oldRangeCleared": true,
+        "noStalePlayback": true,
+        "fullSongExplicitRecovery": true
+      }
+    },
+    {
+      "name": "product-module-switches-coordinate-bank-and-ear-audio-owners",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 3221,
+      "evidence": {
+        "bankStoppedOnLeave": {
+          "peak": 0,
+          "windows": 0
+        },
+        "bankRestartedAfterEar": {
+          "peak": 0.37176933884620667,
+          "windows": 34
+        }
+      }
+    },
+    {
+      "name": "product-studio-scroll-and-both-themes-remain-visible-at-real-viewports",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 3269,
+      "evidence": {
+        "layouts": [
+          {
+            "theme": "light",
+            "width": 1440,
+            "height": 1000,
+            "top": 230.796875,
+            "bottom": 369.796875,
+            "viewport": 1000,
+            "delta": 0,
+            "scroll": 2500,
+            "bodyOverflow": false
+          },
+          {
+            "theme": "light",
+            "width": 1366,
+            "height": 768,
+            "top": 230.796875,
+            "bottom": 369.796875,
+            "viewport": 768,
+            "delta": 0,
+            "scroll": 2500,
+            "bodyOverflow": false
+          },
+          {
+            "theme": "light",
+            "width": 1024,
+            "height": 768,
+            "top": 228.390625,
+            "bottom": 367.390625,
+            "viewport": 768,
+            "delta": 0,
+            "scroll": 2500,
+            "bodyOverflow": false
+          },
+          {
+            "theme": "light",
+            "width": 736,
+            "height": 900,
+            "top": 212,
+            "bottom": 348,
+            "viewport": 900,
+            "delta": 0,
+            "scroll": 2500,
+            "bodyOverflow": false
+          },
+          {
+            "theme": "dark",
+            "width": 1440,
+            "height": 1000,
+            "top": 230.796875,
+            "bottom": 369.796875,
+            "viewport": 1000,
+            "delta": 0,
+            "scroll": 2500,
+            "bodyOverflow": false
+          },
+          {
+            "theme": "dark",
+            "width": 1366,
+            "height": 768,
+            "top": 230.796875,
+            "bottom": 369.796875,
+            "viewport": 768,
+            "delta": 0,
+            "scroll": 2500,
+            "bodyOverflow": false
+          },
+          {
+            "theme": "dark",
+            "width": 1024,
+            "height": 768,
+            "top": 228.390625,
+            "bottom": 367.390625,
+            "viewport": 768,
+            "delta": 0,
+            "scroll": 2500,
+            "bodyOverflow": false
+          },
+          {
+            "theme": "dark",
+            "width": 736,
+            "height": 900,
+            "top": 212,
+            "bottom": 348,
+            "viewport": 900,
+            "delta": 0,
+            "scroll": 2500,
+            "bodyOverflow": false
+          }
+        ],
+        "bannerPresentationOnly": {
+          "bottom": 984,
+          "viewport": 1000
+        },
+        "actualQuotaNotSimulated": true
+      }
+    },
+    {
+      "name": "product-native-tab-hide-pauses-and-return-waits-for-explicit-start",
+      "scope": "native",
+      "status": "passed",
+      "durationMs": 3373,
+      "evidence": {
+        "nativeHidden": true,
+        "signal": {
+          "peak": 0.3574327230453491,
+          "windows": 26
+        },
+        "noAutomaticResume": true
+      }
+    },
+    {
+      "name": "product-switching-away-cancels-pending-module-load-with-no-late-audio-owner",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1288,
+      "evidence": {
+        "pendingImportCancelled": true,
+        "existingContextCount": 1,
+        "existingContextStates": [
+          "suspended"
+        ],
+        "lateAudioContexts": 0
+      }
+    }
+  ],
+  "externalRequests": [],
+  "pageErrors": [],
+  "cleanupErrors": [],
+  "passed": 10,
+  "failed": 0,
+  "status": "passed"
+}

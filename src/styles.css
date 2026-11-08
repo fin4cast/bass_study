@@ -1628,6 +1628,10 @@ body { background: var(--surface-canvas); }
 .app-content { min-width: 0; border-left: 1px solid var(--border); border-radius: 0 12px 12px 0; background: var(--surface); }
 .app-content > .persistence-banner { padding: 7px 24px; font-size: 12px; flex-wrap: wrap; gap: 6px 12px; }
 .app-content > main { min-width: 0; }
+.bank-view-tabs { display:flex; gap:5px; flex-wrap:wrap; padding:16px 0 12px; border-bottom:1px solid var(--border); margin-bottom:14px; }
+.bank-view-tabs button { padding:7px 13px; min-height:36px; border:1px solid transparent; border-radius:7px; background:transparent; color:var(--text-secondary); font-size:13px; }
+.bank-view-tabs button[aria-selected="true"] { color:var(--accent-text); background:var(--accent-soft); border-color:var(--border); font-weight:600; }
+.bank-view-tabs button:hover:not(:disabled) { background:var(--surface-hover); }
 .app-content .intro { padding: 20px 24px; gap: 20px; }
 .app-content .intro h1 { font-size: 27px; font-weight: 600; letter-spacing: -.7px; }
 .app-content .intro-copy { font-size: 13px; line-height: 1.6; }

@@ -1,0 +1,2840 @@
+{
+  "generatedAt": "2026-11-08T17:19:07.003Z",
+  "alphaTab": "1.9.0",
+  "browser": "157.0.4341.42",
+  "scope": "Отдельный стенд; реальные файлы и синтезированный PCM/live Web Audio. Физический вывод заглушён; восприятие и задержка не проверяются.",
+  "server": {
+    "owned": true,
+    "port": 4197
+  },
+  "files": [
+    {
+      "id": "sample-01",
+      "path": "m/Metal Molly/Metallica - Enter Sandman.gp3",
+      "checks": [],
+      "import": {
+        "id": "sample-01",
+        "title": "Enter Sandman",
+        "tracks": 4,
+        "bars": 168,
+        "sharedChannels": [],
+        "svg": 5,
+        "glyphs": 202,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              43,
+              38,
+              33,
+              28
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            9,
+            9
+          ]
+        ]
+      },
+      "target": {
+        "track": 1,
+        "startTick": 0,
+        "endTick": 3840
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.26037171483039856,
+        "rms": 0.04629559460810447
+      },
+      "live": {
+        "peak": 0.23544883728027344,
+        "rms": 0.06000198397422727,
+        "sampleWindows": 31,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 56,
+        "beats": 2,
+        "tick": 1234,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 243.90243902439028
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-02",
+      "path": "m/Metallica/Metallica - Enter Sandman.gp3",
+      "checks": [],
+      "import": {
+        "id": "sample-02",
+        "title": "Enter Sandman",
+        "tracks": 7,
+        "bars": 163,
+        "sharedChannels": [],
+        "svg": 4,
+        "glyphs": 153,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              43,
+              38,
+              33,
+              28
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            11,
+            12
+          ],
+          [
+            9,
+            9
+          ]
+        ]
+      },
+      "target": {
+        "track": 0,
+        "startTick": 3360,
+        "endTick": 7200
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.14902648329734802,
+        "rms": 0.012481877687944318
+      },
+      "live": {
+        "peak": 0.12901993095874786,
+        "rms": 0.008479274322720028,
+        "sampleWindows": 102,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 65,
+        "beats": 3,
+        "tick": 4720,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 2250
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-03",
+      "path": "b/Beatles (The)/Beatles (The) - Come Together (2).gp3",
+      "checks": [],
+      "import": {
+        "id": "sample-03",
+        "title": "Come Together",
+        "tracks": 5,
+        "bars": 81,
+        "sharedChannels": [],
+        "svg": 4,
+        "glyphs": 255,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              43,
+              38,
+              33,
+              28
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            9,
+            9
+          ]
+        ]
+      },
+      "target": {
+        "track": 0,
+        "startTick": 0,
+        "endTick": 3840
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.848261296749115,
+        "rms": 0.08750758171216032
+      },
+      "live": {
+        "peak": 0.7936893701553345,
+        "rms": 0.055641854413584095,
+        "sampleWindows": 170,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 66,
+        "beats": 2,
+        "tick": 968,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 714.2857142857143
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-04",
+      "path": "j/Jackson, Michael/Jackson, Michael - Billie Jean.gp3",
+      "checks": [],
+      "import": {
+        "id": "sample-04",
+        "title": "Billie Jean",
+        "tracks": 8,
+        "bars": 140,
+        "sharedChannels": [],
+        "svg": 4,
+        "glyphs": 78,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              43,
+              38,
+              33,
+              28
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            11,
+            12
+          ],
+          [
+            9,
+            9
+          ],
+          [
+            13,
+            14
+          ]
+        ]
+      },
+      "target": {
+        "track": 6,
+        "startTick": 0,
+        "endTick": 3840
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.1525861769914627,
+        "rms": 0.014599153777104655
+      },
+      "live": {
+        "peak": 0.1869555413722992,
+        "rms": 0.008399150718379633,
+        "sampleWindows": 238,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 66,
+        "beats": 1,
+        "tick": 1383,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 0
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-05",
+      "path": "0/0 Art/0 Art - Solo Batterie.gp4",
+      "checks": [],
+      "import": {
+        "id": "sample-05",
+        "title": "Solo Batterie",
+        "tracks": 3,
+        "bars": 69,
+        "sharedChannels": [],
+        "svg": 5,
+        "glyphs": 39,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ],
+          [
+            9,
+            9
+          ],
+          [
+            25,
+            25
+          ]
+        ]
+      },
+      "target": {
+        "track": 1,
+        "startTick": 0,
+        "endTick": 3840
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.34647440910339355,
+        "rms": 0.06619286361378368
+      },
+      "live": {
+        "peak": 0.37176933884620667,
+        "rms": 0.03214714361924196,
+        "sampleWindows": 306,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 66,
+        "beats": 1,
+        "tick": 1152,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 0
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-06",
+      "path": "0/0 Art/0 Art - Spirit Forest.gp4",
+      "checks": [],
+      "import": {
+        "id": "sample-06",
+        "title": "Spirit Forest",
+        "tracks": 9,
+        "bars": 51,
+        "sharedChannels": [],
+        "svg": 4,
+        "glyphs": 113,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              48,
+              43,
+              38,
+              33,
+              28,
+              23
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            9,
+            9
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            11,
+            12
+          ],
+          [
+            13,
+            14
+          ],
+          [
+            15,
+            16
+          ]
+        ]
+      },
+      "target": {
+        "track": 0,
+        "startTick": 0,
+        "endTick": 3840
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.26084133982658386,
+        "rms": 0.05968683262924226
+      },
+      "live": {
+        "peak": 0.24004259705543518,
+        "rms": 0.021765032410766938,
+        "sampleWindows": 363,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 65,
+        "beats": 2,
+        "tick": 1134,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 600
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-07",
+      "path": "j/Jackson, Michael/Jackson, Michael - Billie Jean (2).gp4",
+      "checks": [],
+      "import": {
+        "id": "sample-07",
+        "title": "Billie Jean",
+        "tracks": 1,
+        "bars": 89,
+        "sharedChannels": [],
+        "svg": 4,
+        "glyphs": 188,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ]
+        ]
+      },
+      "target": {
+        "track": 0,
+        "startTick": 960,
+        "endTick": 4800
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.14103764295578003,
+        "rms": 0.03532893864841657
+      },
+      "live": {
+        "peak": 0.19744667410850525,
+        "rms": 0.013555822269494389,
+        "sampleWindows": 429,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 65,
+        "beats": 6,
+        "tick": 3793,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 960
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-08",
+      "path": "j/Jackson, Michael/Jackson, Michael - Billie Jean.gp4",
+      "checks": [],
+      "import": {
+        "id": "sample-08",
+        "title": "Billie Jean",
+        "tracks": 9,
+        "bars": 145,
+        "sharedChannels": [],
+        "svg": 5,
+        "glyphs": 189,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              43,
+              38,
+              33,
+              28
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40,
+              35
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40,
+              35
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40,
+              35
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40,
+              35
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40,
+              0
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40,
+              35
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ],
+          [
+            9,
+            9
+          ],
+          [
+            25,
+            25
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            11,
+            12
+          ],
+          [
+            13,
+            14
+          ]
+        ]
+      },
+      "target": {
+        "track": 1,
+        "startTick": 3840,
+        "endTick": 7680
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.2015300989151001,
+        "rms": 0.018825046190465124
+      },
+      "live": {
+        "peak": 0.24692386388778687,
+        "rms": 0.007792050556053528,
+        "sampleWindows": 495,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 64,
+        "beats": 1,
+        "tick": 5156,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 2033.898305084746
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-09",
+      "path": "3/31 Minutos/31 Minutos - Mico El Micвfono.gp4",
+      "checks": [],
+      "import": {
+        "id": "sample-09",
+        "title": "Mico el Micofono",
+        "tracks": 3,
+        "bars": 27,
+        "sharedChannels": [],
+        "svg": 4,
+        "glyphs": 139,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            9,
+            9
+          ]
+        ]
+      },
+      "target": {
+        "track": 0,
+        "startTick": 0,
+        "endTick": 3840
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.1058453917503357,
+        "rms": 0.020816283985070985
+      },
+      "live": {
+        "peak": 0.14817902445793152,
+        "rms": 0.006930405011266325,
+        "sampleWindows": 561,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 64,
+        "beats": 2,
+        "tick": 1728,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 387.09677419354836
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-10",
+      "path": "a/Alter Bridge/Alter Bridge - In Loving Memory.gp5",
+      "checks": [],
+      "import": {
+        "id": "sample-10",
+        "title": "In Loving Memory",
+        "tracks": 3,
+        "bars": 100,
+        "sharedChannels": [],
+        "svg": 4,
+        "glyphs": 227,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              61,
+              58,
+              54,
+              49,
+              42,
+              37
+            ]
+          ],
+          [
+            [
+              61,
+              58,
+              54,
+              49,
+              42,
+              37
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            9,
+            9
+          ]
+        ]
+      },
+      "target": {
+        "track": 0,
+        "startTick": 0,
+        "endTick": 3840
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.19424188137054443,
+        "rms": 0.04275301879402115
+      },
+      "live": {
+        "peak": 0.2719303369522095,
+        "rms": 0.013799019134092807,
+        "sampleWindows": 627,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 65,
+        "beats": 3,
+        "tick": 930,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 731.7073170731708
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-11",
+      "path": "a/Anon/Anon - Blue Techno Pancakes.gp5",
+      "checks": [],
+      "import": {
+        "id": "sample-11",
+        "title": "Blue Techno Pancakes",
+        "tracks": 4,
+        "bars": 70,
+        "sharedChannels": [],
+        "svg": 3,
+        "glyphs": 107,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              43,
+              38,
+              33,
+              28
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            9,
+            9
+          ]
+        ]
+      },
+      "target": {
+        "track": 2,
+        "startTick": 0,
+        "endTick": 3840
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.028386132791638374,
+        "rms": 0.01058363928221531
+      },
+      "live": {
+        "peak": 0.039739370346069336,
+        "rms": 0.003371228516872154,
+        "sampleWindows": 693,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 66,
+        "beats": 1,
+        "tick": 1152,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 0
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-12",
+      "path": "b/Barrios, Agustin/Barrios Mangore, Augustin - Estudio De Concierto.gp5",
+      "checks": [],
+      "import": {
+        "id": "sample-12",
+        "title": "Estudio de concierto",
+        "tracks": 1,
+        "bars": 117,
+        "sharedChannels": [],
+        "svg": 4,
+        "glyphs": 275,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ]
+        ]
+      },
+      "target": {
+        "track": 0,
+        "startTick": 0,
+        "endTick": 3840
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.17458733916282654,
+        "rms": 0.037229567646411645
+      },
+      "live": {
+        "peak": 0.19260752201080322,
+        "rms": 0.010309365694576566,
+        "sampleWindows": 759,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 66,
+        "beats": 6,
+        "tick": 1383,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 625
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-13",
+      "path": "b/Black Sabbath/Black Sabbath - Symptom Of The Universe (2).gp5",
+      "checks": [],
+      "import": {
+        "id": "sample-13",
+        "title": "Symptom of the Universe",
+        "tracks": 6,
+        "bars": 150,
+        "sharedChannels": [],
+        "svg": 4,
+        "glyphs": 319,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            9,
+            9
+          ]
+        ]
+      },
+      "target": {
+        "track": 0,
+        "startTick": 0,
+        "endTick": 3840
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.2927224636077881,
+        "rms": 0.06425060226024958
+      },
+      "live": {
+        "peak": 0.40979892015457153,
+        "rms": 0.017564394314048267,
+        "sampleWindows": 825,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 64,
+        "beats": 4,
+        "tick": 1840,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 545.4545454545455
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-14",
+      "path": "a/Adams, Bryan/Adams, Bryan - Its Only Love.gtp",
+      "checks": [],
+      "import": {
+        "error": "Error: No compatible importer found for file"
+      },
+      "status": "unsupported-gtp"
+    },
+    {
+      "id": "sample-15",
+      "path": "Svoy_sredi_chuzhikh_chuzhoy_sredi_svoikh_-_videorazbor.gpx",
+      "checks": [],
+      "import": {
+        "id": "sample-15",
+        "title": "Свой среди чужих, чужой среди своих OST",
+        "tracks": 1,
+        "bars": 57,
+        "sharedChannels": [],
+        "svg": 5,
+        "glyphs": 185,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ]
+        ]
+      },
+      "target": {
+        "track": 0,
+        "startTick": 7200,
+        "endTick": 11040
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.055381711572408676,
+        "rms": 0.0141437618477964
+      },
+      "live": {
+        "peak": 0.07753202319145203,
+        "rms": 0.00384465310400221,
+        "sampleWindows": 891,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 65,
+        "beats": 3,
+        "tick": 8028,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 6575.342465753424
+      },
+      "status": "works"
+    },
+    {
+      "id": "sample-16",
+      "path": "d/Dream Theater/Dream Theatre - Regression (3)",
+      "checks": [],
+      "import": {
+        "id": "sample-16",
+        "title": "Regression (3)",
+        "tracks": 2,
+        "bars": 48,
+        "sharedChannels": [],
+        "svg": 3,
+        "glyphs": 521,
+        "ready": true,
+        "tuning": [
+          [
+            [
+              64,
+              59,
+              55,
+              50,
+              45,
+              40
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        ],
+        "trackChannels": [
+          [
+            0,
+            1
+          ],
+          [
+            9,
+            9
+          ]
+        ]
+      },
+      "target": {
+        "track": 1,
+        "startTick": 0,
+        "endTick": 3840
+      },
+      "pcm": {
+        "frames": 39744,
+        "channels": 2,
+        "sampleRate": 44100,
+        "peak": 0.16907376050949097,
+        "rms": 0.0127029788107999
+      },
+      "live": {
+        "peak": 0.23605921864509583,
+        "rms": 0.003722589334671631,
+        "sampleWindows": 957,
+        "nodes": [
+          "AudioWorkletNode"
+        ]
+      },
+      "cursor": {
+        "events": 65,
+        "beats": 1,
+        "tick": 1270,
+        "cursors": 1
+      },
+      "paused": {
+        "state": 0,
+        "time": 0
+      },
+      "status": "works"
+    }
+  ],
+  "checks": [
+    {
+      "name": "sample-01: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 4,
+        "bars": 168,
+        "sharedChannels": [],
+        "pcmPeak": 0.26037171483039856,
+        "livePeak": 0.23544883728027344
+      }
+    },
+    {
+      "name": "sample-02: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 7,
+        "bars": 163,
+        "sharedChannels": [],
+        "pcmPeak": 0.14902648329734802,
+        "livePeak": 0.12901993095874786
+      }
+    },
+    {
+      "name": "sample-03: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 5,
+        "bars": 81,
+        "sharedChannels": [],
+        "pcmPeak": 0.848261296749115,
+        "livePeak": 0.7936893701553345
+      }
+    },
+    {
+      "name": "sample-04: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 8,
+        "bars": 140,
+        "sharedChannels": [],
+        "pcmPeak": 0.1525861769914627,
+        "livePeak": 0.1869555413722992
+      }
+    },
+    {
+      "name": "sample-05: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 3,
+        "bars": 69,
+        "sharedChannels": [],
+        "pcmPeak": 0.34647440910339355,
+        "livePeak": 0.37176933884620667
+      }
+    },
+    {
+      "name": "sample-06: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 9,
+        "bars": 51,
+        "sharedChannels": [],
+        "pcmPeak": 0.26084133982658386,
+        "livePeak": 0.24004259705543518
+      }
+    },
+    {
+      "name": "sample-07: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 1,
+        "bars": 89,
+        "sharedChannels": [],
+        "pcmPeak": 0.14103764295578003,
+        "livePeak": 0.19744667410850525
+      }
+    },
+    {
+      "name": "sample-08: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 9,
+        "bars": 145,
+        "sharedChannels": [],
+        "pcmPeak": 0.2015300989151001,
+        "livePeak": 0.24692386388778687
+      }
+    },
+    {
+      "name": "sample-09: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 3,
+        "bars": 27,
+        "sharedChannels": [],
+        "pcmPeak": 0.1058453917503357,
+        "livePeak": 0.14817902445793152
+      }
+    },
+    {
+      "name": "sample-10: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 3,
+        "bars": 100,
+        "sharedChannels": [],
+        "pcmPeak": 0.19424188137054443,
+        "livePeak": 0.2719303369522095
+      }
+    },
+    {
+      "name": "sample-11: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 4,
+        "bars": 70,
+        "sharedChannels": [],
+        "pcmPeak": 0.028386132791638374,
+        "livePeak": 0.039739370346069336
+      }
+    },
+    {
+      "name": "sample-12: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 1,
+        "bars": 117,
+        "sharedChannels": [],
+        "pcmPeak": 0.17458733916282654,
+        "livePeak": 0.19260752201080322
+      }
+    },
+    {
+      "name": "sample-13: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 6,
+        "bars": 150,
+        "sharedChannels": [],
+        "pcmPeak": 0.2927224636077881,
+        "livePeak": 0.40979892015457153
+      }
+    },
+    {
+      "name": "sample-14: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "error": "Error: No compatible importer found for file"
+      }
+    },
+    {
+      "name": "sample-15: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 1,
+        "bars": 57,
+        "sharedChannels": [],
+        "pcmPeak": 0.055381711572408676,
+        "livePeak": 0.07753202319145203
+      }
+    },
+    {
+      "name": "sample-16: import-render-pcm-live",
+      "status": "passed",
+      "details": {
+        "tracks": 2,
+        "bars": 48,
+        "sharedChannels": [],
+        "pcmPeak": 0.16907376050949097,
+        "livePeak": 0.23605921864509583
+      }
+    },
+    {
+      "name": "invalid-range-pauses-clears-old-loop-and-blocks-start",
+      "status": "passed",
+      "details": {
+        "state": 0,
+        "range": null,
+        "loop": false,
+        "startDisabled": true,
+        "message": "Недопустимый диапазон: воспроизведение приостановлено, прежний фрагмент и повтор сняты. Исправь такты или выбери всю песню."
+      }
+    },
+    {
+      "name": "no-external-requests-or-page-errors",
+      "status": "passed",
+      "details": {
+        "requests": 0,
+        "pageErrors": 0
+      }
+    }
+  ],
+  "externalRequests": [],
+  "pageErrors": [],
+  "consoleWarnings": [
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-01",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-02",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-04",
+      "text": "[AlphaTab][Rendering] No articulation found for percussion instrument NaN"
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][PageView] Bars 25, 89, 90 do not fit into the available width and had to be compressed below the minimum size (up to 839px missing). Notation elements might overlap. Increase the available width or reduce the display scale."
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][PageView] Bars 25, 89, 90 do not fit into the available width and had to be compressed below the minimum size (up to 839px missing). Notation elements might overlap. Increase the available width or reduce the display scale."
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-11",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-12",
+      "text": "[AlphaTab][PageView] Bar 40 does not fit into the available width and had to be compressed below the minimum size (up to 166px missing). Notation elements might overlap. Increase the available width or reduce the display scale."
+    },
+    {
+      "id": "sample-12",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-12",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-12",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-12",
+      "text": "[AlphaTab][PageView] Bar 40 does not fit into the available width and had to be compressed below the minimum size (up to 155px missing). Notation elements might overlap. Increase the available width or reduce the display scale."
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    },
+    {
+      "id": "sample-03",
+      "text": "[AlphaTab][Model] Unsupported bend type detected, fallback to custom"
+    }
+  ],
+  "limitations": [],
+  "completedAt": "2026-11-08T17:19:42.908Z"
+}

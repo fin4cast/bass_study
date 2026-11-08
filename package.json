@@ -8,6 +8,10 @@
     "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
   },
   "scripts": {
+    "postinstall": "node scripts/prepare-music-bank.mjs",
+    "predev": "node scripts/prepare-music-bank.mjs",
+    "prebuild": "node scripts/prepare-music-bank.mjs",
+    "prepare:music-bank": "node scripts/prepare-music-bank.mjs",
     "dev": "vite --host 127.0.0.1 --port 4173 --strictPort",
     "check": "tsc --noEmit",
     "test": "vitest run",
@@ -26,7 +30,8 @@
     "build": "npm run check && vite build",
     "start": "node scripts/serve.mjs",
     "test:uiux": "node tests/uiux-browser.mjs",
-    "test:design": "node tests/design-browser.mjs"
+    "test:design": "node tests/design-browser.mjs",
+    "test:music-bank": "node tests/music-bank-browser.mjs"
   },
   "devDependencies": {
     "playwright": "1.65.0",
@@ -35,6 +40,7 @@
     "vitest": "5.1.0"
   },
   "dependencies": {
+    "@coderline/alphatab": "1.9.0",
     "tone": "15.1.22",
     "vexflow": "5.0.0"
   }
