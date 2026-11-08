@@ -1,4 +1,20 @@
 @charset "UTF-8";
+
+.structure-summary[hidden],
+.fretboard-section[hidden],
+.selection-section[hidden],
+.label-field[hidden] {
+  display: none;
+}
+
+.workspace .training-section {
+  margin: 0;
+  padding: 15px 25px 0;
+}
+
+.workspace .training-content {
+  margin-bottom: 20px;
+}
 :root {
   font-family:"Segoe UI",Arial,sans-serif;
   color:#233532;

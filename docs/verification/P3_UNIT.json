@@ -1,0 +1,1411 @@
+{
+  "numTotalTestSuites": 11,
+  "numPassedTestSuites": 11,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 104,
+  "numPassedTests": 104,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "snapshot": {
+    "added": 0,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0,
+    "didUpdate": false
+  },
+  "startTime": 1794130332476,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции использует звучащий строй E1–A1–D2–G2 и реальные номера струн",
+          "status": "passed",
+          "title": "использует звучащий строй E1–A1–D2–G2 и реальные номера струн",
+          "duration": 1.7608999999999924,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции различает одну высоту на разных струнах и одинаковое имя в разных октавах",
+          "status": "passed",
+          "title": "различает одну высоту на разных струнах и одинаковое имя в разных октавах",
+          "duration": 0.397199999999998,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции вычисляет эталонные частоты при A4 = 440 Гц",
+          "status": "passed",
+          "title": "вычисляет эталонные частоты при A4 = 440 Гц",
+          "duration": 0.19489999999998986,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции класс MIDI 0 равен 0",
+          "status": "passed",
+          "title": "класс MIDI 0 равен 0",
+          "duration": 0.10800000000000409,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции класс MIDI 28 равен 4",
+          "status": "passed",
+          "title": "класс MIDI 28 равен 4",
+          "duration": 0.08190000000001874,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции класс MIDI 33 равен 9",
+          "status": "passed",
+          "title": "класс MIDI 33 равен 9",
+          "duration": 0.059799999999995634,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции класс MIDI 60 равен 0",
+          "status": "passed",
+          "title": "класс MIDI 60 равен 0",
+          "duration": 0.05690000000001305,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции класс MIDI 127 равен 7",
+          "status": "passed",
+          "title": "класс MIDI 127 равен 7",
+          "duration": 0.05459999999999354,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции научная запись MIDI 28 учитывает написание undefined",
+          "status": "passed",
+          "title": "научная запись MIDI 28 учитывает написание undefined",
+          "duration": 0.11769999999998504,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции научная запись MIDI 60 учитывает написание undefined",
+          "status": "passed",
+          "title": "научная запись MIDI 60 учитывает написание undefined",
+          "duration": 0.10750000000001592,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции научная запись MIDI 0 учитывает написание undefined",
+          "status": "passed",
+          "title": "научная запись MIDI 0 учитывает написание undefined",
+          "duration": 0.0782999999999845,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции научная запись MIDI 127 учитывает написание undefined",
+          "status": "passed",
+          "title": "научная запись MIDI 127 учитывает написание undefined",
+          "duration": 0.05160000000000764,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции научная запись MIDI 36 учитывает написание B#",
+          "status": "passed",
+          "title": "научная запись MIDI 36 учитывает написание B#",
+          "duration": 0.05299999999999727,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции научная запись MIDI 59 учитывает написание Cb",
+          "status": "passed",
+          "title": "научная запись MIDI 59 учитывает написание Cb",
+          "duration": 0.043000000000006366,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции научная запись MIDI 65 учитывает написание E#",
+          "status": "passed",
+          "title": "научная запись MIDI 65 учитывает написание E#",
+          "duration": 0.04599999999999227,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "строй, абсолютная высота и позиции"
+          ],
+          "fullName": "строй, абсолютная высота и позиции отклоняет неправильную высоту, струну, лад и несовпадающее написание",
+          "status": "passed",
+          "title": "отклоняет неправильную высоту, струну, лад и несовпадающее написание",
+          "duration": 1.1883000000000266,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание читает C как C",
+          "status": "passed",
+          "title": "читает C как C",
+          "duration": 0.3984000000000094,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание читает db как D♭",
+          "status": "passed",
+          "title": "читает db как D♭",
+          "duration": 0.09829999999999472,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание читает F# как F♯",
+          "status": "passed",
+          "title": "читает F# как F♯",
+          "duration": 0.05459999999999354,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание читает E♭ как E♭",
+          "status": "passed",
+          "title": "читает E♭ как E♭",
+          "duration": 0.044899999999984175,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание читает B# как B♯",
+          "status": "passed",
+          "title": "читает B# как B♯",
+          "duration": 0.03989999999998872,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание читает Cb как C♭",
+          "status": "passed",
+          "title": "читает Cb как C♭",
+          "duration": 0.03849999999999909,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание читает Cbb как C♭♭",
+          "status": "passed",
+          "title": "читает Cbb как C♭♭",
+          "duration": 0.030399999999985994,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание читает F## как F♯♯",
+          "status": "passed",
+          "title": "читает F## как F♯♯",
+          "duration": 0.03129999999998745,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание читает F𝄪 как F♯♯",
+          "status": "passed",
+          "title": "читает F𝄪 как F♯♯",
+          "duration": 0.0367999999999995,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание читает B𝄫 как B♭♭",
+          "status": "passed",
+          "title": "читает B𝄫 как B♭♭",
+          "duration": 0.05519999999998504,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание читает Fx как F♯♯",
+          "status": "passed",
+          "title": "читает Fx как F♯♯",
+          "duration": 0.048799999999999955,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание читает G♮ как G",
+          "status": "passed",
+          "title": "читает G♮ как G",
+          "duration": 0.08459999999999468,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание отклоняет неподдерживаемое имя ",
+          "status": "passed",
+          "title": "отклоняет неподдерживаемое имя ",
+          "duration": 0.11549999999999727,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание отклоняет неподдерживаемое имя H",
+          "status": "passed",
+          "title": "отклоняет неподдерживаемое имя H",
+          "duration": 0.04950000000002319,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание отклоняет неподдерживаемое имя C4",
+          "status": "passed",
+          "title": "отклоняет неподдерживаемое имя C4",
+          "duration": 0.04179999999999495,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание отклоняет неподдерживаемое имя A-1",
+          "status": "passed",
+          "title": "отклоняет неподдерживаемое имя A-1",
+          "duration": 0.033899999999988495,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание отклоняет неподдерживаемое имя C#b",
+          "status": "passed",
+          "title": "отклоняет неподдерживаемое имя C#b",
+          "duration": 0.03509999999999991,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание отклоняет неподдерживаемое имя D #",
+          "status": "passed",
+          "title": "отклоняет неподдерживаемое имя D #",
+          "duration": 0.036200000000008004,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "музыкальное написание"
+          ],
+          "fullName": "музыкальное написание отклоняет неподдерживаемое имя D♮#",
+          "status": "passed",
+          "title": "отклоняет неподдерживаемое имя D♮#",
+          "duration": 0.041299999999978354,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур содержит только заданный набор структур",
+          "status": "passed",
+          "title": "содержит только заданный набор структур",
+          "duration": 0.08099999999998886,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур major от C имеет правильные ноты и функции",
+          "status": "passed",
+          "title": "major от C имеет правильные ноты и функции",
+          "duration": 0.29699999999999704,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур natural-minor от C имеет правильные ноты и функции",
+          "status": "passed",
+          "title": "natural-minor от C имеет правильные ноты и функции",
+          "duration": 0.1214999999999975,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур major-pentatonic от C имеет правильные ноты и функции",
+          "status": "passed",
+          "title": "major-pentatonic от C имеет правильные ноты и функции",
+          "duration": 0.08559999999999945,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур minor-pentatonic от C имеет правильные ноты и функции",
+          "status": "passed",
+          "title": "minor-pentatonic от C имеет правильные ноты и функции",
+          "duration": 0.066599999999994,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур major-triad от C имеет правильные ноты и функции",
+          "status": "passed",
+          "title": "major-triad от C имеет правильные ноты и функции",
+          "duration": 0.06759999999999877,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур minor-triad от C имеет правильные ноты и функции",
+          "status": "passed",
+          "title": "minor-triad от C имеет правильные ноты и функции",
+          "duration": 0.06430000000000291,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур сохраняет функции пентатоники относительно мажорной шкалы",
+          "status": "passed",
+          "title": "сохраняет функции пентатоники относительно мажорной шкалы",
+          "duration": 0.12570000000002324,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур мажор от C соответствует независимому эталону",
+          "status": "passed",
+          "title": "мажор от C соответствует независимому эталону",
+          "duration": 0.06470000000001619,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур мажор от Db соответствует независимому эталону",
+          "status": "passed",
+          "title": "мажор от Db соответствует независимому эталону",
+          "duration": 0.05670000000000641,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур мажор от D соответствует независимому эталону",
+          "status": "passed",
+          "title": "мажор от D соответствует независимому эталону",
+          "duration": 0.03969999999998208,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур мажор от Eb соответствует независимому эталону",
+          "status": "passed",
+          "title": "мажор от Eb соответствует независимому эталону",
+          "duration": 1.2198999999999955,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур мажор от E соответствует независимому эталону",
+          "status": "passed",
+          "title": "мажор от E соответствует независимому эталону",
+          "duration": 0.11549999999999727,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур мажор от F соответствует независимому эталону",
+          "status": "passed",
+          "title": "мажор от F соответствует независимому эталону",
+          "duration": 0.046999999999997044,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур мажор от F# соответствует независимому эталону",
+          "status": "passed",
+          "title": "мажор от F# соответствует независимому эталону",
+          "duration": 0.03299999999998704,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур мажор от G соответствует независимому эталону",
+          "status": "passed",
+          "title": "мажор от G соответствует независимому эталону",
+          "duration": 0.041400000000010095,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур мажор от Ab соответствует независимому эталону",
+          "status": "passed",
+          "title": "мажор от Ab соответствует независимому эталону",
+          "duration": 0.03120000000001255,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур мажор от A соответствует независимому эталону",
+          "status": "passed",
+          "title": "мажор от A соответствует независимому эталону",
+          "duration": 0.029200000000003,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур мажор от Bb соответствует независимому эталону",
+          "status": "passed",
+          "title": "мажор от Bb соответствует независимому эталону",
+          "duration": 0.03700000000000614,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур мажор от B соответствует независимому эталону",
+          "status": "passed",
+          "title": "мажор от B соответствует независимому эталону",
+          "duration": 0.024799999999999045,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур натуральный минор от C сохраняет контекстные имена",
+          "status": "passed",
+          "title": "натуральный минор от C сохраняет контекстные имена",
+          "duration": 0.0782000000000096,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур натуральный минор от Db сохраняет контекстные имена",
+          "status": "passed",
+          "title": "натуральный минор от Db сохраняет контекстные имена",
+          "duration": 0.0397999999999854,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур натуральный минор от D сохраняет контекстные имена",
+          "status": "passed",
+          "title": "натуральный минор от D сохраняет контекстные имена",
+          "duration": 0.02750000000000341,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур натуральный минор от Eb сохраняет контекстные имена",
+          "status": "passed",
+          "title": "натуральный минор от Eb сохраняет контекстные имена",
+          "duration": 0.026099999999985357,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур натуральный минор от E сохраняет контекстные имена",
+          "status": "passed",
+          "title": "натуральный минор от E сохраняет контекстные имена",
+          "duration": 0.023700000000019372,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур натуральный минор от F сохраняет контекстные имена",
+          "status": "passed",
+          "title": "натуральный минор от F сохраняет контекстные имена",
+          "duration": 0.02400000000000091,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур натуральный минор от F# сохраняет контекстные имена",
+          "status": "passed",
+          "title": "натуральный минор от F# сохраняет контекстные имена",
+          "duration": 0.035699999999991405,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур натуральный минор от G сохраняет контекстные имена",
+          "status": "passed",
+          "title": "натуральный минор от G сохраняет контекстные имена",
+          "duration": 0.025100000000009004,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур натуральный минор от Ab сохраняет контекстные имена",
+          "status": "passed",
+          "title": "натуральный минор от Ab сохраняет контекстные имена",
+          "duration": 0.025000000000005684,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур натуральный минор от A сохраняет контекстные имена",
+          "status": "passed",
+          "title": "натуральный минор от A сохраняет контекстные имена",
+          "duration": 0.04400000000001114,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур натуральный минор от Bb сохраняет контекстные имена",
+          "status": "passed",
+          "title": "натуральный минор от Bb сохраняет контекстные имена",
+          "duration": 0.02770000000001005,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур натуральный минор от B сохраняет контекстные имена",
+          "status": "passed",
+          "title": "натуральный минор от B сохраняет контекстные имена",
+          "duration": 0.039600000000007185,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур поддерживает энгармонические тоники без потери написания",
+          "status": "passed",
+          "title": "поддерживает энгармонические тоники без потери написания",
+          "duration": 0.22350000000000136,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур сохраняет диатоническое написание при двойной альтерации тоники",
+          "status": "passed",
+          "title": "сохраняет диатоническое написание при двойной альтерации тоники",
+          "duration": 0.07550000000000523,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "шесть базовых структур"
+          ],
+          "fullName": "шесть базовых структур отклоняет неизвестный вид структуры",
+          "status": "passed",
+          "title": "отклоняет неизвестный вид структуры",
+          "duration": 0.10070000000001755,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "диапазоны и контекст грифа"
+          ],
+          "fullName": "диапазоны и контекст грифа охватывает 100 уникальных позиций от открытых струн до 24 лада включительно",
+          "status": "passed",
+          "title": "охватывает 100 уникальных позиций от открытых струн до 24 лада включительно",
+          "duration": 0.7259999999999991,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "диапазоны и контекст грифа"
+          ],
+          "fullName": "диапазоны и контекст грифа уважает фильтры, включая открытые струны и один крайний лад",
+          "status": "passed",
+          "title": "уважает фильтры, включая открытые струны и один крайний лад",
+          "duration": 0.12590000000000146,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "диапазоны и контекст грифа"
+          ],
+          "fullName": "диапазоны и контекст грифа не изменяет переданные фильтры и позиции",
+          "status": "passed",
+          "title": "не изменяет переданные фильтры и позиции",
+          "duration": 0.20629999999999882,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "диапазоны и контекст грифа"
+          ],
+          "fullName": "диапазоны и контекст грифа различает полный гриф, ноты структуры и тонику",
+          "status": "passed",
+          "title": "различает полный гриф, ноты структуры и тонику",
+          "duration": 0.13009999999999877,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "диапазоны и контекст грифа"
+          ],
+          "fullName": "диапазоны и контекст грифа подписывает гамму F major бемолем в нужной позиции",
+          "status": "passed",
+          "title": "подписывает гамму F major бемолем в нужной позиции",
+          "duration": 0.11969999999999459,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "диапазоны и контекст грифа"
+          ],
+          "fullName": "диапазоны и контекст грифа не смешивает научную октаву с хроматическим именем позиции",
+          "status": "passed",
+          "title": "не смешивает научную октаву с хроматическим именем позиции",
+          "duration": 0.11730000000000018,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "диапазоны и контекст грифа"
+          ],
+          "fullName": "диапазоны и контекст грифа отклоняет невозможные или неоднозначные настройки диапазона",
+          "status": "passed",
+          "title": "отклоняет невозможные или неоднозначные настройки диапазона",
+          "duration": 0.23349999999999227,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        }
+      ],
+      "startTime": 1794130332633,
+      "endTime": 1794130332644.2334,
+      "status": "passed",
+      "message": "",
+      "name": "tests/music.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "ручная отметка игры отделена от экранной оценки"
+          ],
+          "fullName": "ручная отметка игры отделена от экранной оценки явно маркирует самооценку и не создаёт измеренную правильность игры",
+          "status": "passed",
+          "title": "явно маркирует самооценку и не создаёт измеренную правильность игры",
+          "duration": 2.094999999999999,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "ручная отметка игры отделена от экранной оценки"
+          ],
+          "fullName": "ручная отметка игры отделена от экранной оценки сохраняет исходный контекст независимо от последующих изменений фильтров",
+          "status": "passed",
+          "title": "сохраняет исходный контекст независимо от последующих изменений фильтров",
+          "duration": 0.3050999999999817,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "ручная отметка игры отделена от экранной оценки"
+          ],
+          "fullName": "ручная отметка игры отделена от экранной оценки не принимает недостоверные параметры темпа, времени и заметки",
+          "status": "passed",
+          "title": "не принимает недостоверные параметры темпа, времени и заметки",
+          "duration": 0.7361000000000217,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        }
+      ],
+      "startTime": 1794130332653,
+      "endTime": 1794130332656.736,
+      "status": "passed",
+      "message": "",
+      "name": "tests/results.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "разрешимые и воспроизводимые задания"
+          ],
+          "fullName": "разрешимые и воспроизводимые задания name-note использует только доступные позиции",
+          "status": "passed",
+          "title": "name-note использует только доступные позиции",
+          "duration": 5.263499999999993,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "разрешимые и воспроизводимые задания"
+          ],
+          "fullName": "разрешимые и воспроизводимые задания find-note использует только доступные позиции",
+          "status": "passed",
+          "title": "find-note использует только доступные позиции",
+          "duration": 1.718999999999994,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "разрешимые и воспроизводимые задания"
+          ],
+          "fullName": "разрешимые и воспроизводимые задания find-all использует только доступные позиции",
+          "status": "passed",
+          "title": "find-all использует только доступные позиции",
+          "duration": 2.342800000000011,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "разрешимые и воспроизводимые задания"
+          ],
+          "fullName": "разрешимые и воспроизводимые задания find-degree использует только доступные позиции",
+          "status": "passed",
+          "title": "find-degree использует только доступные позиции",
+          "duration": 1.5433999999999912,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "разрешимые и воспроизводимые задания"
+          ],
+          "fullName": "разрешимые и воспроизводимые задания scope chromatic действительно включает ноты вне структуры",
+          "status": "passed",
+          "title": "scope chromatic действительно включает ноты вне структуры",
+          "duration": 1.1368999999999971,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "разрешимые и воспроизводимые задания"
+          ],
+          "fullName": "разрешимые и воспроизводимые задания поиск ступеней не маскирует неработающую хроматическую область",
+          "status": "passed",
+          "title": "поиск ступеней не маскирует неработающую хроматическую область",
+          "duration": 0.17539999999999623,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "разрешимые и воспроизводимые задания"
+          ],
+          "fullName": "разрешимые и воспроизводимые задания даёт одинаковую серию при одинаковом seed и отличную при другом",
+          "status": "passed",
+          "title": "даёт одинаковую серию при одинаковом seed и отличную при другом",
+          "duration": 1.6364999999999839,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "разрешимые и воспроизводимые задания"
+          ],
+          "fullName": "разрешимые и воспроизводимые задания восстанавливает аннотации из текущей структуры без изменения входа",
+          "status": "passed",
+          "title": "восстанавливает аннотации из текущей структуры без изменения входа",
+          "duration": 0.3982000000000028,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "разрешимые и воспроизводимые задания"
+          ],
+          "fullName": "разрешимые и воспроизводимые задания различает вопрос об имени, любой позиции и полном наборе",
+          "status": "passed",
+          "title": "различает вопрос об имени, любой позиции и полном наборе",
+          "duration": 0.2768000000000086,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "разрешимые и воспроизводимые задания"
+          ],
+          "fullName": "разрешимые и воспроизводимые задания отклоняет пустую область, неправильный seed, режим и длину серии",
+          "status": "passed",
+          "title": "отклоняет пустую область, неправильный seed, режим и длину серии",
+          "duration": 0.35849999999999227,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "ответы, подсказки и экранные результаты"
+          ],
+          "fullName": "ответы, подсказки и экранные результаты принимает правильный первый ответ и не изменяет исходную сессию",
+          "status": "passed",
+          "title": "принимает правильный первый ответ и не изменяет исходную сессию",
+          "duration": 0.47450000000000614,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "ответы, подсказки и экранные результаты"
+          ],
+          "fullName": "ответы, подсказки и экранные результаты сохраняет первую ошибку и исправление отдельно от самостоятельного результата",
+          "status": "passed",
+          "title": "сохраняет первую ошибку и исправление отдельно от самостоятельного результата",
+          "duration": 0.19999999999998863,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "ответы, подсказки и экранные результаты"
+          ],
+          "fullName": "ответы, подсказки и экранные результаты имя C♯ и D♭ принимается по высоте независимо от написания",
+          "status": "passed",
+          "title": "имя C♯ и D♭ принимается по высоте независимо от написания",
+          "duration": 0.34300000000001774,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "ответы, подсказки и экранные результаты"
+          ],
+          "fullName": "ответы, подсказки и экранные результаты find-all требует весь уникальный набор, повторный выбор игнорируется",
+          "status": "passed",
+          "title": "find-all требует весь уникальный набор, повторный выбор игнорируется",
+          "duration": 0.23820000000000618,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "ответы, подсказки и экранные результаты"
+          ],
+          "fullName": "ответы, подсказки и экранные результаты ошибка после правильной части find-all исключает самостоятельное завершение",
+          "status": "passed",
+          "title": "ошибка после правильной части find-all исключает самостоятельное завершение",
+          "duration": 0.13290000000000646,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "ответы, подсказки и экранные результаты"
+          ],
+          "fullName": "ответы, подсказки и экранные результаты показанный ответ не становится самостоятельным и не порождает мнимый первый ответ",
+          "status": "passed",
+          "title": "показанный ответ не становится самостоятельным и не порождает мнимый первый ответ",
+          "duration": 0.17609999999999104,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "ответы, подсказки и экранные результаты"
+          ],
+          "fullName": "ответы, подсказки и экранные результаты пропуск и следующая задача сохраняют разные времена и состояния",
+          "status": "passed",
+          "title": "пропуск и следующая задача сохраняют разные времена и состояния",
+          "duration": 0.19030000000000769,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "ответы, подсказки и экранные результаты"
+          ],
+          "fullName": "ответы, подсказки и экранные результаты не принимает отрицательное, бесконечное или убывающее время",
+          "status": "passed",
+          "title": "не принимает отрицательное, бесконечное или убывающее время",
+          "duration": 0.4656999999999982,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "детерминированные последовательности"
+          ],
+          "fullName": "детерминированные последовательности ascending имеет независимый ожидаемый порядок",
+          "status": "passed",
+          "title": "ascending имеет независимый ожидаемый порядок",
+          "duration": 0.19419999999999504,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "детерминированные последовательности"
+          ],
+          "fullName": "детерминированные последовательности descending имеет независимый ожидаемый порядок",
+          "status": "passed",
+          "title": "descending имеет независимый ожидаемый порядок",
+          "duration": 0.04339999999999122,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "детерминированные последовательности"
+          ],
+          "fullName": "детерминированные последовательности round-trip имеет независимый ожидаемый порядок",
+          "status": "passed",
+          "title": "round-trip имеет независимый ожидаемый порядок",
+          "duration": 0.03700000000000614,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "детерминированные последовательности"
+          ],
+          "fullName": "детерминированные последовательности groups-of-three имеет независимый ожидаемый порядок",
+          "status": "passed",
+          "title": "groups-of-three имеет независимый ожидаемый порядок",
+          "duration": 0.039600000000007185,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "детерминированные последовательности"
+          ],
+          "fullName": "детерминированные последовательности выбирает E перед A для одной высоты даже при перемешанном входе",
+          "status": "passed",
+          "title": "выбирает E перед A для одной высоты даже при перемешанном входе",
+          "duration": 0.11530000000001905,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "детерминированные последовательности"
+          ],
+          "fullName": "детерминированные последовательности применяет scope и минимальное количество высот",
+          "status": "passed",
+          "title": "применяет scope и минимальное количество высот",
+          "duration": 0.48569999999998004,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        }
+      ],
+      "startTime": 1794130332662,
+      "endTime": 1794130332680.4856,
+      "status": "passed",
+      "message": "",
+      "name": "tests/training.test.ts"
+    }
+  ],
+  "reportNote": "Vitest JSON for music, training and manual result models; workspace paths normalized. Outcomes unchanged."
+}

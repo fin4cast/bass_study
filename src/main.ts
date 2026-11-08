@@ -1,4 +1,5 @@
 import './styles.css';
+import { mountTraining } from './ui/training';
 import {
   STRUCTURES,
   annotatePositions,
@@ -65,6 +66,7 @@ app.innerHTML = `
           <div class="formula"><span>Формула</span><strong id="structure-formula" data-testid="structure-formula"></strong></div>
         </div>
 
+        <div id="training-mount"></div>
         <div class="fretboard-section">
           <div class="board-header"><div class="section-title"><span class="section-number">02</span><h2>Исследуй позиции</h2></div><span id="position-count" class="position-count"></span></div>
           <div class="board-scroll" id="board-scroll"><div id="fretboard-container"></div></div>
@@ -87,6 +89,7 @@ const maxInput = byId<HTMLInputElement>('fret-max');
 const container = byId('fretboard-container');
 let positions: readonly AnnotatedPosition[] = [];
 let structure = createStructure(state.root, state.structureId);
+let training: ReturnType<typeof mountTraining> | undefined;
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
@@ -113,6 +116,7 @@ function updateView(announce = false) {
   document.querySelectorAll<HTMLButtonElement>('[data-range]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.range === `${state.fretMin},${state.fretMax}`)));
   renderBoard();
   renderSelection(announce);
+  training?.refreshContext();
 }
 
 function renderBoard() {
@@ -204,15 +208,22 @@ document.querySelectorAll<HTMLInputElement>('.string-switch input').forEach(inpu
   updateView(true);
 }));
 
+function rangeIsValid() {
+  const min = Number(minInput.value);
+  const max = Number(maxInput.value);
+  return minInput.value !== '' && maxInput.value !== '' && Number.isInteger(min) && Number.isInteger(max) && min >= 0 && max <= 24 && min <= max;
+}
+
 function applyRange() {
   const min = Number(minInput.value);
   const max = Number(maxInput.value);
-  const valid = minInput.value !== '' && maxInput.value !== '' && Number.isInteger(min) && Number.isInteger(max) && min >= 0 && max <= 24 && min <= max;
+  const valid = rangeIsValid();
   byId('range-error').hidden = valid;
   minInput.setAttribute('aria-invalid', String(!valid));
   maxInput.setAttribute('aria-invalid', String(!valid));
   if (!valid) {
     byId('range-error').textContent = 'Укажи целые лады от 0 до 24: первый не больше последнего. На грифе сохранён последний корректный диапазон.';
+    training?.refreshContext();
     return;
   }
   state.fretMin = min;
@@ -261,3 +272,12 @@ byId('connections').addEventListener('click', event => {
 });
 
 updateView();
+training = mountTraining(byId('training-mount'), () => ({ positions: rangeIsValid() ? positions : [], structure }), {
+  onModeChange(mode) {
+    const quiz = mode === 'quiz';
+    document.querySelector<HTMLElement>('.fretboard-section')!.hidden = quiz;
+    document.querySelector<HTMLElement>('.selection-section')!.hidden = quiz;
+    document.querySelector<HTMLElement>('.structure-summary')!.hidden = quiz;
+    document.querySelector<HTMLElement>('.label-field')!.hidden = quiz;
+  },
+});
