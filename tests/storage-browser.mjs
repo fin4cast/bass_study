@@ -304,6 +304,8 @@ async function uiReady(page) {
   const free = page.locator('[data-intro="free"]'); if (await free.isVisible()) await free.click();
 }
 async function revealControl(locator) {
+  const page = locator.page();
+  if (await locator.locator('xpath=ancestor::*[@id="study-settings"]').count() && !await page.locator('#study-settings').isVisible()) await page.locator('#toggle-study-settings').click();
   const parents = locator.locator('xpath=ancestor::details');
   for (let index = 0; index < await parents.count(); index++) { const details = parents.nth(index); if (!await details.evaluate(element => element.open)) await details.locator(':scope > summary').click(); }
 }
@@ -379,14 +381,14 @@ check('ui-settings-reload-presets-apply-delete-and-download-export', async ({ pa
 }, { scope: 'ui' });
 
 check('ui-finger-display-setting-survives-preset-reload-and-backup-restore', async ({ page }) => {
-  await uiReady(page); await page.locator('#show-fingers').check();
+  await uiReady(page); await revealControl(page.locator('#show-fingers')); await page.locator('#show-fingers').check();
   await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill('Форма с пальцами'); await historyAction(page, 'save-preset').click();
   await page.getByTestId('preset-list').getByText('Форма с пальцами', { exact: true }).waitFor();
   const expected = await uiBackup(page); assert.equal(expected.preferences.study.showFingers, true); assert.equal(expected.preferences.study.box.shapeId, 'penta-a');
   await page.locator('#show-fingers').uncheck(); await uiSaved(page); assert.equal((await uiBackup(page)).preferences.study.showFingers, false);
   await page.getByTestId('preset-list').getByRole('button', { name: 'Применить', exact: true }).click(); assert.ok(await page.locator('#show-fingers').isChecked());
   await page.reload(); await openHistory(page); assert.ok(await page.locator('#show-fingers').isChecked()); assert.deepEqual(await uiBackup(page), expected);
-  await page.locator('#show-fingers').uncheck(); await uiSaved(page); await confirmImport(page, expected);
+  await revealControl(page.locator('#show-fingers')); await page.locator('#show-fingers').uncheck(); await uiSaved(page); await confirmImport(page, expected);
   assert.ok(await page.locator('#show-fingers').isChecked()); assert.deepEqual(await uiBackup(page), expected);
   return { initialBox: expected.preferences.study.box, displayStoredIndependently: true, presetAndReloadAndRestore: true };
 }, { scope: 'ui' });
@@ -418,7 +420,7 @@ check('ui-restore-after-nonzero-practice-does-not-add-old-clock-to-imported-draf
   }
   await playFor(650); const exported = await uiBackup(page);
   const oldDraft = exported.practiceDrafts.find(draft => draft.totalReferenceMs > 0); assert.ok(oldDraft); assert.equal(exported.history.length, 0);
-  assert.equal(exported.profile.onboarding.choice, 'free');
+  assert.equal(exported.profile.onboarding.choice, null, 'Starting practice must not silently record an onboarding choice');
   await playFor(750); const later = await uiBackup(page);
   assert.ok(later.practiceDrafts.find(draft => draft.id === oldDraft.id).totalReferenceMs >= oldDraft.totalReferenceMs + 500);
   await confirmImport(page, exported); const restored = await uiBackup(page); assert.deepEqual(restored, exported);
@@ -556,13 +558,22 @@ check('ui-real-quota-error-is-visible-and-retry-saves-after-reset', async ({ pag
 }, { scope: 'ui' });
 
 check('ui-unavailable-indexeddb-falls-back-to-explicit-memory-and-export', async ({ page }) => {
-  await openHistory(page); assert.match(await page.locator('#persistence-message').innerText(), /памяти|не сохран/);
+  await uiReady(page);
+  const details = page.getByRole('button', { name: 'Без сохранения · подробнее', exact: true });
+  assert.equal(await details.isVisible(), true); assert.equal(await details.getAttribute('aria-expanded'), 'false');
+  assert.equal(await page.locator('#persistence-banner').isVisible(), false);
+  await details.click(); assert.equal(await details.getAttribute('aria-expanded'), 'true');
+  assert.equal(await page.locator('#persistence-banner').isVisible(), true);
+  const reason = await page.locator('#persistence-message').innerText();
+  assert.match(reason, /памяти|не сохран/); assert.match(reason, /Браузерное хранилище недоступно/);
+  await openHistory(page);
   assert.match(await page.getByTestId('history-body').innerText(), /только в памяти.*не переживут закрытие/s);
   await page.getByLabel('Заметка к практике', { exact: true }).fill('Временная ручная отметка'); await historyAction(page, 'save-manual').click();
   await page.getByTestId('history-list').locator('[data-history-kind="manual"]').waitFor();
   const exported = await uiBackup(page); assert.equal(exported.history.length, 1); assert.equal(exported.history[0].result.source, 'self-report');
-  await page.reload(); await openHistory(page); assert.equal((await uiBackup(page)).history.length, 0);
-  return { explicitlyMemoryOnly: true, exportedRecords: exported.history.length, reloadClearedTemporaryHistory: true, nativePersistenceClaimed: false };
+  await page.reload(); await uiReady(page); assert.equal(await details.isVisible(), true); assert.equal(await details.getAttribute('aria-expanded'), 'false');
+  await openHistory(page); assert.equal((await uiBackup(page)).history.length, 0);
+  return { explicitlyMemoryOnly: true, detailsOpenedByVisibleButton: true, reason, exportedRecords: exported.history.length, reloadClearedTemporaryHistory: true, nativePersistenceClaimed: false };
 }, { scope: 'ui', memory: true });
 
 await runStorageBrowserChecks(checks);

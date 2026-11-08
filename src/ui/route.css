@@ -1,6 +1,6 @@
 @import "../theme.css";
 
-.route-section { padding: 26px; margin: 21px 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.route-section { padding: 18px; margin: 14px 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
 .route-section[hidden], .route-session-host[hidden] { display: none; }
 .route-heading { max-width: 730px; }
 .route-heading .eyebrow { font-size: 12px; margin-bottom: 8px; }

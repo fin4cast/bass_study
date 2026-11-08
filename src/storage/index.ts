@@ -68,13 +68,22 @@ export function createStudyStore() {
             : { preferences: migrateV6Preferences, presets: migrateV6Preset, history: migrateV6HistoryEntry };
           let aborted = false;
           for (const name of ['preferences', 'presets', 'history'] as const) {
+            let recordNumber = 0;
             const cursorRequest = transaction.objectStore(name).openCursor();
             cursorRequest.onsuccess = () => {
               if (aborted) return;
               const cursor = cursorRequest.result;
               if (!cursor) return;
+              recordNumber++;
               try { cursor.update(migrations[name](cursor.value)); cursor.continue(); }
-              catch (error) { aborted = true; migrationFailure = error; transaction.abort(); }
+              catch (error) {
+                const record = name === 'preferences'
+                  ? cursor.key === 'current' ? 'Текущие настройки (preferences/current)' : `Запись настроек №${recordNumber} (preferences)`
+                  : name === 'presets' ? `Пресет №${recordNumber} (presets)` : `Запись истории №${recordNumber} (history)`;
+                aborted = true;
+                migrationFailure = error instanceof StudyStorageError ? new StudyStorageError(error.code, `${record}: ${error.message}`) : error;
+                transaction.abort();
+              }
             };
           }
           // Версия 6 уже владеет этими данными: проверить, не перезаписывая.

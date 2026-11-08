@@ -42,6 +42,11 @@ async function ready(page, keyboard = false) {
   if (await free.isVisible()) { if (keyboard) await keyboardActivate(page, free); else await free.click(); }
 }
 async function revealControl(locator, keyboard = false) {
+  const page = locator.page();
+  if (await locator.locator('xpath=ancestor::*[@id="study-settings"]').count() && !await page.locator('#study-settings').isVisible()) {
+    const toggle = page.locator('#toggle-study-settings');
+    if (keyboard) await keyboardActivate(page, toggle); else await toggle.click();
+  }
   const parents = locator.locator('xpath=ancestor::details');
   for (let index = 0; index < await parents.count(); index++) {
     const details = parents.nth(index);
@@ -190,7 +195,7 @@ for (const version of [5]) {
 check('product-restores-real-v1-json-and-preserves-history-across-reload', async ({ page, fixtureUrl }) => {
   const literal = await readLiteral(page, fixtureUrl); await restoreUi(page, literal);
   const exported = await exportUi(page); assert.deepEqual(exported, expectedMigration(literal));
-  await page.reload(); await ready(page); assert.deepEqual(await exportUi(page), { ...exported, profile: { ...exported.profile, onboarding: { version: 1, choice: 'free', completed: false } } });
+  await page.reload(); await ready(page); assert.deepEqual(await exportUi(page), exported, 'Quiet startup must preserve the migrated null onboarding choice');
   assert.match(await page.getByTestId('history-list').innerText(), /Старая ручная отметка/);
   return { migratedVersion: exported.schemaVersion, originalEvents: exported.history.find(entry => entry.id === 'legacy-screen').result.questions[0].answerEvents, retainedDates: exported.history.map(entry => entry.localDate) };
 }, { scope: 'ui' });

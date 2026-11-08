@@ -146,6 +146,11 @@ check('live-mixer-changes-preserve-run-and-musical-time', 'api', async ({ page }
 
 check('ui-four-chords-and-sixteen-bass-notes-use-independent-musical-fixture', 'ui', async ({ page }) => {
   await setupUi(page); assert.deepEqual(await page.locator('[data-harmony-chord] > strong').allTextContents(), ['C', 'F', 'G', 'C']);
+  assert.equal(await page.locator('.harmony-preview').evaluate(element => element.open), false);
+  await page.locator('.harmony-preview > summary').focus();
+  await page.keyboard.press('Space');
+  assert.equal(await page.locator('.harmony-preview').evaluate(element => element.open), true);
+  assert.equal(await page.locator('#harmony-mount').getAttribute('data-harmony-state'), 'stopped');
   assert.deepEqual(await page.locator('[data-harmony-note] > strong').allTextContents(), BASS_NAMES);
   assert.deepEqual(await page.locator('[data-harmony-note] > span').allTextContents(), Array.from({ length: 4 }, () => ['1', '3', '5', '3']).flat());
   assert.deepEqual(await page.locator('.harmony-function').allTextContents(), ['Тоника · T', 'Субдоминанта · S', 'Доминанта · D', 'Тоника · T']);

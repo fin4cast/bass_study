@@ -1,0 +1,897 @@
+{
+  "date": "2026-11-08",
+  "browser": "157.0.4341.42",
+  "server": {
+    "owned": false,
+    "indexVerifiedByteForByte": true
+  },
+  "layouts": [
+    {
+      "width": 1440,
+      "height": 1300,
+      "header": {
+        "x": 25,
+        "y": 25,
+        "width": 190,
+        "height": 1250,
+        "bottom": 1275
+      },
+      "primary": {
+        "x": 40,
+        "y": 118.5,
+        "width": 160,
+        "height": 304.5,
+        "bottom": 423
+      },
+      "utility": {
+        "x": 40,
+        "y": 441,
+        "width": 160,
+        "height": 96,
+        "bottom": 537
+      },
+      "art": {
+        "x": 25,
+        "y": 567,
+        "width": 190,
+        "height": 561.90625,
+        "bottom": 1128.90625
+      },
+      "image": {
+        "x": 9.75722599029541,
+        "y": 627,
+        "width": 203.49176025390625,
+        "height": 536.66162109375,
+        "bottom": 1163.66162109375
+      },
+      "photoVisible": true,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "light",
+      "themeBounds": {
+        "x": 40,
+        "y": 1158.90625,
+        "width": 160,
+        "height": 65.59375,
+        "bottom": 1224.5
+      }
+    },
+    {
+      "width": 1440,
+      "height": 1080,
+      "header": {
+        "x": 25,
+        "y": 25,
+        "width": 190,
+        "height": 1032,
+        "bottom": 1057
+      },
+      "primary": {
+        "x": 40,
+        "y": 118.5,
+        "width": 160,
+        "height": 304.5,
+        "bottom": 423
+      },
+      "utility": {
+        "x": 40,
+        "y": 441,
+        "width": 160,
+        "height": 96,
+        "bottom": 537
+      },
+      "art": {
+        "x": 25,
+        "y": 567,
+        "width": 190,
+        "height": 343.90625,
+        "bottom": 910.90625
+      },
+      "image": {
+        "x": 13.24286937713623,
+        "y": 567,
+        "width": 184.16978454589844,
+        "height": 485.707275390625,
+        "bottom": 1052.707275390625
+      },
+      "photoVisible": true,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "light",
+      "themeBounds": {
+        "x": 40,
+        "y": 940.90625,
+        "width": 160,
+        "height": 65.59375,
+        "bottom": 1006.5
+      }
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "header": {
+        "x": 25,
+        "y": 25,
+        "width": 190,
+        "height": 718,
+        "bottom": 743
+      },
+      "primary": {
+        "x": 40,
+        "y": 118.5,
+        "width": 160,
+        "height": 304.5,
+        "bottom": 423
+      },
+      "utility": {
+        "x": 40,
+        "y": 441,
+        "width": 160,
+        "height": 96,
+        "bottom": 537
+      },
+      "art": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "image": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "photoVisible": false,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "light",
+      "themeBounds": {
+        "x": 40,
+        "y": 626.90625,
+        "width": 160,
+        "height": 65.59375,
+        "bottom": 692.5
+      }
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "header": {
+        "x": 25,
+        "y": 25,
+        "width": 164,
+        "height": 718,
+        "bottom": 743
+      },
+      "primary": {
+        "x": 36,
+        "y": 114,
+        "width": 142,
+        "height": 304.5,
+        "bottom": 418.5
+      },
+      "utility": {
+        "x": 36,
+        "y": 436.5,
+        "width": 142,
+        "height": 96,
+        "bottom": 532.5
+      },
+      "art": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "image": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "photoVisible": false,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "light",
+      "themeBounds": {
+        "x": 36,
+        "y": 626.90625,
+        "width": 142,
+        "height": 65.59375,
+        "bottom": 692.5
+      }
+    },
+    {
+      "width": 736,
+      "height": 1100,
+      "header": {
+        "x": 13,
+        "y": 13,
+        "width": 150,
+        "height": 1076,
+        "bottom": 1089
+      },
+      "primary": {
+        "x": 24,
+        "y": 99,
+        "width": 128,
+        "height": 363,
+        "bottom": 462
+      },
+      "utility": {
+        "x": 24,
+        "y": 480,
+        "width": 128,
+        "height": 96,
+        "bottom": 576
+      },
+      "art": {
+        "x": 13,
+        "y": 606,
+        "width": 150,
+        "height": 320.40625,
+        "bottom": 926.40625
+      },
+      "image": {
+        "x": 0.9525947570800781,
+        "y": 606,
+        "width": 160.66336059570312,
+        "height": 423.7113037109375,
+        "bottom": 1029.7113037109375
+      },
+      "photoVisible": true,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "light",
+      "themeBounds": {
+        "x": 24,
+        "y": 956.40625,
+        "width": 128,
+        "height": 65.59375,
+        "bottom": 1022
+      }
+    },
+    {
+      "width": 620,
+      "height": 900,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 620,
+        "height": 271.59375,
+        "bottom": 271.59375
+      },
+      "primary": {
+        "x": 15,
+        "y": 68,
+        "width": 590,
+        "height": 67,
+        "bottom": 135
+      },
+      "utility": {
+        "x": 15,
+        "y": 152,
+        "width": 590,
+        "height": 45,
+        "bottom": 197
+      },
+      "art": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "image": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "photoVisible": false,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "light",
+      "themeBounds": {
+        "x": 15,
+        "y": 214,
+        "width": 131.625,
+        "height": 38.59375,
+        "bottom": 252.59375
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 271.59375,
+        "bottom": 271.59375
+      },
+      "primary": {
+        "x": 15,
+        "y": 68,
+        "width": 360,
+        "height": 67,
+        "bottom": 135
+      },
+      "utility": {
+        "x": 15,
+        "y": 152,
+        "width": 360,
+        "height": 45,
+        "bottom": 197
+      },
+      "art": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "image": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "photoVisible": false,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "light",
+      "themeBounds": {
+        "x": 15,
+        "y": 214,
+        "width": 131.625,
+        "height": 38.59375,
+        "bottom": 252.59375
+      }
+    },
+    {
+      "width": 320,
+      "height": 640,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 306.59375,
+        "bottom": 306.59375
+      },
+      "primary": {
+        "x": 15,
+        "y": 68,
+        "width": 290,
+        "height": 102,
+        "bottom": 170
+      },
+      "utility": {
+        "x": 15,
+        "y": 187,
+        "width": 290,
+        "height": 45,
+        "bottom": 232
+      },
+      "art": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "image": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "photoVisible": false,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "light",
+      "themeBounds": {
+        "x": 15,
+        "y": 249,
+        "width": 131.625,
+        "height": 38.59375,
+        "bottom": 287.59375
+      }
+    },
+    {
+      "width": 1440,
+      "height": 1300,
+      "header": {
+        "x": 25,
+        "y": 25,
+        "width": 190,
+        "height": 1250,
+        "bottom": 1275
+      },
+      "primary": {
+        "x": 40,
+        "y": 118.5,
+        "width": 160,
+        "height": 304.5,
+        "bottom": 423
+      },
+      "utility": {
+        "x": 40,
+        "y": 441,
+        "width": 160,
+        "height": 96,
+        "bottom": 537
+      },
+      "art": {
+        "x": 25,
+        "y": 567,
+        "width": 190,
+        "height": 561.90625,
+        "bottom": 1128.90625
+      },
+      "image": {
+        "x": 9.75722599029541,
+        "y": 627,
+        "width": 203.49176025390625,
+        "height": 536.66162109375,
+        "bottom": 1163.66162109375
+      },
+      "photoVisible": true,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "dark",
+      "themeBounds": {
+        "x": 40,
+        "y": 1158.90625,
+        "width": 160,
+        "height": 65.59375,
+        "bottom": 1224.5
+      }
+    },
+    {
+      "width": 1440,
+      "height": 1080,
+      "header": {
+        "x": 25,
+        "y": 25,
+        "width": 190,
+        "height": 1032,
+        "bottom": 1057
+      },
+      "primary": {
+        "x": 40,
+        "y": 118.5,
+        "width": 160,
+        "height": 304.5,
+        "bottom": 423
+      },
+      "utility": {
+        "x": 40,
+        "y": 441,
+        "width": 160,
+        "height": 96,
+        "bottom": 537
+      },
+      "art": {
+        "x": 25,
+        "y": 567,
+        "width": 190,
+        "height": 343.90625,
+        "bottom": 910.90625
+      },
+      "image": {
+        "x": 13.24286937713623,
+        "y": 567,
+        "width": 184.16978454589844,
+        "height": 485.707275390625,
+        "bottom": 1052.707275390625
+      },
+      "photoVisible": true,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "dark",
+      "themeBounds": {
+        "x": 40,
+        "y": 940.90625,
+        "width": 160,
+        "height": 65.59375,
+        "bottom": 1006.5
+      }
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "header": {
+        "x": 25,
+        "y": 25,
+        "width": 190,
+        "height": 718,
+        "bottom": 743
+      },
+      "primary": {
+        "x": 40,
+        "y": 118.5,
+        "width": 160,
+        "height": 304.5,
+        "bottom": 423
+      },
+      "utility": {
+        "x": 40,
+        "y": 441,
+        "width": 160,
+        "height": 96,
+        "bottom": 537
+      },
+      "art": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "image": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "photoVisible": false,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "dark",
+      "themeBounds": {
+        "x": 40,
+        "y": 626.90625,
+        "width": 160,
+        "height": 65.59375,
+        "bottom": 692.5
+      }
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "header": {
+        "x": 25,
+        "y": 25,
+        "width": 164,
+        "height": 718,
+        "bottom": 743
+      },
+      "primary": {
+        "x": 36,
+        "y": 114,
+        "width": 142,
+        "height": 304.5,
+        "bottom": 418.5
+      },
+      "utility": {
+        "x": 36,
+        "y": 436.5,
+        "width": 142,
+        "height": 96,
+        "bottom": 532.5
+      },
+      "art": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "image": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "photoVisible": false,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "dark",
+      "themeBounds": {
+        "x": 36,
+        "y": 626.90625,
+        "width": 142,
+        "height": 65.59375,
+        "bottom": 692.5
+      }
+    },
+    {
+      "width": 736,
+      "height": 1100,
+      "header": {
+        "x": 13,
+        "y": 13,
+        "width": 150,
+        "height": 1076,
+        "bottom": 1089
+      },
+      "primary": {
+        "x": 24,
+        "y": 99,
+        "width": 128,
+        "height": 363,
+        "bottom": 462
+      },
+      "utility": {
+        "x": 24,
+        "y": 480,
+        "width": 128,
+        "height": 96,
+        "bottom": 576
+      },
+      "art": {
+        "x": 13,
+        "y": 606,
+        "width": 150,
+        "height": 320.40625,
+        "bottom": 926.40625
+      },
+      "image": {
+        "x": 0.9525947570800781,
+        "y": 606,
+        "width": 160.66336059570312,
+        "height": 423.7113037109375,
+        "bottom": 1029.7113037109375
+      },
+      "photoVisible": true,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "dark",
+      "themeBounds": {
+        "x": 24,
+        "y": 956.40625,
+        "width": 128,
+        "height": 65.59375,
+        "bottom": 1022
+      }
+    },
+    {
+      "width": 620,
+      "height": 900,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 620,
+        "height": 271.59375,
+        "bottom": 271.59375
+      },
+      "primary": {
+        "x": 15,
+        "y": 68,
+        "width": 590,
+        "height": 67,
+        "bottom": 135
+      },
+      "utility": {
+        "x": 15,
+        "y": 152,
+        "width": 590,
+        "height": 45,
+        "bottom": 197
+      },
+      "art": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "image": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "photoVisible": false,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "dark",
+      "themeBounds": {
+        "x": 15,
+        "y": 214,
+        "width": 128.90625,
+        "height": 38.59375,
+        "bottom": 252.59375
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 271.59375,
+        "bottom": 271.59375
+      },
+      "primary": {
+        "x": 15,
+        "y": 68,
+        "width": 360,
+        "height": 67,
+        "bottom": 135
+      },
+      "utility": {
+        "x": 15,
+        "y": 152,
+        "width": 360,
+        "height": 45,
+        "bottom": 197
+      },
+      "art": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "image": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "photoVisible": false,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "dark",
+      "themeBounds": {
+        "x": 15,
+        "y": 214,
+        "width": 128.90625,
+        "height": 38.59375,
+        "bottom": 252.59375
+      }
+    },
+    {
+      "width": 320,
+      "height": 640,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 306.59375,
+        "bottom": 306.59375
+      },
+      "primary": {
+        "x": 15,
+        "y": 68,
+        "width": 290,
+        "height": 102,
+        "bottom": 170
+      },
+      "utility": {
+        "x": 15,
+        "y": 187,
+        "width": 290,
+        "height": 45,
+        "bottom": 232
+      },
+      "art": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "image": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "photoVisible": false,
+      "photoSrc": "http://localhost:4173/images/bass-headstock.webp",
+      "natural": [
+        568,
+        1788
+      ],
+      "headerScroll": false,
+      "overflow": false,
+      "appearance": "dark",
+      "themeBounds": {
+        "x": 15,
+        "y": 249,
+        "width": 128.90625,
+        "height": 38.59375,
+        "bottom": 287.59375
+      }
+    }
+  ],
+  "tabOrder": true,
+  "historyFocus": true,
+  "introduction": true,
+  "tracksNavigation": true,
+  "decorativeImage": true,
+  "external": [],
+  "errors": []
+}

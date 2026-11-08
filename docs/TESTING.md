@@ -139,6 +139,8 @@ UI-проверки покрывают фрагмент/валидацию, си
 npm.cmd run test:unit -- tests/music.test.ts tests/training.test.ts tests/results.test.ts tests/audio-plan.test.ts --reporter=json --outputFile=test-results/p4-unit.json
 ```
 
+Последующее уточнение оболочки «Крупный акцент» проверено существующими `npm.cmd run test:design -- --reuse-server` и `npm.cmd run test:uiux -- --reuse-server` после build. Отдельные реальные измерения адаптации/Tab-порядка, просмотр фото и снимки сохранены в [SIDEBAR_ACCENT](verification/SIDEBAR_ACCENT.md); исторические P9/P10 raw не заменяются.
+
 ## Воспроизведение P1
 
 После [подготовки зависимостей](DEVELOPMENT.md) из корня репозитория:

@@ -106,6 +106,8 @@ check('ui-first-open-and-return-do-not-claim-the-visible-section-is-closed', 'ui
 check('ui-explicit-connect-displays-Hz-note-confidence-and-separate-track-context-settings', 'ui', async ({ page, context, origin }) => {
   await openInput(page); await connectUi(page, context, origin); assert.equal(await page.getByTestId('input-note').innerText(), 'A1'); near(Number((await page.getByTestId('input-hz').innerText()).replace(',', '.')), 55, .4);
   await page.locator('.input-diagnostics').evaluate(element => { element.open = true; });
+  await page.locator('.input-level-card .input-card-explainer > summary').click();
+  await page.locator('.input-pitch-card .input-card-explainer > summary').click();
   assert.match(await page.getByTestId('input-context').innerText(), /Частота AudioContext/); assert.match(await page.getByTestId('input-window').innerText(), /8192.*170,67 мс/); assert.match(await page.locator('.input-diagnostics').innerText(), /не измеряют сквозную задержку/); assert.match(await page.locator('.input-confidence').innerText(), /Эвристика/); assert.match(await page.locator('.input-card-help').last().innerText(), /не является вероятностью/);
   const levelHelp = await page.locator('.input-level-card .input-card-help').innerText();
   assert.match(levelHelp, /RMS — среднеквадратичный уровень сигнала за окно/);

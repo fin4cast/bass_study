@@ -1,0 +1,469 @@
+{
+  "generatedAt": "2026-11-08T19:16:01.222Z",
+  "platform": "win32",
+  "node": "v24.18.0",
+  "browserChannel": "msedge",
+  "browserVersion": "157.0.4341.42",
+  "scope": "Approved VIS-01 r5 with compact default shell: complete 46/18 fretboard, height-fit desktop, explicit disclosures, local photo, musical intervals/octaves and hidden quiz explorer. No physical bass or full WCAG certification.",
+  "origin": "http://localhost:4173",
+  "fixtureOrigin": "http://127.0.0.1:4194",
+  "staticServer": {
+    "reuseRequested": true,
+    "owned": false,
+    "mode": "external-reused",
+    "indexVerifiedByteForByte": true,
+    "shutdownAllowed": false
+  },
+  "networkIsolation": "Fresh Edge contexts, cache disabled, non-loopback HTTP denied; no user browser profile or hardware microphone.",
+  "checks": [
+    {
+      "name": "approved-default-and-both-themes-at-five-widths",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 3654,
+      "evidence": {
+        "layouts": [
+          {
+            "theme": "light",
+            "width": 1440,
+            "range": [
+              0,
+              12
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 8
+          },
+          {
+            "theme": "light",
+            "width": 1440,
+            "range": [
+              12,
+              24
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 1
+          },
+          {
+            "theme": "light",
+            "width": 1366,
+            "range": [
+              0,
+              12
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 8
+          },
+          {
+            "theme": "light",
+            "width": 1366,
+            "range": [
+              12,
+              24
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 1
+          },
+          {
+            "theme": "light",
+            "width": 1024,
+            "range": [
+              0,
+              12
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 8
+          },
+          {
+            "theme": "light",
+            "width": 1024,
+            "range": [
+              12,
+              24
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 1
+          },
+          {
+            "theme": "light",
+            "width": 736,
+            "range": [
+              0,
+              12
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 8
+          },
+          {
+            "theme": "light",
+            "width": 736,
+            "range": [
+              12,
+              24
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 1
+          },
+          {
+            "theme": "light",
+            "width": 320,
+            "range": [
+              0,
+              12
+            ],
+            "parts": 3,
+            "positions": 52,
+            "large": 8
+          },
+          {
+            "theme": "light",
+            "width": 320,
+            "range": [
+              12,
+              24
+            ],
+            "parts": 3,
+            "positions": 52,
+            "large": 1
+          },
+          {
+            "theme": "dark",
+            "width": 1440,
+            "range": [
+              0,
+              12
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 8
+          },
+          {
+            "theme": "dark",
+            "width": 1440,
+            "range": [
+              12,
+              24
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 1
+          },
+          {
+            "theme": "dark",
+            "width": 1366,
+            "range": [
+              0,
+              12
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 8
+          },
+          {
+            "theme": "dark",
+            "width": 1366,
+            "range": [
+              12,
+              24
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 1
+          },
+          {
+            "theme": "dark",
+            "width": 1024,
+            "range": [
+              0,
+              12
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 8
+          },
+          {
+            "theme": "dark",
+            "width": 1024,
+            "range": [
+              12,
+              24
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 1
+          },
+          {
+            "theme": "dark",
+            "width": 736,
+            "range": [
+              0,
+              12
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 8
+          },
+          {
+            "theme": "dark",
+            "width": 736,
+            "range": [
+              12,
+              24
+            ],
+            "parts": 1,
+            "positions": 52,
+            "large": 1
+          },
+          {
+            "theme": "dark",
+            "width": 320,
+            "range": [
+              0,
+              12
+            ],
+            "parts": 3,
+            "positions": 52,
+            "large": 8
+          },
+          {
+            "theme": "dark",
+            "width": 320,
+            "range": [
+              12,
+              24
+            ],
+            "parts": 3,
+            "positions": 52,
+            "large": 1
+          }
+        ],
+        "brandBars": [
+          "22px",
+          "28px",
+          "17px",
+          "24px"
+        ]
+      }
+    },
+    {
+      "name": "octave-semantics-independent-layers-and-shared-tonic",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 916,
+      "evidence": {
+        "completeA1A2": true,
+        "secondFragment": true,
+        "physicalA2": 1,
+        "boundaryOnlyRegression": true,
+        "layerIndependence": true
+      }
+    },
+    {
+      "name": "view-range-does-not-clip-exact-training-material-and-survives-reload",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1091,
+      "evidence": {
+        "exactFormNotes": [
+          "E:8",
+          "E:10",
+          "A:7",
+          "A:10",
+          "D:7",
+          "D:10",
+          "G:7",
+          "G:9"
+        ],
+        "expandedDisplay": [
+          0,
+          10
+        ],
+        "restoredDisplay": [
+          0,
+          10
+        ],
+        "invalidClearsView": true,
+        "manualStringSwitchesToFree": true
+      }
+    },
+    {
+      "name": "actual-picker-keyboard-focus-and-history-navigation",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 683,
+      "evidence": {
+        "pickerGrid": 12,
+        "focusPreserved": true,
+        "firstOutsideClickApplied": true,
+        "settingsCollapsible": true,
+        "historyViaNavigation": true
+      }
+    },
+    {
+      "name": "quiz-hides-explorer-information-in-rendered-and-accessible-view",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 449,
+      "evidence": {
+        "hiddenExplorer": true,
+        "hiddenInspector": true,
+        "hiddenConnections": true,
+        "neutralHeading": true
+      }
+    },
+    {
+      "name": "explicit-route-start-repairs-invalid-display-before-quiz",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 562,
+      "evidence": {
+        "invalidDisplayRepairedExplicitly": true,
+        "exactTriadPositions": 4,
+        "quizStarted": true
+      }
+    },
+    {
+      "name": "notation-explicitly-reveals-offscreen-form-position-without-changing-material",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 744,
+      "evidence": {
+        "selectedPosition": "E:5",
+        "expandedDisplay": [
+          0,
+          5
+        ],
+        "exactFormRetained": true
+      }
+    },
+    {
+      "name": "default-desktop-fits-height-and-scroll-follows-explicit-disclosure",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 3644,
+      "evidence": {
+        "layouts": [
+          {
+            "theme": "light",
+            "moreInitiallyOpen": true,
+            "scrollHeight": 1080,
+            "height": 1080,
+            "width": 1440,
+            "overflow": false,
+            "photo": true,
+            "sidebarScroll": false
+          },
+          {
+            "theme": "light",
+            "moreInitiallyOpen": false,
+            "scrollHeight": 900,
+            "height": 900,
+            "width": 1440,
+            "overflow": false,
+            "photo": true,
+            "sidebarScroll": false
+          },
+          {
+            "theme": "light",
+            "moreInitiallyOpen": false,
+            "scrollHeight": 768,
+            "height": 768,
+            "width": 1366,
+            "overflow": false,
+            "photo": true,
+            "sidebarScroll": false
+          },
+          {
+            "theme": "light",
+            "moreInitiallyOpen": false,
+            "scrollHeight": 720,
+            "height": 720,
+            "width": 1280,
+            "overflow": false,
+            "photo": true,
+            "sidebarScroll": false
+          },
+          {
+            "theme": "light",
+            "moreInitiallyOpen": false,
+            "scrollHeight": 768,
+            "height": 768,
+            "width": 1024,
+            "overflow": false,
+            "photo": true,
+            "sidebarScroll": false
+          },
+          {
+            "theme": "dark",
+            "moreInitiallyOpen": true,
+            "scrollHeight": 1080,
+            "height": 1080,
+            "width": 1440,
+            "overflow": false,
+            "photo": true,
+            "sidebarScroll": false
+          },
+          {
+            "theme": "dark",
+            "moreInitiallyOpen": false,
+            "scrollHeight": 900,
+            "height": 900,
+            "width": 1440,
+            "overflow": false,
+            "photo": true,
+            "sidebarScroll": false
+          },
+          {
+            "theme": "dark",
+            "moreInitiallyOpen": false,
+            "scrollHeight": 768,
+            "height": 768,
+            "width": 1366,
+            "overflow": false,
+            "photo": true,
+            "sidebarScroll": false
+          },
+          {
+            "theme": "dark",
+            "moreInitiallyOpen": false,
+            "scrollHeight": 720,
+            "height": 720,
+            "width": 1280,
+            "overflow": false,
+            "photo": true,
+            "sidebarScroll": false
+          },
+          {
+            "theme": "dark",
+            "moreInitiallyOpen": false,
+            "scrollHeight": 768,
+            "height": 768,
+            "width": 1024,
+            "overflow": false,
+            "photo": true,
+            "sidebarScroll": false
+          }
+        ],
+        "explicitDisclosureEnablesScroll": true,
+        "noteDiameter": 46,
+        "completeDefaultRange": [
+          0,
+          12
+        ]
+      }
+    }
+  ],
+  "externalRequests": [],
+  "pageErrors": [],
+  "cleanupErrors": [],
+  "passed": 8,
+  "failed": 0,
+  "status": "passed"
+}

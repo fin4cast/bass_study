@@ -10,7 +10,7 @@ import { createMemoryStudyStore } from '../src/storage/memory';
 import { annotatePositions, createStructure, getPosition } from '../src/music';
 import { createManualPracticeResult, nextQuestion, revealAnswer, skipQuestion, startQuiz, submitAnswer, type QuizMode } from '../src/training';
 import {
-  DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, emptySnapshot, getHistorySummary, getReviewPositionIds, makeEarHistory, makeRouteHistory, makeManualHistory, makeScreenHistory,
+  DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, StudyStorageError, emptySnapshot, getHistorySummary, getReviewPositionIds, makeEarHistory, makeRouteHistory, makeManualHistory, makeScreenHistory,
   originalLocalDate, parseBackup, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
   type HistoryEntry, type ScreenHistoryEntry,
 } from '../src/storage/model';
@@ -20,6 +20,13 @@ const positions = annotatePositions([getPosition('E', 0), getPosition('E', 12)],
 const context = { scope: 'structure' as const, root: 'A', structureId: 'minor-pentatonic' as const, positionIds: ['E:0', 'E:12'] };
 const metadata = { id: 'synthetic-screen', occurredAt: '2026-11-08T09:00:00.000Z', timeZone: 'Europe/Moscow' };
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+function validationFailure(operation: () => unknown): StudyStorageError {
+  let failure: unknown;
+  try { operation(); } catch (error) { failure = error; }
+  expect(failure).toBeInstanceOf(StudyStorageError);
+  expect((failure as StudyStorageError).code).toBe('INVALID_DATA');
+  return failure as StudyStorageError;
+}
 function currentPreferences(value: any) { return { ...value, musicBank: null, study: { ...value.study, box: null, showFingers: false }, training: { ...value.training, questionPolicy: 'random-v1' } }; }
 function expectedLegacyEntry(entry: any) {
  const result = entry.result.kind === 'manual' ? { ...entry.result, material: { kind: 'legacy-unknown' } }
@@ -28,6 +35,59 @@ function expectedLegacyEntry(entry: any) {
  : { ...entry.result, context: { ...entry.result.context, referenceMidi: entry.result.questions[0].question.referenceMidi } };
  return { ...entry, result, routeRef: null };
 }
+
+describe('строгая диагностика полей и записи без вывода значений', () => {
+  it('по-прежнему отклоняет отсутствующие и лишние поля study, называет только их ключи и не меняет вход', () => {
+    const bad: any = clone(DEFAULT_PREFERENCES);
+    delete bad.study.box;
+    delete bad.study.showFingers;
+    bad.study.unexpectedViewState = 'PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS';
+    const before = JSON.stringify(bad);
+    const failure = validationFailure(() => validatePreferences(bad));
+    expect(failure.message).toContain('Настройки грифа: отсутствуют обязательные поля или присутствуют неизвестные.');
+    expect(failure.message).toContain('Отсутствуют: "box", "showFingers".');
+    expect(failure.message).toContain('Неизвестные: "unexpectedViewState".');
+    expect(failure.message).not.toContain('PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS');
+    expect(JSON.stringify(bad)).toBe(before);
+  });
+
+  it('ограничивает число и длину диагностических имён, но не принимает объект с большим набором неизвестных ключей', () => {
+    const bad: any = clone(DEFAULT_PREFERENCES);
+    for (let index = 0; index < 100; index++) bad.study[`unknown_${index}_${'x'.repeat(300)}`] = 'PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS';
+    const failure = validationFailure(() => validatePreferences(bad));
+    expect(failure.message).toContain('ещё 94');
+    expect(failure.message).not.toContain('PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS');
+    expect(failure.message.length).toBeLessThan(650);
+    expect(failure.message).not.toContain('x'.repeat(100));
+  });
+
+  it('различает текущие настройки и конкретный номер пресета, не раскрывая его название или ID', () => {
+    const bad: any = clone(DEFAULT_PREFERENCES);
+    bad.study.unexpectedViewState = 'PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS';
+    const current = validationFailure(() => validateSnapshot({ ...emptySnapshot(), preferences: bad }));
+    expect(current.message).toMatch(/^Текущие настройки \(preferences\/current\): Настройки грифа:/);
+    const validPreset = { id: 'valid-preset', name: 'Первый', createdAt: metadata.occurredAt, preferences: DEFAULT_PREFERENCES };
+    const badPreset = { ...validPreset, id: 'PRIVATE_PRESET_ID', name: 'PRIVATE_PRESET_NAME', preferences: bad };
+    expect(validationFailure(() => validatePreset(badPreset)).message).toMatch(/^Настройки пресета: Настройки грифа:/);
+    const preset = validationFailure(() => validateSnapshot({ ...emptySnapshot(), presets: [validPreset, badPreset] }));
+    expect(preset.message).toMatch(/^Пресет №2: Настройки пресета: Настройки грифа:/);
+    for (const value of ['PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS', 'PRIVATE_PRESET_ID', 'PRIVATE_PRESET_NAME']) expect(preset.message).not.toContain(value);
+  });
+
+  it('сохраняет контекст текущей или пресетной записи при строгом разборе старой резервной копии', () => {
+    const current = JSON.parse(v4BackupJson);
+    current.preferences.study.unexpectedViewState = 'PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS';
+    const currentFailure = validationFailure(() => parseBackup(JSON.stringify(current)));
+    expect(currentFailure.message).toMatch(/^Текущие настройки \(preferences\/current\):/);
+    expect(currentFailure.message).toContain('Неизвестные: "unexpectedViewState".');
+    const preset = JSON.parse(v4BackupJson);
+    preset.presets[0].preferences.study.unexpectedViewState = 'PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS';
+    const presetFailure = validationFailure(() => parseBackup(JSON.stringify(preset)));
+    expect(presetFailure.message).toMatch(/^Пресет №1:/);
+    expect(presetFailure.message).toContain('Неизвестные: "unexpectedViewState".');
+    expect(presetFailure.message).not.toContain('PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS');
+  });
+});
 
 
 describe('schema5: переносимые метаданные дорожек и выбор входа без аудиоданных', () => {

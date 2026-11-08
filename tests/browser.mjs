@@ -52,7 +52,7 @@ async function check(name, operation) {
     await page.goto(origin);
     await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
     await page.waitForSelector('[data-position="E:5"]');
-    if (!await page.locator('#area-settings').evaluate(el => el.open)) await page.locator('#area-settings > summary').click();
+    await revealControl(firstFret());
     // P2 retains its explicit free-map baseline; P8 tests the new default form.
     await page.getByLabel('Учебная форма', { exact: true }).selectOption('');
     await setRange(0, 12);
@@ -66,7 +66,18 @@ async function check(name, operation) {
   }
 }
 
+async function revealControl(locator) {
+  const settings = page.locator('#study-settings');
+  if (await locator.locator('xpath=ancestor::*[@id="study-settings"]').count() && !await settings.isVisible()) await page.locator('#toggle-study-settings').click();
+  const parents = locator.locator('xpath=ancestor::details');
+  for (let index = 0; index < await parents.count(); index++) {
+    const details = parents.nth(index);
+    if (!await details.evaluate(element => element.open)) await details.locator(':scope > summary').click();
+  }
+}
+
 async function setRange(min, max) {
+  await revealControl(firstFret());
   // Expand before shrinking so range validation never has to infer an edit intent.
   await lastFret().fill('24');
   await lastFret().press('Tab');
@@ -77,12 +88,14 @@ async function setRange(min, max) {
 }
 
 async function setStrings(enabled) {
+  await revealControl(page.getByRole('checkbox', { name: 'Струна E', exact: true }));
   for (const name of ['E', 'A', 'D', 'G']) {
     await page.getByRole('checkbox', { name: `Струна ${name}`, exact: true }).setChecked(enabled.includes(name));
   }
 }
 
 async function scaleNotes() {
+  await revealControl(page.getByTestId('structure-notes'));
   return page.getByTestId('structure-notes').locator('[data-scale-note]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-scale-note')));
 }
 
@@ -223,16 +236,16 @@ try {
 
   await check('same-height-different-string-and-octave', async () => {
     await at('E:5').click();
-    if (!await page.locator('.note-technical').evaluate(el => el.open)) await page.locator('.note-technical > summary').click();
+    await revealControl(page.locator('.note-technical .note-facts'));
     assert.match(await detail().innerText(), /A1/);
     assert.match(await page.locator('.note-technical').innerText(), /33/);
     await at('A:0').click();
-    if (!await page.locator('.note-technical').evaluate(el => el.open)) await page.locator('.note-technical > summary').click();
+    await revealControl(page.locator('.note-technical .note-facts'));
     assert.match(await detail().innerText(), /A1/);
     assert.match(await page.locator('.note-technical').innerText(), /33/);
     assert.equal(await selectedPosition(), 'A:0');
     await at('E:12').click();
-    if (!await page.locator('.note-technical').evaluate(el => el.open)) await page.locator('.note-technical > summary').click();
+    await revealControl(page.locator('.note-technical .note-facts'));
     assert.match(await detail().innerText(), /E2/);
     assert.match(await page.locator('.note-technical').innerText(), /40/);
     return { sameHeightPositions: ['E:5', 'A:0'], sameHeightMidi: 33, octavePosition: 'E:12', octaveMidi: 40 };

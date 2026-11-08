@@ -84,12 +84,30 @@ function immutable<T>(value: T): T {
   return value;
 }
 function invalid(message: string): never { throw new StudyStorageError('INVALID_DATA', message); }
+function diagnosticFieldNames(names: readonly string[]): string {
+  const shown = names.slice(0, 6).map(name => {
+    const quoted = JSON.stringify(name).replace(/[\u202a-\u202e\u2066-\u2069]/g, character => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`);
+    return quoted.length > 66 ? `${quoted.slice(0, 64)}…"` : quoted;
+  });
+  return `${shown.join(', ')}${names.length > shown.length ? `, … (ещё ${names.length - shown.length})` : ''}`;
+}
+function recordContext<T>(label: string, operation: () => T): T {
+  try { return operation(); }
+  catch (error) {
+    if (error instanceof StudyStorageError) throw new StudyStorageError(error.code, `${label}: ${error.message}`);
+    throw error;
+  }
+}
 function object(value: unknown, keys: readonly string[], label: string): Data {
   if (!value || typeof value !== 'object' || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) invalid(`${label}: нужен обычный объект данных.`);
   const data = value as Data;
   const actual = Object.keys(data);
   if (Reflect.ownKeys(data).length !== actual.length || Object.values(Object.getOwnPropertyDescriptors(data)).some(descriptor => !Object.hasOwn(descriptor, 'value'))) invalid(`${label}: допускаются только обычные JSON-поля.`);
-  if (actual.length !== keys.length || keys.some(key => !Object.hasOwn(data, key))) invalid(`${label}: отсутствуют обязательные поля или присутствуют неизвестные.`);
+  if (actual.length !== keys.length || keys.some(key => !Object.hasOwn(data, key))) {
+    const missing = keys.filter(key => !Object.hasOwn(data, key));
+    const extra = actual.filter(key => !keys.includes(key));
+    invalid(`${label}: отсутствуют обязательные поля или присутствуют неизвестные.${missing.length ? ` Отсутствуют: ${diagnosticFieldNames(missing)}.` : ''}${extra.length ? ` Неизвестные: ${diagnosticFieldNames(extra)}.` : ''}`);
+  }
   return data;
 }
 function text(value: unknown, label: string, max = 160, allowEmpty = false): string {
@@ -311,7 +329,7 @@ export function mergePracticeDraft(current: PracticeDraft | undefined, incoming:
 
 export function validatePreset(value: unknown): Preset {
   const data = object(value, ['id', 'name', 'createdAt', 'preferences'], 'Пресет');
-  return immutable({ id: text(data.id, 'ID пресета', 120), name: text(data.name, 'Название пресета', 80).trim(), createdAt: utc(data.createdAt, 'Дата пресета'), preferences: validatePreferences(data.preferences) });
+  return immutable({ id: text(data.id, 'ID пресета', 120), name: text(data.name, 'Название пресета', 80).trim(), createdAt: utc(data.createdAt, 'Дата пресета'), preferences: recordContext('Настройки пресета', () => validatePreferences(data.preferences)) });
 }
 
 const LEGACY_QUESTION_KEYS = ['questionId', 'answerRule', 'target', 'targetPositionId', 'selectedPositionIds', 'attempts', 'errors', 'firstAnswer', 'firstResponseMs', 'completionMs', 'firstAttemptCorrect', 'hintUsed', 'skipped', 'independentCorrect', 'corrected', 'outcome', 'answerEvents'];
@@ -523,13 +541,13 @@ export function validateSnapshot(value: unknown): StudySnapshot {
   if (raw.schemaVersion !== 7) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
   // Import bytes are bounded by parseBackup; ordinary native writes must never make
   // an otherwise valid database unreadable merely by exceeding an arbitrary count.
-  const presets = array(raw.presets, Number.MAX_SAFE_INTEGER, 'Пресеты').map(validatePreset);
+  const presets = array(raw.presets, Number.MAX_SAFE_INTEGER, 'Пресеты').map((value, index) => recordContext(`Пресет №${index + 1}`, () => validatePreset(value)));
   const history = array(raw.history, Number.MAX_SAFE_INTEGER, 'История').map(item => validateHistoryEntry(item));
   const practiceDrafts = array(raw.practiceDrafts, Number.MAX_SAFE_INTEGER, 'Черновики').map(validatePracticeDraft);
   if (new Set(presets.map(item => item.id)).size !== presets.length || new Set(history.map(item => item.id)).size !== history.length) invalid('ID пресетов или истории повторяются.');
   const byId = (a: { id: string }, b: { id: string }) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   if (new Set(practiceDrafts.map(item => item.id)).size !== practiceDrafts.length) invalid('ID черновиков повторяются.');
-  return immutable({ format: 'bass-study-backup', schemaVersion: 7, preferences: validatePreferences(raw.preferences), profile: validateProfile(raw.profile), practiceDrafts: practiceDrafts.sort(byId), presets: presets.sort(byId), history: history.sort(byId) });
+  return immutable({ format: 'bass-study-backup', schemaVersion: 7, preferences: recordContext('Текущие настройки (preferences/current)', () => validatePreferences(raw.preferences)), profile: validateProfile(raw.profile), practiceDrafts: practiceDrafts.sort(byId), presets: presets.sort(byId), history: history.sort(byId) });
 }
 
 /** Exact schema-1 records are validated before adding schema-2 defaults. */
@@ -621,8 +639,8 @@ export function migrateBackup(value: unknown): StudySnapshot {
   if (version === 7) return validateSnapshot(value);
   if (version === 6) {
     const previous = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history', 'profile', 'practiceDrafts'], 'Резервная копия версии 6');
-    return validateSnapshot({ ...previous, schemaVersion: 7, preferences: migrateV6Preferences(previous.preferences),
-      presets: array(previous.presets, Number.MAX_SAFE_INTEGER, 'Пресеты версии 6').map(migrateV6Preset) });
+    return validateSnapshot({ ...previous, schemaVersion: 7, preferences: recordContext('Текущие настройки (preferences/current)', () => migrateV6Preferences(previous.preferences)),
+      presets: array(previous.presets, Number.MAX_SAFE_INTEGER, 'Пресеты версии 6').map((value, index) => recordContext(`Пресет №${index + 1}`, () => migrateV6Preset(value))) });
   }
   const data = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history'], 'Резервная копия');
   if (data.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
@@ -632,8 +650,8 @@ export function migrateBackup(value: unknown): StudySnapshot {
     : data.schemaVersion === 3 ? { preferences: migrateV3Preferences, preset: migrateV3Preset, history: migrateV3HistoryEntry }
     : data.schemaVersion === 4 ? { preferences: migrateV4Preferences, preset: migrateV4Preset, history: migrateV4HistoryEntry }
     : { preferences: migrateV5Preferences, preset: migrateV5Preset, history: migrateV5HistoryEntry };
-  return validateSnapshot({ ...data, schemaVersion: 7, profile: DEFAULT_PROFILE, practiceDrafts: [], preferences: migrations.preferences(data.preferences),
-    presets: array(data.presets, Number.MAX_SAFE_INTEGER, 'Старые пресеты').map(migrations.preset),
+  return validateSnapshot({ ...data, schemaVersion: 7, profile: DEFAULT_PROFILE, practiceDrafts: [], preferences: recordContext('Текущие настройки (preferences/current)', () => migrations.preferences(data.preferences)),
+    presets: array(data.presets, Number.MAX_SAFE_INTEGER, 'Старые пресеты').map((value, index) => recordContext(`Пресет №${index + 1}`, () => migrations.preset(value))),
     history: array(data.history, Number.MAX_SAFE_INTEGER, 'Старая история').map(migrations.history) });
 }
 

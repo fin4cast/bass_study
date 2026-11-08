@@ -5,14 +5,23 @@ import { runNotationBrowserChecks } from './helpers/notation-browser-harness.mjs
 const checks = [];
 const check = (name, run) => checks.push({ name, scope: 'ui', run });
 async function ready(page) { if (await page.locator('[data-intro="free"]').isVisible()) await page.locator('[data-intro="free"]').click(); }
+async function settings(page) { if (!await page.locator('#study-settings').isVisible()) await page.locator('#toggle-study-settings').click(); }
+async function area(page) { await settings(page); if (!await page.locator('#area-settings').evaluate(el => el.open)) await page.locator('#area-settings > summary').click(); }
+async function display(page) { await settings(page); if (!await page.locator('#display-settings').evaluate(el => el.open)) await page.locator('#display-settings > summary').click(); }
 async function range(page, min, max) {
+  await area(page);
   await page.locator('#fret-max').fill('24'); await page.locator('#fret-min').fill(String(min)); await page.locator('#fret-max').fill(String(max));
 }
-async function form(page, label) { await page.locator('#box-select').selectOption({ label }); }
+async function form(page, label) { await settings(page); await page.locator('#box-select').selectOption({ label }); }
 async function geometry(page, min, max) {
   await page.waitForFunction(() => [...document.querySelectorAll('svg.study-fretboard')].every(svg => Math.abs(Number(svg.getAttribute('viewBox').split(' ')[2]) - svg.getBoundingClientRect().width) < 2));
   assert.deepEqual((await page.locator('.study-fretboard .fret-number').allTextContents()).map(Number), Array.from({ length: max - min + 1 }, (_, i) => min + i));
   for (const svg of await page.locator('svg.study-fretboard').all()) assert.deepEqual(await svg.locator('.string-name').allTextContents(), ['G', 'D', 'A', 'E']);
+  const layers = await page.locator('svg.study-fretboard').evaluateAll(svgs => svgs.map(svg => {
+    const surface = svg.querySelector('.board-surface').getBoundingClientRect();
+    return [...svg.querySelectorAll('.octave-underlay')].map(layer => { const bounds = layer.getBoundingClientRect(); return { top: bounds.top - surface.top, bottom: surface.bottom - bounds.bottom }; });
+  }).flat());
+  for (const layer of layers) assert.ok(layer.top >= -.1 && layer.bottom >= -.1, `Octave layer exceeds the neck surface: ${JSON.stringify(layer)}`);
   const rows = await page.locator('.study-fretboard .position.is-large').evaluateAll(elements => elements.map(element => {
     const note = element.querySelector('.note-marker'), label = element.querySelector('[data-position-label]'), bounds = note.getBoundingClientRect(), svg = element.closest('svg').getBoundingClientRect();
     return { id: element.dataset.position, width: bounds.width, height: bounds.height, font: label ? getComputedStyle(label).fontSize : null, fits: bounds.left >= svg.left && bounds.right <= svg.right && bounds.top >= svg.top && bounds.bottom <= svg.bottom };
@@ -47,6 +56,7 @@ check('approved-default-and-both-themes-at-five-widths', async ({ page, resultDi
 
 check('octave-semantics-independent-layers-and-shared-tonic', async ({ page }) => {
   await ready(page);
+  await display(page);
   assert.deepEqual(await page.locator('[data-octave-group]').allTextContents(), ['От A1Полный участок · до A2', 'От A2Фрагмент · до D3']);
   assert.deepEqual(await page.locator('[data-octave-group]').evaluateAll(elements => elements.map(element => element.dataset.complete)), ['true', 'false']);
   assert.equal(await page.locator('[data-position="D:7"]').count(), 1);
@@ -72,7 +82,7 @@ check('view-range-does-not-clip-exact-training-material-and-survives-reload', as
   await page.locator('[data-training-mode="study"]').click();
   await page.waitForFunction(() => document.querySelector('#persistence-message')?.textContent.includes('Сохранено локально'));
   await page.reload(); await ready(page); assert.match(await page.locator('#box-select option:checked').textContent(), /Форма B/); assert.equal(await page.locator('#fret-max').inputValue(), '10');
-  await page.locator('#fret-min').fill('20'); assert.equal(await page.locator('[data-position]').count(), 0); assert.equal(await page.locator('#selection-detail .selected-note').count(), 0);
+  await area(page); await page.locator('#fret-min').fill('20'); assert.equal(await page.locator('[data-position]').count(), 0); assert.equal(await page.locator('#selection-detail .selected-note').count(), 0);
   await range(page, 0, 12); await page.getByRole('checkbox', { name: 'Струна G', exact: true }).uncheck(); assert.equal(await page.locator('#box-select').inputValue(), '');
   assert.equal(await page.locator('[data-position^="G:"]').count(), 0); await geometry(page, 0, 12);
   return { exactFormNotes: exact, expandedDisplay: [0, 10], restoredDisplay: [0, 10], invalidClearsView: true, manualStringSwitchesToFree: true };
@@ -102,7 +112,7 @@ check('quiz-hides-explorer-information-in-rendered-and-accessible-view', async (
 });
 
 check('explicit-route-start-repairs-invalid-display-before-quiz', async ({ page }) => {
-  await ready(page); await page.locator('#fret-min').fill('');
+  await ready(page); await area(page); await page.locator('#fret-min').fill('');
   await page.locator('[data-app-module="route"]').click(); await page.locator('[data-route-action="start"]').click();
   await page.getByTestId('quiz-prompt').waitFor(); assert.equal(await page.locator('#range-error').isVisible(), false);
   assert.equal(await page.locator('[data-answer-position]').count(), 4);
@@ -123,4 +133,33 @@ check('notation-explicitly-reveals-offscreen-form-position-without-changing-mate
   return { selectedPosition: 'E:5', expandedDisplay: [0, 5], exactFormRetained: true };
 });
 
-await runNotationBrowserChecks(checks, { reportName: 'p9-design-edge.json', scope: 'Approved VIS-01 r5 implemented in product: shared shell, custom controls, both themes, complete view ranges, 46/18 markers, MIDI octave sections, separate exact material, navigation, invalid states and hidden quiz explorer. No physical bass or full WCAG certification.' });
+check('default-desktop-fits-height-and-scroll-follows-explicit-disclosure', async ({ page, resultDir }) => {
+  const layouts = [];
+  for (const theme of ['light', 'dark']) {
+    for (const [width, height] of [[1440, 1080], [1440, 900], [1366, 768], [1280, 720], [1024, 768]]) {
+      await page.setViewportSize({ width, height }); await page.reload(); await ready(page);
+      await page.locator(`[data-theme-choice="${theme}"]`).click();
+      await page.locator('.sidebar-art img').evaluate(img => img.decode());
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
+      const moreInitiallyOpen = await page.locator('#study-more').evaluate(el => el.open);
+      if (height === 1080) assert.equal(moreInitiallyOpen, true, 'Details are initially open when the full content fits');
+      const measured = await page.evaluate(() => ({ scrollHeight: document.documentElement.scrollHeight, height: innerHeight, width: innerWidth, overflow: document.documentElement.scrollWidth > innerWidth, photo: getComputedStyle(document.querySelector('.sidebar-art img')).display !== 'none' && getComputedStyle(document.querySelector('.sidebar-art')).display !== 'none', sidebarScroll: document.querySelector('.site-header').scrollHeight > document.querySelector('.site-header').clientHeight + 1 }));
+      assert.ok(measured.scrollHeight <= height, JSON.stringify({ theme, ...measured }));
+      assert.equal(measured.overflow, false); assert.equal(measured.photo, true); assert.equal(measured.sidebarScroll, false);
+      assert.deepEqual((await page.locator('.study-fretboard .fret-number').allTextContents()).map(Number), Array.from({ length: 13 }, (_, i) => i));
+      assert.deepEqual(await page.locator('.study-fretboard .string-name').allTextContents(), ['G', 'D', 'A', 'E']);
+      await page.waitForFunction(() => [...document.querySelectorAll('svg.study-fretboard')].every(svg => Math.abs(Number(svg.getAttribute('viewBox').split(' ')[2]) - svg.getBoundingClientRect().width) < 2));
+      for (const marker of await page.locator('.position.is-large .note-marker').all()) { const diameter = await marker.evaluate(el => el.getBoundingClientRect().width); assert.ok(Math.abs(diameter - 46) < .1, String(diameter)); }
+      layouts.push({ theme, moreInitiallyOpen, ...measured });
+      if (width === 1366) { await page.mouse.move(width - 3, 3); await page.screenshot({ path: join(resultDir, `compact-default-${theme}.png`), fullPage: true }); }
+      if (!moreInitiallyOpen) await page.locator('#study-more > summary').click();
+      assert.equal(await page.getByTestId('structure-notes').isVisible(), true);
+      if (!moreInitiallyOpen) assert.ok(await page.evaluate(() => document.documentElement.scrollHeight > innerHeight), 'Explicit detail expansion may extend the page');
+      await page.locator('#study-more > summary').click();
+    }
+  }
+  return { layouts, explicitDisclosureEnablesScroll: true, noteDiameter: 46, completeDefaultRange: [0, 12] };
+});
+
+await runNotationBrowserChecks(checks, { reportName: 'p9-design-edge.json', scope: 'Approved VIS-01 r5 with compact default shell: complete 46/18 fretboard, height-fit desktop, explicit disclosures, local photo, musical intervals/octaves and hidden quiz explorer. No physical bass or full WCAG certification.' });

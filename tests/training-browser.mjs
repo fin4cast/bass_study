@@ -11,7 +11,12 @@ const normalize = value => value.replaceAll('♭', 'b').replaceAll('♯', '#');
 const action = (page, name) => page.locator(`[data-training-action="${name}"]`);
 const answerAt = (page, id) => page.getByTestId('quiz-answer-board').locator(`[data-answer-position="${id}"]`);
 const feedback = page => page.getByTestId('quiz-feedback');
-async function disclose(page, selector) { const details = page.locator(selector); if (await details.count() && !await details.evaluate(element => element.open)) await details.locator('summary').first().click(); }
+async function studySettings(page) { if (!await page.locator('#study-settings').isVisible()) await page.locator('#toggle-study-settings').click(); }
+async function disclose(page, selector) {
+  const details = page.locator(selector);
+  if (await details.locator('xpath=ancestor::*[@id="study-settings"]').count()) await studySettings(page);
+  if (await details.count() && !await details.evaluate(element => element.open)) await details.locator(':scope > summary').click();
+}
 
 async function range(page, first, last) {
   await disclose(page, '#area-settings');
@@ -33,6 +38,7 @@ async function configure(page, {
   mode = 'name-note', count = 1, scope = 'structure', first = 0, last = 0,
   enabled = ['E'], tonic = 'A', structure = 'minor-pentatonic',
 } = {}) {
+  await studySettings(page);
   await page.getByLabel('Тоника', { exact: true }).selectOption(tonic);
   await page.getByLabel('Структура', { exact: true }).selectOption(structure);
   await range(page, first, last);
@@ -305,7 +311,7 @@ check('four-sequence-patterns-match-independent-position-routes', async ({ page 
 });
 
 check('sequence-deduplicates-height-and-uses-stable-string-priority', async ({ page }) => {
-  await page.getByLabel('Тоника', { exact: true }).selectOption('C');
+  await studySettings(page); await page.getByLabel('Тоника', { exact: true }).selectOption('C');
   await page.getByLabel('Структура', { exact: true }).selectOption('major');
   await range(page, 0, 5);
   await strings(page, ['E', 'A']);

@@ -1,3 +1,6 @@
 # Снимки P10 сохраняют исходные байты для проверки SHA-256.
 docs/verification/P10*.json -text
 docs/verification/P10*.tap -text
+# Исходники и raw-снимок референса ритма сохраняют проверенные байты.
+experiments/rhythm-reference/* text eol=lf
+docs/verification/RHYTHM_R1.json -text

@@ -52,6 +52,7 @@ const state = {
   box: null as BoxSelection | null,
 };
 
+const initialSettingsOpen = window.matchMedia('(min-width: 1320px)').matches;
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('Не найден контейнер приложения #app.');
 
@@ -59,12 +60,15 @@ app.innerHTML = `
   <div class="app-shell">
     <header class="site-header">
       <a class="brand" href="#" aria-label="bass.study — к началу страницы"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>bass<span class="brand-dot">.</span>study</a>
-      <nav class="module-navigation" aria-label="Раздел тренажёра"><span class="eyebrow">ПРАКТИКА</span><button type="button" data-app-module="foundation" aria-pressed="true" aria-current="page" disabled>Гриф и практика</button><button type="button" data-app-module="ear" aria-pressed="false" disabled>Слух</button><button type="button" data-app-module="harmony" aria-pressed="false" disabled>Аккомпанемент</button><button type="button" data-app-module="tracks" aria-pressed="false" disabled>Табулатура и ноты</button><button type="button" data-app-module="input" aria-pressed="false" disabled>Аудиовход</button><button type="button" data-app-module="route" aria-pressed="false" disabled>Маршрут занятия</button></nav>
-      <div class="nav-bottom">
+      <nav class="module-navigation" aria-label="Раздел тренажёра"><button type="button" data-app-module="foundation" aria-pressed="true" aria-current="page" disabled>Гриф и практика</button><button type="button" data-app-module="ear" aria-pressed="false" disabled>Слух</button><button type="button" data-app-module="harmony" aria-pressed="false" disabled>Аккомпанемент</button><button type="button" data-app-module="tracks" aria-pressed="false" disabled>Табулатура и ноты</button><button type="button" data-app-module="input" aria-pressed="false" disabled>Аудиовход</button><button type="button" data-app-module="route" aria-pressed="false" disabled>Маршрут занятия</button></nav>
+      <div class="nav-secondary">
         <button type="button" id="open-history" class="text-button" aria-expanded="false" disabled>Мои занятия</button>
         <button type="button" id="open-introduction" class="text-button" disabled>Введение</button>
+      </div>
+      <div class="sidebar-art" aria-hidden="true"><img src="${import.meta.env.BASE_URL}images/bass-headstock.webp" alt="" width="568" height="1788" draggable="false"></div>
+      <div class="nav-bottom">
         <div class="theme-control"><span>Тема</span><div class="segmented" role="group" aria-label="Тема оформления"><button type="button" data-theme-choice="light" aria-pressed="false" disabled>Светлая</button><button type="button" data-theme-choice="dark" aria-pressed="false" disabled>Тёмная</button></div></div>
-        <span class="local-badge"><span aria-hidden="true"></span><span id="local-save-status" role="status">Локальный тренажёр</span></span>
+        <span class="local-badge"><span aria-hidden="true"></span><span id="local-save-status" role="status">Локальный тренажёр</span><button type="button" id="open-storage-details" class="text-button" aria-controls="persistence-banner" aria-expanded="false" hidden>Без сохранения · подробнее</button></span>
       </div>
     </header>
 
@@ -83,9 +87,9 @@ app.innerHTML = `
       <section id="tracks-mount" aria-label="Табулатура и ноты" hidden><div class="bank-view-tabs" role="tablist" aria-label="Материал раздела «Табулатура и ноты»"><button id="bank-scores-tab" type="button" role="tab" data-bank-view="scores" aria-selected="true" aria-controls="music-bank-mount">Партитуры</button><button id="bank-audio-tab" type="button" role="tab" data-bank-view="audio" aria-selected="false" aria-controls="legacy-tracks-mount">Аудиозаписи</button></div><div id="music-bank-mount" role="tabpanel" aria-labelledby="bank-scores-tab"></div><div id="legacy-tracks-mount" role="tabpanel" aria-labelledby="bank-audio-tab" hidden></div></section>
       <section id="input-mount" aria-label="Диагностический аудиовход" hidden></section>
       <section id="route-mount" aria-label="Маршрут занятия" hidden></section>
-      <section class="workspace" aria-label="Изучение грифа">
+      <section class="workspace${initialSettingsOpen ? '' : ' panel-closed'}" aria-label="Изучение грифа">
         <div class="workspace-main">
-          <div class="study-heading"><div><p class="eyebrow">ИЗУЧЕНИЕ ГРИФА</p><h1 id="structure-heading"></h1><p id="study-context" class="study-context"></p></div><button type="button" id="toggle-study-settings" class="secondary-button" aria-controls="study-settings" aria-expanded="true">Параметры</button></div>
+          <div class="study-heading"><div><h1 id="structure-heading"></h1><p id="study-context" class="study-context"></p></div><button type="button" id="toggle-study-settings" class="secondary-button" aria-controls="study-settings" aria-expanded="${initialSettingsOpen}">Параметры</button></div>
           <div id="mode-nav-mount"></div>
           <div class="board-toolbar"><span id="board-range" class="board-caption"></span><span id="position-count" class="sr-only"></span><fieldset class="label-field"><legend class="sr-only">Подписи на грифе</legend><div class="segmented" aria-label="Подписи на грифе"><button type="button" data-label-mode="notes" aria-pressed="true">Ноты</button><button type="button" data-label-mode="degrees" aria-pressed="false">Ступени</button><button type="button" data-label-mode="hidden" aria-pressed="false">Без подписей</button></div></fieldset></div>
           <div id="training-mount"></div>
@@ -98,9 +102,11 @@ app.innerHTML = `
             <div id="octave-legend"></div>
           </div>
           <section class="selection-section" aria-label="Выбранная нота и её связи"><div id="selection-detail" data-testid="selection-detail"></div><div id="interval-detail"></div></section>
+          <details id="study-more" class="learning-help study-more"><summary>Состав, позиции и помощь</summary>
           <div class="structure-summary"><div id="structure-notes" class="note-pills" data-testid="structure-notes" aria-label="Ноты выбранной структуры"></div><div class="formula"><span class="sr-only">Формула</span><strong id="structure-formula" data-testid="structure-formula"></strong></div></div>
           <div id="connections" class="connections"></div>
           <p class="board-navigation">Стрелки — перемещение фокуса · Enter / пробел — выбрать · Home / End — края диапазона</p>
+          </details>
         </div>
         <aside class="settings-panel" id="study-settings" aria-label="Параметры изучения">
           <div class="section-title"><h2>Что изучаем</h2><button type="button" id="close-study-settings" class="text-button">Свернуть</button></div>
@@ -108,8 +114,8 @@ app.innerHTML = `
             <label class="field root-field" for="root-note"><span>Тоника</span><select id="root-note" aria-label="Тоника">${ROOTS.map((root, i) => `<option value="${root}"${root === state.root ? ' selected' : ''}>${ROOT_LABELS[i]}</option>`).join('')}</select></label>
             <label class="field structure-field" for="structure"><span>Структура</span><select id="structure" aria-label="Структура">${STRUCTURES.map(item => `<option value="${item.id}"${item.id === state.structureId ? ' selected' : ''}>${escapeHtml(item.name)}</option>`).join('')}</select></label>
           </div>
-          <div id="box-controls"><label class="field"><span>Учебная форма</span><select id="box-select" aria-label="Учебная форма"></select></label><p id="box-material-caption" class="settings-hint"></p><div class="display-controls"><h2>Отображение</h2><label class="switch-row"><span>Номера пальцев<small id="fingers-hint" hidden>Для учебной формы</small></span><input class="control-switch" type="checkbox" role="switch" id="show-fingers"></label><label class="switch-row"><span>Октавные участки</span><input class="control-switch" type="checkbox" role="switch" id="show-octaves" checked></label><label class="switch-row"><span>Интервал от тоники</span><input class="control-switch" type="checkbox" role="switch" id="show-interval" checked></label><p class="settings-hint">Линия соединяет тонику и выбранную ноту.</p></div><label class="field" id="neighbor-field" hidden><span>Направление</span><select id="box-neighbor" aria-label="Соседняя форма"><option value="next">Следующая</option><option value="previous">Предыдущая</option></select></label><p id="box-neighbor-name"></p><label id="neighbor-switch-row" class="switch-row"><span>Показать пересечение</span><input class="control-switch" type="checkbox" role="switch" id="show-neighbor"></label><p id="box-notice" role="status"></p><button type="button" id="show-whole-form" class="text-button" hidden>Показать форму целиком ↗</button></div>
-          <details id="area-settings" open><summary>Область грифа</summary>
+          <div id="box-controls"><label class="field"><span>Учебная форма</span><select id="box-select" aria-label="Учебная форма"></select></label><details id="display-settings" class="display-controls"><summary>Отображение</summary><label class="switch-row"><span>Номера пальцев<small id="fingers-hint" hidden>Для учебной формы</small></span><input class="control-switch" type="checkbox" role="switch" id="show-fingers"></label><label class="switch-row"><span>Октавные участки</span><input class="control-switch" type="checkbox" role="switch" id="show-octaves" checked></label><label class="switch-row"><span>Интервал от тоники</span><input class="control-switch" type="checkbox" role="switch" id="show-interval" checked></label><p class="settings-hint">Линия соединяет тонику и выбранную ноту.</p></details><label class="field" id="neighbor-field" hidden><span>Направление</span><select id="box-neighbor" aria-label="Соседняя форма"><option value="next">Следующая</option><option value="previous">Предыдущая</option></select></label><p id="box-neighbor-name"></p><label id="neighbor-switch-row" class="switch-row"><span>Показать пересечение</span><input class="control-switch" type="checkbox" role="switch" id="show-neighbor"></label><p id="box-notice" role="status"></p><button type="button" id="show-whole-form" class="text-button" hidden>Показать форму целиком ↗</button></div>
+          <details id="area-settings"><summary>Область грифа</summary>
           <div class="scope-controls">
             <fieldset class="range-field"><legend>Лады <span class="range-hint">включая границы</span></legend><div class="range-inputs"><label><span class="sr-only">Первый лад</span><input id="fret-min" aria-label="Первый лад" type="number" min="0" max="24" step="1" value="0"></label><span class="range-dash" aria-hidden="true">—</span><label><span class="sr-only">Последний лад</span><input id="fret-max" aria-label="Последний лад" type="number" min="0" max="24" step="1" value="12"></label></div></fieldset>
             <div class="range-presets" aria-label="Быстрый диапазон"><button type="button" data-range="0,5">0–5</button><button type="button" data-range="0,12" aria-pressed="true">0–12</button><button type="button" data-range="12,24">12–24</button></div>
@@ -118,7 +124,7 @@ app.innerHTML = `
           </div>
           </details>
           <p id="range-error" class="range-error" data-testid="range-error" role="alert" hidden></p>
-          <details class="learning-help"><summary>Ступени, пальцы и формы</summary><p>Ступень — место звука относительно тоники: 1 — тоника, 3 — терция, 5 — квинта. ♭ понижает ступень на полутон. Квадрат — рекомендуемый палец, круг — нота или ступень.</p><p>Нота с цифрой обозначает звучащую октаву: C2 и C3 — разные высоты. В басовой записи нота написана на октаву выше звучания. Трезвучие содержит три разных звука; повтор тоники не добавляет четвёртый класс ноты.</p><p>Формы — учебный каталог bass.study, а не универсальная нумерация или единственная аппликатура. Материал выбранной формы сохраняется целиком; область показа не ограничивает задания формы.</p></details>
+          <details class="learning-help"><summary>Ступени, пальцы и формы</summary><p id="box-material-caption" class="settings-hint"></p><p>Ступень — место звука относительно тоники: 1 — тоника, 3 — терция, 5 — квинта. ♭ понижает ступень на полутон. Квадрат — рекомендуемый палец, круг — нота или ступень.</p><p>Нота с цифрой обозначает звучащую октаву: C2 и C3 — разные высоты. В басовой записи нота написана на октаву выше звучания. Трезвучие содержит три разных звука; повтор тоники не добавляет четвёртый класс ноты.</p><p>Формы — учебный каталог bass.study, а не универсальная нумерация или единственная аппликатура. Материал выбранной формы сохраняется целиком; область показа не ограничивает задания формы.</p></details>
         </aside>
       </section>
 
@@ -159,7 +165,7 @@ let showFingers = false;
 let showOctaves = true;
 let showInterval = true;
 let showNeighbor = false;
-let settingsOpen = true;
+let settingsOpen = initialSettingsOpen;
 let boxes: readonly BoxInstance[] = [];
 let bindingKey = '';
 let activeModule: AppPreferences['activeModule'] = 'foundation';
@@ -189,14 +195,18 @@ function showPersistenceStatus() {
   const dirty = getDraftPending(); draftStatusDirty = dirty;
   const message = failures.length ? `Не сохранено операций: ${failures.length}. ${failures[0]} Экспорт содержит только подтверждённые записи.` : preferenceIssue || (pending ? 'Сохранение…' : dirty ? 'Черновик ожидает автосохранения…' : persistent ? 'Сохранено локально в этом браузере' : `Только в памяти страницы. Экспортируй копию перед закрытием. ${startupIssue}`);
   const error = failures.length > 0 || preferenceIssue !== '';
+  const memoryDetails = byId('open-storage-details');
+  memoryDetails.hidden = persistent;
+  byId('local-save-status').hidden = !persistent && !error;
   byId('persistence-message').textContent = message;
   byId('persistence-banner').classList.toggle('has-error', error);
-  byId('persistence-banner').hidden = persistent && !error;
+  byId('persistence-banner').hidden = !error && (persistent || memoryDetails.getAttribute('aria-expanded') !== 'true');
   byId('local-save-status').textContent = error ? 'Ошибка сохранения' : pending ? 'Сохранение…' : dirty ? 'Черновик занятия' : persistent ? 'Локально · сохранено' : 'Только в памяти';
   byId('retry-save').hidden = failures.length === 0;
   history?.setSaveStatus(message, error ? 'error' : pending || dirty ? 'saving' : persistent ? 'saved' : 'memory');
 }
 const writes = createWriteQueue(value => { writeState = value; showPersistenceStatus(); });
+byId('open-storage-details').addEventListener('click', () => { const button = byId('open-storage-details'); button.setAttribute('aria-expanded', String(button.getAttribute('aria-expanded') !== 'true')); showPersistenceStatus(); });
 const theme = createThemeController({ onChange(value) { setProfile({ ...profile, theme: value }); } });
 function setProfile(value: GlobalProfile) {
   if (retiring || !writerLease?.acquired || main.inert || applyingPreferences) return;
@@ -315,6 +325,7 @@ function updateModuleVisibility() {
   document.querySelector<HTMLElement>('.workspace')!.hidden = !foundation;
   document.querySelector<HTMLElement>('.selection-section')!.hidden = !foundation || foundationMode === 'quiz';
   byId('connections').hidden = !foundation || foundationMode === 'quiz';
+  byId('study-more').hidden = !foundation || foundationMode === 'quiz';
   document.querySelector<HTMLElement>('.board-toolbar')!.hidden = foundationMode === 'quiz';
   document.querySelector<HTMLElement>('.fretboard-section')!.hidden = foundationMode === 'quiz' || (foundationMode === 'sequence' && sequenceView === 'notation');
   document.querySelector<HTMLElement>('.structure-summary')!.hidden = foundationMode === 'quiz';
@@ -488,7 +499,7 @@ function boardOptions(): StudyFretboardOptions {
 
 function renderBoard() {
   const focusedId = document.activeElement instanceof Element && container.contains(document.activeElement) ? document.activeElement.closest<SVGGElement>('[data-position]')?.dataset.position : undefined;
-  byId('board-range').textContent = rangeIsValid() ? 'Лады ' + state.fretMin + '–' + state.fretMax + ' · G–D–A–E' : 'Диапазон требует исправления';
+  byId('board-range').textContent = rangeIsValid() ? 'Лады ' + state.fretMin + '–' + state.fretMax : 'Диапазон требует исправления';
   const fingers = byId<HTMLInputElement>('show-fingers');
   fingers.disabled = !state.box || !rangeIsValid() || positions.length === 0;
   byId('fingers-hint').hidden = !fingers.disabled;
@@ -527,6 +538,19 @@ function renderSelection(announce: boolean) {
   if (technical) byId('connections').append(technical);
   document.querySelectorAll<HTMLElement>('[data-scale-note]').forEach(element => element.classList.toggle('is-current', Boolean(selected && element.dataset.scaleNote === selected.noteName)));
   if (announce) byId('selection-status').textContent = selected ? positionLabel(selected) : 'Нет доступных позиций. Выберите хотя бы одну струну.';
+  fitStudyMore();
+}
+
+let studyMoreManual = false;
+byId('study-more').querySelector('summary')!.addEventListener('click', () => { studyMoreManual = true; });
+function fitStudyMore() {
+  const more = byId<HTMLDetailsElement>('study-more');
+  if (studyMoreManual || activeModule !== 'foundation' || foundationMode !== 'study' || more.hidden) return;
+  more.open = true;
+  const workspace = document.querySelector<HTMLElement>('.workspace-main')!;
+  const shell = document.querySelector<HTMLElement>('.app-shell')!;
+  const bottomSpace = parseFloat(getComputedStyle(workspace).paddingBottom) + parseFloat(getComputedStyle(shell).marginBottom) + 1;
+  more.open = more.getBoundingClientRect().bottom + scrollY + bottomSpace <= innerHeight;
 }
 
 function focusPosition(id: string, scroll = false) {
@@ -900,7 +924,7 @@ async function initialize() {
   main.inert = false;
   main.setAttribute('aria-busy', 'false');
   enableHeader(true);
-  if (profile.onboarding.choice === null) introduction?.open(profile);
+  // Start with the practice screen; introduction is an explicit navigation action.
 }
 void initialize().catch(failure => {
   byId('persistence-banner').hidden = false;

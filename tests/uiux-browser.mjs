@@ -40,16 +40,25 @@ async function theme(page, choice) {
   // Wait for the existing border/background transition before reading colours.
   await delay(170);
 }
-async function restoreUi(page, copy) {
+async function restoreUi(page, copy, free = true) {
   await history(page);
   await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name: 'theme-profile.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(copy)) });
   await page.getByTestId('backup-preview').waitFor();
   assert.ok(await page.locator('[data-history-action="confirm-restore"]').isDisabled());
   await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check();
   await page.locator('[data-history-action="confirm-restore"]').click();
-  await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); await ready(page);
+  await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); await ready(page, free);
 }
-async function area(page) { const details = page.locator('#area-settings'); if (!await details.evaluate(element => element.open)) await details.locator(':scope > summary').click(); }
+async function studySettings(page) {
+  if (!await page.locator('#study-settings').isVisible()) await page.locator('#toggle-study-settings').click();
+}
+async function studyDetails(page, selector) {
+  await studySettings(page);
+  const details = page.locator(selector);
+  if (!await details.evaluate(element => element.open)) await details.locator(':scope > summary').click();
+}
+async function area(page) { await studyDetails(page, '#area-settings'); }
+async function display(page) { await studyDetails(page, '#display-settings'); }
 async function assertFourStringsPerPart(page) {
   const parts = await page.locator('#fretboard-container svg.study-fretboard').evaluateAll(nodes => nodes.map(svg => ({ names: [...svg.querySelectorAll('.string-name')].map(node => node.textContent), strings: svg.querySelectorAll('.bass-string').length })));
   assert.ok(parts.length > 0, 'The selected display range must contain a board part');
@@ -149,7 +158,10 @@ check('imported-system-profile-survives-binary-chooser-and-corrupt-first-frame-c
 });
 
 check('guided-four-steps-do-not-create-graded-history-and-choice-survives-reload', async ({ page }) => {
-  await ready(page, false); assert.ok(await page.locator('[data-intro="guided"]').isVisible());
+  await ready(page, false);
+  assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
+  await page.locator('#open-introduction').click();
+  assert.ok(await page.locator('[data-intro="guided"]').isVisible());
   await page.locator('[data-intro="guided"]').click();
   assert.match(await page.locator('#onboarding-mount').innerText(), /Введение: 1 из 4/);
   await page.locator('[data-intro="next"]').click(); assert.match(await page.locator('#onboarding-mount').innerText(), /E\/8.*A\/7.*A\/10.*D\/10/);
@@ -166,9 +178,57 @@ check('guided-four-steps-do-not-create-graded-history-and-choice-survives-reload
   return { gradedHistoryEntries: 0, fourStepsCompleted: true, onboarding: copy.profile.onboarding, reopeningAvailable: true };
 });
 
+check('free-practice-choice-does-not-reopen-start-question-after-reload-or-restore', async ({ page, context, origin }) => {
+  // Do not use ready()'s automatic free-choice helper: it would hide the regression.
+  await ready(page, false);
+  assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
+  assert.equal((await raw(page, 'profile', 'current')).onboarding.choice, null, 'A quiet startup must not manufacture an onboarding choice');
+  await page.locator('#open-introduction').click();
+  assert.equal(await page.locator('[data-intro="free"]').isVisible(), true);
+  await page.locator('[data-intro="free"]').click();
+  await waitRaw(page, 'profile', profiles => profiles.some(profile => profile.onboarding.choice === 'free'));
+  assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
+  const choice = { version: 1, choice: 'free', completed: false };
+  const copy = await exportUi(page);
+  assert.deepEqual(copy.profile.onboarding, choice);
+
+  await theme(page, 'dark');
+  await theme(page, 'light');
+  await page.reload();
+  await ready(page, false);
+  assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
+  assert.deepEqual((await raw(page, 'profile', 'current')).onboarding, choice);
+
+  await restoreUi(page, copy, false);
+  assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
+  await page.reload();
+  await ready(page, false);
+  assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
+  assert.deepEqual((await raw(page, 'profile', 'current')).onboarding, choice);
+
+  // A replacement page uses the same native profile, without the former writer.
+  await page.close();
+  const reopened = await context.newPage();
+  const reopenedErrors = [];
+  reopened.on('pageerror', error => reopenedErrors.push(error.message));
+  await reopened.goto(origin);
+  await ready(reopened, false);
+  assert.equal(await reopened.locator('#onboarding-mount').isVisible(), false);
+  assert.deepEqual((await raw(reopened, 'profile', 'current')).onboarding, choice);
+  await reopened.locator('#open-introduction').click();
+  assert.equal(await reopened.locator('[data-intro="guided"]').isVisible(), true);
+  await reopened.locator('[data-intro="free"]').click();
+  assert.equal(await reopened.locator('#onboarding-mount').isVisible(), false);
+  assert.deepEqual(reopenedErrors, []);
+  return { onboarding: choice, quietFirstStartWithoutProfileRewrite: true, nativeProfileRead: true, reloads: 2, backupRestore: true, replacementPage: true, reopeningOnlyByExplicitAction: true, reopenedErrors };
+});
+
 check('default-box-and-quiz-use-exact-positions-interval-explicitly-uses-chromatic-area', async ({ page, resultDir }) => {
   await ready(page);
-  const displayRange = async () => [await page.getByLabel('Первый лад', { exact: true }).inputValue(), await page.getByLabel('Последний лад', { exact: true }).inputValue()];
+  const displayRange = async () => {
+    await area(page);
+    return [await page.getByLabel('Первый лад', { exact: true }).inputValue(), await page.getByLabel('Последний лад', { exact: true }).inputValue()];
+  };
   assert.deepEqual(await displayRange(), ['0', '12']);
   const expected = ['A:5', 'A:7', 'D:5', 'D:7', 'E:5', 'E:8', 'G:5', 'G:7'];
   assert.deepEqual(await page.locator('#fretboard-container .in-box').evaluateAll(nodes => nodes.map(node => node.dataset.position).sort()), expected);
@@ -198,10 +258,10 @@ check('default-box-and-quiz-use-exact-positions-interval-explicitly-uses-chromat
     assert.equal(await page.locator('#fretboard-container .string-caption').count(), 0);
     compact.push({ rootString: string, rootFret: fret, emptyString, visibleStringNames: ['G', 'D', 'A', 'E'] });
   }
-  await page.locator('#show-fingers').check();
+  await display(page); await page.locator('#show-fingers').check();
   assert.equal(await page.locator('.finger-label').count(), 4);
   const fingers = await exportUi(page); assert.equal(fingers.preferences.study.showFingers, true);
-  await page.reload(); await ready(page);
+  await page.reload(); await ready(page); await display(page);
   assert.ok(await page.locator('#show-fingers').isChecked());
   assert.equal(await page.locator('.finger-label').count(), 4);
   await assertFourStringsPerPart(page);
@@ -266,10 +326,10 @@ check('six-modules-errors-and-empty-states-have-computed-light-and-dark-contrast
 });
 
 check('meaningful-SVG-labels-fingers-focus-notation-and-TAB-masks-have-actual-contrast', async ({ page }) => {
-  await ready(page); await page.getByLabel('Тоника', { exact: true }).selectOption('C'); await page.getByLabel('Структура', { exact: true }).selectOption('major');
+  await ready(page); await studySettings(page); await page.getByLabel('Тоника', { exact: true }).selectOption('C'); await page.getByLabel('Структура', { exact: true }).selectOption('major');
   const compactE8 = await page.locator('#box-select option').evaluateAll(options => options.find(option => option.textContent.trim() === 'Тоника C · лад 8 · E')?.value);
   assert.notEqual(compactE8, undefined); await page.locator('#box-select').selectOption(compactE8);
-  await page.locator('#show-fingers').check();
+  await display(page); await page.locator('#show-fingers').check();
   const evidence = [];
   for (const choice of ['light', 'dark']) {
     await theme(page, choice);

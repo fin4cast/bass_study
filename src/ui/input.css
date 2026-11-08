@@ -1,12 +1,12 @@
 @import "../theme.css";
 
-.input-section { margin: 22px 0; padding: 25px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); }
+.input-section { margin: 10px 0; padding: 14px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); }
 .input-section[hidden] { display: none; }
 .input-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .input-heading .eyebrow { font-size: 12px; margin-bottom: 7px; }
 .input-heading h2 { margin: 0; color: var(--accent-text); font-size: 24px; font-weight: 550; }
 .input-heading > p, .input-intro { color: var(--accent-text); font-size: 12px; line-height: 1.8; }
-.input-intro { max-width: 830px; margin: 18px 0 23px; }
+.input-intro { max-width: 830px; margin: 8px 0 12px; line-height: 1.5; }
 .input-connect { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .input-device-field { display: flex; flex: 1 1 290px; max-width: 480px; flex-direction: column; gap: 7px; min-width: 0; }
 .input-device-field > span { color: var(--accent-text); font-size: 12px; }
@@ -16,28 +16,30 @@
 .input-connect .text-button { padding: 10px 13px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface-raised); color: var(--accent-text); font-size: 12px; cursor: pointer; }
 .input-connect button:disabled { cursor: default; opacity: .5; }
 .input-device-help, .input-silent-help, .input-diagnostics-help, .input-window-help { color: var(--accent-text); font-size: 12px; line-height: 1.8; }
-.input-device-help { margin: 13px 0 20px; }
+.input-device-help { margin: 8px 0 12px; line-height: 1.5; }
 .input-error, .input-notice { margin: 14px 0; padding: 12px 15px; border-radius: 6px; font-size: 12px; line-height: 1.7; }
 .input-error { color: var(--danger-text); background: var(--danger-surface); }
 .input-notice { color: var(--accent-text); background: var(--surface-raised); }
-.input-status { color: var(--accent-text); background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: 6px; padding: 13px 15px; font-size: 12px; line-height: 1.7; }
-.input-readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 20px 0; }
-.input-level-card, .input-pitch-card { min-width: 0; padding: 21px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface-raised); }
-.input-readouts h3 { margin: 0 0 22px; color: var(--accent-text); font-size: 16px; font-weight: 550; }
-.input-meter-label { display: flex; flex-direction: column; gap: 12px; color: var(--accent-text); font-size: 12px; }
+.input-status { color: var(--accent-text); background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: 6px; padding: 9px 12px; font-size: 12px; line-height: 1.5; }
+.input-readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 10px 0; }
+.input-level-card, .input-pitch-card { min-width: 0; padding: 16px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface-raised); }
+.input-readouts h3 { margin: 0 0 12px; color: var(--accent-text); font-size: 16px; font-weight: 550; }
+.input-meter-label { display: flex; flex-direction: column; gap: 8px; color: var(--accent-text); font-size: 12px; }
 .input-meter-label meter { width: 100%; height: 24px; accent-color: var(--accent); }
 .input-level-values { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 9px; margin-top: 12px; font-size: 12px; color: var(--accent-text); }
 .input-level-values output { color: var(--accent-text); font-family: Consolas, monospace; }
-.input-clipping { min-height: 39px; padding: 11px 12px; background: var(--surface-muted); color: var(--accent-text); font-size: 12px; line-height: 1.6; border-radius: 5px; }
+.input-clipping { min-height: 36px; padding: 8px 10px; background: var(--surface-muted); color: var(--accent-text); font-size: 12px; line-height: 1.6; border-radius: 5px; }
 .input-clipping.is-clipping { border: 1px solid var(--danger-border); color: var(--danger-text); background: var(--danger-surface); }
 .input-pitch-main { display: flex; align-items: baseline; gap: 20px; flex-wrap: wrap; color: var(--accent-text); }
 .input-pitch-main > output { color: var(--accent-text); font: 43px Consolas, monospace; line-height: 1.2; }
 .input-pitch-main > span { font: 19px Consolas, monospace; }
 .input-cents, .input-confidence { font-size: 12px; line-height: 1.7; color: var(--accent-text); }
 .input-uncertainty { min-height: 38px; font-size: 12px; line-height: 1.7; color: var(--accent-text); }
-.input-card-help { margin: 15px 0 0; color: var(--accent-text); font-size: 12px; line-height: 1.8; }
-.input-silent-help { max-width: 850px; margin: 20px 0 25px; }
-.input-diagnostics { border-top: 1px solid var(--border); padding-top: 19px; }
+.input-card-explainer { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.input-card-explainer > summary { color: var(--accent-text); font-size: 12px; line-height: 1.5; cursor: pointer; }
+.input-card-help { margin: 8px 0 0; color: var(--accent-text); font-size: 12px; line-height: 1.5; }
+.input-silent-help { max-width: none; margin: 10px 0 12px; line-height: 1.5; }
+.input-diagnostics { border-top: 1px solid var(--border); padding-top: 10px; }
 .input-diagnostics > summary { color: var(--accent-text); font-size: 13px; line-height: 1.7; cursor: pointer; }
 .input-settings-scroll { overflow-x: auto; margin: 18px 0; }
 .input-settings-scroll table { width: 100%; min-width: 590px; border-collapse: collapse; text-align: left; font-size: 12px; color: var(--accent-text); }
