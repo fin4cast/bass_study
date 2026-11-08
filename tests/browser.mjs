@@ -1,3 +1,4 @@
+import { inspectStaticServer } from './helpers/static-server-ownership.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -23,7 +24,7 @@ const report = {
   cleanupErrors: [],
 };
 
-let server;
+let server; let externalServer = false;
 let browser;
 let context;
 let page;
@@ -99,11 +100,11 @@ async function newContext() {
 }
 
 try {
-  try { await fetch(origin, { signal: AbortSignal.timeout(500) }); throw new Error('Port 4173 is already occupied; refusing to test an unrelated server'); }
-  catch (error) { if (error.message.startsWith('Port 4173 is already occupied')) throw error; }
-  await readFile(join(root, 'dist', 'index.html'));
+  const ownership = await inspectStaticServer(origin, join(root, 'dist', 'index.html'), process.argv.includes('--reuse-server'));
+    externalServer = ownership.external; report.staticServer = ownership.evidence;
   await mkdir(resultDir, { recursive: true });
-  server = spawn(process.execPath, [join(root, 'scripts', 'serve.mjs')], {
+  if (!externalServer) {
+    server = spawn(process.execPath, [join(root, 'scripts', 'serve.mjs')], {
     cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
   });
   let startup = '';
@@ -119,7 +120,8 @@ try {
     await delay(50);
   }
   assert.ok(ready, `Local server did not become ready: ${startup}`);
-  browser = await chromium.launch({ channel: 'msedge', headless: true });
+  }
+    browser = await chromium.launch({ channel: 'msedge', headless: true });
   report.browserVersion = browser.version();
   ({ ctx: context, nextPage: page } = await newContext());
 
@@ -343,7 +345,7 @@ try {
   await cleanup('browser-context', async () => { await context?.close(); });
   await cleanup('browser', async () => { await browser?.close(); });
   await cleanup('local-server', async () => {
-    if (server?.pid && server.exitCode === null) {
+    if (!externalServer && server?.pid && server.exitCode === null) {
       const exited = new Promise(resolve => server.once('exit', resolve));
       server.kill(); await exited;
     }

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>Локальные дорожки: настоящий декодер и PCM</title>
+<body>
+<h1>Изолированная проверка локальных дорожек</h1>
+<button id="play">Старт</button><button id="pause">Пауза</button><button id="stop">Стоп</button><button id="play-pause">Старт и немедленная пауза</button>
+<script type="module">
+  import { createTracksPlayer } from '/src/audio/tracks.ts';
+  const player = createTracksPlayer();
+  // Test-generated ordinary PCM16 WAV files go through the production File,
+  // SHA-256 and native decodeAudioData path. These signals are not track plans.
+  function wav({ name = 'long.wav', duration = 2, frequency = null, pulses = [0, .5, 1, 1.5], amplitude = .5, sampleRate = 48000, channels = 1 } = {}) {
+    const frames = Math.round(duration * sampleRate), bytes = new ArrayBuffer(44 + frames * channels * 2), view = new DataView(bytes);
+    function word(at, value) { for (let i = 0; i < value.length; i++) view.setUint8(at + i, value.charCodeAt(i)); }
+    word(0, 'RIFF'); view.setUint32(4, bytes.byteLength - 8, true); word(8, 'WAVE'); word(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, channels, true); view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * channels * 2, true); view.setUint16(32, channels * 2, true); view.setUint16(34, 16, true); word(36, 'data'); view.setUint32(40, frames * channels * 2, true);
+    for (let frame = 0; frame < frames; frame++) {
+      const time = frame / sampleRate;
+      for (let channel = 0; channel < channels; channel++) {
+        const hz = Array.isArray(frequency) ? frequency[channel] : frequency;
+        const value = hz ? amplitude * Math.sin(2 * Math.PI * hz * time) : pulses.some(onset => time >= onset && time < onset + .01) ? amplitude : 0;
+        view.setInt16(44 + (frame * channels + channel) * 2, Math.round(value * 32767), true);
+      }
+    }
+    return new File([bytes], name, { type: 'audio/wav', lastModified: 1700000000000 });
+  }
+  function rms(samples, sampleRate, from = 0, to = samples.length / sampleRate) {
+    const start = Math.max(0, Math.ceil(from * sampleRate)), end = Math.min(samples.length, Math.floor(to * sampleRate)); let sum = 0;
+    for (let i = start; i < end; i++) sum += samples[i] ** 2;
+    return Math.sqrt(sum / Math.max(1, end - start));
+  }
+  function frequency(samples, sampleRate, from, to) {
+    if (rms(samples, sampleRate, from, to) < .001) return null;
+    const crossings = [];
+    for (let i = Math.ceil(from * sampleRate); i < Math.min(samples.length - 1, Math.floor(to * sampleRate)); i++) if (samples[i] <= 0 && samples[i + 1] > 0) crossings.push(i - samples[i] / (samples[i + 1] - samples[i]));
+    return crossings.length < 3 ? null : sampleRate * (crossings.length - 1) / (crossings.at(-1) - crossings[0]);
+  }
+  function stats(samples, sampleRate) {
+    const width = Math.round(sampleRate * .005), onsets = []; let active = false, peak = 0;
+    for (const value of samples) peak = Math.max(peak, Math.abs(value));
+    for (let i = 0; i < samples.length; i += width) {
+      const next = rms(samples, sampleRate, i / sampleRate, Math.min(i + width, samples.length) / sampleRate) > .002;
+      if (next && !active) onsets.push(i / sampleRate); active = next;
+    }
+    return { onsets, peak, rms: rms(samples, sampleRate), tailRms: rms(samples, sampleRate, samples.length / sampleRate - .05), windows: Array.from({ length: Math.ceil(samples.length / sampleRate / .25) }, (_, index) => rms(samples, sampleRate, index * .25, (index + 1) * .25)), hz: frequency(samples, sampleRate, .1, Math.min(.6, samples.length / sampleRate - .05)) };
+  }
+  async function render(options = {}) {
+    const result = await player.renderOffline(options);
+    return { sampleRate: result.sampleRate, durationSeconds: result.durationSeconds, trackIds: result.trackIds, channels: result.channels.map(samples => stats(samples, result.sampleRate)), segments: result.segments };
+  }
+  async function load(specs = [{}, { name: 'short.wav', duration: .75, pulses: [0, .5] }]) { return player.loadFiles(specs.map(wav)); }
+  async function attempt(operation) {
+    try { await operation(); return null; } catch (error) { return { name: error.name, code: error.code, message: error.message }; }
+  }
+  async function cancelDuringDecode() {
+    const original = AudioContext.prototype.decodeAudioData;
+    let nativeDecodeCalls = 0;
+    AudioContext.prototype.decodeAudioData = function(...args) {
+      nativeDecodeCalls++;
+      const pending = original.apply(this, args);
+      // Trigger user cancellation after the actual native decode has begun.
+      // Its real completion remains pending and must not replace the old set.
+      player.cancelLoad();
+      return pending;
+    };
+    try { return { error: await attempt(() => player.loadFiles([wav({ name: 'cancelled.wav', duration: 6 })])), nativeDecodeCalls }; }
+    finally { AudioContext.prototype.decodeAudioData = original; }
+  }
+  window.p7tracks = { ready: true, player, wav, load, render, attempt, cancelDuringDecode, action: null };
+  for (const name of ['play', 'pause', 'stop', 'play-pause']) document.getElementById(name).addEventListener('click', async () => {
+    window.p7tracks.action = { name, done: false, error: null };
+    try { if (name === 'play-pause') { await player.play(); player.pause(); } else await player[name](); }
+    catch (error) { window.p7tracks.action.error = { message: error.message, code: error.code }; }
+    finally { window.p7tracks.action.done = true; }
+  });
+  window.addEventListener('pagehide', () => { void player.dispose(); }, { once: true });
+</script>
+</body>
+</html>

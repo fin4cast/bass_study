@@ -3,13 +3,14 @@ import {
   migrateV1Preferences, migrateV1Preset, migrateV1HistoryEntry,
   migrateV2Preferences, migrateV2Preset, migrateV2HistoryEntry,
   migrateV3Preferences, migrateV3Preset, migrateV3HistoryEntry,
+  migrateV4Preferences, migrateV4Preset, migrateV4HistoryEntry,
   type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot,
 } from './model';
 
 export * from './model';
 export { createMemoryStudyStore } from './memory';
 export const STUDY_DB_NAME = 'bass-study';
-export const STUDY_DB_VERSION = 4;
+export const STUDY_DB_VERSION = 5;
 const STORES = ['preferences', 'presets', 'history'] as const;
 
 function storageError(error: unknown): StudyStorageError {
@@ -50,12 +51,13 @@ export function createStudyStore() {
         if (!db.objectStoreNames.contains('preferences')) db.createObjectStore('preferences');
         if (!db.objectStoreNames.contains('presets')) db.createObjectStore('presets', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('history')) db.createObjectStore('history', { keyPath: 'id' });
-        if (event.oldVersion === 1 || event.oldVersion === 2 || event.oldVersion === 3) {
+        if (event.oldVersion === 1 || event.oldVersion === 2 || event.oldVersion === 3 || event.oldVersion === 4) {
           const transaction = request.transaction!;
           const migrations = event.oldVersion === 1
             ? { preferences: migrateV1Preferences, presets: migrateV1Preset, history: migrateV1HistoryEntry }
             : event.oldVersion === 2 ? { preferences: migrateV2Preferences, presets: migrateV2Preset, history: migrateV2HistoryEntry }
-            : { preferences: migrateV3Preferences, presets: migrateV3Preset, history: migrateV3HistoryEntry };
+            : event.oldVersion === 3 ? { preferences: migrateV3Preferences, presets: migrateV3Preset, history: migrateV3HistoryEntry }
+            : { preferences: migrateV4Preferences, presets: migrateV4Preset, history: migrateV4HistoryEntry };
           let aborted = false;
           for (const name of STORES) {
             const cursorRequest = transaction.objectStore(name).openCursor();
@@ -113,7 +115,7 @@ export function createStudyStore() {
       requestValue<unknown[]>(transaction.objectStore('presets').getAll()),
       requestValue<unknown[]>(transaction.objectStore('history').getAll()), done,
     ]);
-    const snapshot = validateSnapshot({ format: 'bass-study-backup', schemaVersion: 4, preferences: preferences ?? DEFAULT_PREFERENCES, presets, history });
+    const snapshot = validateSnapshot({ format: 'bass-study-backup', schemaVersion: 5, preferences: preferences ?? DEFAULT_PREFERENCES, presets, history });
     if (database === db) cachedSnapshot = snapshot;
     return snapshot;
   }

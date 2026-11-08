@@ -13,7 +13,7 @@ const OPEN_MIDI = { E: 28, A: 33, D: 38, G: 43 };
 const midiForId = id => { const [string, fret] = id.split(':'); return OPEN_MIDI[string] + Number(fret); };
 
 function expectedMigration(literal) {
-  const expected = structuredClone(literal); expected.schemaVersion = 4;
+  const expected = structuredClone(literal); expected.schemaVersion = 5;
   if (literal.schemaVersion === 1) {
     expected.preferences.training.intervalDegree = '#4';
     for (const preset of expected.presets) preset.preferences.training.intervalDegree = '#4';
@@ -21,7 +21,8 @@ function expectedMigration(literal) {
   }
   for (const preferences of [expected.preferences, ...expected.presets.map(preset => preset.preferences)]) {
     if (literal.schemaVersion <= 2) { preferences.activeModule = 'foundation'; preferences.ear = { root: 'A', quality: 'minor', count: 10, bpm: 80 }; }
-    preferences.harmony = { bpm: 80, countIn: true, repeat: 'once', bassVolume: 70, padVolume: 45, clickVolume: 50, bassMuted: false, padMuted: false, clickMuted: false };
+    if (literal.schemaVersion <= 3) preferences.harmony = { bpm: 80, countIn: true, repeat: 'once', bassVolume: 70, padVolume: 45, clickVolume: 50, bassMuted: false, padMuted: false, clickMuted: false };
+    preferences.tracks = null; preferences.input = { deviceId: '' };
   }
   for (const name of ['presets', 'history']) expected[name].sort((a, b) => a.id.localeCompare(b.id));
   return expected;
@@ -72,11 +73,11 @@ function scientificMidi(text) {
   return 12 * (Number(match[3]) + 1) + naturals[match[1]] + alteration;
 }
 
-check('genuine-v1-indexeddb-upgrades-all-stores-to-v4-preserving-events-and-original-dates', async ({ page }) => {
+check('genuine-v1-indexeddb-upgrades-all-stores-to-v5-preserving-events-and-original-dates', async ({ page }) => {
   const seeded = await page.evaluate(() => window.p6.seedV1()); assert.equal(seeded.raw.version, 1);
   const upgraded = await page.evaluate(async () => { const store = await window.p6.loadCurrent(); await store.open(); return store.readSnapshot(); });
   assert.deepEqual(upgraded, expectedMigration(seeded.literal));
-  const raw = await page.evaluate(() => window.p6.rawRead()); assert.equal(raw.version, 4);
+  const raw = await page.evaluate(() => window.p6.rawRead()); assert.equal(raw.version, 5);
   assert.equal(upgraded.history.find(entry => entry.id === 'legacy-screen').localDate, '2026-11-07');
   assert.equal(upgraded.history.find(entry => entry.id === 'legacy-manual').localDate, '2026-11-09');
   await page.reload(); await page.waitForFunction(() => window.p6?.ready);
@@ -96,7 +97,7 @@ check('bad-v1-record-aborts-entire-native-upgrade-and-preserves-version-one', as
   return { failure, originalVersion: seeded.raw.version, preserved: after };
 });
 
-check('legacy-json-preview-and-restore-migrate-to-version-four', async ({ page }) => {
+check('legacy-json-preview-and-restore-migrate-to-version-five', async ({ page }) => {
   const literal = await page.evaluate(() => window.p6.readV1Backup());
   const result = await page.evaluate(async literal => {
     const store = await window.p6.loadCurrent(); const preview = store.previewImport(JSON.stringify(literal));
@@ -104,12 +105,12 @@ check('legacy-json-preview-and-restore-migrate-to-version-four', async ({ page }
     const afterCancel = await store.readSnapshot(); await store.restore(JSON.stringify(literal), { confirmed: true });
     return { preview, before, cancel, afterCancel, restored: await store.readSnapshot() };
   }, literal);
-  assert.equal(result.preview.snapshot.schemaVersion, 4); assert.equal(result.preview.requiresConfirmation, true);
+  assert.equal(result.preview.snapshot.schemaVersion, 5); assert.equal(result.preview.requiresConfirmation, true);
   assert.deepEqual(result.cancel, { status: 'cancelled' }); assert.deepEqual(result.afterCancel, result.before);
   assert.deepEqual(result.restored, expectedMigration(literal)); return result;
 });
 
-check('genuine-v2-indexeddb-and-literal-json-migrate-to-v4-without-changing-old-results', async ({ page }) => {
+check('genuine-v2-indexeddb-and-literal-json-migrate-to-v5-without-changing-old-results', async ({ page }) => {
   const seeded = await page.evaluate(() => window.p6.seedLegacy(2)); assert.equal(seeded.raw.version, 2);
   const result = await page.evaluate(async literal => {
     const store = await window.p6.loadCurrent(); await store.open();
@@ -118,7 +119,7 @@ check('genuine-v2-indexeddb-and-literal-json-migrate-to-v4-without-changing-old-
     return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
   }, seeded.literal);
   const expected = expectedMigration(seeded.literal);
-  assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected); assert.equal(result.raw.version, 4);
+  assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected); assert.equal(result.raw.version, 5);
   assert.deepEqual(result.restored.history, seeded.literal.history); return { seededVersion: 2, ...result };
 });
 
@@ -131,7 +132,20 @@ check('genuine-v3-native-and-json-upgrade-preserve-screen-manual-ear-route-recor
     return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
   }, seeded.literal);
   const expected = expectedMigration(seeded.literal); assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected);
-  assert.deepEqual(result.restored.history, seeded.literal.history); assert.equal(result.raw.version, 4); return { seededVersion: 3, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
+  assert.deepEqual(result.restored.history, seeded.literal.history); assert.equal(result.raw.version, 5); return { seededVersion: 3, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
+});
+
+check('genuine-v4-native-and-json-upgrade-preserve-harmony-and-all-four-history-kinds', async ({ page }) => {
+  const seeded = await page.evaluate(() => window.p6.seedLegacy(4)); assert.equal(seeded.raw.version, 4);
+  assert.deepEqual(seeded.literal.history.map(entry => entry.result.kind).sort(), ['ear', 'manual', 'route', 'screen']);
+  const result = await page.evaluate(async literal => {
+    const store = await window.p6.loadCurrent(); const native = await store.readSnapshot({ fresh: true });
+    const preview = store.previewImport(JSON.stringify(literal)); await store.restore(JSON.stringify(literal), { confirmed: true });
+    return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
+  }, seeded.literal);
+  const expected = expectedMigration(seeded.literal); assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected);
+  assert.deepEqual(result.restored.history, seeded.literal.history); assert.deepEqual(result.restored.preferences.harmony, seeded.literal.preferences.harmony);
+  assert.equal(result.raw.version, 5); return { seededVersion: 4, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
 });
 
 check('product-restores-real-v1-json-and-preserves-history-across-reload', async ({ page, fixtureUrl }) => {
@@ -236,6 +250,11 @@ check('manual-draft-keeps-original-material-and-cannot-consume-a-new-runtime-epo
   const oldText = 'Заметка к прежнему материалу C.';
   await page.getByLabel('Заметка к практике', { exact: true }).fill(oldText); await page.getByLabel('Комфортный темп', { exact: true }).fill('72');
   assert.match(await page.getByTestId('manual-material').innerText(), /C ·/);
+  await page.locator('[data-app-module="tracks"]').click();
+  assert.equal(await page.getByLabel('Заметка к практике', { exact: true }).inputValue(), oldText);
+  assert.match(await page.getByTestId('manual-material').innerText(), /C ·/);
+  assert.ok(await historyAction(page, 'use-current-draft').isDisabled());
+  await page.locator('[data-app-module="foundation"]').click();
   await page.getByLabel('Тоника', { exact: true }).selectOption('G'); await historyAction(page, 'refresh-draft').click();
   assert.match(await page.getByTestId('manual-context-notice').innerText(), /прежнему занятию|изменился/);
   assert.match(await page.getByTestId('manual-material').innerText(), /C ·/); assert.doesNotMatch(await page.getByTestId('manual-material').innerText(), /G ·/);

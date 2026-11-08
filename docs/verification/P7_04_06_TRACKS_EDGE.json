@@ -1,0 +1,1934 @@
+{
+  "generatedAt": "2026-11-08T12:34:50.812Z",
+  "platform": "win32",
+  "architecture": "x64",
+  "node": "v24.18.0",
+  "browserChannel": "msedge",
+  "browserVersion": "157.0.4341.42",
+  "origin": "http://localhost:4173",
+  "fixtureOrigin": "http://127.0.0.1:4193",
+  "scope": "R019 actual decoded local WAV PCM, shared stem timeline, live playback and Tracks UI; physical output muted, no hardware latency measurement.",
+  "networkIsolation": "Fresh Edge contexts with cache disabled; non-loopback page HTTP requests aborted. No user profile or Windows network adapter change.",
+  "staticServer": {
+    "reuseRequested": true,
+    "owned": false,
+    "mode": "external-reused",
+    "indexVerifiedByteForByte": true,
+    "restartAllowed": false,
+    "shutdownAllowed": false
+  },
+  "checks": [
+    {
+      "name": "pcm-native-decoder-aligns-stems-at-common-zero-and-keeps-short-tail-silent",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 654,
+      "evidence": {
+        "source": {
+          "format": "bass-study-tracks",
+          "schemaVersion": 1,
+          "id": "tracks-f4426ea4-6343-4955-bd4a-b468c7427b6f",
+          "tracks": [
+            {
+              "id": "track-682f34c6-7b4c-4544-8b40-c09e025e0340",
+              "name": "long.wav",
+              "size": 192044,
+              "lastModified": 1700000000000,
+              "sha256": "42d44555bdca9db0394234c7220c0fda9d2d34a4d0a845f34d77e7f3bdcfac92",
+              "decoded": {
+                "duration": 2,
+                "frames": 96000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            },
+            {
+              "id": "track-f58980d8-c9d1-4f0d-a21d-fa4bbad4af42",
+              "name": "short.wav",
+              "size": 72044,
+              "lastModified": 1700000000000,
+              "sha256": "ccbf1205a213cd79d02da41f8758487e2981b636133c5565b9818f8e0364cdfd",
+              "decoded": {
+                "duration": 0.75,
+                "frames": 36000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            }
+          ],
+          "clip": {
+            "from": 0,
+            "to": 2
+          },
+          "loop": false,
+          "rate": 1
+        },
+        "pcm": {
+          "sampleRate": 48000,
+          "durationSeconds": 2,
+          "trackIds": [
+            "track-682f34c6-7b4c-4544-8b40-c09e025e0340",
+            "track-f58980d8-c9d1-4f0d-a21d-fa4bbad4af42"
+          ],
+          "channels": [
+            {
+              "onsets": [
+                0,
+                0.5,
+                1,
+                1.5
+              ],
+              "peak": 0.40001222491264343,
+              "rms": 0.05657027135865103,
+              "tailRms": 0,
+              "windows": [
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0
+              ],
+              "hz": null
+            },
+            {
+              "onsets": [
+                0,
+                0.5
+              ],
+              "peak": 0.40001222491264343,
+              "rms": 0.04000122249126453,
+              "tailRms": 0,
+              "windows": [
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "hz": null
+            }
+          ],
+          "segments": [
+            {
+              "trackId": "track-682f34c6-7b4c-4544-8b40-c09e025e0340",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0,
+              "durationSeconds": 2,
+              "playDurationSeconds": 2,
+              "endAtSeconds": 2
+            },
+            {
+              "trackId": "track-f58980d8-c9d1-4f0d-a21d-fa4bbad4af42",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0,
+              "durationSeconds": 0.75,
+              "playDurationSeconds": 0.75,
+              "endAtSeconds": 0.75
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "pcm-ab-is-half-open-and-two-loops-restart-both-stems-on-one-boundary",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 403,
+      "evidence": {
+        "manifest": {
+          "format": "bass-study-tracks",
+          "schemaVersion": 1,
+          "id": "tracks-e2fdeca5-e6ae-4ac6-a041-c331d3237a70",
+          "tracks": [
+            {
+              "id": "track-a46d6986-c833-463f-9eaf-fd2b8c646c67",
+              "name": "long.wav",
+              "size": 192044,
+              "lastModified": 1700000000000,
+              "sha256": "42d44555bdca9db0394234c7220c0fda9d2d34a4d0a845f34d77e7f3bdcfac92",
+              "decoded": {
+                "duration": 2,
+                "frames": 96000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            },
+            {
+              "id": "track-c41fcee6-f4d3-4a78-9640-490262747ba1",
+              "name": "short.wav",
+              "size": 72044,
+              "lastModified": 1700000000000,
+              "sha256": "ccbf1205a213cd79d02da41f8758487e2981b636133c5565b9818f8e0364cdfd",
+              "decoded": {
+                "duration": 0.75,
+                "frames": 36000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            }
+          ],
+          "clip": {
+            "from": 0.5,
+            "to": 1.5
+          },
+          "loop": true,
+          "rate": 1
+        },
+        "pcm": {
+          "sampleRate": 48000,
+          "durationSeconds": 2,
+          "trackIds": [
+            "track-a46d6986-c833-463f-9eaf-fd2b8c646c67",
+            "track-c41fcee6-f4d3-4a78-9640-490262747ba1"
+          ],
+          "channels": [
+            {
+              "onsets": [
+                0,
+                0.5,
+                1,
+                1.5
+              ],
+              "peak": 0.40001222491264343,
+              "rms": 0.05657027135865103,
+              "tailRms": 0,
+              "windows": [
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0
+              ],
+              "hz": null
+            },
+            {
+              "onsets": [
+                0,
+                1
+              ],
+              "peak": 0.40001222491264343,
+              "rms": 0.04000122249126453,
+              "tailRms": 0,
+              "windows": [
+                0.0800024449825285,
+                0,
+                0,
+                0,
+                0.0800024449825285,
+                0,
+                0,
+                0
+              ],
+              "hz": null
+            }
+          ],
+          "segments": [
+            {
+              "trackId": "track-a46d6986-c833-463f-9eaf-fd2b8c646c67",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0.5,
+              "durationSeconds": 1,
+              "playDurationSeconds": 1,
+              "endAtSeconds": 1
+            },
+            {
+              "trackId": "track-c41fcee6-f4d3-4a78-9640-490262747ba1",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0.5,
+              "durationSeconds": 0.25,
+              "playDurationSeconds": 0.25,
+              "endAtSeconds": 0.25
+            },
+            {
+              "trackId": "track-a46d6986-c833-463f-9eaf-fd2b8c646c67",
+              "cycleIndex": 1,
+              "atSeconds": 1,
+              "offsetSeconds": 0.5,
+              "durationSeconds": 1,
+              "playDurationSeconds": 1,
+              "endAtSeconds": 2
+            },
+            {
+              "trackId": "track-c41fcee6-f4d3-4a78-9640-490262747ba1",
+              "cycleIndex": 1,
+              "atSeconds": 1,
+              "offsetSeconds": 0.5,
+              "durationSeconds": 0.25,
+              "playDurationSeconds": 0.25,
+              "endAtSeconds": 1.25
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "pcm-varispeed-changes-duration-and-pitch-without-claiming-time-stretch",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 341,
+      "evidence": [
+        {
+          "rate": 1,
+          "pcm": {
+            "sampleRate": 48000,
+            "durationSeconds": 2,
+            "trackIds": [
+              "track-ec1211cb-7613-4d6f-a297-5ca656470ee2"
+            ],
+            "channels": [
+              {
+                "onsets": [
+                  0
+                ],
+                "peak": 0.40001222491264343,
+                "rms": 0.28283834893990706,
+                "tailRms": 0.2828968841286183,
+                "windows": [
+                  0.28282664260678136,
+                  0.2828502103142184,
+                  0.2828264849098249,
+                  0.28285005694676324,
+                  0.28282664260678136,
+                  0.2828502103142184,
+                  0.2828264849098249,
+                  0.28285005694676324
+                ],
+                "hz": 55.000005599699996
+              }
+            ],
+            "segments": [
+              {
+                "trackId": "track-ec1211cb-7613-4d6f-a297-5ca656470ee2",
+                "cycleIndex": 0,
+                "atSeconds": 0,
+                "offsetSeconds": 0,
+                "durationSeconds": 2,
+                "playDurationSeconds": 2,
+                "endAtSeconds": 2
+              }
+            ]
+          },
+          "state": {
+            "state": "stopped",
+            "position": 0,
+            "cycleIndex": 0,
+            "loading": false,
+            "ready": true,
+            "pauseReason": null,
+            "boundTrackIds": [
+              "track-ec1211cb-7613-4d6f-a297-5ca656470ee2"
+            ],
+            "activeSources": 0,
+            "sampleRate": 48000,
+            "pitchShiftCents": 0,
+            "output": {
+              "peak": 0,
+              "rms": 0
+            }
+          }
+        },
+        {
+          "rate": 0.5,
+          "pcm": {
+            "sampleRate": 48000,
+            "durationSeconds": 4,
+            "trackIds": [
+              "track-ec1211cb-7613-4d6f-a297-5ca656470ee2"
+            ],
+            "channels": [
+              {
+                "onsets": [
+                  0
+                ],
+                "peak": 0.40001222491264343,
+                "rms": 0.28283743257486815,
+                "tailRms": 0.29093400398510144,
+                "windows": [
+                  0.2844637747428735,
+                  0.2811899883178109,
+                  0.28120184004272564,
+                  0.2844754919747826,
+                  0.2844637233270846,
+                  0.28118972522869323,
+                  0.28120158058193945,
+                  0.2844754412771955,
+                  0.2844637747428735,
+                  0.2811899883178109,
+                  0.28120184004272564,
+                  0.2844754919747826,
+                  0.2844637233270846,
+                  0.28118972522869323,
+                  0.28120158058193945,
+                  0.2844754412771955
+                ],
+                "hz": 27.49999253674841
+              }
+            ],
+            "segments": [
+              {
+                "trackId": "track-ec1211cb-7613-4d6f-a297-5ca656470ee2",
+                "cycleIndex": 0,
+                "atSeconds": 0,
+                "offsetSeconds": 0,
+                "durationSeconds": 2,
+                "playDurationSeconds": 4,
+                "endAtSeconds": 4
+              }
+            ]
+          },
+          "state": {
+            "state": "stopped",
+            "position": 0,
+            "cycleIndex": 0,
+            "loading": false,
+            "ready": true,
+            "pauseReason": null,
+            "boundTrackIds": [
+              "track-ec1211cb-7613-4d6f-a297-5ca656470ee2"
+            ],
+            "activeSources": 0,
+            "sampleRate": 48000,
+            "pitchShiftCents": -1200,
+            "output": {
+              "peak": 0,
+              "rms": 0
+            }
+          }
+        },
+        {
+          "rate": 1.5,
+          "pcm": {
+            "sampleRate": 48000,
+            "durationSeconds": 1.3333333333333333,
+            "trackIds": [
+              "track-ec1211cb-7613-4d6f-a297-5ca656470ee2"
+            ],
+            "channels": [
+              {
+                "onsets": [
+                  0
+                ],
+                "peak": 0.40001222491264343,
+                "rms": 0.28283740646210087,
+                "tailRms": 0.2801257925946874,
+                "windows": [
+                  0.2822854631344501,
+                  0.2833765628929694,
+                  0.2833883274802321,
+                  0.2822972707809277,
+                  0.28228527214885285,
+                  0.28448707225721054
+                ],
+                "hz": 82.49999453372482
+              }
+            ],
+            "segments": [
+              {
+                "trackId": "track-ec1211cb-7613-4d6f-a297-5ca656470ee2",
+                "cycleIndex": 0,
+                "atSeconds": 0,
+                "offsetSeconds": 0,
+                "durationSeconds": 2,
+                "playDurationSeconds": 1.3333333333333333,
+                "endAtSeconds": 1.3333333333333333
+              }
+            ]
+          },
+          "state": {
+            "state": "stopped",
+            "position": 0,
+            "cycleIndex": 0,
+            "loading": false,
+            "ready": true,
+            "pauseReason": null,
+            "boundTrackIds": [
+              "track-ec1211cb-7613-4d6f-a297-5ca656470ee2"
+            ],
+            "activeSources": 0,
+            "sampleRate": 48000,
+            "pitchShiftCents": 701.9550008653874,
+            "output": {
+              "peak": 0,
+              "rms": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "pcm-per-stem-mute-and-gain-leave-other-stem-samples-and-timeline-unchanged",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 300,
+      "evidence": {
+        "before": {
+          "sampleRate": 48000,
+          "durationSeconds": 2,
+          "trackIds": [
+            "track-60ad3d73-447b-4160-a548-304798135b50",
+            "track-26491da6-f9e9-44cd-aae1-40adaecd1ae5"
+          ],
+          "channels": [
+            {
+              "onsets": [
+                0,
+                0.5,
+                1,
+                1.5
+              ],
+              "peak": 0.40001222491264343,
+              "rms": 0.05657027135865103,
+              "tailRms": 0,
+              "windows": [
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0
+              ],
+              "hz": null
+            },
+            {
+              "onsets": [
+                0,
+                0.5
+              ],
+              "peak": 0.40001222491264343,
+              "rms": 0.04000122249126453,
+              "tailRms": 0,
+              "windows": [
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "hz": null
+            }
+          ],
+          "segments": [
+            {
+              "trackId": "track-60ad3d73-447b-4160-a548-304798135b50",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0,
+              "durationSeconds": 2,
+              "playDurationSeconds": 2,
+              "endAtSeconds": 2
+            },
+            {
+              "trackId": "track-26491da6-f9e9-44cd-aae1-40adaecd1ae5",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0,
+              "durationSeconds": 0.75,
+              "playDurationSeconds": 0.75,
+              "endAtSeconds": 0.75
+            }
+          ]
+        },
+        "muted": {
+          "sampleRate": 48000,
+          "durationSeconds": 2,
+          "trackIds": [
+            "track-60ad3d73-447b-4160-a548-304798135b50",
+            "track-26491da6-f9e9-44cd-aae1-40adaecd1ae5"
+          ],
+          "channels": [
+            {
+              "onsets": [],
+              "peak": 0,
+              "rms": 0,
+              "tailRms": 0,
+              "windows": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "hz": null
+            },
+            {
+              "onsets": [
+                0,
+                0.5
+              ],
+              "peak": 0.40001222491264343,
+              "rms": 0.04000122249126453,
+              "tailRms": 0,
+              "windows": [
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "hz": null
+            }
+          ],
+          "segments": [
+            {
+              "trackId": "track-60ad3d73-447b-4160-a548-304798135b50",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0,
+              "durationSeconds": 2,
+              "playDurationSeconds": 2,
+              "endAtSeconds": 2
+            },
+            {
+              "trackId": "track-26491da6-f9e9-44cd-aae1-40adaecd1ae5",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0,
+              "durationSeconds": 0.75,
+              "playDurationSeconds": 0.75,
+              "endAtSeconds": 0.75
+            }
+          ]
+        },
+        "half": {
+          "sampleRate": 48000,
+          "durationSeconds": 2,
+          "trackIds": [
+            "track-60ad3d73-447b-4160-a548-304798135b50",
+            "track-26491da6-f9e9-44cd-aae1-40adaecd1ae5"
+          ],
+          "channels": [
+            {
+              "onsets": [
+                0,
+                0.5,
+                1,
+                1.5
+              ],
+              "peak": 0.20000611245632172,
+              "rms": 0.028285135679325515,
+              "tailRms": 0,
+              "windows": [
+                0.04000122249126425,
+                0,
+                0.04000122249126425,
+                0,
+                0.04000122249126425,
+                0,
+                0.04000122249126425,
+                0
+              ],
+              "hz": null
+            },
+            {
+              "onsets": [
+                0,
+                0.5
+              ],
+              "peak": 0.40001222491264343,
+              "rms": 0.04000122249126453,
+              "tailRms": 0,
+              "windows": [
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "hz": null
+            }
+          ],
+          "segments": [
+            {
+              "trackId": "track-60ad3d73-447b-4160-a548-304798135b50",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0,
+              "durationSeconds": 2,
+              "playDurationSeconds": 2,
+              "endAtSeconds": 2
+            },
+            {
+              "trackId": "track-26491da6-f9e9-44cd-aae1-40adaecd1ae5",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0,
+              "durationSeconds": 0.75,
+              "playDurationSeconds": 0.75,
+              "endAtSeconds": 0.75
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "metadata-restore-has-no-pcm-and-rebind-validates-content-not-filename",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 344,
+      "evidence": {
+        "portable": {
+          "format": "bass-study-tracks",
+          "schemaVersion": 1,
+          "id": "tracks-0f632ce6-3ce3-4723-b18b-2d0d59d60472",
+          "tracks": [
+            {
+              "id": "track-fbd3062b-b16d-4a25-b029-7561f7379d1e",
+              "name": "bass.wav",
+              "size": 192044,
+              "lastModified": 1700000000000,
+              "sha256": "20aebc28123952dbbb1d98a1d9bc99e79a697e99fb275296735a11a354c43782",
+              "decoded": {
+                "duration": 2,
+                "frames": 96000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            },
+            {
+              "id": "track-e7b3cff4-0b23-4115-8da7-3bb38fb11e53",
+              "name": "reference.wav",
+              "size": 192044,
+              "lastModified": 1700000000000,
+              "sha256": "20c6c4ff795838d5554dc31c26d3449655a597d175660c00ff45ddf5affa513b",
+              "decoded": {
+                "duration": 2,
+                "frames": 96000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            }
+          ],
+          "clip": {
+            "from": 0,
+            "to": 2
+          },
+          "loop": false,
+          "rate": 1
+        },
+        "missing": {
+          "state": "stopped",
+          "position": 0,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": false,
+          "pauseReason": null,
+          "boundTrackIds": [],
+          "activeSources": 0,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0,
+            "rms": 0
+          }
+        },
+        "playError": {
+          "name": "TracksError",
+          "code": "MISSING_FILES",
+          "message": "Для дорожек из манифеста нужно повторно выбрать исходные файлы. Проверяется SHA-256; аудиоданных в JSON нет."
+        },
+        "wrong": {
+          "name": "TracksError",
+          "code": "FILE_MISMATCH",
+          "message": "Файл не совпадает с сохранённой дорожкой по SHA-256 и размеру. Ожидаемый файл не заменён."
+        },
+        "afterWrong": {
+          "state": "stopped",
+          "position": 0,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": false,
+          "pauseReason": null,
+          "boundTrackIds": [],
+          "activeSources": 0,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0,
+            "rms": 0
+          }
+        },
+        "partial": {
+          "state": "stopped",
+          "position": 0,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": false,
+          "pauseReason": null,
+          "boundTrackIds": [
+            "track-fbd3062b-b16d-4a25-b029-7561f7379d1e"
+          ],
+          "activeSources": 0,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0,
+            "rms": 0
+          }
+        },
+        "bound": {
+          "state": "stopped",
+          "position": 0,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": null,
+          "boundTrackIds": [
+            "track-fbd3062b-b16d-4a25-b029-7561f7379d1e",
+            "track-e7b3cff4-0b23-4115-8da7-3bb38fb11e53"
+          ],
+          "activeSources": 0,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0,
+            "rms": 0
+          }
+        },
+        "pcm": {
+          "sampleRate": 48000,
+          "durationSeconds": 2,
+          "trackIds": [
+            "track-fbd3062b-b16d-4a25-b029-7561f7379d1e",
+            "track-e7b3cff4-0b23-4115-8da7-3bb38fb11e53"
+          ],
+          "channels": [
+            {
+              "onsets": [
+                0
+              ],
+              "peak": 0.40001222491264343,
+              "rms": 0.28283834893990706,
+              "tailRms": 0.2828968841286183,
+              "windows": [
+                0.28282664260678136,
+                0.2828502103142184,
+                0.2828264849098249,
+                0.28285005694676324,
+                0.28282664260678136,
+                0.2828502103142184,
+                0.2828264849098249,
+                0.28285005694676324
+              ],
+              "hz": 55.000005599699996
+            },
+            {
+              "onsets": [
+                0
+              ],
+              "peak": 0.40001222491264343,
+              "rms": 0.2828383667085481,
+              "tailRms": 0.2828379814444818,
+              "windows": [
+                0.28283844376131995,
+                0.2828382896557911,
+                0.28283844376131995,
+                0.2828382896557911,
+                0.28283844376131995,
+                0.2828382896557911,
+                0.28283844376131995,
+                0.2828382896557911
+              ],
+              "hz": 110.0000036294838
+            }
+          ],
+          "segments": [
+            {
+              "trackId": "track-fbd3062b-b16d-4a25-b029-7561f7379d1e",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0,
+              "durationSeconds": 2,
+              "playDurationSeconds": 2,
+              "endAtSeconds": 2
+            },
+            {
+              "trackId": "track-e7b3cff4-0b23-4115-8da7-3bb38fb11e53",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0,
+              "durationSeconds": 2,
+              "playDurationSeconds": 2,
+              "endAtSeconds": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "native-decode-cancellation-and-corrupt-file-failure-atomically-preserve-old-set",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 486,
+      "evidence": {
+        "cancelled": {
+          "error": {
+            "name": "TracksError",
+            "code": "LOAD_CANCELLED",
+            "message": "Загрузка отменена; её результат не применён."
+          },
+          "nativeDecodeCalls": 1
+        },
+        "corrupt": {
+          "name": "TracksError",
+          "code": "DECODE_FAILED",
+          "message": "Не удалось декодировать «corrupt.wav». Поддержка WAV/MP3 зависит от кодека браузера; прежний набор не изменён."
+        },
+        "preservedManifest": {
+          "format": "bass-study-tracks",
+          "schemaVersion": 1,
+          "id": "tracks-fa3cba5b-7fba-42d2-b388-038b14830093",
+          "tracks": [
+            {
+              "id": "track-3d85908e-cc0f-47e1-b4a2-e33eb486ed06",
+              "name": "long.wav",
+              "size": 192044,
+              "lastModified": 1700000000000,
+              "sha256": "42d44555bdca9db0394234c7220c0fda9d2d34a4d0a845f34d77e7f3bdcfac92",
+              "decoded": {
+                "duration": 2,
+                "frames": 96000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            },
+            {
+              "id": "track-8d795a07-c3d0-4c61-918f-abe0ad85620f",
+              "name": "short.wav",
+              "size": 72044,
+              "lastModified": 1700000000000,
+              "sha256": "ccbf1205a213cd79d02da41f8758487e2981b636133c5565b9818f8e0364cdfd",
+              "decoded": {
+                "duration": 0.75,
+                "frames": 36000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            }
+          ],
+          "clip": {
+            "from": 0,
+            "to": 2
+          },
+          "loop": false,
+          "rate": 1
+        },
+        "preservedPcm": {
+          "sampleRate": 48000,
+          "durationSeconds": 2,
+          "trackIds": [
+            "track-3d85908e-cc0f-47e1-b4a2-e33eb486ed06",
+            "track-8d795a07-c3d0-4c61-918f-abe0ad85620f"
+          ],
+          "channels": [
+            {
+              "onsets": [
+                0,
+                0.5,
+                1,
+                1.5
+              ],
+              "peak": 0.40001222491264343,
+              "rms": 0.05657027135865103,
+              "tailRms": 0,
+              "windows": [
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0
+              ],
+              "hz": null
+            },
+            {
+              "onsets": [
+                0,
+                0.5
+              ],
+              "peak": 0.40001222491264343,
+              "rms": 0.04000122249126453,
+              "tailRms": 0,
+              "windows": [
+                0.0800024449825285,
+                0,
+                0.0800024449825285,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "hz": null
+            }
+          ],
+          "segments": [
+            {
+              "trackId": "track-3d85908e-cc0f-47e1-b4a2-e33eb486ed06",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0,
+              "durationSeconds": 2,
+              "playDurationSeconds": 2,
+              "endAtSeconds": 2
+            },
+            {
+              "trackId": "track-8d795a07-c3d0-4c61-918f-abe0ad85620f",
+              "cycleIndex": 0,
+              "atSeconds": 0,
+              "offsetSeconds": 0,
+              "durationSeconds": 0.75,
+              "playDurationSeconds": 0.75,
+              "endAtSeconds": 0.75
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "count-type-source-size-clip-rate-and-manifest-errors-do-not-replace-valid-data",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 393,
+      "evidence": {
+        "errors": {
+          "count": {
+            "name": "TracksError",
+            "code": "TRACK_COUNT",
+            "message": "Выбери от одного до четырёх WAV/MP3 файлов."
+          },
+          "type": {
+            "name": "TracksError",
+            "code": "FILE_TYPE",
+            "message": "Выбери локальный WAV или MP3."
+          },
+          "size": {
+            "name": "TracksError",
+            "code": "SOURCE_LIMIT",
+            "message": "Каждый исходный файл должен быть непустым и не больше 64 МиБ."
+          },
+          "clip": {
+            "name": "TracksError",
+            "code": "INVALID_DATA",
+            "message": "Фрагмент должен длиться не менее 0,05 секунды и иметь начало раньше конца."
+          },
+          "range": {
+            "name": "TracksError",
+            "code": "INVALID_DATA",
+            "message": "Конец фрагмента: число вне допустимого диапазона."
+          },
+          "rate": {
+            "name": "TracksError",
+            "code": "INVALID_DATA",
+            "message": "Скорость с изменением высоты: число вне допустимого диапазона."
+          },
+          "seek": {
+            "name": "TracksError",
+            "code": "INVALID_SEEK",
+            "message": "Позиция должна находиться внутри общего фрагмента."
+          },
+          "format": {
+            "name": "TracksError",
+            "code": "UNSUPPORTED_FORMAT",
+            "message": "Неподдерживаемый формат или версия манифеста дорожек."
+          }
+        },
+        "preservedManifest": {
+          "format": "bass-study-tracks",
+          "schemaVersion": 1,
+          "id": "tracks-fb2e9465-9703-4c8f-ad43-cecb57719f1a",
+          "tracks": [
+            {
+              "id": "track-dbdc1212-2768-49b1-9da8-615c5473e86c",
+              "name": "long.wav",
+              "size": 192044,
+              "lastModified": 1700000000000,
+              "sha256": "42d44555bdca9db0394234c7220c0fda9d2d34a4d0a845f34d77e7f3bdcfac92",
+              "decoded": {
+                "duration": 2,
+                "frames": 96000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            },
+            {
+              "id": "track-b8edbc2c-ef69-4e95-9b67-c0d3200fc44f",
+              "name": "short.wav",
+              "size": 72044,
+              "lastModified": 1700000000000,
+              "sha256": "ccbf1205a213cd79d02da41f8758487e2981b636133c5565b9818f8e0364cdfd",
+              "decoded": {
+                "duration": 0.75,
+                "frames": 36000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            }
+          ],
+          "clip": {
+            "from": 0,
+            "to": 2
+          },
+          "loop": false,
+          "rate": 1
+        },
+        "note": "The source limit is checked on a real synthetic File before decode. Large decoded PCM capacity remains covered by model tests, without allocating 512 MiB here."
+      }
+    },
+    {
+      "name": "live-pause-seek-and-resume-keep-the-common-source-position-at-rate-one",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 1540,
+      "evidence": {
+        "paused": {
+          "state": "paused",
+          "position": 0.33,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": "manual",
+          "boundTrackIds": [
+            "track-f039b013-25f9-40d6-bb2c-623a37c424fd",
+            "track-018f045a-cd4d-4109-9b08-b7f85b944209"
+          ],
+          "activeSources": 0,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0.5632594227790833,
+            "rms": 0.25271897064654947
+          }
+        },
+        "frozen": {
+          "state": "paused",
+          "position": 0.33,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": "manual",
+          "boundTrackIds": [
+            "track-f039b013-25f9-40d6-bb2c-623a37c424fd",
+            "track-018f045a-cd4d-4109-9b08-b7f85b944209"
+          ],
+          "activeSources": 0,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0,
+            "rms": 0
+          }
+        },
+        "resumed": {
+          "state": "playing",
+          "position": 1.0586666666666664,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": null,
+          "boundTrackIds": [
+            "track-f039b013-25f9-40d6-bb2c-623a37c424fd",
+            "track-018f045a-cd4d-4109-9b08-b7f85b944209"
+          ],
+          "activeSources": 2,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0.5632421970367432,
+            "rms": 0.3513346202456899
+          }
+        },
+        "sought": {
+          "state": "playing",
+          "position": 1.6006666666666667,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": null,
+          "boundTrackIds": [
+            "track-f039b013-25f9-40d6-bb2c-623a37c424fd",
+            "track-018f045a-cd4d-4109-9b08-b7f85b944209"
+          ],
+          "activeSources": 2,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0.5632594227790833,
+            "rms": 0.32391384579655497
+          }
+        }
+      }
+    },
+    {
+      "name": "live-mixing-keeps-common-clock-and-other-stem-running-without-a-restart",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 1006,
+      "evidence": {
+        "before": {
+          "state": "playing",
+          "position": 0.26066666666666666,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": null,
+          "boundTrackIds": [
+            "track-306800d1-8b45-48c2-baff-48471048020f",
+            "track-9341ce86-2234-4a7c-9003-39b6195229fb"
+          ],
+          "activeSources": 2,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0.5632421970367432,
+            "rms": 0.3253493294391139
+          }
+        },
+        "one": {
+          "state": "playing",
+          "position": 0.4713333333333334,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": null,
+          "boundTrackIds": [
+            "track-306800d1-8b45-48c2-baff-48471048020f",
+            "track-9341ce86-2234-4a7c-9003-39b6195229fb"
+          ],
+          "activeSources": 2,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0.31999024748802185,
+            "rms": 0.22976431335161723
+          }
+        },
+        "silent": {
+          "state": "playing",
+          "position": 0.5806666666666667,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": null,
+          "boundTrackIds": [
+            "track-306800d1-8b45-48c2-baff-48471048020f",
+            "track-9341ce86-2234-4a7c-9003-39b6195229fb"
+          ],
+          "activeSources": 2,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0,
+            "rms": 0
+          }
+        },
+        "audible": {
+          "state": "playing",
+          "position": 0.5993333333333334,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": null,
+          "boundTrackIds": [
+            "track-306800d1-8b45-48c2-baff-48471048020f",
+            "track-9341ce86-2234-4a7c-9003-39b6195229fb"
+          ],
+          "activeSources": 2,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0.3199804723262787,
+            "rms": 0.14745371823099976
+          }
+        }
+      }
+    },
+    {
+      "name": "live-edit-guards-and-three-restarts-have-no-stale-sources-or-audible-tail",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 1266,
+      "evidence": [
+        {
+          "playing": {
+            "state": "playing",
+            "position": 0.11133333333333334,
+            "cycleIndex": 0,
+            "loading": false,
+            "ready": true,
+            "pauseReason": null,
+            "boundTrackIds": [
+              "track-e3b1f059-7ec3-4004-b362-1b083ce7c18d",
+              "track-0d669702-432f-46d8-af70-09ac910852c3"
+            ],
+            "activeSources": 2,
+            "sampleRate": 48000,
+            "pitchShiftCents": 0,
+            "output": {
+              "peak": 0.5632594227790833,
+              "rms": 0.3192903270456253
+            }
+          },
+          "guards": {
+            "rate": {
+              "name": "TracksError",
+              "code": "PAUSE_REQUIRED",
+              "message": "Поставь дорожки на паузу перед изменением фрагмента, цикла или скорости."
+            },
+            "clip": {
+              "name": "TracksError",
+              "code": "PAUSE_REQUIRED",
+              "message": "Поставь дорожки на паузу перед изменением фрагмента, цикла или скорости."
+            },
+            "loop": {
+              "name": "TracksError",
+              "code": "PAUSE_REQUIRED",
+              "message": "Поставь дорожки на паузу перед изменением фрагмента, цикла или скорости."
+            }
+          },
+          "stopped": {
+            "state": "stopped",
+            "position": 0,
+            "cycleIndex": 0,
+            "loading": false,
+            "ready": true,
+            "pauseReason": null,
+            "boundTrackIds": [
+              "track-e3b1f059-7ec3-4004-b362-1b083ce7c18d",
+              "track-0d669702-432f-46d8-af70-09ac910852c3"
+            ],
+            "activeSources": 0,
+            "sampleRate": 48000,
+            "pitchShiftCents": 0,
+            "output": {
+              "peak": 0,
+              "rms": 0
+            }
+          }
+        },
+        {
+          "playing": {
+            "state": "playing",
+            "position": 0.10066666666666663,
+            "cycleIndex": 0,
+            "loading": false,
+            "ready": true,
+            "pauseReason": null,
+            "boundTrackIds": [
+              "track-e3b1f059-7ec3-4004-b362-1b083ce7c18d",
+              "track-0d669702-432f-46d8-af70-09ac910852c3"
+            ],
+            "activeSources": 2,
+            "sampleRate": 48000,
+            "pitchShiftCents": 0,
+            "output": {
+              "peak": 0.5632594227790833,
+              "rms": 0.2971245343072571
+            }
+          },
+          "guards": {
+            "rate": {
+              "name": "TracksError",
+              "code": "PAUSE_REQUIRED",
+              "message": "Поставь дорожки на паузу перед изменением фрагмента, цикла или скорости."
+            },
+            "clip": {
+              "name": "TracksError",
+              "code": "PAUSE_REQUIRED",
+              "message": "Поставь дорожки на паузу перед изменением фрагмента, цикла или скорости."
+            },
+            "loop": {
+              "name": "TracksError",
+              "code": "PAUSE_REQUIRED",
+              "message": "Поставь дорожки на паузу перед изменением фрагмента, цикла или скорости."
+            }
+          },
+          "stopped": {
+            "state": "stopped",
+            "position": 0,
+            "cycleIndex": 0,
+            "loading": false,
+            "ready": true,
+            "pauseReason": null,
+            "boundTrackIds": [
+              "track-e3b1f059-7ec3-4004-b362-1b083ce7c18d",
+              "track-0d669702-432f-46d8-af70-09ac910852c3"
+            ],
+            "activeSources": 0,
+            "sampleRate": 48000,
+            "pitchShiftCents": 0,
+            "output": {
+              "peak": 0,
+              "rms": 0
+            }
+          }
+        },
+        {
+          "playing": {
+            "state": "playing",
+            "position": 0.11133333333333328,
+            "cycleIndex": 0,
+            "loading": false,
+            "ready": true,
+            "pauseReason": null,
+            "boundTrackIds": [
+              "track-e3b1f059-7ec3-4004-b362-1b083ce7c18d",
+              "track-0d669702-432f-46d8-af70-09ac910852c3"
+            ],
+            "activeSources": 2,
+            "sampleRate": 48000,
+            "pitchShiftCents": 0,
+            "output": {
+              "peak": 0.5632594227790833,
+              "rms": 0.3192903270456253
+            }
+          },
+          "guards": {
+            "rate": {
+              "name": "TracksError",
+              "code": "PAUSE_REQUIRED",
+              "message": "Поставь дорожки на паузу перед изменением фрагмента, цикла или скорости."
+            },
+            "clip": {
+              "name": "TracksError",
+              "code": "PAUSE_REQUIRED",
+              "message": "Поставь дорожки на паузу перед изменением фрагмента, цикла или скорости."
+            },
+            "loop": {
+              "name": "TracksError",
+              "code": "PAUSE_REQUIRED",
+              "message": "Поставь дорожки на паузу перед изменением фрагмента, цикла или скорости."
+            }
+          },
+          "stopped": {
+            "state": "stopped",
+            "position": 0,
+            "cycleIndex": 0,
+            "loading": false,
+            "ready": true,
+            "pauseReason": null,
+            "boundTrackIds": [
+              "track-e3b1f059-7ec3-4004-b362-1b083ce7c18d",
+              "track-0d669702-432f-46d8-af70-09ac910852c3"
+            ],
+            "activeSources": 0,
+            "sampleRate": 48000,
+            "pitchShiftCents": 0,
+            "output": {
+              "peak": 0,
+              "rms": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "live-finite-end-is-actual-common-end-not-short-stem-end-or-lookahead",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 1428,
+      "evidence": {
+        "afterShort": {
+          "state": "playing",
+          "position": 0.4713333333333333,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": null,
+          "boundTrackIds": [
+            "track-a9254d13-1637-4b2d-8948-f3a1f14583dc",
+            "track-a9906dd9-b5d2-4843-8a94-109198c58bae"
+          ],
+          "activeSources": 1,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0.31999024748802185,
+            "rms": 0.23256970155523113
+          }
+        },
+        "beforeEnd": {
+          "state": "playing",
+          "position": 0.9006666666666667,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": null,
+          "boundTrackIds": [
+            "track-a9254d13-1637-4b2d-8948-f3a1f14583dc",
+            "track-a9906dd9-b5d2-4843-8a94-109198c58bae"
+          ],
+          "activeSources": 1,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0.31999024748802185,
+            "rms": 0.21504779248480224
+          }
+        },
+        "finished": {
+          "state": "finished",
+          "position": 1,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": null,
+          "boundTrackIds": [
+            "track-a9254d13-1637-4b2d-8948-f3a1f14583dc",
+            "track-a9906dd9-b5d2-4843-8a94-109198c58bae"
+          ],
+          "activeSources": 0,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0.3199804723262787,
+            "rms": 0.15411516337508466
+          }
+        },
+        "quiet": {
+          "state": "finished",
+          "position": 1,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": null,
+          "boundTrackIds": [
+            "track-a9254d13-1637-4b2d-8948-f3a1f14583dc",
+            "track-a9906dd9-b5d2-4843-8a94-109198c58bae"
+          ],
+          "activeSources": 0,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0,
+            "rms": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "live-early-pause-and-disposal-cancel-voices-and-release-decoded-bindings",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 615,
+      "evidence": {
+        "early": {
+          "state": "paused",
+          "position": 0,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": "manual",
+          "boundTrackIds": [
+            "track-d03cf95e-25ed-4c5d-926e-d2c14af285e7",
+            "track-66b52c38-1e0b-4233-b920-74c4c3a747aa"
+          ],
+          "activeSources": 0,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0,
+            "rms": 0
+          }
+        },
+        "resumed": {
+          "state": "playing",
+          "position": 0.11933333333333333,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": true,
+          "pauseReason": null,
+          "boundTrackIds": [
+            "track-d03cf95e-25ed-4c5d-926e-d2c14af285e7",
+            "track-66b52c38-1e0b-4233-b920-74c4c3a747aa"
+          ],
+          "activeSources": 2,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0.5632594227790833,
+            "rms": 0.29708030954306425
+          }
+        },
+        "disposed": {
+          "state": "stopped",
+          "position": 0,
+          "cycleIndex": 0,
+          "loading": false,
+          "ready": false,
+          "pauseReason": null,
+          "boundTrackIds": [],
+          "activeSources": 0,
+          "sampleRate": 48000,
+          "pitchShiftCents": 0,
+          "output": {
+            "peak": 0.5632594227790833,
+            "rms": 0.29708030954306425
+          }
+        },
+        "error": {
+          "name": "TracksError",
+          "code": "DISPOSED",
+          "message": "Проигрыватель дорожек уже закрыт."
+        }
+      }
+    },
+    {
+      "name": "ui-local-file-selection-shows-shared-material-and-clear-scope-limits",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1055,
+      "evidence": {
+        "loadStatus": "Готово 2 из 2 дорожек",
+        "manifest": {
+          "format": "bass-study-tracks",
+          "schemaVersion": 1,
+          "id": "tracks-5a875aa7-9e34-4595-86ab-c89a34524de9",
+          "tracks": [
+            {
+              "id": "track-bd7da93e-0907-4bbc-92c3-de3a368e90db",
+              "name": "long.wav",
+              "size": 192044,
+              "lastModified": 1794141300792,
+              "sha256": "20aebc28123952dbbb1d98a1d9bc99e79a697e99fb275296735a11a354c43782",
+              "decoded": {
+                "duration": 2,
+                "frames": 96000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            },
+            {
+              "id": "track-10958b28-67e7-4731-9795-f38167df0b8e",
+              "name": "short.wav",
+              "size": 72044,
+              "lastModified": 1794141300797,
+              "sha256": "cee013c965e418b43c14cd4d12b07899fa6031d1e05c8d3a0db79d0c0d6b8d6a",
+              "decoded": {
+                "duration": 0.75,
+                "frames": 36000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            }
+          ],
+          "clip": {
+            "from": 0,
+            "to": 2
+          },
+          "loop": false,
+          "rate": 1
+        },
+        "externalUploadRequests": 0
+      }
+    },
+    {
+      "name": "ui-ab-loop-and-varispeed-are-explicit-validatable-and-persisted",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1632,
+      "evidence": {
+        "manifest": {
+          "format": "bass-study-tracks",
+          "schemaVersion": 1,
+          "id": "tracks-290cf89e-63d9-42bc-8ae7-7e54b43de1b4",
+          "tracks": [
+            {
+              "id": "track-7bdc3f7d-cb07-4579-b331-e73e8bfb8113",
+              "name": "long.wav",
+              "size": 192044,
+              "lastModified": 1794141301928,
+              "sha256": "20aebc28123952dbbb1d98a1d9bc99e79a697e99fb275296735a11a354c43782",
+              "decoded": {
+                "duration": 2,
+                "frames": 96000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            },
+            {
+              "id": "track-e26397da-e327-492c-bffd-6ecf359bc8a3",
+              "name": "short.wav",
+              "size": 72044,
+              "lastModified": 1794141301932,
+              "sha256": "cee013c965e418b43c14cd4d12b07899fa6031d1e05c8d3a0db79d0c0d6b8d6a",
+              "decoded": {
+                "duration": 0.75,
+                "frames": 36000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            }
+          ],
+          "clip": {
+            "from": 0,
+            "to": 2
+          },
+          "loop": true,
+          "rate": 1
+        },
+        "geometry": {
+          "width": 390,
+          "scrollWidth": 390
+        }
+      }
+    },
+    {
+      "name": "ui-live-mute-seek-pause-and-module-leave-preserve-one-common-timeline",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2254,
+      "evidence": {
+        "before": 0.21,
+        "afterMute": 0.45,
+        "paused": 1.08,
+        "savedMix": [
+          {
+            "volume": 0.8,
+            "muted": true
+          },
+          {
+            "volume": 0.25,
+            "muted": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "ui-reload-keeps-only-metadata-and-rebinds-renamed-source-by-sha-not-name",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1617,
+      "evidence": {
+        "metadataUnchanged": {
+          "format": "bass-study-tracks",
+          "schemaVersion": 1,
+          "id": "tracks-32057be1-4bfa-4d51-bca6-ce43ab428a8f",
+          "tracks": [
+            {
+              "id": "track-236f978a-fd02-4fc3-9665-1edd4b9acf39",
+              "name": "long.wav",
+              "size": 192044,
+              "lastModified": 1794141305822,
+              "sha256": "20aebc28123952dbbb1d98a1d9bc99e79a697e99fb275296735a11a354c43782",
+              "decoded": {
+                "duration": 2,
+                "frames": 96000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            },
+            {
+              "id": "track-8f42edca-0f8f-478a-b884-6065509eef28",
+              "name": "short.wav",
+              "size": 72044,
+              "lastModified": 1794141305827,
+              "sha256": "cee013c965e418b43c14cd4d12b07899fa6031d1e05c8d3a0db79d0c0d6b8d6a",
+              "decoded": {
+                "duration": 0.75,
+                "frames": 36000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            }
+          ],
+          "clip": {
+            "from": 0,
+            "to": 2
+          },
+          "loop": false,
+          "rate": 1
+        },
+        "wrongContentRejected": true,
+        "renamedExactFilesAccepted": true,
+        "originalFilenameNotAnIdentityKey": true
+      }
+    },
+    {
+      "name": "ui-json-restore-stops-playback-and-requires-source-files-again",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1509,
+      "evidence": {
+        "metadataOnlyJson": true,
+        "restoredManifest": {
+          "format": "bass-study-tracks",
+          "schemaVersion": 1,
+          "id": "tracks-285711f3-aa8c-421b-9f77-e01161f9ebb6",
+          "tracks": [
+            {
+              "id": "track-74fe6bb7-597b-4f23-9918-1f64b0d3d665",
+              "name": "long.wav",
+              "size": 192044,
+              "lastModified": 1794141307404,
+              "sha256": "20aebc28123952dbbb1d98a1d9bc99e79a697e99fb275296735a11a354c43782",
+              "decoded": {
+                "duration": 2,
+                "frames": 96000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            },
+            {
+              "id": "track-1f7de28a-8b74-4efa-8d0f-0ddad82c3173",
+              "name": "short.wav",
+              "size": 72044,
+              "lastModified": 1794141307409,
+              "sha256": "cee013c965e418b43c14cd4d12b07899fa6031d1e05c8d3a0db79d0c0d6b8d6a",
+              "decoded": {
+                "duration": 0.75,
+                "frames": 36000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            }
+          ],
+          "clip": {
+            "from": 0.25,
+            "to": 2
+          },
+          "loop": true,
+          "rate": 1
+        },
+        "restoreStoppedAndDiscardedBuffers": true,
+        "bulkRebindSucceeded": true
+      }
+    },
+    {
+      "name": "ui-errors-and-explicit-load-cancellation-preserve-the-previous-ready-set",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1617,
+      "evidence": {
+        "previousManifest": {
+          "format": "bass-study-tracks",
+          "schemaVersion": 1,
+          "id": "tracks-6660cac9-dce2-490d-9506-8e2c296884f2",
+          "tracks": [
+            {
+              "id": "track-13d8ad93-3da9-403d-a6bd-20a0f3058e4a",
+              "name": "long.wav",
+              "size": 192044,
+              "lastModified": 1794141309029,
+              "sha256": "20aebc28123952dbbb1d98a1d9bc99e79a697e99fb275296735a11a354c43782",
+              "decoded": {
+                "duration": 2,
+                "frames": 96000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            },
+            {
+              "id": "track-88f507bd-77c6-4451-97c2-354a3aecf510",
+              "name": "short.wav",
+              "size": 72044,
+              "lastModified": 1794141309034,
+              "sha256": "cee013c965e418b43c14cd4d12b07899fa6031d1e05c8d3a0db79d0c0d6b8d6a",
+              "decoded": {
+                "duration": 0.75,
+                "frames": 36000,
+                "sampleRate": 48000,
+                "channels": 1
+              },
+              "volume": 0.8,
+              "muted": false
+            }
+          ],
+          "clip": {
+            "from": 0,
+            "to": 2
+          },
+          "loop": false,
+          "rate": 1
+        },
+        "nativeDecodeReallyCompleted": true,
+        "cancellationMethod": "Real UI Cancel after actual native decode; test-only async delivery gate, no fake decoded buffer or exception.",
+        "preservedAfterCorruptionCountAndCancellation": true
+      }
+    },
+    {
+      "name": "native-hidden-tab-pauses-real-tracks-and-needs-explicit-resume",
+      "scope": "native",
+      "status": "passed",
+      "durationMs": 2819,
+      "evidence": {
+        "realNativeVisibilityTransition": true,
+        "pausePosition": 0.33,
+        "noSyntheticVisibilityEvent": true,
+        "explicitResumeRequired": true
+      }
+    }
+  ],
+  "externalRequests": [],
+  "pageErrors": [],
+  "cleanupErrors": [],
+  "passed": 19,
+  "failed": 0,
+  "status": "passed"
+}

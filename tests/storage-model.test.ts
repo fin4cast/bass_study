@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import v1BackupJson from './fixtures/v1-backup.json?raw';
 import v2BackupJson from './fixtures/v2-backup.json?raw';
 import v3BackupJson from './fixtures/v3-backup.json?raw';
+import v4BackupJson from './fixtures/v4-backup.json?raw';
+import { createTracksManifest } from '../src/tracks';
 import { beginEarListen, completeEarListen, revealEarAnswer, skipEarQuestion, startEarSession, submitEarAnswer } from '../src/ear';
 import { advanceRouteSession, nextRouteStep, pauseRouteSession, resumeRouteSession, startRouteSession, stopRouteSession } from '../src/route';
 import { createMemoryStudyStore } from '../src/storage/memory';
@@ -18,6 +20,37 @@ const positions = annotatePositions([getPosition('E', 0), getPosition('E', 12)],
 const context = { scope: 'structure' as const, root: 'A', structureId: 'minor-pentatonic' as const, positionIds: ['E:0', 'E:12'] };
 const metadata = { id: 'synthetic-screen', occurredAt: '2026-11-08T09:00:00.000Z', timeZone: 'Europe/Moscow' };
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+
+describe('schema5: переносимые метаданные дорожек и выбор входа без аудиоданных', () => {
+  it('мигрирует буквальную v4 с сохранением всех четырёх источников и пресетов', () => {
+    const original = JSON.parse(v4BackupJson);
+    const migrated = parseBackup(v4BackupJson);
+    expect(migrated.schemaVersion).toBe(5);
+    expect(migrated.history).toEqual(original.history);
+    expect(migrated.preferences).toEqual({ ...original.preferences, tracks: null, input: { deviceId: '' } });
+    expect(migrated.presets).toEqual(original.presets.map((preset: any) => ({ ...preset, preferences: { ...preset.preferences, tracks: null, input: { deviceId: '' } } })));
+    expect(parseBackup(JSON.stringify(migrated))).toEqual(migrated);
+  });
+  it('переносит cues, SHA и mixer, сохраняя выбранный вход только как ID', () => {
+    const tracks = createTracksManifest({ id: 'local-set', tracks: [{ id: 'stem-1', name: 'bass.wav', size: 40044, lastModified: 1234, sha256: 'a'.repeat(64), decoded: { duration: 1, frames: 20000, sampleRate: 20000, channels: 1 }, volume: .65, muted: true }] });
+    const preferences = validatePreferences({ ...DEFAULT_PREFERENCES, activeModule: 'tracks', tracks: { ...tracks, clip: { from: .1, to: .9 }, loop: true, rate: .75 }, input: { deviceId: 'opaque-device-id' } });
+    const snapshot = validateSnapshot({ ...emptySnapshot(), preferences });
+    expect(parseBackup(JSON.stringify(snapshot))).toEqual(snapshot);
+    expect(snapshot.preferences.tracks?.tracks[0].sha256).toBe('a'.repeat(64));
+    expect(validatePreferences({ ...preferences, activeModule: 'input' }).input.deviceId).toBe('opaque-device-id');
+    for (const mutate of [(value: any) => { value.tracks.tracks[0].pcm = [0, 1]; }, (value: any) => { value.input.stream = {}; }, (value: any) => { value.input.deviceId = 'x'.repeat(2049); }, (value: any) => { value.tracks.clip.to = .1; }]) {
+      const bad = clone(preferences); mutate(bad); expect(() => validatePreferences(bad)).toThrow();
+    }
+  });
+  it('не маскирует поля/разделы новой версии под v4 и отклоняет будущую v6', () => {
+    const original = JSON.parse(v4BackupJson);
+    const extra = clone(original); extra.preferences.tracks = null;
+    expect(() => parseBackup(JSON.stringify(extra))).toThrow(/неизвестные/);
+    const newModule = clone(original); newModule.preferences.activeModule = 'input';
+    expect(() => parseBackup(JSON.stringify(newModule))).toThrow(/Раздел версии 4/);
+    expect(() => parseBackup(JSON.stringify({ ...emptySnapshot(), schemaVersion: 6 }))).toThrow(/версия/);
+  });
+});
 function quiz(mode: QuizMode = 'name-note', count = 1) { return startQuiz({ positions, structure, mode, scope: 'structure', seed: 100 }, count); }
 function completed() { return makeScreenHistory(nextQuestion(submitAnswer(quiz(), 'E', 350)), metadata)!; }
 function manual() {
@@ -28,15 +61,15 @@ function earSession() { return startEarSession({ root: 'A', quality: 'minor', co
 function earHeard() { return completeEarListen(beginEarListen(earSession(), 0, 120), 1500); }
 
 describe('schema4: настройки сопровождения и буквальная проверенная копияv3', () => {
-  it('мигрирует все4источника истории без изменения событий/времён/целей и добавляет только harmony', () => {
+  it('мигрирует все4источника истории без изменения событий/времён/целей и добавляет harmony и пустые настройки дорожек/входа', () => {
     const original = JSON.parse(v3BackupJson);
     const before = JSON.stringify(original);
     const migrated = parseBackup(v3BackupJson);
-    expect(migrated.schemaVersion).toBe(4);
-    expect(migrated.preferences).toEqual({ ...original.preferences, harmony: { bpm: 80, countIn: true, repeat: 'once', bassVolume: 70, padVolume: 45, clickVolume: 50, bassMuted: false, padMuted: false, clickMuted: false } });
+    expect(migrated.schemaVersion).toBe(5);
+    expect(migrated.preferences).toEqual({ ...original.preferences, tracks: null, input: { deviceId: '' }, harmony: { bpm: 80, countIn: true, repeat: 'once', bassVolume: 70, padVolume: 45, clickVolume: 50, bassMuted: false, padMuted: false, clickMuted: false } });
     expect(migrated.history).toEqual(original.history);
     expect(new Set(migrated.history.map(entry => entry.result.kind))).toEqual(new Set(['screen', 'manual', 'ear', 'route']));
-    expect(migrated.presets).toEqual(original.presets.map((preset: any) => ({ ...preset, preferences: { ...preset.preferences, harmony: DEFAULT_PREFERENCES.harmony } })));
+    expect(migrated.presets).toEqual(original.presets.map((preset: any) => ({ ...preset, preferences: { ...preset.preferences, tracks: null, input: { deviceId: '' }, harmony: DEFAULT_PREFERENCES.harmony } })));
     expect(parseBackup(JSON.stringify(migrated))).toEqual(migrated);
     expect(JSON.stringify(original)).toBe(before);
   });
@@ -51,9 +84,9 @@ describe('schema4: настройки сопровождения и буквал
     ]) { const malformed = clone(preferences); change(malformed); expect(() => validatePreferences(malformed)).toThrow(); }
   });
 
-  it('не принимает новые поля подстарой версией и неизвестную будущую5', () => {
+  it('не принимает новые поля подстарой версией и неизвестную будущую6', () => {
     const original = JSON.parse(v3BackupJson);
-    expect(() => parseBackup(JSON.stringify({ ...original, schemaVersion: 5 }))).toThrow(/версия/);
+    expect(() => parseBackup(JSON.stringify({ ...original, schemaVersion: 6 }))).toThrow(/версия/);
     const withNewField = clone(original); withNewField.preferences.harmony = DEFAULT_PREFERENCES.harmony;
     expect(() => parseBackup(JSON.stringify(withNewField))).toThrow(/неизвестные/);
     const withNewModule = clone(original); withNewModule.preferences.activeModule = 'harmony';
@@ -112,14 +145,14 @@ describe('schema3: слуховое происхождение и перенос
   it('добавляет настройки раздела/слуха ко всем v2 пресетам, сохраняя исходную историю точно', () => {
     const original = JSON.parse(v2BackupJson);
     const migrated = parseBackup(v2BackupJson);
-    expect(migrated.schemaVersion).toBe(4);
-    expect(migrated.preferences).toEqual({ ...original.preferences, activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 }, harmony: DEFAULT_PREFERENCES.harmony });
+    expect(migrated.schemaVersion).toBe(5);
+    expect(migrated.preferences).toEqual({ ...original.preferences, activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 }, tracks: null, input: { deviceId: '' }, harmony: DEFAULT_PREFERENCES.harmony });
     expect(migrated.history).toEqual(original.history);
-    expect(migrated.presets).toEqual(original.presets.map((preset: any) => ({ ...preset, preferences: { ...preset.preferences, activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 }, harmony: DEFAULT_PREFERENCES.harmony } })));
+    expect(migrated.presets).toEqual(original.presets.map((preset: any) => ({ ...preset, preferences: { ...preset.preferences, activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 }, tracks: null, input: { deviceId: '' }, harmony: DEFAULT_PREFERENCES.harmony } })));
     expect(parseBackup(JSON.stringify(migrated))).toEqual(migrated);
     const bad = JSON.parse(v2BackupJson); bad.preferences.activeModule = 'ear';
     expect(() => parseBackup(JSON.stringify(bad))).toThrow(/неизвестные/);
-    expect(() => parseBackup(JSON.stringify({ ...original, schemaVersion: 5 }))).toThrow(/версия/);
+    expect(() => parseBackup(JSON.stringify({ ...original, schemaVersion: 6 }))).toThrow(/версия/);
   });
 
   it('проверяет обязательные настройки слухового раздела', () => {
@@ -227,7 +260,7 @@ describe('явное временное хранилище', () => {
 
   it('сериализует соседние записи без потери истории и не раскрывает изменяемые ссылки', async () => {
     const store = createMemoryStudyStore();
-    expect(await store.open()).toEqual({ name: 'bass-study-memory', version: 4 });
+    expect(await store.open()).toEqual({ name: 'bass-study-memory', version: 5 });
     const preferences = { ...DEFAULT_PREFERENCES, player: { ...DEFAULT_PREFERENCES.player, bpm: 99 } };
     await Promise.all([store.addHistory(completed()), store.savePreferences(preferences), store.addHistory(manual())]);
     const snapshot = await store.readSnapshot();
@@ -462,7 +495,7 @@ describe('достоверность и переносимость копии', 
   it('отвергает лишние, повреждённые и дублированные записи до записи в базу', () => {
     expect(() => parseBackup('{broken')).toThrow();
     expect(() => validateSnapshot({ ...emptySnapshot(), format: 'other' })).toThrow();
-    expect(() => validateSnapshot({ ...emptySnapshot(), schemaVersion: 5 })).toThrow();
+    expect(() => validateSnapshot({ ...emptySnapshot(), schemaVersion: 6 })).toThrow();
     const entry: HistoryEntry = completed();
     expect(() => validateSnapshot({ ...emptySnapshot(), history: [entry, entry] })).toThrow(/повторяются/);
     const wrong: any = clone(manual()); wrong.result.accuracy = 100;
@@ -476,7 +509,7 @@ describe('schema2: точная высота, интервалы и миграц
     const old = JSON.parse(v1BackupJson);
     const inputBefore = JSON.stringify(old);
     const migrated = parseBackup(v1BackupJson);
-    expect(migrated.schemaVersion).toBe(4);
+    expect(migrated.schemaVersion).toBe(5);
     expect(migrated.preferences.training.intervalDegree).toBe('#4');
     expect(migrated.presets[0]?.preferences.training.intervalDegree).toBe('#4');
     const legacyScreen = old.history.find((entry: any) => entry.id === 'legacy-screen');
@@ -495,7 +528,7 @@ describe('schema2: точная высота, интервалы и миграц
       (value: any) => { value.history[0].result.questions[0].targetMidi = null; },
       (value: any) => { value.history[0].result.questions[0].errors = 0; },
       (value: any) => { value.preferences.training.quizMode = 'find-pitch'; },
-      (value: any) => { value.schemaVersion = 5; },
+      (value: any) => { value.schemaVersion = 6; },
     ]) {
       const malformed = JSON.parse(v1BackupJson); change(malformed);
       expect(() => parseBackup(JSON.stringify(malformed))).toThrow();

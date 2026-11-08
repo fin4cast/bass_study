@@ -361,6 +361,7 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
   animationFrame = requestAnimationFrame(frame);
   return {
     getPreferences,
+    getDuration() { return field<HTMLSelectElement>('duration').value as AppPreferences['player']['duration']; },
     applyPreferences(preferences: AppPreferences['player']) {
       measurePractice(player.getSnapshot());
       player.stop();

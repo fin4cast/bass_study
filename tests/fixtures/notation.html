@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru"><meta charset="utf-8"><title>R018 independent notation fixture</title>
+<style>body{font-family:"Segoe UI",sans-serif;margin:8px}button{padding:8px;margin:6px}</style>
+<body><div id="notation"></div><button id="start">Старт одного общего плеера</button><button id="pause">Пауза</button><button id="resume">Продолжить</button><button id="stop">Стоп</button>
+<script type="module">
+  import { mountNotation } from '/src/ui/notation.ts';
+  import { annotatePositions, createStructure, getPosition, getPositions } from '/src/music/index.ts';
+  const structure = createStructure('C', 'major');
+  const annotated = positions => annotatePositions(positions, structure);
+  const spelled = (string, fret, noteName) => ({ ...annotated([getPosition(string, fret)])[0], noteName });
+  function positions(name) {
+    if (name === 'basic') return annotated([getPosition('E', 0), getPosition('E', 5), getPosition('A', 0)]);
+    if (name === 'enharmonic') return [spelled('A', 3, 'B#'), spelled('E', 7, 'Cb')];
+    if (name === 'accidentals') return [spelled('A', 4, 'C#'), spelled('A', 4, 'C#'), spelled('A', 3, 'C'), spelled('A', 3, 'C'), spelled('A', 4, 'C#')];
+    if (name === 'extremes') return annotated(getPositions({ strings: ['E', 'A', 'D', 'G'], fretMin: 0, fretMax: 24 }));
+    if (name === 'repeated') return annotated([getPosition('E', 0), getPosition('E', 1), getPosition('E', 0), getPosition('E', 2)]);
+    if (name === 'chromatic') return annotated([getPosition('E', 0), getPosition('E', 1), getPosition('E', 2), getPosition('E', 3)]);
+    if (name === 'rhythm') return annotated(Array.from({ length: 17 }, () => getPosition('E', 0)));
+    if (name === 'empty') return [];
+    throw new Error('Unknown fixturecase.');
+  }
+  let data = { positions: positions('basic'), duration: 'quarter' };
+  const selections = [];
+  const view = mountNotation(document.getElementById('notation'), () => data, { onSelect: (index, positionId) => selections.push({ index, positionId }) });
+  let player = null; let frame = 0;
+  const fixture = { ready: true, view, selections, playback: {}, action: null,
+    async load(name, duration = 'quarter', visible = true) { data = { positions: positions(name), duration }; view.setVisible(visible); await view.refreshContext(); },
+    snapshot: () => player?.getSnapshot() ?? null,
+  };
+  window.p7notation = fixture;
+  function renderFrame() {
+    if (player) { const current = player.getSnapshot(); view.setActiveIndex(['running', 'finishing'].includes(current.state) && current.phase === 'practice' ? current.noteIndex : null); }
+    frame = requestAnimationFrame(renderFrame);
+  }
+  for (const name of ['start', 'pause', 'resume', 'stop']) document.getElementById(name).addEventListener('click', async () => {
+    fixture.action = { name, done: false, error: null };
+    try {
+      if (!player) { const { createPlayer } = await import('/src/audio/engine.ts'); player = createPlayer(); renderFrame(); }
+      if (name === 'start') await player.start({ notes: data.positions, duration: data.duration, bpm: 120, countIn: false, repeat: 'infinite', ...fixture.playback });
+      else if (name === 'pause') player.pause('manual'); else await player[name]();
+    } catch (error) { fixture.action.error = error.message; }
+    finally { fixture.action.done = true; }
+  });
+  window.addEventListener('pagehide', () => { cancelAnimationFrame(frame); view.dispose(); player?.dispose(); }, { once: true });
+</script></body></html>

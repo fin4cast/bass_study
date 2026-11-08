@@ -1,0 +1,4770 @@
+{
+  "generatedAt": "2026-11-08T12:28:20.592Z",
+  "platform": "win32",
+  "architecture": "x64",
+  "node": "v24.18.0",
+  "browserChannel": "msedge",
+  "browserVersion": "157.0.4341.42",
+  "origin": "http://localhost:4173",
+  "fixtureOrigin": "http://127.0.0.1:4182",
+  "scope": "P5 native IndexedDB, real transaction abort and browser quota override, browser restart, backup/restore and actual product UI; memory fallback separately labelled.",
+  "networkIsolation": "Clean Edge contexts/profiles, cache disabled, non-loopback page HTTP requests blocked. No user profile, physical disk filling or Windows NIC changes.",
+  "staticServer": {
+    "reuseRequested": true,
+    "owned": false,
+    "mode": "external-reused",
+    "indexVerifiedByteForByte": true,
+    "restartAllowed": false,
+    "shutdownAllowed": false
+  },
+  "checks": [
+    {
+      "name": "native-indexeddb-schema-preferences-presets-and-distinct-results",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 644,
+      "evidence": {
+        "schema": {
+          "name": "bass-study",
+          "version": 5,
+          "stores": [
+            "history",
+            "preferences",
+            "presets"
+          ]
+        },
+        "state": {
+          "format": "bass-study-backup",
+          "schemaVersion": 5,
+          "preferences": {
+            "activeModule": "foundation",
+            "tracks": null,
+            "input": {
+              "deviceId": ""
+            },
+            "harmony": {
+              "bpm": 80,
+              "countIn": true,
+              "repeat": "once",
+              "bassVolume": 70,
+              "padVolume": 45,
+              "clickVolume": 50,
+              "bassMuted": false,
+              "padMuted": false,
+              "clickMuted": false
+            },
+            "ear": {
+              "root": "A",
+              "quality": "minor",
+              "count": 10,
+              "bpm": 80
+            },
+            "study": {
+              "root": "C",
+              "structureId": "major",
+              "labelMode": "degrees",
+              "strings": [
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 3
+            },
+            "training": {
+              "mode": "sequence",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "chromatic",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 96,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": false,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [
+            {
+              "id": "fixture-preset-a",
+              "name": "Нижняя струна",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "C",
+                  "structureId": "major",
+                  "labelMode": "degrees",
+                  "strings": [
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 3
+                },
+                "training": {
+                  "mode": "sequence",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "chromatic",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 96,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": false,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            },
+            {
+              "id": "fixture-preset-b",
+              "name": "Исходная область",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "labelMode": "notes",
+                  "strings": [
+                    "G",
+                    "D",
+                    "A",
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 12
+                },
+                "training": {
+                  "mode": "study",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "structure",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 80,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": true,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            }
+          ],
+          "history": [
+            {
+              "id": "fixture-manual",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 72,
+                "durationMs": 300000,
+                "note": "Ручная отметка; не измеренная точность.",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "fixture-screen",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 100,
+                "mode": "name-note",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                },
+                "plannedCount": 1,
+                "questions": [
+                  {
+                    "questionId": "q-19c8c22-name-note-E:12",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "5"
+                    },
+                    "targetMidi": null,
+                    "selectedPositionIds": [],
+                    "attempts": 2,
+                    "errors": 1,
+                    "firstAnswer": "F",
+                    "firstResponseMs": 350,
+                    "completionMs": 600,
+                    "firstAttemptCorrect": false,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": false,
+                    "corrected": true,
+                    "outcome": "corrected",
+                    "answerEvents": [
+                      {
+                        "answer": "F",
+                        "elapsedMs": 350,
+                        "correct": false
+                      },
+                      {
+                        "answer": "E",
+                        "elapsedMs": 600,
+                        "correct": true
+                      }
+                    ],
+                    "targetPositionId": "E:12"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "native-preferences-queue-preserves-concurrent-history-and-presets",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 487,
+      "evidence": {
+        "format": "bass-study-backup",
+        "schemaVersion": 5,
+        "preferences": {
+          "activeModule": "foundation",
+          "tracks": null,
+          "input": {
+            "deviceId": ""
+          },
+          "harmony": {
+            "bpm": 80,
+            "countIn": true,
+            "repeat": "once",
+            "bassVolume": 70,
+            "padVolume": 45,
+            "clickVolume": 50,
+            "bassMuted": false,
+            "padMuted": false,
+            "clickMuted": false
+          },
+          "ear": {
+            "root": "A",
+            "quality": "minor",
+            "count": 10,
+            "bpm": 80
+          },
+          "study": {
+            "root": "C",
+            "structureId": "major",
+            "labelMode": "degrees",
+            "strings": [
+              "E"
+            ],
+            "fretMin": 0,
+            "fretMax": 3
+          },
+          "training": {
+            "mode": "sequence",
+            "quizMode": "name-note",
+            "scope": "structure",
+            "intervalDegree": "#4",
+            "count": 10,
+            "pattern": "ascending",
+            "sequenceScope": "chromatic",
+            "reviewPositionIds": []
+          },
+          "player": {
+            "bpm": 107,
+            "duration": "eighth",
+            "repeat": "once",
+            "countIn": false,
+            "showPulse": true,
+            "from": null,
+            "to": null,
+            "ladderStart": 60,
+            "ladderEnd": 100,
+            "ladderStep": 5,
+            "ladderRepeats": 2,
+            "metronome": true,
+            "metronomeMode": "all",
+            "subdivision": "quarter",
+            "bassVolume": 70,
+            "clickVolume": 50
+          }
+        },
+        "presets": [
+          {
+            "id": "fixture-preset-a",
+            "name": "Нижняя струна",
+            "createdAt": "2026-11-08T22:30:00.000Z",
+            "preferences": {
+              "activeModule": "foundation",
+              "tracks": null,
+              "input": {
+                "deviceId": ""
+              },
+              "harmony": {
+                "bpm": 80,
+                "countIn": true,
+                "repeat": "once",
+                "bassVolume": 70,
+                "padVolume": 45,
+                "clickVolume": 50,
+                "bassMuted": false,
+                "padMuted": false,
+                "clickMuted": false
+              },
+              "ear": {
+                "root": "A",
+                "quality": "minor",
+                "count": 10,
+                "bpm": 80
+              },
+              "study": {
+                "root": "C",
+                "structureId": "major",
+                "labelMode": "degrees",
+                "strings": [
+                  "E"
+                ],
+                "fretMin": 0,
+                "fretMax": 3
+              },
+              "training": {
+                "mode": "sequence",
+                "quizMode": "name-note",
+                "scope": "structure",
+                "intervalDegree": "#4",
+                "count": 10,
+                "pattern": "ascending",
+                "sequenceScope": "chromatic",
+                "reviewPositionIds": []
+              },
+              "player": {
+                "bpm": 96,
+                "duration": "eighth",
+                "repeat": "once",
+                "countIn": false,
+                "showPulse": true,
+                "from": null,
+                "to": null,
+                "ladderStart": 60,
+                "ladderEnd": 100,
+                "ladderStep": 5,
+                "ladderRepeats": 2,
+                "metronome": true,
+                "metronomeMode": "all",
+                "subdivision": "quarter",
+                "bassVolume": 70,
+                "clickVolume": 50
+              }
+            }
+          },
+          {
+            "id": "fixture-preset-b",
+            "name": "Исходная область",
+            "createdAt": "2026-11-08T22:30:00.000Z",
+            "preferences": {
+              "activeModule": "foundation",
+              "tracks": null,
+              "input": {
+                "deviceId": ""
+              },
+              "harmony": {
+                "bpm": 80,
+                "countIn": true,
+                "repeat": "once",
+                "bassVolume": 70,
+                "padVolume": 45,
+                "clickVolume": 50,
+                "bassMuted": false,
+                "padMuted": false,
+                "clickMuted": false
+              },
+              "ear": {
+                "root": "A",
+                "quality": "minor",
+                "count": 10,
+                "bpm": 80
+              },
+              "study": {
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "labelMode": "notes",
+                "strings": [
+                  "G",
+                  "D",
+                  "A",
+                  "E"
+                ],
+                "fretMin": 0,
+                "fretMax": 12
+              },
+              "training": {
+                "mode": "study",
+                "quizMode": "name-note",
+                "scope": "structure",
+                "intervalDegree": "#4",
+                "count": 10,
+                "pattern": "ascending",
+                "sequenceScope": "structure",
+                "reviewPositionIds": []
+              },
+              "player": {
+                "bpm": 80,
+                "duration": "eighth",
+                "repeat": "once",
+                "countIn": true,
+                "showPulse": true,
+                "from": null,
+                "to": null,
+                "ladderStart": 60,
+                "ladderEnd": 100,
+                "ladderStep": 5,
+                "ladderRepeats": 2,
+                "metronome": true,
+                "metronomeMode": "all",
+                "subdivision": "quarter",
+                "bassVolume": 70,
+                "clickVolume": 50
+              }
+            }
+          }
+        ],
+        "history": [
+          {
+            "id": "concurrent-0",
+            "occurredAt": "2026-11-08T22:30:00.000Z",
+            "timeZone": "Europe/Moscow",
+            "localDate": "2026-11-09",
+            "result": {
+              "kind": "manual",
+              "source": "self-report",
+              "comfortableBpm": 72,
+              "durationMs": 300000,
+              "note": "Ручная отметка; не измеренная точность.",
+              "context": {
+                "scope": "structure",
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "positionIds": [
+                  "E:0",
+                  "E:12"
+                ]
+              }
+            }
+          },
+          {
+            "id": "concurrent-1",
+            "occurredAt": "2026-11-08T22:30:00.000Z",
+            "timeZone": "Europe/Moscow",
+            "localDate": "2026-11-09",
+            "result": {
+              "kind": "manual",
+              "source": "self-report",
+              "comfortableBpm": 72,
+              "durationMs": 300000,
+              "note": "Ручная отметка; не измеренная точность.",
+              "context": {
+                "scope": "structure",
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "positionIds": [
+                  "E:0",
+                  "E:12"
+                ]
+              }
+            }
+          },
+          {
+            "id": "concurrent-2",
+            "occurredAt": "2026-11-08T22:30:00.000Z",
+            "timeZone": "Europe/Moscow",
+            "localDate": "2026-11-09",
+            "result": {
+              "kind": "manual",
+              "source": "self-report",
+              "comfortableBpm": 72,
+              "durationMs": 300000,
+              "note": "Ручная отметка; не измеренная точность.",
+              "context": {
+                "scope": "structure",
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "positionIds": [
+                  "E:0",
+                  "E:12"
+                ]
+              }
+            }
+          },
+          {
+            "id": "concurrent-3",
+            "occurredAt": "2026-11-08T22:30:00.000Z",
+            "timeZone": "Europe/Moscow",
+            "localDate": "2026-11-09",
+            "result": {
+              "kind": "manual",
+              "source": "self-report",
+              "comfortableBpm": 72,
+              "durationMs": 300000,
+              "note": "Ручная отметка; не измеренная точность.",
+              "context": {
+                "scope": "structure",
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "positionIds": [
+                  "E:0",
+                  "E:12"
+                ]
+              }
+            }
+          },
+          {
+            "id": "concurrent-4",
+            "occurredAt": "2026-11-08T22:30:00.000Z",
+            "timeZone": "Europe/Moscow",
+            "localDate": "2026-11-09",
+            "result": {
+              "kind": "manual",
+              "source": "self-report",
+              "comfortableBpm": 72,
+              "durationMs": 300000,
+              "note": "Ручная отметка; не измеренная точность.",
+              "context": {
+                "scope": "structure",
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "positionIds": [
+                  "E:0",
+                  "E:12"
+                ]
+              }
+            }
+          },
+          {
+            "id": "concurrent-5",
+            "occurredAt": "2026-11-08T22:30:00.000Z",
+            "timeZone": "Europe/Moscow",
+            "localDate": "2026-11-09",
+            "result": {
+              "kind": "manual",
+              "source": "self-report",
+              "comfortableBpm": 72,
+              "durationMs": 300000,
+              "note": "Ручная отметка; не измеренная точность.",
+              "context": {
+                "scope": "structure",
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "positionIds": [
+                  "E:0",
+                  "E:12"
+                ]
+              }
+            }
+          },
+          {
+            "id": "concurrent-6",
+            "occurredAt": "2026-11-08T22:30:00.000Z",
+            "timeZone": "Europe/Moscow",
+            "localDate": "2026-11-09",
+            "result": {
+              "kind": "manual",
+              "source": "self-report",
+              "comfortableBpm": 72,
+              "durationMs": 300000,
+              "note": "Ручная отметка; не измеренная точность.",
+              "context": {
+                "scope": "structure",
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "positionIds": [
+                  "E:0",
+                  "E:12"
+                ]
+              }
+            }
+          },
+          {
+            "id": "concurrent-7",
+            "occurredAt": "2026-11-08T22:30:00.000Z",
+            "timeZone": "Europe/Moscow",
+            "localDate": "2026-11-09",
+            "result": {
+              "kind": "manual",
+              "source": "self-report",
+              "comfortableBpm": 72,
+              "durationMs": 300000,
+              "note": "Ручная отметка; не измеренная точность.",
+              "context": {
+                "scope": "structure",
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "positionIds": [
+                  "E:0",
+                  "E:12"
+                ]
+              }
+            }
+          },
+          {
+            "id": "fixture-manual",
+            "occurredAt": "2026-11-08T22:30:00.000Z",
+            "timeZone": "Europe/Moscow",
+            "localDate": "2026-11-09",
+            "result": {
+              "kind": "manual",
+              "source": "self-report",
+              "comfortableBpm": 72,
+              "durationMs": 300000,
+              "note": "Ручная отметка; не измеренная точность.",
+              "context": {
+                "scope": "structure",
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "positionIds": [
+                  "E:0",
+                  "E:12"
+                ]
+              }
+            }
+          },
+          {
+            "id": "fixture-screen",
+            "occurredAt": "2026-11-08T22:30:00.000Z",
+            "timeZone": "Europe/Moscow",
+            "localDate": "2026-11-09",
+            "result": {
+              "kind": "screen",
+              "source": "screen-input",
+              "seed": 100,
+              "mode": "name-note",
+              "context": {
+                "scope": "structure",
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "positionIds": [
+                  "E:0",
+                  "E:12"
+                ]
+              },
+              "plannedCount": 1,
+              "questions": [
+                {
+                  "questionId": "q-19c8c22-name-note-E:12",
+                  "answerRule": "pitch-class",
+                  "target": {
+                    "pitchClass": 4,
+                    "name": "E",
+                    "degree": "5"
+                  },
+                  "targetMidi": null,
+                  "selectedPositionIds": [],
+                  "attempts": 2,
+                  "errors": 1,
+                  "firstAnswer": "F",
+                  "firstResponseMs": 350,
+                  "completionMs": 600,
+                  "firstAttemptCorrect": false,
+                  "hintUsed": false,
+                  "skipped": false,
+                  "independentCorrect": false,
+                  "corrected": true,
+                  "outcome": "corrected",
+                  "answerEvents": [
+                    {
+                      "answer": "F",
+                      "elapsedMs": 350,
+                      "correct": false
+                    },
+                    {
+                      "answer": "E",
+                      "elapsedMs": 600,
+                      "correct": true
+                    }
+                  ],
+                  "targetPositionId": "E:12"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "native-history-upsert-and-deletes-touch-only-requested-records",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 324,
+      "evidence": {
+        "format": "bass-study-backup",
+        "schemaVersion": 5,
+        "preferences": {
+          "activeModule": "foundation",
+          "tracks": null,
+          "input": {
+            "deviceId": ""
+          },
+          "harmony": {
+            "bpm": 80,
+            "countIn": true,
+            "repeat": "once",
+            "bassVolume": 70,
+            "padVolume": 45,
+            "clickVolume": 50,
+            "bassMuted": false,
+            "padMuted": false,
+            "clickMuted": false
+          },
+          "ear": {
+            "root": "A",
+            "quality": "minor",
+            "count": 10,
+            "bpm": 80
+          },
+          "study": {
+            "root": "C",
+            "structureId": "major",
+            "labelMode": "degrees",
+            "strings": [
+              "E"
+            ],
+            "fretMin": 0,
+            "fretMax": 3
+          },
+          "training": {
+            "mode": "sequence",
+            "quizMode": "name-note",
+            "scope": "structure",
+            "intervalDegree": "#4",
+            "count": 10,
+            "pattern": "ascending",
+            "sequenceScope": "chromatic",
+            "reviewPositionIds": []
+          },
+          "player": {
+            "bpm": 96,
+            "duration": "eighth",
+            "repeat": "once",
+            "countIn": false,
+            "showPulse": true,
+            "from": null,
+            "to": null,
+            "ladderStart": 60,
+            "ladderEnd": 100,
+            "ladderStep": 5,
+            "ladderRepeats": 2,
+            "metronome": true,
+            "metronomeMode": "all",
+            "subdivision": "quarter",
+            "bassVolume": 70,
+            "clickVolume": 50
+          }
+        },
+        "presets": [
+          {
+            "id": "fixture-preset-a",
+            "name": "Нижняя струна",
+            "createdAt": "2026-11-08T22:30:00.000Z",
+            "preferences": {
+              "activeModule": "foundation",
+              "tracks": null,
+              "input": {
+                "deviceId": ""
+              },
+              "harmony": {
+                "bpm": 80,
+                "countIn": true,
+                "repeat": "once",
+                "bassVolume": 70,
+                "padVolume": 45,
+                "clickVolume": 50,
+                "bassMuted": false,
+                "padMuted": false,
+                "clickMuted": false
+              },
+              "ear": {
+                "root": "A",
+                "quality": "minor",
+                "count": 10,
+                "bpm": 80
+              },
+              "study": {
+                "root": "C",
+                "structureId": "major",
+                "labelMode": "degrees",
+                "strings": [
+                  "E"
+                ],
+                "fretMin": 0,
+                "fretMax": 3
+              },
+              "training": {
+                "mode": "sequence",
+                "quizMode": "name-note",
+                "scope": "structure",
+                "intervalDegree": "#4",
+                "count": 10,
+                "pattern": "ascending",
+                "sequenceScope": "chromatic",
+                "reviewPositionIds": []
+              },
+              "player": {
+                "bpm": 96,
+                "duration": "eighth",
+                "repeat": "once",
+                "countIn": false,
+                "showPulse": true,
+                "from": null,
+                "to": null,
+                "ladderStart": 60,
+                "ladderEnd": 100,
+                "ladderStep": 5,
+                "ladderRepeats": 2,
+                "metronome": true,
+                "metronomeMode": "all",
+                "subdivision": "quarter",
+                "bassVolume": 70,
+                "clickVolume": 50
+              }
+            }
+          }
+        ],
+        "history": [
+          {
+            "id": "fixture-manual",
+            "occurredAt": "2026-11-08T22:30:00.000Z",
+            "timeZone": "Europe/Moscow",
+            "localDate": "2026-11-09",
+            "result": {
+              "kind": "manual",
+              "source": "self-report",
+              "comfortableBpm": 72,
+              "durationMs": 300000,
+              "note": "Обновлённая заметка.",
+              "context": {
+                "scope": "structure",
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "positionIds": [
+                  "E:0",
+                  "E:12"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "native-export-clean-context-restore-full-replacement",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 591,
+      "evidence": {
+        "copiedBytes": 4083,
+        "cleanContextRestored": true,
+        "obsoleteRecordRemoved": true,
+        "preview": {
+          "snapshot": {
+            "format": "bass-study-backup",
+            "schemaVersion": 5,
+            "preferences": {
+              "activeModule": "foundation",
+              "tracks": null,
+              "input": {
+                "deviceId": ""
+              },
+              "harmony": {
+                "bpm": 80,
+                "countIn": true,
+                "repeat": "once",
+                "bassVolume": 70,
+                "padVolume": 45,
+                "clickVolume": 50,
+                "bassMuted": false,
+                "padMuted": false,
+                "clickMuted": false
+              },
+              "ear": {
+                "root": "A",
+                "quality": "minor",
+                "count": 10,
+                "bpm": 80
+              },
+              "study": {
+                "root": "C",
+                "structureId": "major",
+                "labelMode": "degrees",
+                "strings": [
+                  "E"
+                ],
+                "fretMin": 0,
+                "fretMax": 3
+              },
+              "training": {
+                "mode": "sequence",
+                "quizMode": "name-note",
+                "scope": "structure",
+                "intervalDegree": "#4",
+                "count": 10,
+                "pattern": "ascending",
+                "sequenceScope": "chromatic",
+                "reviewPositionIds": []
+              },
+              "player": {
+                "bpm": 96,
+                "duration": "eighth",
+                "repeat": "once",
+                "countIn": false,
+                "showPulse": true,
+                "from": null,
+                "to": null,
+                "ladderStart": 60,
+                "ladderEnd": 100,
+                "ladderStep": 5,
+                "ladderRepeats": 2,
+                "metronome": true,
+                "metronomeMode": "all",
+                "subdivision": "quarter",
+                "bassVolume": 70,
+                "clickVolume": 50
+              }
+            },
+            "presets": [
+              {
+                "id": "fixture-preset-a",
+                "name": "Нижняя струна",
+                "createdAt": "2026-11-08T22:30:00.000Z",
+                "preferences": {
+                  "activeModule": "foundation",
+                  "tracks": null,
+                  "input": {
+                    "deviceId": ""
+                  },
+                  "harmony": {
+                    "bpm": 80,
+                    "countIn": true,
+                    "repeat": "once",
+                    "bassVolume": 70,
+                    "padVolume": 45,
+                    "clickVolume": 50,
+                    "bassMuted": false,
+                    "padMuted": false,
+                    "clickMuted": false
+                  },
+                  "ear": {
+                    "root": "A",
+                    "quality": "minor",
+                    "count": 10,
+                    "bpm": 80
+                  },
+                  "study": {
+                    "root": "C",
+                    "structureId": "major",
+                    "labelMode": "degrees",
+                    "strings": [
+                      "E"
+                    ],
+                    "fretMin": 0,
+                    "fretMax": 3
+                  },
+                  "training": {
+                    "mode": "sequence",
+                    "quizMode": "name-note",
+                    "scope": "structure",
+                    "intervalDegree": "#4",
+                    "count": 10,
+                    "pattern": "ascending",
+                    "sequenceScope": "chromatic",
+                    "reviewPositionIds": []
+                  },
+                  "player": {
+                    "bpm": 96,
+                    "duration": "eighth",
+                    "repeat": "once",
+                    "countIn": false,
+                    "showPulse": true,
+                    "from": null,
+                    "to": null,
+                    "ladderStart": 60,
+                    "ladderEnd": 100,
+                    "ladderStep": 5,
+                    "ladderRepeats": 2,
+                    "metronome": true,
+                    "metronomeMode": "all",
+                    "subdivision": "quarter",
+                    "bassVolume": 70,
+                    "clickVolume": 50
+                  }
+                }
+              },
+              {
+                "id": "fixture-preset-b",
+                "name": "Исходная область",
+                "createdAt": "2026-11-08T22:30:00.000Z",
+                "preferences": {
+                  "activeModule": "foundation",
+                  "tracks": null,
+                  "input": {
+                    "deviceId": ""
+                  },
+                  "harmony": {
+                    "bpm": 80,
+                    "countIn": true,
+                    "repeat": "once",
+                    "bassVolume": 70,
+                    "padVolume": 45,
+                    "clickVolume": 50,
+                    "bassMuted": false,
+                    "padMuted": false,
+                    "clickMuted": false
+                  },
+                  "ear": {
+                    "root": "A",
+                    "quality": "minor",
+                    "count": 10,
+                    "bpm": 80
+                  },
+                  "study": {
+                    "root": "A",
+                    "structureId": "minor-pentatonic",
+                    "labelMode": "notes",
+                    "strings": [
+                      "G",
+                      "D",
+                      "A",
+                      "E"
+                    ],
+                    "fretMin": 0,
+                    "fretMax": 12
+                  },
+                  "training": {
+                    "mode": "study",
+                    "quizMode": "name-note",
+                    "scope": "structure",
+                    "intervalDegree": "#4",
+                    "count": 10,
+                    "pattern": "ascending",
+                    "sequenceScope": "structure",
+                    "reviewPositionIds": []
+                  },
+                  "player": {
+                    "bpm": 80,
+                    "duration": "eighth",
+                    "repeat": "once",
+                    "countIn": true,
+                    "showPulse": true,
+                    "from": null,
+                    "to": null,
+                    "ladderStart": 60,
+                    "ladderEnd": 100,
+                    "ladderStep": 5,
+                    "ladderRepeats": 2,
+                    "metronome": true,
+                    "metronomeMode": "all",
+                    "subdivision": "quarter",
+                    "bassVolume": 70,
+                    "clickVolume": 50
+                  }
+                }
+              }
+            ],
+            "history": [
+              {
+                "id": "fixture-manual",
+                "occurredAt": "2026-11-08T22:30:00.000Z",
+                "timeZone": "Europe/Moscow",
+                "localDate": "2026-11-09",
+                "result": {
+                  "kind": "manual",
+                  "source": "self-report",
+                  "comfortableBpm": 72,
+                  "durationMs": 300000,
+                  "note": "Ручная отметка; не измеренная точность.",
+                  "context": {
+                    "scope": "structure",
+                    "root": "A",
+                    "structureId": "minor-pentatonic",
+                    "positionIds": [
+                      "E:0",
+                      "E:12"
+                    ]
+                  }
+                }
+              },
+              {
+                "id": "fixture-screen",
+                "occurredAt": "2026-11-08T22:30:00.000Z",
+                "timeZone": "Europe/Moscow",
+                "localDate": "2026-11-09",
+                "result": {
+                  "kind": "screen",
+                  "source": "screen-input",
+                  "seed": 100,
+                  "mode": "name-note",
+                  "context": {
+                    "scope": "structure",
+                    "root": "A",
+                    "structureId": "minor-pentatonic",
+                    "positionIds": [
+                      "E:0",
+                      "E:12"
+                    ]
+                  },
+                  "plannedCount": 1,
+                  "questions": [
+                    {
+                      "questionId": "q-19c8c22-name-note-E:12",
+                      "answerRule": "pitch-class",
+                      "target": {
+                        "pitchClass": 4,
+                        "name": "E",
+                        "degree": "5"
+                      },
+                      "targetMidi": null,
+                      "selectedPositionIds": [],
+                      "attempts": 2,
+                      "errors": 1,
+                      "firstAnswer": "F",
+                      "firstResponseMs": 350,
+                      "completionMs": 600,
+                      "firstAttemptCorrect": false,
+                      "hintUsed": false,
+                      "skipped": false,
+                      "independentCorrect": false,
+                      "corrected": true,
+                      "outcome": "corrected",
+                      "answerEvents": [
+                        {
+                          "answer": "F",
+                          "elapsedMs": 350,
+                          "correct": false
+                        },
+                        {
+                          "answer": "E",
+                          "elapsedMs": 600,
+                          "correct": true
+                        }
+                      ],
+                      "targetPositionId": "E:12"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "presets": 2,
+          "history": 2,
+          "requiresConfirmation": true,
+          "replacement": "full"
+        }
+      }
+    },
+    {
+      "name": "native-cancel-and-validation-refusals-never-change-existing-data",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 289,
+      "evidence": [
+        {
+          "name": "cancel",
+          "result": {
+            "status": "cancelled"
+          },
+          "unchanged": true
+        },
+        {
+          "name": "broken-json",
+          "expected": "INVALID_BACKUP",
+          "failure": {
+            "code": "INVALID_BACKUP",
+            "message": "Не удалось прочитать JSON резервной копии."
+          },
+          "unchanged": true
+        },
+        {
+          "name": "unknown-format",
+          "expected": "UNSUPPORTED_FORMAT",
+          "failure": {
+            "code": "UNSUPPORTED_FORMAT",
+            "message": "Это не резервная копия bass_study."
+          },
+          "unchanged": true
+        },
+        {
+          "name": "future-version",
+          "expected": "UNSUPPORTED_VERSION",
+          "failure": {
+            "code": "UNSUPPORTED_VERSION",
+            "message": "Эта версия резервной копии не поддерживается. Данные не изменены."
+          },
+          "unchanged": true
+        },
+        {
+          "name": "wrong-bpm-type",
+          "expected": "INVALID_DATA",
+          "failure": {
+            "code": "INVALID_DATA",
+            "message": "Темп: число вне допустимого диапазона."
+          },
+          "unchanged": true
+        },
+        {
+          "name": "duplicate-presets",
+          "expected": "INVALID_DATA",
+          "failure": {
+            "code": "INVALID_DATA",
+            "message": "ID пресетов или истории повторяются."
+          },
+          "unchanged": true
+        },
+        {
+          "name": "duplicate-history",
+          "expected": "INVALID_DATA",
+          "failure": {
+            "code": "INVALID_DATA",
+            "message": "ID пресетов или истории повторяются."
+          },
+          "unchanged": true
+        },
+        {
+          "name": "dishonest-screen-score",
+          "expected": "INVALID_DATA",
+          "failure": {
+            "code": "INVALID_DATA",
+            "message": "Поле результата independentCorrect не соответствует реальным попыткам."
+          },
+          "unchanged": true
+        },
+        {
+          "name": "corrupt-context-position",
+          "expected": "INVALID_DATA",
+          "failure": {
+            "code": "INVALID_DATA",
+            "message": "Позиции контекста: неизвестная струна или лад."
+          },
+          "unchanged": true
+        },
+        {
+          "name": "mismatched-local-date",
+          "expected": "INVALID_DATA",
+          "failure": {
+            "code": "INVALID_DATA",
+            "message": "Дата занятия не соответствует исходному времени и часовому поясу."
+          },
+          "unchanged": true
+        },
+        {
+          "name": "manual-fake-accuracy",
+          "expected": "INVALID_DATA",
+          "failure": {
+            "code": "INVALID_DATA",
+            "message": "Ручная отметка: отсутствуют обязательные поля или присутствуют неизвестные."
+          },
+          "unchanged": true
+        }
+      ]
+    },
+    {
+      "name": "native-abort-after-successful-put-rolls-back-clears-and-all-stores",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 392,
+      "evidence": {
+        "failure": {
+          "code": "INJECTED_ABORT",
+          "message": "Тестовая ошибка после успешной записи: вся транзакция отменена."
+        },
+        "transaction": {
+          "successfulWrites": 1,
+          "aborted": true
+        },
+        "cacheReferenceUnchanged": true,
+        "after": {
+          "format": "bass-study-backup",
+          "schemaVersion": 5,
+          "preferences": {
+            "activeModule": "foundation",
+            "tracks": null,
+            "input": {
+              "deviceId": ""
+            },
+            "harmony": {
+              "bpm": 80,
+              "countIn": true,
+              "repeat": "once",
+              "bassVolume": 70,
+              "padVolume": 45,
+              "clickVolume": 50,
+              "bassMuted": false,
+              "padMuted": false,
+              "clickMuted": false
+            },
+            "ear": {
+              "root": "A",
+              "quality": "minor",
+              "count": 10,
+              "bpm": 80
+            },
+            "study": {
+              "root": "C",
+              "structureId": "major",
+              "labelMode": "degrees",
+              "strings": [
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 3
+            },
+            "training": {
+              "mode": "sequence",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "chromatic",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 96,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": false,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [
+            {
+              "id": "fixture-preset-a",
+              "name": "Нижняя струна",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "C",
+                  "structureId": "major",
+                  "labelMode": "degrees",
+                  "strings": [
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 3
+                },
+                "training": {
+                  "mode": "sequence",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "chromatic",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 96,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": false,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            },
+            {
+              "id": "fixture-preset-b",
+              "name": "Исходная область",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "labelMode": "notes",
+                  "strings": [
+                    "G",
+                    "D",
+                    "A",
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 12
+                },
+                "training": {
+                  "mode": "study",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "structure",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 80,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": true,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            }
+          ],
+          "history": [
+            {
+              "id": "fixture-manual",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 72,
+                "durationMs": 300000,
+                "note": "Ручная отметка; не измеренная точность.",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "fixture-screen",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 100,
+                "mode": "name-note",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                },
+                "plannedCount": 1,
+                "questions": [
+                  {
+                    "questionId": "q-19c8c22-name-note-E:12",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "5"
+                    },
+                    "targetMidi": null,
+                    "selectedPositionIds": [],
+                    "attempts": 2,
+                    "errors": 1,
+                    "firstAnswer": "F",
+                    "firstResponseMs": 350,
+                    "completionMs": 600,
+                    "firstAttemptCorrect": false,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": false,
+                    "corrected": true,
+                    "outcome": "corrected",
+                    "answerEvents": [
+                      {
+                        "answer": "F",
+                        "elapsedMs": 350,
+                        "correct": false
+                      },
+                      {
+                        "answer": "E",
+                        "elapsedMs": 600,
+                        "correct": true
+                      }
+                    ],
+                    "targetPositionId": "E:12"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "freshAfter": {
+          "format": "bass-study-backup",
+          "schemaVersion": 5,
+          "preferences": {
+            "activeModule": "foundation",
+            "tracks": null,
+            "input": {
+              "deviceId": ""
+            },
+            "harmony": {
+              "bpm": 80,
+              "countIn": true,
+              "repeat": "once",
+              "bassVolume": 70,
+              "padVolume": 45,
+              "clickVolume": 50,
+              "bassMuted": false,
+              "padMuted": false,
+              "clickMuted": false
+            },
+            "ear": {
+              "root": "A",
+              "quality": "minor",
+              "count": 10,
+              "bpm": 80
+            },
+            "study": {
+              "root": "C",
+              "structureId": "major",
+              "labelMode": "degrees",
+              "strings": [
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 3
+            },
+            "training": {
+              "mode": "sequence",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "chromatic",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 96,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": false,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [
+            {
+              "id": "fixture-preset-a",
+              "name": "Нижняя струна",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "C",
+                  "structureId": "major",
+                  "labelMode": "degrees",
+                  "strings": [
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 3
+                },
+                "training": {
+                  "mode": "sequence",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "chromatic",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 96,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": false,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            },
+            {
+              "id": "fixture-preset-b",
+              "name": "Исходная область",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "labelMode": "notes",
+                  "strings": [
+                    "G",
+                    "D",
+                    "A",
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 12
+                },
+                "training": {
+                  "mode": "study",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "structure",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 80,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": true,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            }
+          ],
+          "history": [
+            {
+              "id": "fixture-manual",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 72,
+                "durationMs": 300000,
+                "note": "Ручная отметка; не измеренная точность.",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "fixture-screen",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 100,
+                "mode": "name-note",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                },
+                "plannedCount": 1,
+                "questions": [
+                  {
+                    "questionId": "q-19c8c22-name-note-E:12",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "5"
+                    },
+                    "targetMidi": null,
+                    "selectedPositionIds": [],
+                    "attempts": 2,
+                    "errors": 1,
+                    "firstAnswer": "F",
+                    "firstResponseMs": 350,
+                    "completionMs": 600,
+                    "firstAttemptCorrect": false,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": false,
+                    "corrected": true,
+                    "outcome": "corrected",
+                    "answerEvents": [
+                      {
+                        "answer": "F",
+                        "elapsedMs": 350,
+                        "correct": false
+                      },
+                      {
+                        "answer": "E",
+                        "elapsedMs": 600,
+                        "correct": true
+                      }
+                    ],
+                    "targetPositionId": "E:12"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "rawBefore": {
+          "version": 5,
+          "preferences": {
+            "activeModule": "foundation",
+            "tracks": null,
+            "input": {
+              "deviceId": ""
+            },
+            "harmony": {
+              "bpm": 80,
+              "countIn": true,
+              "repeat": "once",
+              "bassVolume": 70,
+              "padVolume": 45,
+              "clickVolume": 50,
+              "bassMuted": false,
+              "padMuted": false,
+              "clickMuted": false
+            },
+            "ear": {
+              "root": "A",
+              "quality": "minor",
+              "count": 10,
+              "bpm": 80
+            },
+            "study": {
+              "root": "C",
+              "structureId": "major",
+              "labelMode": "degrees",
+              "strings": [
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 3
+            },
+            "training": {
+              "mode": "sequence",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "chromatic",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 96,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": false,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [
+            {
+              "id": "fixture-preset-a",
+              "name": "Нижняя струна",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "C",
+                  "structureId": "major",
+                  "labelMode": "degrees",
+                  "strings": [
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 3
+                },
+                "training": {
+                  "mode": "sequence",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "chromatic",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 96,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": false,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            },
+            {
+              "id": "fixture-preset-b",
+              "name": "Исходная область",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "labelMode": "notes",
+                  "strings": [
+                    "G",
+                    "D",
+                    "A",
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 12
+                },
+                "training": {
+                  "mode": "study",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "structure",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 80,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": true,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            }
+          ],
+          "history": [
+            {
+              "id": "fixture-manual",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 72,
+                "durationMs": 300000,
+                "note": "Ручная отметка; не измеренная точность.",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "fixture-screen",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 100,
+                "mode": "name-note",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                },
+                "plannedCount": 1,
+                "questions": [
+                  {
+                    "questionId": "q-19c8c22-name-note-E:12",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "5"
+                    },
+                    "targetMidi": null,
+                    "selectedPositionIds": [],
+                    "attempts": 2,
+                    "errors": 1,
+                    "firstAnswer": "F",
+                    "firstResponseMs": 350,
+                    "completionMs": 600,
+                    "firstAttemptCorrect": false,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": false,
+                    "corrected": true,
+                    "outcome": "corrected",
+                    "answerEvents": [
+                      {
+                        "answer": "F",
+                        "elapsedMs": 350,
+                        "correct": false
+                      },
+                      {
+                        "answer": "E",
+                        "elapsedMs": 600,
+                        "correct": true
+                      }
+                    ],
+                    "targetPositionId": "E:12"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "rawAfter": {
+          "version": 5,
+          "preferences": {
+            "activeModule": "foundation",
+            "tracks": null,
+            "input": {
+              "deviceId": ""
+            },
+            "harmony": {
+              "bpm": 80,
+              "countIn": true,
+              "repeat": "once",
+              "bassVolume": 70,
+              "padVolume": 45,
+              "clickVolume": 50,
+              "bassMuted": false,
+              "padMuted": false,
+              "clickMuted": false
+            },
+            "ear": {
+              "root": "A",
+              "quality": "minor",
+              "count": 10,
+              "bpm": 80
+            },
+            "study": {
+              "root": "C",
+              "structureId": "major",
+              "labelMode": "degrees",
+              "strings": [
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 3
+            },
+            "training": {
+              "mode": "sequence",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "chromatic",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 96,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": false,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [
+            {
+              "id": "fixture-preset-a",
+              "name": "Нижняя струна",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "C",
+                  "structureId": "major",
+                  "labelMode": "degrees",
+                  "strings": [
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 3
+                },
+                "training": {
+                  "mode": "sequence",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "chromatic",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 96,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": false,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            },
+            {
+              "id": "fixture-preset-b",
+              "name": "Исходная область",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "labelMode": "notes",
+                  "strings": [
+                    "G",
+                    "D",
+                    "A",
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 12
+                },
+                "training": {
+                  "mode": "study",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "structure",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 80,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": true,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            }
+          ],
+          "history": [
+            {
+              "id": "fixture-manual",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 72,
+                "durationMs": 300000,
+                "note": "Ручная отметка; не измеренная точность.",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "fixture-screen",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 100,
+                "mode": "name-note",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                },
+                "plannedCount": 1,
+                "questions": [
+                  {
+                    "questionId": "q-19c8c22-name-note-E:12",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "5"
+                    },
+                    "targetMidi": null,
+                    "selectedPositionIds": [],
+                    "attempts": 2,
+                    "errors": 1,
+                    "firstAnswer": "F",
+                    "firstResponseMs": 350,
+                    "completionMs": 600,
+                    "firstAttemptCorrect": false,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": false,
+                    "corrected": true,
+                    "outcome": "corrected",
+                    "answerEvents": [
+                      {
+                        "answer": "F",
+                        "elapsedMs": 350,
+                        "correct": false
+                      },
+                      {
+                        "answer": "E",
+                        "elapsedMs": 600,
+                        "correct": true
+                      }
+                    ],
+                    "targetPositionId": "E:12"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "native-real-browser-quota-refusal-preserves-state-and-recovers",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 267,
+      "evidence": {
+        "baselineRecords": 0,
+        "quotaBefore": {
+          "usage": 73728,
+          "quota": 3360086420,
+          "overrideActive": false,
+          "usageBreakdown": [
+            {
+              "storageType": "file_systems",
+              "usage": 0
+            },
+            {
+              "storageType": "indexeddb",
+              "usage": 73728
+            },
+            {
+              "storageType": "cache_storage",
+              "usage": 0
+            },
+            {
+              "storageType": "service_workers",
+              "usage": 0
+            }
+          ]
+        },
+        "failure": {
+          "code": "QUOTA",
+          "message": "Недостаточно места в браузере. Сохранение не выполнено; освободите место или экспортируйте текущие данные."
+        },
+        "transaction": {
+          "successfulWrites": 1,
+          "aborted": true
+        },
+        "cacheReferenceUnchanged": true,
+        "after": {
+          "format": "bass-study-backup",
+          "schemaVersion": 5,
+          "preferences": {
+            "activeModule": "foundation",
+            "tracks": null,
+            "input": {
+              "deviceId": ""
+            },
+            "harmony": {
+              "bpm": 80,
+              "countIn": true,
+              "repeat": "once",
+              "bassVolume": 70,
+              "padVolume": 45,
+              "clickVolume": 50,
+              "bassMuted": false,
+              "padMuted": false,
+              "clickMuted": false
+            },
+            "ear": {
+              "root": "A",
+              "quality": "minor",
+              "count": 10,
+              "bpm": 80
+            },
+            "study": {
+              "root": "A",
+              "structureId": "minor-pentatonic",
+              "labelMode": "notes",
+              "strings": [
+                "G",
+                "D",
+                "A",
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 12
+            },
+            "training": {
+              "mode": "study",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "structure",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 80,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": true,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [],
+          "history": []
+        },
+        "freshAfter": {
+          "format": "bass-study-backup",
+          "schemaVersion": 5,
+          "preferences": {
+            "activeModule": "foundation",
+            "tracks": null,
+            "input": {
+              "deviceId": ""
+            },
+            "harmony": {
+              "bpm": 80,
+              "countIn": true,
+              "repeat": "once",
+              "bassVolume": 70,
+              "padVolume": 45,
+              "clickVolume": 50,
+              "bassMuted": false,
+              "padMuted": false,
+              "clickMuted": false
+            },
+            "ear": {
+              "root": "A",
+              "quality": "minor",
+              "count": 10,
+              "bpm": 80
+            },
+            "study": {
+              "root": "A",
+              "structureId": "minor-pentatonic",
+              "labelMode": "notes",
+              "strings": [
+                "G",
+                "D",
+                "A",
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 12
+            },
+            "training": {
+              "mode": "study",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "structure",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 80,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": true,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [],
+          "history": []
+        },
+        "rawBefore": {
+          "version": 5,
+          "preferences": null,
+          "presets": [],
+          "history": []
+        },
+        "rawAfter": {
+          "version": 5,
+          "preferences": null,
+          "presets": [],
+          "history": []
+        },
+        "quotaDuring": {
+          "usage": 73728,
+          "quota": 1,
+          "overrideActive": true,
+          "usageBreakdown": [
+            {
+              "storageType": "file_systems",
+              "usage": 0
+            },
+            {
+              "storageType": "indexeddb",
+              "usage": 73728
+            },
+            {
+              "storageType": "cache_storage",
+              "usage": 0
+            },
+            {
+              "storageType": "service_workers",
+              "usage": 0
+            }
+          ]
+        },
+        "recoveredIds": [
+          "after-quota-reset"
+        ],
+        "noPhysicalDiskFill": true,
+        "populatedRollbackVerifiedSeparately": true
+      }
+    },
+    {
+      "name": "native-full-browser-process-restart-keeps-original-history-date",
+      "scope": "persistent",
+      "status": "passed",
+      "durationMs": 1386,
+      "evidence": {
+        "restartedWholeBrowser": true,
+        "actual": {
+          "format": "bass-study-backup",
+          "schemaVersion": 5,
+          "preferences": {
+            "activeModule": "foundation",
+            "tracks": null,
+            "input": {
+              "deviceId": ""
+            },
+            "harmony": {
+              "bpm": 80,
+              "countIn": true,
+              "repeat": "once",
+              "bassVolume": 70,
+              "padVolume": 45,
+              "clickVolume": 50,
+              "bassMuted": false,
+              "padMuted": false,
+              "clickMuted": false
+            },
+            "ear": {
+              "root": "A",
+              "quality": "minor",
+              "count": 10,
+              "bpm": 80
+            },
+            "study": {
+              "root": "C",
+              "structureId": "major",
+              "labelMode": "degrees",
+              "strings": [
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 3
+            },
+            "training": {
+              "mode": "sequence",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "chromatic",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 96,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": false,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [
+            {
+              "id": "fixture-preset-a",
+              "name": "Нижняя струна",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "C",
+                  "structureId": "major",
+                  "labelMode": "degrees",
+                  "strings": [
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 3
+                },
+                "training": {
+                  "mode": "sequence",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "chromatic",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 96,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": false,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            },
+            {
+              "id": "fixture-preset-b",
+              "name": "Исходная область",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "labelMode": "notes",
+                  "strings": [
+                    "G",
+                    "D",
+                    "A",
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 12
+                },
+                "training": {
+                  "mode": "study",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "structure",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 80,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": true,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            }
+          ],
+          "history": [
+            {
+              "id": "fixture-manual",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 72,
+                "durationMs": 300000,
+                "note": "Ручная отметка; не измеренная точность.",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "fixture-screen",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 100,
+                "mode": "name-note",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                },
+                "plannedCount": 1,
+                "questions": [
+                  {
+                    "questionId": "q-19c8c22-name-note-E:12",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "5"
+                    },
+                    "targetMidi": null,
+                    "selectedPositionIds": [],
+                    "attempts": 2,
+                    "errors": 1,
+                    "firstAnswer": "F",
+                    "firstResponseMs": 350,
+                    "completionMs": 600,
+                    "firstAttemptCorrect": false,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": false,
+                    "corrected": true,
+                    "outcome": "corrected",
+                    "answerEvents": [
+                      {
+                        "answer": "F",
+                        "elapsedMs": 350,
+                        "correct": false
+                      },
+                      {
+                        "answer": "E",
+                        "elapsedMs": 600,
+                        "correct": true
+                      }
+                    ],
+                    "targetPositionId": "E:12"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "native-cache-explicit-fresh-read-sees-external-writer-and-reopen",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 199,
+      "evidence": {
+        "sameCachedReference": true,
+        "externalWriteDoesNotPretendAutoSync": true,
+        "cacheIsFrozen": true,
+        "knownBpm": 96,
+        "refreshedBpm": 109,
+        "freshBecomesCached": true,
+        "refreshed": {
+          "format": "bass-study-backup",
+          "schemaVersion": 5,
+          "preferences": {
+            "activeModule": "foundation",
+            "tracks": null,
+            "input": {
+              "deviceId": ""
+            },
+            "harmony": {
+              "bpm": 80,
+              "countIn": true,
+              "repeat": "once",
+              "bassVolume": 70,
+              "padVolume": 45,
+              "clickVolume": 50,
+              "bassMuted": false,
+              "padMuted": false,
+              "clickMuted": false
+            },
+            "ear": {
+              "root": "A",
+              "quality": "minor",
+              "count": 10,
+              "bpm": 80
+            },
+            "study": {
+              "root": "C",
+              "structureId": "major",
+              "labelMode": "degrees",
+              "strings": [
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 3
+            },
+            "training": {
+              "mode": "sequence",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "chromatic",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 109,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": false,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [
+            {
+              "id": "fixture-preset-a",
+              "name": "Нижняя струна",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "C",
+                  "structureId": "major",
+                  "labelMode": "degrees",
+                  "strings": [
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 3
+                },
+                "training": {
+                  "mode": "sequence",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "chromatic",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 96,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": false,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            },
+            {
+              "id": "fixture-preset-b",
+              "name": "Исходная область",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "labelMode": "notes",
+                  "strings": [
+                    "G",
+                    "D",
+                    "A",
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 12
+                },
+                "training": {
+                  "mode": "study",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "structure",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 80,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": true,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            }
+          ],
+          "history": [
+            {
+              "id": "fixture-manual",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 72,
+                "durationMs": 300000,
+                "note": "Ручная отметка; не измеренная точность.",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "fixture-screen",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 100,
+                "mode": "name-note",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                },
+                "plannedCount": 1,
+                "questions": [
+                  {
+                    "questionId": "q-19c8c22-name-note-E:12",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "5"
+                    },
+                    "targetMidi": null,
+                    "selectedPositionIds": [],
+                    "attempts": 2,
+                    "errors": 1,
+                    "firstAnswer": "F",
+                    "firstResponseMs": 350,
+                    "completionMs": 600,
+                    "firstAttemptCorrect": false,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": false,
+                    "corrected": true,
+                    "outcome": "corrected",
+                    "answerEvents": [
+                      {
+                        "answer": "F",
+                        "elapsedMs": 350,
+                        "correct": false
+                      },
+                      {
+                        "answer": "E",
+                        "elapsedMs": 600,
+                        "correct": true
+                      }
+                    ],
+                    "targetPositionId": "E:12"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "reopened": {
+          "format": "bass-study-backup",
+          "schemaVersion": 5,
+          "preferences": {
+            "activeModule": "foundation",
+            "tracks": null,
+            "input": {
+              "deviceId": ""
+            },
+            "harmony": {
+              "bpm": 80,
+              "countIn": true,
+              "repeat": "once",
+              "bassVolume": 70,
+              "padVolume": 45,
+              "clickVolume": 50,
+              "bassMuted": false,
+              "padMuted": false,
+              "clickMuted": false
+            },
+            "ear": {
+              "root": "A",
+              "quality": "minor",
+              "count": 10,
+              "bpm": 80
+            },
+            "study": {
+              "root": "C",
+              "structureId": "major",
+              "labelMode": "degrees",
+              "strings": [
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 3
+            },
+            "training": {
+              "mode": "sequence",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "chromatic",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 109,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": false,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [
+            {
+              "id": "fixture-preset-a",
+              "name": "Нижняя струна",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "C",
+                  "structureId": "major",
+                  "labelMode": "degrees",
+                  "strings": [
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 3
+                },
+                "training": {
+                  "mode": "sequence",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "chromatic",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 96,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": false,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            },
+            {
+              "id": "fixture-preset-b",
+              "name": "Исходная область",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "labelMode": "notes",
+                  "strings": [
+                    "G",
+                    "D",
+                    "A",
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 12
+                },
+                "training": {
+                  "mode": "study",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "structure",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 80,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": true,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            }
+          ],
+          "history": [
+            {
+              "id": "fixture-manual",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 72,
+                "durationMs": 300000,
+                "note": "Ручная отметка; не измеренная точность.",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "fixture-screen",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 100,
+                "mode": "name-note",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                },
+                "plannedCount": 1,
+                "questions": [
+                  {
+                    "questionId": "q-19c8c22-name-note-E:12",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "5"
+                    },
+                    "targetMidi": null,
+                    "selectedPositionIds": [],
+                    "attempts": 2,
+                    "errors": 1,
+                    "firstAnswer": "F",
+                    "firstResponseMs": 350,
+                    "completionMs": 600,
+                    "firstAttemptCorrect": false,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": false,
+                    "corrected": true,
+                    "outcome": "corrected",
+                    "answerEvents": [
+                      {
+                        "answer": "F",
+                        "elapsedMs": 350,
+                        "correct": false
+                      },
+                      {
+                        "answer": "E",
+                        "elapsedMs": 600,
+                        "correct": true
+                      }
+                    ],
+                    "targetPositionId": "E:12"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "raw": {
+          "version": 5,
+          "preferences": {
+            "activeModule": "foundation",
+            "tracks": null,
+            "input": {
+              "deviceId": ""
+            },
+            "harmony": {
+              "bpm": 80,
+              "countIn": true,
+              "repeat": "once",
+              "bassVolume": 70,
+              "padVolume": 45,
+              "clickVolume": 50,
+              "bassMuted": false,
+              "padMuted": false,
+              "clickMuted": false
+            },
+            "ear": {
+              "root": "A",
+              "quality": "minor",
+              "count": 10,
+              "bpm": 80
+            },
+            "study": {
+              "root": "C",
+              "structureId": "major",
+              "labelMode": "degrees",
+              "strings": [
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 3
+            },
+            "training": {
+              "mode": "sequence",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "chromatic",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 109,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": false,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [
+            {
+              "id": "fixture-preset-a",
+              "name": "Нижняя струна",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "C",
+                  "structureId": "major",
+                  "labelMode": "degrees",
+                  "strings": [
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 3
+                },
+                "training": {
+                  "mode": "sequence",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "chromatic",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 96,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": false,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            },
+            {
+              "id": "fixture-preset-b",
+              "name": "Исходная область",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "labelMode": "notes",
+                  "strings": [
+                    "G",
+                    "D",
+                    "A",
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 12
+                },
+                "training": {
+                  "mode": "study",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "structure",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 80,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": true,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            }
+          ],
+          "history": [
+            {
+              "id": "fixture-manual",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 72,
+                "durationMs": 300000,
+                "note": "Ручная отметка; не измеренная точность.",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "fixture-screen",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 100,
+                "mode": "name-note",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                },
+                "plannedCount": 1,
+                "questions": [
+                  {
+                    "questionId": "q-19c8c22-name-note-E:12",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "5"
+                    },
+                    "targetMidi": null,
+                    "selectedPositionIds": [],
+                    "attempts": 2,
+                    "errors": 1,
+                    "firstAnswer": "F",
+                    "firstResponseMs": 350,
+                    "completionMs": 600,
+                    "firstAttemptCorrect": false,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": false,
+                    "corrected": true,
+                    "outcome": "corrected",
+                    "answerEvents": [
+                      {
+                        "answer": "F",
+                        "elapsedMs": 350,
+                        "correct": false
+                      },
+                      {
+                        "answer": "E",
+                        "elapsedMs": 600,
+                        "correct": true
+                      }
+                    ],
+                    "targetPositionId": "E:12"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "native-successful-commits-update-cache-without-full-read-and-match-fresh-database",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 213,
+      "evidence": {
+        "observer": "Native IDB read-method wrappers only count calls and always invoke the originals; no returned data or failures are replaced.",
+        "operations": [
+          {
+            "name": "savePreferences",
+            "callsBeforeFresh": {
+              "get": 0,
+              "getAll": 0,
+              "openCursor": 0
+            },
+            "explicitFreshCalls": {
+              "get": 1,
+              "getAll": 2,
+              "openCursor": 0
+            },
+            "referenceChanged": true,
+            "frozen": true,
+            "cacheMatchesFresh": true,
+            "presets": 2,
+            "history": 2,
+            "bpm": 108
+          },
+          {
+            "name": "savePreset",
+            "callsBeforeFresh": {
+              "get": 0,
+              "getAll": 0,
+              "openCursor": 0
+            },
+            "explicitFreshCalls": {
+              "get": 1,
+              "getAll": 2,
+              "openCursor": 0
+            },
+            "referenceChanged": true,
+            "frozen": true,
+            "cacheMatchesFresh": true,
+            "presets": 3,
+            "history": 2,
+            "bpm": 108
+          },
+          {
+            "name": "addHistory",
+            "callsBeforeFresh": {
+              "get": 0,
+              "getAll": 0,
+              "openCursor": 0
+            },
+            "explicitFreshCalls": {
+              "get": 1,
+              "getAll": 2,
+              "openCursor": 0
+            },
+            "referenceChanged": true,
+            "frozen": true,
+            "cacheMatchesFresh": true,
+            "presets": 3,
+            "history": 3,
+            "bpm": 108
+          },
+          {
+            "name": "deletePreset",
+            "callsBeforeFresh": {
+              "get": 0,
+              "getAll": 0,
+              "openCursor": 0
+            },
+            "explicitFreshCalls": {
+              "get": 1,
+              "getAll": 2,
+              "openCursor": 0
+            },
+            "referenceChanged": true,
+            "frozen": true,
+            "cacheMatchesFresh": true,
+            "presets": 2,
+            "history": 3,
+            "bpm": 108
+          },
+          {
+            "name": "deleteHistory",
+            "callsBeforeFresh": {
+              "get": 0,
+              "getAll": 0,
+              "openCursor": 0
+            },
+            "explicitFreshCalls": {
+              "get": 1,
+              "getAll": 2,
+              "openCursor": 0
+            },
+            "referenceChanged": true,
+            "frozen": true,
+            "cacheMatchesFresh": true,
+            "presets": 2,
+            "history": 2,
+            "bpm": 108
+          },
+          {
+            "name": "restore",
+            "callsBeforeFresh": {
+              "get": 0,
+              "getAll": 0,
+              "openCursor": 0
+            },
+            "explicitFreshCalls": {
+              "get": 1,
+              "getAll": 2,
+              "openCursor": 0
+            },
+            "referenceChanged": true,
+            "frozen": true,
+            "cacheMatchesFresh": true,
+            "presets": 0,
+            "history": 0,
+            "bpm": 80
+          }
+        ]
+      }
+    },
+    {
+      "name": "native-unexpected-database-close-invalidates-cache-after-isolated-browser-clear",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 229,
+      "evidence": {
+        "clearedOnlyIsolatedOrigin": "http://127.0.0.1:4182",
+        "observedRealDatabaseClose": true,
+        "cleared": {
+          "cacheWasInvalidated": true,
+          "current": {
+            "format": "bass-study-backup",
+            "schemaVersion": 5,
+            "preferences": {
+              "activeModule": "foundation",
+              "tracks": null,
+              "input": {
+                "deviceId": ""
+              },
+              "harmony": {
+                "bpm": 80,
+                "countIn": true,
+                "repeat": "once",
+                "bassVolume": 70,
+                "padVolume": 45,
+                "clickVolume": 50,
+                "bassMuted": false,
+                "padMuted": false,
+                "clickMuted": false
+              },
+              "ear": {
+                "root": "A",
+                "quality": "minor",
+                "count": 10,
+                "bpm": 80
+              },
+              "study": {
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "labelMode": "notes",
+                "strings": [
+                  "G",
+                  "D",
+                  "A",
+                  "E"
+                ],
+                "fretMin": 0,
+                "fretMax": 12
+              },
+              "training": {
+                "mode": "study",
+                "quizMode": "name-note",
+                "scope": "structure",
+                "intervalDegree": "#4",
+                "count": 10,
+                "pattern": "ascending",
+                "sequenceScope": "structure",
+                "reviewPositionIds": []
+              },
+              "player": {
+                "bpm": 80,
+                "duration": "eighth",
+                "repeat": "once",
+                "countIn": true,
+                "showPulse": true,
+                "from": null,
+                "to": null,
+                "ladderStart": 60,
+                "ladderEnd": 100,
+                "ladderStep": 5,
+                "ladderRepeats": 2,
+                "metronome": true,
+                "metronomeMode": "all",
+                "subdivision": "quarter",
+                "bassVolume": 70,
+                "clickVolume": 50
+              }
+            },
+            "presets": [],
+            "history": []
+          },
+          "fresh": {
+            "format": "bass-study-backup",
+            "schemaVersion": 5,
+            "preferences": {
+              "activeModule": "foundation",
+              "tracks": null,
+              "input": {
+                "deviceId": ""
+              },
+              "harmony": {
+                "bpm": 80,
+                "countIn": true,
+                "repeat": "once",
+                "bassVolume": 70,
+                "padVolume": 45,
+                "clickVolume": 50,
+                "bassMuted": false,
+                "padMuted": false,
+                "clickMuted": false
+              },
+              "ear": {
+                "root": "A",
+                "quality": "minor",
+                "count": 10,
+                "bpm": 80
+              },
+              "study": {
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "labelMode": "notes",
+                "strings": [
+                  "G",
+                  "D",
+                  "A",
+                  "E"
+                ],
+                "fretMin": 0,
+                "fretMax": 12
+              },
+              "training": {
+                "mode": "study",
+                "quizMode": "name-note",
+                "scope": "structure",
+                "intervalDegree": "#4",
+                "count": 10,
+                "pattern": "ascending",
+                "sequenceScope": "structure",
+                "reviewPositionIds": []
+              },
+              "player": {
+                "bpm": 80,
+                "duration": "eighth",
+                "repeat": "once",
+                "countIn": true,
+                "showPulse": true,
+                "from": null,
+                "to": null,
+                "ladderStart": 60,
+                "ladderEnd": 100,
+                "ladderStep": 5,
+                "ladderRepeats": 2,
+                "metronome": true,
+                "metronomeMode": "all",
+                "subdivision": "quarter",
+                "bassVolume": 70,
+                "clickVolume": 50
+              }
+            },
+            "presets": [],
+            "history": []
+          },
+          "raw": {
+            "version": 5,
+            "preferences": null,
+            "presets": [],
+            "history": []
+          }
+        },
+        "recoveredIds": [
+          "after-unexpected-close"
+        ]
+      }
+    },
+    {
+      "name": "ui-settings-reload-presets-apply-delete-and-download-export",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1764,
+      "evidence": {
+        "exportedPreferences": {
+          "activeModule": "foundation",
+          "tracks": null,
+          "input": {
+            "deviceId": ""
+          },
+          "harmony": {
+            "bpm": 80,
+            "countIn": true,
+            "repeat": "once",
+            "bassVolume": 70,
+            "padVolume": 45,
+            "clickVolume": 50,
+            "bassMuted": false,
+            "padMuted": false,
+            "clickMuted": false
+          },
+          "ear": {
+            "root": "A",
+            "quality": "minor",
+            "count": 10,
+            "bpm": 80
+          },
+          "study": {
+            "root": "C",
+            "structureId": "major",
+            "labelMode": "degrees",
+            "strings": [
+              "E"
+            ],
+            "fretMin": 0,
+            "fretMax": 3
+          },
+          "training": {
+            "mode": "sequence",
+            "quizMode": "name-note",
+            "scope": "structure",
+            "intervalDegree": "#4",
+            "count": 10,
+            "pattern": "ascending",
+            "sequenceScope": "chromatic",
+            "reviewPositionIds": []
+          },
+          "player": {
+            "bpm": 96,
+            "duration": "eighth",
+            "repeat": "once",
+            "countIn": false,
+            "showPulse": true,
+            "from": null,
+            "to": null,
+            "ladderStart": 60,
+            "ladderEnd": 100,
+            "ladderStep": 5,
+            "ladderRepeats": 2,
+            "metronome": true,
+            "metronomeMode": "all",
+            "subdivision": "quarter",
+            "bassVolume": 70,
+            "clickVolume": 50
+          }
+        },
+        "survivedReload": true,
+        "presetAppliedAndDeleted": true
+      }
+    },
+    {
+      "name": "ui-import-preview-cancel-confirm-and-full-replacement",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1914,
+      "evidence": {
+        "previewDidNotWrite": true,
+        "cancelled": true,
+        "restored": {
+          "format": "bass-study-backup",
+          "schemaVersion": 5,
+          "preferences": {
+            "activeModule": "foundation",
+            "tracks": null,
+            "input": {
+              "deviceId": ""
+            },
+            "harmony": {
+              "bpm": 80,
+              "countIn": true,
+              "repeat": "once",
+              "bassVolume": 70,
+              "padVolume": 45,
+              "clickVolume": 50,
+              "bassMuted": false,
+              "padMuted": false,
+              "clickMuted": false
+            },
+            "ear": {
+              "root": "A",
+              "quality": "minor",
+              "count": 10,
+              "bpm": 80
+            },
+            "study": {
+              "root": "C",
+              "structureId": "major",
+              "labelMode": "degrees",
+              "strings": [
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 3
+            },
+            "training": {
+              "mode": "sequence",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "chromatic",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 96,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": false,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [
+            {
+              "id": "fixture-preset-a",
+              "name": "Нижняя струна",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "C",
+                  "structureId": "major",
+                  "labelMode": "degrees",
+                  "strings": [
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 3
+                },
+                "training": {
+                  "mode": "sequence",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "chromatic",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 96,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": false,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            },
+            {
+              "id": "fixture-preset-b",
+              "name": "Исходная область",
+              "createdAt": "2026-11-08T22:30:00.000Z",
+              "preferences": {
+                "activeModule": "foundation",
+                "tracks": null,
+                "input": {
+                  "deviceId": ""
+                },
+                "harmony": {
+                  "bpm": 80,
+                  "countIn": true,
+                  "repeat": "once",
+                  "bassVolume": 70,
+                  "padVolume": 45,
+                  "clickVolume": 50,
+                  "bassMuted": false,
+                  "padMuted": false,
+                  "clickMuted": false
+                },
+                "ear": {
+                  "root": "A",
+                  "quality": "minor",
+                  "count": 10,
+                  "bpm": 80
+                },
+                "study": {
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "labelMode": "notes",
+                  "strings": [
+                    "G",
+                    "D",
+                    "A",
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 12
+                },
+                "training": {
+                  "mode": "study",
+                  "quizMode": "name-note",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 10,
+                  "pattern": "ascending",
+                  "sequenceScope": "structure",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 80,
+                  "duration": "eighth",
+                  "repeat": "once",
+                  "countIn": true,
+                  "showPulse": true,
+                  "from": null,
+                  "to": null,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "all",
+                  "subdivision": "quarter",
+                  "bassVolume": 70,
+                  "clickVolume": 50
+                }
+              }
+            }
+          ],
+          "history": [
+            {
+              "id": "fixture-manual",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 72,
+                "durationMs": 300000,
+                "note": "Ручная отметка; не измеренная точность.",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "fixture-screen",
+              "occurredAt": "2026-11-08T22:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 100,
+                "mode": "name-note",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                },
+                "plannedCount": 1,
+                "questions": [
+                  {
+                    "questionId": "q-19c8c22-name-note-E:12",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "5"
+                    },
+                    "targetMidi": null,
+                    "selectedPositionIds": [],
+                    "attempts": 2,
+                    "errors": 1,
+                    "firstAnswer": "F",
+                    "firstResponseMs": 350,
+                    "completionMs": 600,
+                    "firstAttemptCorrect": false,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": false,
+                    "corrected": true,
+                    "outcome": "corrected",
+                    "answerEvents": [
+                      {
+                        "answer": "F",
+                        "elapsedMs": 350,
+                        "correct": false
+                      },
+                      {
+                        "answer": "E",
+                        "elapsedMs": 600,
+                        "correct": true
+                      }
+                    ],
+                    "targetPositionId": "E:12"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "survivedReload": true
+      }
+    },
+    {
+      "name": "ui-invalid-import-shows-error-and-preserves-valid-data",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1781,
+      "evidence": {
+        "errors": [
+          "Не удалось прочитать JSON резервной копии.",
+          "Эта версия резервной копии не поддерживается. Данные не изменены.",
+          "Поле результата errors не соответствует реальным попыткам."
+        ],
+        "retainedHistory": 2
+      }
+    },
+    {
+      "name": "ui-completed-screen-result-is-saved-once-and-survives-preference-changes",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1496,
+      "evidence": {
+        "entry": {
+          "id": "screen-84f6b146-1b52-4c4e-b964-02654fc1cb6f",
+          "occurredAt": "2026-11-08T12:28:32.381Z",
+          "timeZone": "Europe/Moscow",
+          "localDate": "2026-11-08",
+          "result": {
+            "kind": "screen",
+            "source": "screen-input",
+            "seed": 3910888582,
+            "mode": "name-note",
+            "context": {
+              "scope": "chromatic",
+              "root": "C",
+              "structureId": "major",
+              "positionIds": [
+                "E:0"
+              ]
+            },
+            "plannedCount": 1,
+            "questions": [
+              {
+                "questionId": "q-15f636a3-name-note-E:0",
+                "answerRule": "pitch-class",
+                "target": {
+                  "pitchClass": 4,
+                  "name": "E",
+                  "degree": "3"
+                },
+                "targetMidi": null,
+                "selectedPositionIds": [],
+                "attempts": 2,
+                "errors": 1,
+                "firstAnswer": "pc:5",
+                "firstResponseMs": 39.69999999925494,
+                "completionMs": 72.39999999850988,
+                "firstAttemptCorrect": false,
+                "hintUsed": false,
+                "skipped": false,
+                "independentCorrect": false,
+                "corrected": true,
+                "outcome": "corrected",
+                "answerEvents": [
+                  {
+                    "answer": "pc:5",
+                    "elapsedMs": 39.69999999925494,
+                    "correct": false
+                  },
+                  {
+                    "answer": "pc:4",
+                    "elapsedMs": 72.39999999850988,
+                    "correct": true
+                  }
+                ],
+                "targetPositionId": "E:0"
+              }
+            ]
+          }
+        },
+        "savedOnce": true,
+        "preferenceChangePreservedHistory": true
+      }
+    },
+    {
+      "name": "ui-lazy-history-opens-current-own-commits-and-partial-upsert-keeps-one-id",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1465,
+      "evidence": {
+        "sameSessionHistoryId": "screen-c30eb3fa-f0f0-4de5-9d27-7c274d09c03a",
+        "initiallyClosed": true,
+        "partialOutcome": "interrupted",
+        "completedOutcome": "corrected",
+        "historyCount": 1,
+        "latestOwnCommitsVisibleOnOpen": true
+      }
+    },
+    {
+      "name": "ui-manual-practice-has-self-report-source-and-consumes-duration",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2696,
+      "evidence": {
+        "first": {
+          "id": "manual-658beaac-7a64-4ae5-86a8-3d0cdb655338",
+          "occurredAt": "2026-11-08T12:28:36.552Z",
+          "timeZone": "Europe/Moscow",
+          "localDate": "2026-11-08",
+          "result": {
+            "kind": "manual",
+            "source": "self-report",
+            "comfortableBpm": 72,
+            "durationMs": 740,
+            "note": "Играю вместе с эталоном; это моя оценка.",
+            "context": {
+              "scope": "chromatic",
+              "root": "C",
+              "structureId": "major",
+              "positionIds": [
+                "E:0"
+              ]
+            }
+          }
+        },
+        "noDoubleCountedDuration": 0
+      }
+    },
+    {
+      "name": "ui-history-filters-and-exact-error-review-subset-preserve-original-context",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2190,
+      "evidence": {
+        "expectedId": "E:12",
+        "originalContext": {
+          "scope": "structure",
+          "root": "A",
+          "structureId": "minor-pentatonic",
+          "positionIds": [
+            "E:0",
+            "E:12"
+          ]
+        },
+        "screenshot": "test-results/p5-history-desktop.png"
+      }
+    },
+    {
+      "name": "ui-real-quota-error-is-visible-and-retry-saves-after-reset",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1091,
+      "evidence": {
+        "actualNativeQuotaError": "Недостаточно места в браузере. Сохранение не выполнено; освободите место или экспортируйте текущие данные.",
+        "retriedAfterQuotaReset": true,
+        "recoveredPreset": "Не должен сохраниться при переполнении"
+      }
+    },
+    {
+      "name": "ui-unavailable-indexeddb-falls-back-to-explicit-memory-and-export",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 962,
+      "evidence": {
+        "explicitlyMemoryOnly": true,
+        "exportedRecords": 1,
+        "reloadClearedTemporaryHistory": true,
+        "nativePersistenceClaimed": false
+      }
+    }
+  ],
+  "externalRequests": [],
+  "pageErrors": [],
+  "cleanupErrors": [],
+  "passed": 20,
+  "failed": 0,
+  "status": "passed"
+}

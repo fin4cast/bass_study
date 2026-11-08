@@ -4,6 +4,9 @@ import { mountPlayer } from './ui/player';
 import { mountHistory } from './ui/history';
 import { mountEar } from './ui/ear';
 import { mountHarmony } from './ui/harmony';
+import { mountNotation } from './ui/notation';
+import { mountTracks } from './ui/tracks';
+import { mountInput } from './ui/input';
 import { mountRoute, type RouteStep } from './ui/route';
 import type { EarSession } from './ear';
 import type { RouteResult } from './route';
@@ -55,10 +58,12 @@ app.innerHTML = `
         <div class="intro-copy"><p>Выбери тональность и структуру.<br> Нажми на позицию, чтобы узнать ноту<br class="desktop-break"> и увидеть, где она повторяется.</p><div class="instrument-chips"><span>4 струны</span><span>E–A–D–G</span></div></div>
       </section>
 
-      <nav class="module-navigation" aria-label="Раздел тренажёра"><button type="button" data-app-module="foundation" aria-pressed="true">Гриф и практика</button><button type="button" data-app-module="ear" aria-pressed="false">Слух</button><button type="button" data-app-module="harmony" aria-pressed="false">Аккомпанемент</button><button type="button" data-app-module="route" aria-pressed="false">Маршрут занятия</button></nav>
+      <nav class="module-navigation" aria-label="Раздел тренажёра"><button type="button" data-app-module="foundation" aria-pressed="true">Гриф и практика</button><button type="button" data-app-module="ear" aria-pressed="false">Слух</button><button type="button" data-app-module="harmony" aria-pressed="false">Аккомпанемент</button><button type="button" data-app-module="tracks" aria-pressed="false">Аудиодорожки</button><button type="button" data-app-module="input" aria-pressed="false">Аудиовход</button><button type="button" data-app-module="route" aria-pressed="false">Маршрут занятия</button></nav>
       <div id="route-session-mount"></div>
       <section id="ear-mount" aria-label="Слуховые задания" hidden></section>
       <section id="harmony-mount" aria-label="Аккомпанемент" hidden></section>
+      <section id="tracks-mount" aria-label="Локальные аудиодорожки" hidden></section>
+      <section id="input-mount" aria-label="Диагностический аудиовход" hidden></section>
       <section id="route-mount" aria-label="Маршрут занятия" hidden></section>
       <section class="workspace" aria-label="Изучение грифа">
         <div class="settings-panel">
@@ -85,6 +90,7 @@ app.innerHTML = `
 
         <div id="training-mount"></div>
         <div id="player-mount" hidden></div>
+        <section id="notation-mount" aria-label="Нотная запись и табулатура последовательности" hidden></section>
         <div class="fretboard-section">
           <div class="board-header"><div class="section-title"><span class="section-number">02</span><h2>Исследуй позиции</h2></div><span id="position-count" class="position-count"></span></div>
           <div class="board-scroll" id="board-scroll"><div id="fretboard-container"></div></div>
@@ -113,6 +119,9 @@ let sequencePlayer: ReturnType<typeof mountPlayer> | undefined;
 let history: ReturnType<typeof mountHistory> | undefined;
 let ear: ReturnType<typeof mountEar> | undefined;
 let accompaniment: ReturnType<typeof mountHarmony> | undefined;
+let notation: ReturnType<typeof mountNotation> | undefined;
+let tracks: ReturnType<typeof mountTracks> | undefined;
+let inputMonitor: ReturnType<typeof mountInput> | undefined;
 let route: ReturnType<typeof mountRoute> | undefined;
 let activeModule: AppPreferences['activeModule'] = 'foundation';
 let foundationMode: 'study' | 'quiz' | 'sequence' = 'study';
@@ -146,6 +155,8 @@ function getPreferences(): AppPreferences {
     activeModule,
     ear: activeModule === 'ear' ? ear?.getPreferences() ?? DEFAULT_PREFERENCES.ear : lastValidPreferences.ear,
     harmony: activeModule === 'harmony' ? accompaniment?.getPreferences() ?? DEFAULT_PREFERENCES.harmony : lastValidPreferences.harmony,
+    tracks: activeModule === 'tracks' ? tracks?.getPreferences() ?? null : lastValidPreferences.tracks,
+    input: activeModule === 'input' ? inputMonitor?.getPreferences() ?? DEFAULT_PREFERENCES.input : lastValidPreferences.input,
     study: { root: state.root, structureId: state.structureId, labelMode: state.labelMode, strings: state.strings, fretMin: state.fretMin, fretMax: state.fretMax },
     training: activeModule === 'foundation' ? training?.getPreferences() ?? DEFAULT_PREFERENCES.training : lastValidPreferences.training,
     player: activeModule === 'foundation' ? sequencePlayer?.getPreferences() ?? DEFAULT_PREFERENCES.player : lastValidPreferences.player,
@@ -205,14 +216,18 @@ function updateModuleVisibility() {
   document.querySelector<HTMLElement>('.structure-summary')!.hidden = foundationMode === 'quiz';
   document.querySelector<HTMLElement>('.label-field')!.hidden = foundationMode === 'quiz';
   byId('player-mount').hidden = !foundation || foundationMode !== 'sequence';
+  byId('notation-mount').hidden = !foundation || foundationMode !== 'sequence';
+  notation?.setVisible(foundation && foundationMode === 'sequence');
   byId('ear-mount').hidden = activeModule !== 'ear';
   byId('harmony-mount').hidden = activeModule !== 'harmony';
+  tracks?.setVisible(activeModule === 'tracks');
+  inputMonitor?.setVisible(activeModule === 'input');
   byId('route-mount').hidden = activeModule !== 'route';
   ear?.setVisible(activeModule === 'ear');
   accompaniment?.setVisible(activeModule === 'harmony');
   document.querySelectorAll<HTMLElement>('[data-app-module]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.appModule === activeModule)));
-  byId('page-title').innerHTML = activeModule === 'ear' ? 'Учись слышать.<br> <span>Найди ступень.</span>' : activeModule === 'harmony' ? 'Сыграй с гармонией.<br> <span>Почувствуй пульс.</span>' : activeModule === 'route' ? 'Собери занятие.<br> <span>Пройди три шага.</span>' : 'Изучи гриф.<br> <span>Найди связи.</span>';
-  document.querySelector<HTMLElement>('.intro-copy > p')!.innerHTML = activeModule === 'ear' ? 'Послушай тонику и второй звук.<br> Вспомни, как звучит трезвучие,<br> и выбери ступень.' : activeModule === 'harmony' ? 'Четыре аккорда в C major.<br> Послушай рисунок баса<br> и сыграй своё сопровождение.' : activeModule === 'route' ? 'Соедини знание грифа,<br> узнавание звуков и ровный пульс<br> в одном небольшом занятии.' : 'Выбери тональность и структуру.<br> Нажми на позицию, чтобы узнать ноту<br class="desktop-break"> и увидеть, где она повторяется.';
+  byId('page-title').innerHTML = activeModule === 'tracks' ? 'Работай с записью.<br> <span>Повторяй свой фрагмент.</span>' : activeModule === 'input' ? 'Подключи бас.<br> <span>Проверь сигнал.</span>' : activeModule === 'ear' ? 'Учись слышать.<br> <span>Найди ступень.</span>' : activeModule === 'harmony' ? 'Сыграй с гармонией.<br> <span>Почувствуй пульс.</span>' : activeModule === 'route' ? 'Собери занятие.<br> <span>Пройди три шага.</span>' : 'Изучи гриф.<br> <span>Найди связи.</span>';
+  document.querySelector<HTMLElement>('.intro-copy > p')!.innerHTML = activeModule === 'tracks' ? 'Выбери локальный файл<br> или готовые дорожки.<br> Слушай и разбирай по частям.' : activeModule === 'input' ? 'Подключение через аудиоинтерфейс или USB.<br> Уровень и частота помогают проверить вход.<br> Автоматической оценки игры здесь нет.' : activeModule === 'ear' ? 'Послушай тонику и второй звук.<br> Вспомни, как звучит трезвучие,<br> и выбери ступень.' : activeModule === 'harmony' ? 'Четыре аккорда в C major.<br> Послушай рисунок баса<br> и сыграй своё сопровождение.' : activeModule === 'route' ? 'Соедини знание грифа,<br> узнавание звуков и ровный пульс<br> в одном небольшом занятии.' : 'Выбери тональность и структуру.<br> Нажми на позицию, чтобы узнать ноту<br class="desktop-break"> и увидеть, где она повторяется.';
 }
 
 function switchModule(next: AppPreferences['activeModule']) {
@@ -221,6 +236,8 @@ function switchModule(next: AppPreferences['activeModule']) {
   if (activeModule === 'foundation') { training?.finishCurrentSession('Занятие остановлено при смене раздела'); sequencePlayer?.stop(); }
   if (activeModule === 'ear') ear?.finishCurrentSession('Слуховое занятие остановлено при смене раздела');
   if (activeModule === 'harmony') accompaniment?.stop();
+  if (activeModule === 'tracks') tracks?.stop();
+  if (activeModule === 'input') inputMonitor?.stop();
   activeModule = next;
   updateModuleVisibility();
   history?.updatePracticeContext();
@@ -248,6 +265,8 @@ function applyPreferences(preferences: AppPreferences) {
   training?.finishCurrentSession('Занятие остановлено перед применением настроек');
   ear?.finishCurrentSession('Слуховое занятие остановлено перед применением настроек');
   accompaniment?.stop();
+  tracks?.stop();
+  inputMonitor?.stop();
   sequencePlayer?.stop();
   applyingPreferences = true;
   try {
@@ -266,6 +285,8 @@ function applyPreferences(preferences: AppPreferences) {
     sequencePlayer?.applyPreferences(value.player);
     ear?.applyPreferences(value.ear);
     accompaniment?.applyPreferences(value.harmony);
+    tracks?.applyPreferences(value.tracks);
+    inputMonitor?.applyPreferences(value.input);
     updateModuleVisibility();
   } finally { applyingPreferences = false; }
 }
@@ -467,12 +488,13 @@ training = mountTraining(byId('training-mount'), () => ({ positions: rangeIsVali
     updateModuleVisibility();
     if (mode === 'sequence') sequencePlayer?.refreshContext();
   },
-  onSequenceChange() { sequencePlayer?.refreshContext(); sequencePlayer?.refreshHighlight(); history?.updatePracticeContext(); },
+  onSequenceChange() { sequencePlayer?.refreshContext(); sequencePlayer?.refreshHighlight(); void notation?.refreshContext(); history?.updatePracticeContext(); },
 });
 sequencePlayer = mountPlayer(byId('player-mount'), () => training?.getCurrentSequence()?.notes ?? [], {
-  onPreferencesChange: savePreferences,
+  onPreferencesChange() { savePreferences(); void notation?.refreshContext(); },
   getContextKey: () => training?.getSequenceContextKey() ?? '',
   onPositionChange(id, noteIndex) {
+    notation?.setActiveIndex(noteIndex);
     container.querySelectorAll<SVGGElement>('[data-position]').forEach(element => element.classList.toggle('is-playing', id !== null && element.dataset.position === id));
     document.querySelectorAll<HTMLElement>('[data-sequence-index]').forEach(element => {
       const current = id !== null && Number(element.dataset.sequenceIndex) === noteIndex;
@@ -482,20 +504,34 @@ sequencePlayer = mountPlayer(byId('player-mount'), () => training?.getCurrentSeq
     });
   },
 });
+notation = mountNotation(byId('notation-mount'), () => ({ positions: training?.getCurrentSequence()?.notes ?? [], duration: sequencePlayer?.getDuration() ?? 'eighth' }), {
+  onSelect: (_index, positionId) => selectPosition(positionId),
+});
+notation.setVisible(false);
 ear = mountEar(byId('ear-mount'), {
   onPreferencesChange: savePreferences,
   onSessionChanged: persistEarSession,
-  onBeforeListen() { sequencePlayer?.stop(); accompaniment?.stop(); },
+  onBeforeListen() { sequencePlayer?.stop(); accompaniment?.stop(); tracks?.stop(); inputMonitor?.stop(); },
 });
 ear.setVisible(false);
 accompaniment = mountHarmony(byId('harmony-mount'), {
   onPreferencesChange: savePreferences,
-  onBeforeStart() { sequencePlayer?.stop(); ear?.pauseListening('Открыто сопровождение.'); },
+  onBeforeStart() { sequencePlayer?.stop(); ear?.pauseListening('Открыто сопровождение.'); tracks?.stop(); inputMonitor?.stop(); },
 });
 accompaniment.setVisible(false);
+tracks = mountTracks(byId('tracks-mount'), {
+  onPreferencesChange: savePreferences,
+  onBeforePlay() { sequencePlayer?.stop(); accompaniment?.stop(); ear?.pauseListening('Открыты аудиодорожки.'); inputMonitor?.stop(); },
+});
+tracks.setVisible(false);
+inputMonitor = mountInput(byId('input-mount'), {
+  onPrefsChange: savePreferences,
+  onBeforeStart() { sequencePlayer?.stop(); accompaniment?.stop(); tracks?.stop(); ear?.pauseListening('Открыт аудиовход.'); },
+});
+inputMonitor.setVisible(false);
 route = mountRoute(byId('route-mount'), byId('route-session-mount'), {
   onGo: openRouteStep,
-  onPause() { sequencePlayer?.stop(); accompaniment?.stop(); ear?.pauseListening('Активный таймер приостановлен.'); },
+  onPause() { sequencePlayer?.stop(); accompaniment?.stop(); tracks?.stop(); inputMonitor?.stop(); ear?.pauseListening('Активный таймер приостановлен.'); },
   onSessionChanged: persistRouteSession,
 });
 document.querySelectorAll<HTMLElement>('[data-app-module]').forEach(button => button.addEventListener('click', () => switchModule(button.dataset.appModule as AppPreferences['activeModule'])));
@@ -522,6 +558,7 @@ history = mountHistory(byId('history-mount'), {
     ...(sequencePlayer?.getPracticeDraft() ?? { durationMs: 0, comfortableBpm: 80 }),
     context: { root: structure.root, structureId: structure.id, scope: training?.getSequenceScope() ?? 'structure', positionIds: rangeIsValid() ? positions.map(position => position.id) : [] },
     label: 'Последовательности на грифе',
+    available: activeModule === 'foundation',
   }),
   onManualSaved: (durationMs, contextKey) => { if (contextKey?.startsWith('harmony:')) accompaniment?.consumePracticeDuration(durationMs, contextKey); else sequencePlayer?.consumePracticeDuration(durationMs, contextKey); },
   onRepeatErrors(ids, context) {
@@ -542,7 +579,7 @@ history = mountHistory(byId('history-mount'), {
       sequencePlayer?.stop();
       accompaniment?.stop();
       route?.stop();
-      ear?.finishCurrentSession('Слуховое занятие остановлено перед восстановлением');
+      ear?.finishCurrentSession('Слуховое занятие остановлено перед восстановлением'); tracks?.stop(); inputMonitor?.stop();
       training?.finishCurrentSession('Занятие остановлено перед восстановлением');
       await writes.flush();
       await store.restore(json, { confirmed: true });
@@ -592,6 +629,8 @@ function retire() {
   main.inert = true;
   sequencePlayer?.stop();
   accompaniment?.stop();
+  tracks?.stop();
+  inputMonitor?.stop();
   route?.stop();
   ear?.stop('Страница закрывается');
   retiring = true;
@@ -600,4 +639,4 @@ function retire() {
 }
 window.addEventListener('pagehide', () => { void retire(); });
 window.addEventListener('pageshow', event => { if (event.persisted) location.reload(); });
-if (import.meta.hot) import.meta.hot.dispose(() => { void retire(); sequencePlayer?.dispose(); training?.dispose(); ear?.dispose(); accompaniment?.dispose(); route?.dispose(); history?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { void retire(); sequencePlayer?.dispose(); training?.dispose(); ear?.dispose(); accompaniment?.dispose(); notation?.dispose(); tracks?.dispose(); void inputMonitor?.dispose(); route?.dispose(); history?.dispose(); });

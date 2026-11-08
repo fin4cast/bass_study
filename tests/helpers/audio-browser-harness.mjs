@@ -1,3 +1,4 @@
+import { inspectStaticServer } from './static-server-ownership.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
@@ -11,6 +12,7 @@ import { createServer } from 'vite';
 const loopback = url => ['localhost', '127.0.0.1', '[::1]'].includes(new URL(url).hostname);
 
 export async function runAudioBrowserChecks(checks) {
+  let externalServer = false;
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   const origin = 'http://localhost:4173';
   const fixtureOrigin = 'http://127.0.0.1:4181';
@@ -88,15 +90,17 @@ export async function runAudioBrowserChecks(checks) {
     }
   }
   try {
-    for (const url of [origin, fixtureOrigin]) {
+    for (const url of [fixtureOrigin]) {
       try { await fetch(url, { signal: AbortSignal.timeout(500) }); throw new Error(`Port already occupied: ${url}`); }
       catch (error) { if (error.message.startsWith('Port already occupied:')) throw error; }
     }
-    await readFile(join(root, 'dist', 'index.html'));
+    const ownership = await inspectStaticServer(origin, join(root, 'dist', 'index.html'), process.argv.includes('--reuse-server'));
+    externalServer = ownership.external; report.staticServer = ownership.evidence;
     await mkdir(resultDir, { recursive: true });
     temporary = await mkdtemp(join(tmpdir(), 'bass-study-p4-'));
     fixtureServer = await createServer({ configFile: false, root, server: { host: '127.0.0.1', port: 4181, strictPort: true }, clearScreen: false, logLevel: 'warn' });
     await fixtureServer.listen();
+    if (!externalServer) {
     server = spawn(process.execPath, [join(root, 'scripts', 'serve.mjs')], { cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let startup = '', launchError;
     server.on('error', error => { launchError = error; });
@@ -109,6 +113,7 @@ export async function runAudioBrowserChecks(checks) {
       await delay(50);
     }
     assert.ok(ready, `Static server did not become ready: ${startup}`);
+    }
     browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--mute-audio'] });
     report.browserVersion = browser.version();
     for (const { name, scope, run } of checks) {
@@ -135,7 +140,7 @@ export async function runAudioBrowserChecks(checks) {
     await cleanup('browser', async () => { await browser?.close(); });
     await cleanup('fixture-server', async () => { await fixtureServer?.close(); });
     await cleanup('static-server', async () => {
-      if (server?.pid && server.exitCode === null) { const done = new Promise(resolve => server.once('exit', resolve)); server.kill(); await done; }
+      if (!externalServer && server?.pid && server.exitCode === null) { const done = new Promise(resolve => server.once('exit', resolve)); server.kill(); await done; }
     });
     await cleanup('isolated-profile', async () => {
       if (!temporary) return;

@@ -1,3 +1,4 @@
+import { inspectStaticServer } from './static-server-ownership.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -19,15 +20,15 @@ export async function runTrainingBrowserChecks(checks) {
     networkIsolation: 'Non-loopback HTTP requests from application pages are aborted. Fresh browser context and disabled cache; no Windows NIC change.',
     checks: [], cleanupErrors: [],
   };
-  let server;
+  let server; let externalServer = false;
   let browser;
   let context;
   let page;
   try {
-    try { await fetch(origin, { signal: AbortSignal.timeout(500) }); throw new Error('Port 4173 is already occupied; refusing to test another server'); }
-    catch (error) { if (error.message.startsWith('Port 4173 is already occupied')) throw error; }
-    await readFile(join(root, 'dist', 'index.html'));
+    const ownership = await inspectStaticServer(origin, join(root, 'dist', 'index.html'), process.argv.includes('--reuse-server'));
+    externalServer = ownership.external; report.staticServer = ownership.evidence;
     await mkdir(resultDir, { recursive: true });
+    if (!externalServer) {
     server = spawn(process.execPath, [join(root, 'scripts', 'serve.mjs')], { cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let startup = '';
     let launchError;
@@ -42,6 +43,7 @@ export async function runTrainingBrowserChecks(checks) {
       await delay(50);
     }
     assert.ok(ready, `Server did not become ready: ${startup}`);
+    }
     browser = await chromium.launch({ channel: 'msedge', headless: true });
     report.browserVersion = browser.version();
     context = await browser.newContext({ viewport: { width: 1280, height: 1000 } });
@@ -87,7 +89,7 @@ export async function runTrainingBrowserChecks(checks) {
     await cleanup('browser-context', async () => { await context?.close(); });
     await cleanup('browser', async () => { await browser?.close(); });
     await cleanup('local-server', async () => {
-      if (server?.pid && server.exitCode === null) {
+      if (!externalServer && server?.pid && server.exitCode === null) {
         const exited = new Promise(resolve => server.once('exit', resolve));
         server.kill(); await exited;
       }

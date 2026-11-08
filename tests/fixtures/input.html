@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>Диагностический вход: native fake WAV</title>
+<body>
+<h1>Изолированная проверка входа</h1>
+<p>Устройство — только синтетический WAV в отдельном тестовом Edge.</p>
+<button id="start">Подключить тестовый вход</button><button id="stop">Отключить</button><button id="dispose">Закрыть</button>
+<p id="status" role="status"></p>
+<script type="module">
+  import { createInputMonitor } from '/src/audio/input.ts';
+  import { estimatePitch } from '/src/input/pitch.ts';
+  const monitor = createInputMonitor();
+  window.p7input = { ready: true, monitor, options: {}, action: null, estimatePitch };
+  for (const name of ['start', 'stop', 'dispose']) document.getElementById(name).addEventListener('click', async () => {
+    const action = { name, done: false, error: null }; window.p7input.action = action;
+    try { await monitor[name](...(name === 'start' ? [window.p7input.options] : [])); }
+    catch (error) { action.error = { name: error.name, code: error.code, message: error.message }; }
+    finally { action.done = true; document.getElementById('status').textContent = monitor.getSnapshot().state; }
+  });
+  window.addEventListener('pagehide', () => { void monitor.dispose(); }, { once: true });
+</script>
+</body>
+</html>
