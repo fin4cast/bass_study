@@ -1,5 +1,6 @@
 import './training.css';
 import type { AppPreferences } from '../storage';
+import { INTERVAL_DEGREES, type IntervalDegree } from '../training/constraints';
 import { formatMidi, type AnnotatedPosition, type MusicalStructure, type StringId } from '../music';
 import {
   createSequence,
@@ -27,6 +28,7 @@ export interface TrainingOptions {
   onSequenceChange?: () => void;
   onPreferencesChange?: () => void;
   onSessionFinished?: (session: Session) => void;
+  onSessionChanged?: (session: Session) => void;
 }
 
 const STRING_ORDER: StringId[] = ['G', 'D', 'A', 'E'];
@@ -35,6 +37,8 @@ const QUIZ_MODES: readonly { id: QuizMode; name: string; description: string }[]
   { id: 'find-note', name: 'Найди ноту', description: 'Найди любую подходящую позицию в выбранной области.' },
   { id: 'find-all', name: 'Найди все позиции', description: 'Собери все позиции названной ноты, включая другие октавы.' },
   { id: 'find-degree', name: 'Найди ступень', description: 'Найди ступень относительно тоники выбранной структуры.' },
+  { id: 'find-pitch', name: 'Найди высоту', description: 'Найди точную звучащую высоту с указанной октавой. Подходят все её позиции.' },
+  { id: 'find-interval', name: 'Найди интервал', description: 'Найди указанный интервал от тоники в любой октаве. Доступны все ноты области, включая ноты вне структуры.' },
 ];
 const PATTERNS: readonly { id: SequencePattern; name: string }[] = [
   { id: 'ascending', name: 'Вверх' },
@@ -53,6 +57,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
   let sequenceScope: TrainingScope = 'structure';
   let pattern: SequencePattern = 'ascending';
   let count = 10;
+  let intervalDegree: IntervalDegree = '#4';
   let countDraft: string | null = null;
   let reviewPositionIds: readonly string[] = [];
   let session: Session | null = null;
@@ -107,7 +112,8 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     return `<div class="training-intro"><div><p class="eyebrow">ПРОВЕРКА ЗНАНИЙ</p><h2>Вспомни. Найди. Проверь себя.</h2></div><p>Здесь проверяются ответы на экране.<br>Точность игры на басу не измеряется.</p></div>
       <div class="quiz-settings">
         <label class="training-field"><span>Тип задания</span><select aria-label="Тип задания" data-quiz-setting="mode"${reviewPositionIds.length ? ' disabled' : ''}>${QUIZ_MODES.map(item => `<option value="${item.id}"${item.id === quizMode ? ' selected' : ''}>${item.name}</option>`).join('')}</select></label>
-        <label class="training-field"><span>Материал заданий</span><select aria-label="Материал заданий" data-quiz-setting="scope"${quizMode === 'find-degree' || reviewPositionIds.length ? ' disabled' : ''}><option value="structure"${scope === 'structure' ? ' selected' : ''}>В выбранной структуре</option><option value="chromatic"${scope === 'chromatic' ? ' selected' : ''}>Все ноты диапазона</option></select></label>
+        <label class="training-field"><span>Материал заданий</span><select aria-label="Материал заданий" data-quiz-setting="scope"${quizMode === 'find-degree' || quizMode === 'find-interval' || reviewPositionIds.length ? ' disabled' : ''}><option value="structure"${scope === 'structure' ? ' selected' : ''}>В выбранной структуре</option><option value="chromatic"${scope === 'chromatic' ? ' selected' : ''}>Все ноты диапазона</option></select></label>
+        ${quizMode === 'find-interval' ? `<label class="training-field"><span>Интервал от тоники</span><select aria-label="Интервал от тоники" data-quiz-setting="interval">${INTERVAL_DEGREES.map(degree => `<option value="${degree}"${degree === intervalDegree ? ' selected' : ''}>${degree.replaceAll('b', '♭').replaceAll('#', '♯')}</option>`).join('')}</select></label>` : ''}
         <label class="training-field count-field"><span>Вопросов</span><input type="number" min="1" max="30" step="1" value="${escapeHtml(countDraft ?? String(count))}" aria-label="Количество вопросов" aria-invalid="${countDraft !== null && (!countDraft || !Number.isInteger(Number(countDraft)) || Number(countDraft) < 1 || Number(countDraft) > 30)}" data-quiz-setting="count"></label>
         <button class="primary-button" type="button" data-training-action="start">${session ? 'Начать заново' : 'Начать занятие'}<span aria-hidden="true">→</span></button>
       </div>
@@ -145,6 +151,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     const max = Math.max(...positions.map(position => position.fret));
     const cell = 58, left = 56, top = 42, rowGap = 54;
     const width = left + (max - min + 1) * cell + 18;
+    const canvasWidth = Math.max(width, 620);
     const height = top + (rows.length - 1) * rowGap + 44;
     const x = (fret: number) => left + (fret - min + .5) * cell;
     const y = (string: StringId) => top + rows.indexOf(string) * rowGap;
@@ -153,7 +160,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     const found = new Set(session.answerState.selectedPositionIds);
     const revealed = session.answerState.status === 'revealed';
     const answerNames = new Map(positions.map(position => [position.id, position.noteName]));
-    return `<div class="quiz-board-scroll"><svg class="quiz-board" data-testid="quiz-answer-board" viewBox="0 0 ${width} ${height}" style="min-width:${Math.max(width, 620)}px" aria-label="Гриф для ответа: позиции без названий нот">
+    return `<div class="quiz-board-scroll"><svg class="quiz-board" data-testid="quiz-answer-board" viewBox="0 0 ${canvasWidth} ${height}" style="min-width:${canvasWidth}px" aria-label="Гриф для ответа: позиции без названий нот">
       <rect x="${left}" y="18" width="${(max - min + 1) * cell}" height="${height - 32}" rx="4" fill="#293631"/>
       ${Array.from({ length: max - min + 1 }, (_, i) => min + i).map(fret => `<text class="answer-fret-number" x="${x(fret)}" y="11" text-anchor="middle">${fret}</text><line class="answer-wire" x1="${left + (fret - min + 1) * cell}" y1="18" x2="${left + (fret - min + 1) * cell}" y2="${height - 14}"/>`).join('')}
       ${rows.map(string => `<text class="answer-string-name" x="22" y="${y(string) + 4}" text-anchor="middle">${string}</text><line class="answer-string" x1="${left - 9}" y1="${y(string)}" x2="${width - 18}" y2="${y(string)}"/>`).join('')}
@@ -207,7 +214,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       count = nextCount;
       countDraft = null;
       const random = crypto.getRandomValues(new Uint32Array(1))[0];
-      const nextSession = startQuiz({ ...quizContext(), mode: quizMode, scope, seed: random }, count);
+      const nextSession = startQuiz({ ...quizContext(), mode: quizMode, scope, intervalDegree, seed: random }, count);
       if (session) archiveSession();
       session = nextSession;
       sessionContextLabel = `${quizContext().structure.root} · ${quizContext().structure.name}; ${scope === 'structure' ? 'ноты структуры' : 'все ноты диапазона'}; ${quizContext().positions.length} позиций`;
@@ -227,6 +234,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     if (!session || session.answerState.status !== 'awaiting') return;
     const beforeErrors = session.answerState.errors;
     session = submitAnswer(session, value, Math.max(0, performance.now() - questionStartedAt));
+    options.onSessionChanged?.(session);
     if (session.answerState.errors > beforeErrors) {
       if (quizMode === 'name-note') wrongChoices.add(value);
       else wrongPositions.add(value);
@@ -309,6 +317,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       if (session.status === 'finished') { finish(); return; }
       resetQuestionUi();
     }
+    options.onSessionChanged?.(session);
     render();
     content.querySelector<HTMLElement>(action === 'next' ? '#quiz-prompt' : '[data-training-action="next"]')?.focus();
   }, { signal: controller.signal });
@@ -331,8 +340,10 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       if (setting === 'mode') {
         quizMode = input.value as QuizMode;
         if (quizMode === 'find-degree') scope = 'structure';
+        if (quizMode === 'find-interval') scope = 'chromatic';
       }
       if (setting === 'scope') scope = input.value as TrainingScope;
+      if (setting === 'interval') intervalDegree = input.value as IntervalDegree;
       render();
       content.querySelector<HTMLElement>(`[data-quiz-setting="${setting}"]`)?.focus();
       options.onPreferencesChange?.();
@@ -378,7 +389,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     getPreferences(): AppPreferences['training'] {
       const input = content.querySelector<HTMLInputElement>('[data-quiz-setting="count"]');
       if (input && (!input.value || !Number.isInteger(Number(input.value)) || Number(input.value) < 1 || Number(input.value) > 30)) throw new RangeError('Количество вопросов — целое число от 1 до 30.');
-      return { mode, quizMode, scope, count, pattern, sequenceScope, reviewPositionIds: [...reviewPositionIds] };
+      return { mode, quizMode, scope, intervalDegree, count, pattern, sequenceScope, reviewPositionIds: [...reviewPositionIds] };
     },
     applyPreferences(preferences: AppPreferences['training']) {
       if (session) archiveSession();
@@ -386,6 +397,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       mode = preferences.mode;
       quizMode = preferences.quizMode;
       scope = preferences.scope;
+      intervalDegree = preferences.intervalDegree;
       count = preferences.count;
       countDraft = null;
       pattern = preferences.pattern;
@@ -419,6 +431,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     },
     finishCurrentSession(reason = 'Занятие завершено') { finish(reason); },
     getLastSession() { return lastSession; },
+    getSequenceScope(): TrainingScope { return sequenceScope; },
     getCurrentSequence() {
       try { return createSequence({ ...getContext(), scope: sequenceScope, pattern }); }
       catch { return null; }

@@ -1,0 +1,1185 @@
+{
+  "generatedAt": "2026-11-08T10:27:23.133Z",
+  "platform": "win32",
+  "architecture": "x64",
+  "node": "v24.18.0",
+  "browserChannel": "msedge",
+  "browserVersion": "157.0.4341.42",
+  "origin": "http://localhost:4173",
+  "fixtureOrigin": "http://127.0.0.1:4183",
+  "scope": "P6 actual v1 IndexedDB upgrade/rollback, v1 JSON migration, exact-pitch/interval UI, keyboard-only practice, partial history, whole browser/server restart and writer lease.",
+  "networkIsolation": "Clean Edge contexts/profiles, cache disabled, non-loopback page HTTP requests blocked. No user profile, physical disk filling or Windows NIC changes.",
+  "checks": [
+    {
+      "name": "genuine-v1-indexeddb-upgrades-all-stores-preserving-events-and-original-dates",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 410,
+      "evidence": {
+        "seededVersion": 1,
+        "rawVersion": 2,
+        "upgraded": {
+          "format": "bass-study-backup",
+          "schemaVersion": 2,
+          "preferences": {
+            "study": {
+              "root": "A",
+              "structureId": "minor-pentatonic",
+              "labelMode": "notes",
+              "strings": [
+                "E",
+                "A"
+              ],
+              "fretMin": 0,
+              "fretMax": 12
+            },
+            "training": {
+              "mode": "quiz",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 2,
+              "pattern": "ascending",
+              "sequenceScope": "structure",
+              "reviewPositionIds": [
+                "E:0"
+              ]
+            },
+            "player": {
+              "bpm": 76,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": true,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 90,
+              "ladderStep": 3,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [
+            {
+              "id": "legacy-preset",
+              "name": "Старая настройка",
+              "createdAt": "2026-11-01T15:20:30.000Z",
+              "preferences": {
+                "study": {
+                  "root": "C",
+                  "structureId": "major",
+                  "labelMode": "degrees",
+                  "strings": [
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 7
+                },
+                "training": {
+                  "mode": "sequence",
+                  "quizMode": "find-degree",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 5,
+                  "pattern": "round-trip",
+                  "sequenceScope": "structure",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 64,
+                  "duration": "quarter",
+                  "repeat": "infinite",
+                  "countIn": false,
+                  "showPulse": true,
+                  "from": 1,
+                  "to": 3,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "two-four",
+                  "subdivision": "quarter",
+                  "bassVolume": 80,
+                  "clickVolume": 40
+                }
+              }
+            }
+          ],
+          "history": [
+            {
+              "id": "legacy-manual",
+              "occurredAt": "2026-11-08T23:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 68,
+                "durationMs": 240000,
+                "note": "Старая ручная отметка",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "legacy-screen",
+              "occurredAt": "2026-11-08T02:30:00.000Z",
+              "timeZone": "America/New_York",
+              "localDate": "2026-11-07",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 12345,
+                "mode": "name-note",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                },
+                "plannedCount": 2,
+                "questions": [
+                  {
+                    "questionId": "legacy-question-1",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "5"
+                    },
+                    "targetMidi": null,
+                    "selectedPositionIds": [],
+                    "attempts": 2,
+                    "errors": 1,
+                    "firstAnswer": "F",
+                    "firstResponseMs": 500,
+                    "completionMs": 950,
+                    "firstAttemptCorrect": false,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": false,
+                    "corrected": true,
+                    "outcome": "corrected",
+                    "answerEvents": [
+                      {
+                        "answer": "F",
+                        "elapsedMs": 500,
+                        "correct": false
+                      },
+                      {
+                        "answer": "E",
+                        "elapsedMs": 950,
+                        "correct": true
+                      }
+                    ],
+                    "targetPositionId": "E:0"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "reopenedWithoutSecondMigration": true
+      }
+    },
+    {
+      "name": "bad-v1-record-aborts-entire-native-upgrade-and-preserves-version-one",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 185,
+      "evidence": {
+        "failure": {
+          "code": "INVALID_DATA",
+          "message": "Первое время ответа: число вне допустимого диапазона."
+        },
+        "originalVersion": 1,
+        "preserved": {
+          "version": 1,
+          "preferences": {
+            "study": {
+              "root": "A",
+              "structureId": "minor-pentatonic",
+              "labelMode": "notes",
+              "strings": [
+                "E",
+                "A"
+              ],
+              "fretMin": 0,
+              "fretMax": 12
+            },
+            "training": {
+              "mode": "quiz",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "count": 2,
+              "pattern": "ascending",
+              "sequenceScope": "structure",
+              "reviewPositionIds": [
+                "E:0"
+              ]
+            },
+            "player": {
+              "bpm": 76,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": true,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 90,
+              "ladderStep": 3,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [
+            {
+              "id": "legacy-preset",
+              "name": "Старая настройка",
+              "createdAt": "2026-11-01T15:20:30.000Z",
+              "preferences": {
+                "study": {
+                  "root": "C",
+                  "structureId": "major",
+                  "labelMode": "degrees",
+                  "strings": [
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 7
+                },
+                "training": {
+                  "mode": "sequence",
+                  "quizMode": "find-degree",
+                  "scope": "structure",
+                  "count": 5,
+                  "pattern": "round-trip",
+                  "sequenceScope": "structure",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 64,
+                  "duration": "quarter",
+                  "repeat": "infinite",
+                  "countIn": false,
+                  "showPulse": true,
+                  "from": 1,
+                  "to": 3,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "two-four",
+                  "subdivision": "quarter",
+                  "bassVolume": 80,
+                  "clickVolume": 40
+                }
+              }
+            }
+          ],
+          "history": [
+            {
+              "id": "legacy-manual",
+              "occurredAt": "2026-11-08T23:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 68,
+                "durationMs": 240000,
+                "note": "Старая ручная отметка",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "legacy-screen",
+              "occurredAt": "2026-11-08T02:30:00.000Z",
+              "timeZone": "America/New_York",
+              "localDate": "2026-11-07",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 12345,
+                "mode": "name-note",
+                "plannedCount": 2,
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                },
+                "questions": [
+                  {
+                    "questionId": "legacy-question-1",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "5"
+                    },
+                    "targetPositionId": "E:0",
+                    "selectedPositionIds": [],
+                    "attempts": 2,
+                    "errors": 1,
+                    "firstAnswer": "F",
+                    "firstResponseMs": -1,
+                    "completionMs": 950,
+                    "firstAttemptCorrect": false,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": false,
+                    "corrected": true,
+                    "outcome": "corrected",
+                    "answerEvents": [
+                      {
+                        "answer": "F",
+                        "elapsedMs": 500,
+                        "correct": false
+                      },
+                      {
+                        "answer": "E",
+                        "elapsedMs": 950,
+                        "correct": true
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "legacy-json-preview-and-restore-migrate-to-version-two",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 192,
+      "evidence": {
+        "preview": {
+          "snapshot": {
+            "format": "bass-study-backup",
+            "schemaVersion": 2,
+            "preferences": {
+              "study": {
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "labelMode": "notes",
+                "strings": [
+                  "E",
+                  "A"
+                ],
+                "fretMin": 0,
+                "fretMax": 12
+              },
+              "training": {
+                "mode": "quiz",
+                "quizMode": "name-note",
+                "scope": "structure",
+                "intervalDegree": "#4",
+                "count": 2,
+                "pattern": "ascending",
+                "sequenceScope": "structure",
+                "reviewPositionIds": [
+                  "E:0"
+                ]
+              },
+              "player": {
+                "bpm": 76,
+                "duration": "eighth",
+                "repeat": "once",
+                "countIn": true,
+                "showPulse": true,
+                "from": null,
+                "to": null,
+                "ladderStart": 60,
+                "ladderEnd": 90,
+                "ladderStep": 3,
+                "ladderRepeats": 2,
+                "metronome": true,
+                "metronomeMode": "all",
+                "subdivision": "quarter",
+                "bassVolume": 70,
+                "clickVolume": 50
+              }
+            },
+            "presets": [
+              {
+                "id": "legacy-preset",
+                "name": "Старая настройка",
+                "createdAt": "2026-11-01T15:20:30.000Z",
+                "preferences": {
+                  "study": {
+                    "root": "C",
+                    "structureId": "major",
+                    "labelMode": "degrees",
+                    "strings": [
+                      "E"
+                    ],
+                    "fretMin": 0,
+                    "fretMax": 7
+                  },
+                  "training": {
+                    "mode": "sequence",
+                    "quizMode": "find-degree",
+                    "scope": "structure",
+                    "intervalDegree": "#4",
+                    "count": 5,
+                    "pattern": "round-trip",
+                    "sequenceScope": "structure",
+                    "reviewPositionIds": []
+                  },
+                  "player": {
+                    "bpm": 64,
+                    "duration": "quarter",
+                    "repeat": "infinite",
+                    "countIn": false,
+                    "showPulse": true,
+                    "from": 1,
+                    "to": 3,
+                    "ladderStart": 60,
+                    "ladderEnd": 100,
+                    "ladderStep": 5,
+                    "ladderRepeats": 2,
+                    "metronome": true,
+                    "metronomeMode": "two-four",
+                    "subdivision": "quarter",
+                    "bassVolume": 80,
+                    "clickVolume": 40
+                  }
+                }
+              }
+            ],
+            "history": [
+              {
+                "id": "legacy-manual",
+                "occurredAt": "2026-11-08T23:30:00.000Z",
+                "timeZone": "Europe/Moscow",
+                "localDate": "2026-11-09",
+                "result": {
+                  "kind": "manual",
+                  "source": "self-report",
+                  "comfortableBpm": 68,
+                  "durationMs": 240000,
+                  "note": "Старая ручная отметка",
+                  "context": {
+                    "scope": "structure",
+                    "root": "A",
+                    "structureId": "minor-pentatonic",
+                    "positionIds": [
+                      "E:0",
+                      "E:12"
+                    ]
+                  }
+                }
+              },
+              {
+                "id": "legacy-screen",
+                "occurredAt": "2026-11-08T02:30:00.000Z",
+                "timeZone": "America/New_York",
+                "localDate": "2026-11-07",
+                "result": {
+                  "kind": "screen",
+                  "source": "screen-input",
+                  "seed": 12345,
+                  "mode": "name-note",
+                  "context": {
+                    "scope": "structure",
+                    "root": "A",
+                    "structureId": "minor-pentatonic",
+                    "positionIds": [
+                      "E:0",
+                      "E:12"
+                    ]
+                  },
+                  "plannedCount": 2,
+                  "questions": [
+                    {
+                      "questionId": "legacy-question-1",
+                      "answerRule": "pitch-class",
+                      "target": {
+                        "pitchClass": 4,
+                        "name": "E",
+                        "degree": "5"
+                      },
+                      "targetMidi": null,
+                      "selectedPositionIds": [],
+                      "attempts": 2,
+                      "errors": 1,
+                      "firstAnswer": "F",
+                      "firstResponseMs": 500,
+                      "completionMs": 950,
+                      "firstAttemptCorrect": false,
+                      "hintUsed": false,
+                      "skipped": false,
+                      "independentCorrect": false,
+                      "corrected": true,
+                      "outcome": "corrected",
+                      "answerEvents": [
+                        {
+                          "answer": "F",
+                          "elapsedMs": 500,
+                          "correct": false
+                        },
+                        {
+                          "answer": "E",
+                          "elapsedMs": 950,
+                          "correct": true
+                        }
+                      ],
+                      "targetPositionId": "E:0"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "presets": 1,
+          "history": 2,
+          "requiresConfirmation": true,
+          "replacement": "full"
+        },
+        "before": {
+          "format": "bass-study-backup",
+          "schemaVersion": 2,
+          "preferences": {
+            "study": {
+              "root": "A",
+              "structureId": "minor-pentatonic",
+              "labelMode": "notes",
+              "strings": [
+                "G",
+                "D",
+                "A",
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 12
+            },
+            "training": {
+              "mode": "study",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "structure",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 80,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": true,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [],
+          "history": []
+        },
+        "cancel": {
+          "status": "cancelled"
+        },
+        "afterCancel": {
+          "format": "bass-study-backup",
+          "schemaVersion": 2,
+          "preferences": {
+            "study": {
+              "root": "A",
+              "structureId": "minor-pentatonic",
+              "labelMode": "notes",
+              "strings": [
+                "G",
+                "D",
+                "A",
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 12
+            },
+            "training": {
+              "mode": "study",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 10,
+              "pattern": "ascending",
+              "sequenceScope": "structure",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 80,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": true,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [],
+          "history": []
+        },
+        "restored": {
+          "format": "bass-study-backup",
+          "schemaVersion": 2,
+          "preferences": {
+            "study": {
+              "root": "A",
+              "structureId": "minor-pentatonic",
+              "labelMode": "notes",
+              "strings": [
+                "E",
+                "A"
+              ],
+              "fretMin": 0,
+              "fretMax": 12
+            },
+            "training": {
+              "mode": "quiz",
+              "quizMode": "name-note",
+              "scope": "structure",
+              "intervalDegree": "#4",
+              "count": 2,
+              "pattern": "ascending",
+              "sequenceScope": "structure",
+              "reviewPositionIds": [
+                "E:0"
+              ]
+            },
+            "player": {
+              "bpm": 76,
+              "duration": "eighth",
+              "repeat": "once",
+              "countIn": true,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 90,
+              "ladderStep": 3,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [
+            {
+              "id": "legacy-preset",
+              "name": "Старая настройка",
+              "createdAt": "2026-11-01T15:20:30.000Z",
+              "preferences": {
+                "study": {
+                  "root": "C",
+                  "structureId": "major",
+                  "labelMode": "degrees",
+                  "strings": [
+                    "E"
+                  ],
+                  "fretMin": 0,
+                  "fretMax": 7
+                },
+                "training": {
+                  "mode": "sequence",
+                  "quizMode": "find-degree",
+                  "scope": "structure",
+                  "intervalDegree": "#4",
+                  "count": 5,
+                  "pattern": "round-trip",
+                  "sequenceScope": "structure",
+                  "reviewPositionIds": []
+                },
+                "player": {
+                  "bpm": 64,
+                  "duration": "quarter",
+                  "repeat": "infinite",
+                  "countIn": false,
+                  "showPulse": true,
+                  "from": 1,
+                  "to": 3,
+                  "ladderStart": 60,
+                  "ladderEnd": 100,
+                  "ladderStep": 5,
+                  "ladderRepeats": 2,
+                  "metronome": true,
+                  "metronomeMode": "two-four",
+                  "subdivision": "quarter",
+                  "bassVolume": 80,
+                  "clickVolume": 40
+                }
+              }
+            }
+          ],
+          "history": [
+            {
+              "id": "legacy-manual",
+              "occurredAt": "2026-11-08T23:30:00.000Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-09",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 68,
+                "durationMs": 240000,
+                "note": "Старая ручная отметка",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "legacy-screen",
+              "occurredAt": "2026-11-08T02:30:00.000Z",
+              "timeZone": "America/New_York",
+              "localDate": "2026-11-07",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 12345,
+                "mode": "name-note",
+                "context": {
+                  "scope": "structure",
+                  "root": "A",
+                  "structureId": "minor-pentatonic",
+                  "positionIds": [
+                    "E:0",
+                    "E:12"
+                  ]
+                },
+                "plannedCount": 2,
+                "questions": [
+                  {
+                    "questionId": "legacy-question-1",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "5"
+                    },
+                    "targetMidi": null,
+                    "selectedPositionIds": [],
+                    "attempts": 2,
+                    "errors": 1,
+                    "firstAnswer": "F",
+                    "firstResponseMs": 500,
+                    "completionMs": 950,
+                    "firstAttemptCorrect": false,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": false,
+                    "corrected": true,
+                    "outcome": "corrected",
+                    "answerEvents": [
+                      {
+                        "answer": "F",
+                        "elapsedMs": 500,
+                        "correct": false
+                      },
+                      {
+                        "answer": "E",
+                        "elapsedMs": 950,
+                        "correct": true
+                      }
+                    ],
+                    "targetPositionId": "E:0"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "product-restores-real-v1-json-and-preserves-history-across-reload",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1069,
+      "evidence": {
+        "migratedVersion": 2,
+        "originalEvents": [
+          {
+            "answer": "F",
+            "elapsedMs": 500,
+            "correct": false
+          },
+          {
+            "answer": "E",
+            "elapsedMs": 950,
+            "correct": true
+          }
+        ],
+        "retainedDates": [
+          "2026-11-09",
+          "2026-11-07"
+        ]
+      }
+    },
+    {
+      "name": "exact-height-mode-shows-A1-and-accepts-only-current-height",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1149,
+      "evidence": {
+        "prompt": "Найдите высоту G2. Подходит любая позиция этой высоты, но не другая октава.",
+        "targetMidi": 43,
+        "acceptedPositions": [
+          "A:10"
+        ],
+        "rejected": "E:3",
+        "rejectedDifferentOctave": true,
+        "historyRetainsScientificA1": true
+      }
+    },
+    {
+      "name": "chromatic-interval-mode-accepts-sharp-four-and-flat-five-by-height",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 940,
+      "evidence": {
+        "sharpFourPosition": "E:2",
+        "flatFivePosition": "E:2",
+        "scope": "chromatic",
+        "impossibleIntervalExplained": true
+      }
+    },
+    {
+      "name": "partial-wrong-answer-survives-reload-without-finish-and-new-session-is-separate",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1253,
+      "evidence": {
+        "preservedOriginal": {
+          "id": "screen-6a8de9fa-d40f-4c8d-a858-f78d102d1ecf",
+          "occurredAt": "2026-11-08T10:27:28.186Z",
+          "timeZone": "Europe/Moscow",
+          "localDate": "2026-11-08",
+          "result": {
+            "kind": "screen",
+            "source": "screen-input",
+            "seed": 3424597766,
+            "mode": "name-note",
+            "context": {
+              "scope": "chromatic",
+              "root": "C",
+              "structureId": "major",
+              "positionIds": [
+                "E:0"
+              ]
+            },
+            "plannedCount": 1,
+            "questions": [
+              {
+                "questionId": "q-7503ad59-name-note-E:0",
+                "target": {
+                  "pitchClass": 4,
+                  "name": "E",
+                  "degree": "3"
+                },
+                "targetMidi": null,
+                "answerRule": "pitch-class",
+                "selectedPositionIds": [],
+                "attempts": 1,
+                "errors": 1,
+                "firstAnswer": "pc:5",
+                "firstResponseMs": 33.70000000111759,
+                "completionMs": null,
+                "firstAttemptCorrect": false,
+                "hintUsed": false,
+                "skipped": false,
+                "independentCorrect": false,
+                "corrected": false,
+                "outcome": "interrupted",
+                "answerEvents": [
+                  {
+                    "answer": "pc:5",
+                    "elapsedMs": 33.70000000111759,
+                    "correct": false
+                  }
+                ],
+                "targetPositionId": "E:0"
+              }
+            ]
+          }
+        },
+        "separateHistoryIds": [
+          "screen-6a8de9fa-d40f-4c8d-a858-f78d102d1ecf",
+          "screen-b0cf8290-fd80-4ac8-a9fa-86632216c9cd"
+        ]
+      }
+    },
+    {
+      "name": "invalid-quiz-count-does-not-break-history-and-short-boards-stay-bounded",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1053,
+      "evidence": {
+        "rejected": [
+          {
+            "value": "99",
+            "error": "Количество вопросов — целое число от 1 до 30."
+          },
+          {
+            "value": "",
+            "error": "Количество вопросов — целое число от 1 до 30."
+          }
+        ],
+        "recoveredCount": 1,
+        "desktop": {
+          "x": 103,
+          "y": 744.28125,
+          "width": 1154,
+          "height": 160.0625
+        },
+        "narrow": {
+          "x": 63,
+          "y": 1073.46875,
+          "width": 620,
+          "height": 86
+        },
+        "dimensions": {
+          "viewport": 390,
+          "page": 390,
+          "scrollContainers": [
+            {
+              "className": "quiz-board-scroll",
+              "width": 264,
+              "content": 620
+            }
+          ]
+        },
+        "screenshot": "test-results/p6-short-quiz-narrow.png"
+      }
+    },
+    {
+      "name": "keyboard-only-full-practice-survives-whole-browser-and-server-restart",
+      "scope": "persistent",
+      "status": "passed",
+      "durationMs": 4829,
+      "evidence": {
+        "allScenarioActionsByKeyboard": true,
+        "wholeBrowserRestart": true,
+        "staticServerRestart": true,
+        "stableOrigin": "http://localhost:4173",
+        "restored": {
+          "format": "bass-study-backup",
+          "schemaVersion": 2,
+          "preferences": {
+            "study": {
+              "root": "C",
+              "structureId": "major",
+              "labelMode": "notes",
+              "strings": [
+                "E"
+              ],
+              "fretMin": 0,
+              "fretMax": 0
+            },
+            "training": {
+              "mode": "sequence",
+              "quizMode": "name-note",
+              "scope": "chromatic",
+              "intervalDegree": "#4",
+              "count": 1,
+              "pattern": "ascending",
+              "sequenceScope": "chromatic",
+              "reviewPositionIds": []
+            },
+            "player": {
+              "bpm": 80,
+              "duration": "quarter",
+              "repeat": "infinite",
+              "countIn": false,
+              "showPulse": true,
+              "from": null,
+              "to": null,
+              "ladderStart": 60,
+              "ladderEnd": 100,
+              "ladderStep": 5,
+              "ladderRepeats": 2,
+              "metronome": true,
+              "metronomeMode": "all",
+              "subdivision": "quarter",
+              "bassVolume": 70,
+              "clickVolume": 50
+            }
+          },
+          "presets": [],
+          "history": [
+            {
+              "id": "manual-55ba4299-0b72-4004-9f6e-23a92e0d383a",
+              "occurredAt": "2026-11-08T10:27:32.747Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-08",
+              "result": {
+                "kind": "manual",
+                "source": "self-report",
+                "comfortableBpm": 76,
+                "durationMs": 929,
+                "note": "Полный сценарий только клавиатурой.",
+                "context": {
+                  "scope": "chromatic",
+                  "root": "C",
+                  "structureId": "major",
+                  "positionIds": [
+                    "E:0"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "screen-e6ceba64-119f-42d9-8034-3914b0070fee",
+              "occurredAt": "2026-11-08T10:27:31.239Z",
+              "timeZone": "Europe/Moscow",
+              "localDate": "2026-11-08",
+              "result": {
+                "kind": "screen",
+                "source": "screen-input",
+                "seed": 3643283641,
+                "mode": "name-note",
+                "context": {
+                  "scope": "chromatic",
+                  "root": "C",
+                  "structureId": "major",
+                  "positionIds": [
+                    "E:0"
+                  ]
+                },
+                "plannedCount": 1,
+                "questions": [
+                  {
+                    "questionId": "q-9dd5e166-name-note-E:0",
+                    "answerRule": "pitch-class",
+                    "target": {
+                      "pitchClass": 4,
+                      "name": "E",
+                      "degree": "3"
+                    },
+                    "targetMidi": null,
+                    "selectedPositionIds": [],
+                    "attempts": 1,
+                    "errors": 0,
+                    "firstAnswer": "pc:4",
+                    "firstResponseMs": 58.80000000074506,
+                    "completionMs": 58.80000000074506,
+                    "firstAttemptCorrect": true,
+                    "hintUsed": false,
+                    "skipped": false,
+                    "independentCorrect": true,
+                    "corrected": false,
+                    "outcome": "correct",
+                    "answerEvents": [
+                      {
+                        "answer": "pc:4",
+                        "elapsedMs": 58.80000000074506,
+                        "correct": true
+                      }
+                    ],
+                    "targetPositionId": "E:0"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "screenshot": "test-results/p6-keyboard-practice.png"
+      }
+    },
+    {
+      "name": "actual-web-lock-prevents-second-writer-and-hands-off-after-close",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1149,
+      "evidence": {
+        "nativeHeldLocks": [
+          "bass-study:writer"
+        ],
+        "blockedSecondWriter": true,
+        "explicitReloadAfterRelease": true,
+        "preservedHistoryIds": [
+          "manual-b6459464-8207-4aa0-8bb9-8e3dc21b4b15"
+        ]
+      }
+    },
+    {
+      "name": "local-production-server-refuses-busy-port-without-moving-origin",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 397,
+      "evidence": {
+        "secondServerExitCode": 1,
+        "refusal": "Порт 4173 занят. Остановите другой экземпляр приложения или стенд P1.",
+        "originalOriginStillResponds": "http://localhost:4173"
+      }
+    }
+  ],
+  "externalRequests": [],
+  "pageErrors": [],
+  "cleanupErrors": [],
+  "passed": 11,
+  "failed": 0,
+  "status": "passed"
+}

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>P6: миграция настоящей базы</title>
+<body>
+<h1>Независимая база версии 1</h1>
+<script type="module">
+  // Deliberately no production import before seedV1 has created the old schema.
+  const requestValue = request => new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+  });
+  const complete = transaction => new Promise((resolve, reject) => {
+    transaction.oncomplete = resolve; transaction.onabort = () => reject(transaction.error);
+  });
+  async function readV1Backup() {
+    const response = await fetch('/tests/fixtures/v1-backup.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Literal v1 fixture unavailable: ${response.status}`);
+    return response.json();
+  }
+  async function rawRead() {
+    const db = await requestValue(indexedDB.open('bass-study'));
+    try {
+      const transaction = db.transaction(['preferences', 'presets', 'history'], 'readonly');
+      const done = complete(transaction);
+      const [preferences, presets, history] = await Promise.all([
+        requestValue(transaction.objectStore('preferences').get('current')),
+        requestValue(transaction.objectStore('presets').getAll()),
+        requestValue(transaction.objectStore('history').getAll()),
+      ]);
+      await done; return { version: db.version, preferences, presets, history };
+    } finally { db.close(); }
+  }
+  async function seedV1({ invalid = false } = {}) {
+    const literal = await readV1Backup();
+    const input = structuredClone(literal);
+    if (invalid) {
+      const entry = input.history.find(entry => entry.result.kind === 'screen');
+      if (!entry) throw new Error('Literal v1 fixture needs a real screen result');
+      entry.result.questions[0].firstResponseMs = -1;
+    }
+    const request = indexedDB.open('bass-study', 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      db.createObjectStore('preferences'); db.createObjectStore('presets', { keyPath: 'id' }); db.createObjectStore('history', { keyPath: 'id' });
+    };
+    const db = await requestValue(request);
+    try {
+      const transaction = db.transaction(['preferences', 'presets', 'history'], 'readwrite');
+      const done = complete(transaction);
+      transaction.objectStore('preferences').put(input.preferences, 'current');
+      for (const item of input.presets) transaction.objectStore('presets').put(item);
+      for (const item of input.history) transaction.objectStore('history').put(item);
+      await done;
+    } finally { db.close(); }
+    return { literal, raw: await rawRead() };
+  }
+  async function loadCurrent() {
+    const module = await import('/src/storage/index.ts');
+    window.p6.store = module.createStudyStore();
+    return window.p6.store;
+  }
+  window.p6 = { ready: true, seedV1, readV1Backup, rawRead, loadCurrent, store: null };
+</script>
+</body>
+</html>

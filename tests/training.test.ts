@@ -14,6 +14,30 @@ const correct = (session: QuizSession) => session.currentQuestion.mode === 'name
   : session.currentQuestion.expectedPositionIds[0];
 
 describe('разрешимые и воспроизводимые задания', () => {
+  it('различает точную высоту A1 и класс A во всех октавах', () => {
+    const positions = annotatePositions([getPosition('E', 5), getPosition('A', 0), getPosition('A', 12)], structure);
+    const question = createQuestion({ ...base, positions, mode: 'find-pitch', seed: 1 });
+    expect(question).toMatchObject({ targetMidi: 33, answerRule: 'exact-pitch', expectedPositionIds: ['E:5', 'A:0'] });
+    expect(question.prompt).toContain('A1');
+    const initial = startQuiz({ ...base, positions, mode: 'find-pitch' }, 1);
+    const matching = initial.currentQuestion.expectedPositionIds;
+    const wrong = initial.currentQuestion.targetMidi === 33 ? 'A:12' : 'A:0';
+    expect(submitAnswer(initial, wrong, 100).answerState.feedback.kind).toBe('incorrect');
+    for (const id of matching) expect(submitAnswer(initial, id, 200).status).toBe('review');
+    expect(createQuestion({ ...base, positions, mode: 'find-note' }).targetMidi).toBeNull();
+    expect(createQuestion({ ...base, positions, mode: 'find-note' }).expectedPositionIds).toEqual(['E:5', 'A:0', 'A:12']);
+  });
+
+  it('интервал #4 от C доступен вне структуры и автоматически использует все ноты', () => {
+    const cMajor = createStructure('C', 'major');
+    const positions = annotatePositions([getPosition('E', 2), getPosition('E', 14), getPosition('A', 0)], cMajor);
+    const question = createQuestion({ ...base, positions, structure: cMajor, mode: 'find-interval', scope: 'structure', intervalDegree: '#4' });
+    expect(question).toMatchObject({ answerRule: 'any-position', targetMidi: null, context: { scope: 'chromatic' }, target: { name: 'F♯', degree: '#4', pitchClass: 6 }, expectedPositionIds: ['E:2', 'E:14'] });
+    const flat = createQuestion({ ...base, positions, structure: cMajor, mode: 'find-interval', intervalDegree: 'b5' });
+    expect(flat.target.name).toBe('G♭');
+    expect(flat.expectedPositionIds).toEqual(question.expectedPositionIds);
+    expect(() => createQuestion({ ...base, positions: annotatePositions([getPosition('E', 0)], cMajor), structure: cMajor, mode: 'find-interval' })).toThrow(/отсутствует/);
+  });
   it.each(['name-note', 'find-note', 'find-all', 'find-degree'] as QuizMode[])('%s использует только доступные позиции', mode => {
     for (let seed = 0; seed < 40; seed++) {
       const question = createQuestion({ ...base, positions: narrow, mode, seed });

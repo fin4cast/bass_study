@@ -1,12 +1,13 @@
 import {
   DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, StudyStorageError, parseBackup, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
+  migrateV1Preferences, migrateV1Preset, migrateV1HistoryEntry,
   type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot,
 } from './model';
 
 export * from './model';
 export { createMemoryStudyStore } from './memory';
 export const STUDY_DB_NAME = 'bass-study';
-export const STUDY_DB_VERSION = 1;
+export const STUDY_DB_VERSION = 2;
 const STORES = ['preferences', 'presets', 'history'] as const;
 
 function storageError(error: unknown): StudyStorageError {
@@ -33,14 +34,30 @@ export function createStudyStore() {
     if (!globalThis.indexedDB) throw new StudyStorageError('UNAVAILABLE', 'Браузерное хранилище недоступно. Занятия можно продолжить в памяти, но история не сохранится.');
     opening = new Promise<IDBDatabase>((resolve, reject) => {
       let rejected = false;
+      let migrationFailure: unknown;
       const request = indexedDB.open(STUDY_DB_NAME, STUDY_DB_VERSION);
-      request.onupgradeneeded = () => {
+      request.onupgradeneeded = event => {
         const db = request.result;
         if (!db.objectStoreNames.contains('preferences')) db.createObjectStore('preferences');
         if (!db.objectStoreNames.contains('presets')) db.createObjectStore('presets', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('history')) db.createObjectStore('history', { keyPath: 'id' });
+        if (event.oldVersion === 1) {
+          const transaction = request.transaction!;
+          const migrations = { preferences: migrateV1Preferences, presets: migrateV1Preset, history: migrateV1HistoryEntry };
+          let aborted = false;
+          for (const name of STORES) {
+            const cursorRequest = transaction.objectStore(name).openCursor();
+            cursorRequest.onsuccess = () => {
+              if (aborted) return;
+              const cursor = cursorRequest.result;
+              if (!cursor) return;
+              try { cursor.update(migrations[name](cursor.value)); cursor.continue(); }
+              catch (error) { aborted = true; migrationFailure = error; transaction.abort(); }
+            };
+          }
+        }
       };
-      request.onerror = () => { rejected = true; reject(storageError(request.error)); };
+      request.onerror = () => { rejected = true; reject(storageError(migrationFailure ?? request.error)); };
       request.onblocked = () => { rejected = true; reject(new StudyStorageError('BLOCKED', 'Открытие базы заблокировано другой вкладкой. Закройте другие вкладки bass_study и повторите операцию.')); };
       request.onsuccess = () => {
         if (rejected) { request.result.close(); return; }
@@ -78,7 +95,7 @@ export function createStudyStore() {
       requestValue<unknown[]>(transaction.objectStore('presets').getAll()),
       requestValue<unknown[]>(transaction.objectStore('history').getAll()), done,
     ]);
-    return validateSnapshot({ format: 'bass-study-backup', schemaVersion: 1, preferences: preferences ?? DEFAULT_PREFERENCES, presets, history });
+    return validateSnapshot({ format: 'bass-study-backup', schemaVersion: 2, preferences: preferences ?? DEFAULT_PREFERENCES, presets, history });
   }
 
   async function write(name: typeof STORES[number], value: unknown, key?: IDBValidKey): Promise<void> {

@@ -1,0 +1,257 @@
+{
+  "generatedAt": "2026-11-08T10:23:13.736Z",
+  "platform": "win32",
+  "architecture": "x64",
+  "node": "v24.18.0",
+  "browserChannel": "msedge",
+  "browserVersion": "157.0.4341.42",
+  "origin": "http://localhost:4173",
+  "scope": "P2 musical structures and interactive fretboard; no quiz, audio or persistence acceptance.",
+  "networkIsolation": "Non-loopback HTTP requests from application pages are aborted. Clean contexts and disabled cache. Windows/browser background services are not isolated.",
+  "checks": [
+    {
+      "name": "initial-eadg-range-and-selection",
+      "status": "passed",
+      "durationMs": 423,
+      "evidence": {
+        "positions": 52,
+        "range": [
+          0,
+          12
+        ],
+        "selected": "E:5",
+        "selectedMidi": 33
+      }
+    },
+    {
+      "name": "contextual-flat-and-sharp-spelling",
+      "status": "passed",
+      "durationMs": 367,
+      "evidence": {
+        "fMajorFourth": "B♭",
+        "fSharpMajorSeventh": "E♯"
+      }
+    },
+    {
+      "name": "six-structures-independent-musical-fixtures",
+      "status": "passed",
+      "durationMs": 510,
+      "evidence": {
+        "fixtures": [
+          {
+            "tonic": "C",
+            "structure": "major",
+            "notes": [
+              "C",
+              "D",
+              "E",
+              "F",
+              "G",
+              "A",
+              "B"
+            ]
+          },
+          {
+            "tonic": "A",
+            "structure": "natural-minor",
+            "notes": [
+              "A",
+              "B",
+              "C",
+              "D",
+              "E",
+              "F",
+              "G"
+            ]
+          },
+          {
+            "tonic": "D",
+            "structure": "major-pentatonic",
+            "notes": [
+              "D",
+              "E",
+              "F♯",
+              "A",
+              "B"
+            ]
+          },
+          {
+            "tonic": "G",
+            "structure": "minor-pentatonic",
+            "notes": [
+              "G",
+              "B♭",
+              "C",
+              "D",
+              "F"
+            ]
+          },
+          {
+            "tonic": "F#",
+            "structure": "major-triad",
+            "notes": [
+              "F♯",
+              "A♯",
+              "C♯"
+            ]
+          },
+          {
+            "tonic": "Eb",
+            "structure": "minor-triad",
+            "notes": [
+              "E♭",
+              "G♭",
+              "B♭"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "restricted-string-and-fret-domain",
+      "status": "passed",
+      "durationMs": 476,
+      "evidence": {
+        "string": "E",
+        "range": [
+          0,
+          3
+        ],
+        "exactMidi": [
+          28,
+          29,
+          30,
+          31
+        ]
+      }
+    },
+    {
+      "name": "inclusive-zero-twenty-four-and-upper-range",
+      "status": "passed",
+      "durationMs": 464,
+      "evidence": {
+        "fullPositions": 100,
+        "upperPositions": 52,
+        "endpoints": {
+          "E0": 28,
+          "G24": 67
+        }
+      }
+    },
+    {
+      "name": "empty-filter-explains-and-recovers",
+      "status": "passed",
+      "durationMs": 492,
+      "evidence": {
+        "emptyPositions": 0,
+        "restoredString": "A",
+        "restoredPositions": 13
+      }
+    },
+    {
+      "name": "invalid-range-recovery-without-runtime-error",
+      "status": "passed",
+      "durationMs": 421,
+      "evidence": {
+        "invalidRangeReported": true,
+        "validRangeRecovered": [
+          0,
+          12
+        ]
+      }
+    },
+    {
+      "name": "same-height-different-string-and-octave",
+      "status": "passed",
+      "durationMs": 471,
+      "evidence": {
+        "sameHeightPositions": [
+          "E:5",
+          "A:0"
+        ],
+        "sameHeightMidi": 33,
+        "octavePosition": "E:12",
+        "octaveMidi": 40
+      }
+    },
+    {
+      "name": "chromatic-position-is-selectable-and-context-is-explicit",
+      "status": "passed",
+      "durationMs": 411,
+      "evidence": {
+        "selected": "E:1",
+        "pitch": "F1",
+        "inStructure": false
+      }
+    },
+    {
+      "name": "labels-degrees-and-hidden-keep-accessible-position",
+      "status": "passed",
+      "durationMs": 484,
+      "evidence": {
+        "minorThird": "b3",
+        "hiddenVisibleLabels": 0,
+        "accessiblePositionsRemain": true
+      }
+    },
+    {
+      "name": "root-and-selection-have-accessible-independent-states",
+      "status": "passed",
+      "durationMs": 417,
+      "evidence": {
+        "rootRemainsIndependent": true,
+        "selectionUsesAriaPressed": true
+      }
+    },
+    {
+      "name": "keyboard-roving-focus-and-explicit-selection",
+      "status": "passed",
+      "durationMs": 423,
+      "evidence": {
+        "right": "E:6",
+        "up": "A:6",
+        "selectionRequiresActivation": true,
+        "tabStops": 1
+      }
+    },
+    {
+      "name": "keyboard-home-end-and-filtered-string-boundaries",
+      "status": "passed",
+      "durationMs": 459,
+      "evidence": {
+        "visibleStrings": [
+          "D",
+          "E"
+        ],
+        "home": 0,
+        "end": 12,
+        "filteredStringsSkipped": true
+      }
+    },
+    {
+      "name": "narrow-viewport-scroll-and-last-fret-selection",
+      "status": "passed",
+      "durationMs": 636,
+      "evidence": {
+        "viewport": 800,
+        "lastFretSelectable": "G:24",
+        "bodyWidth": 800
+      }
+    },
+    {
+      "name": "clean-context-local-resources-and-no-runtime-errors",
+      "status": "passed",
+      "durationMs": 855,
+      "evidence": {
+        "freshContextPositions": 52,
+        "externalApplicationRequests": 0,
+        "sentinel": "blocked",
+        "pageErrors": []
+      }
+    }
+  ],
+  "cleanupErrors": [],
+  "passed": 15,
+  "failed": 0,
+  "status": "passed"
+}

@@ -1,0 +1,246 @@
+{
+  "generatedAt": "2026-11-08T10:27:10.844Z",
+  "synthetic": true,
+  "productionFilesChanged": false,
+  "platform": "win32",
+  "node": "v24.18.0",
+  "reports": [
+    {
+      "browserVersion": "157.0.4341.42",
+      "candidate": false,
+      "servedSourceTransforms": [],
+      "checks": {
+        "mode": "baseline10MiBPrettyExport",
+        "synthetic": true,
+        "sessions": 1460,
+        "questions": 29200,
+        "attemptsPerQuestion": 2,
+        "positionsPerSession": 52,
+        "maxBackupBytes": 10485760,
+        "sizes": {
+          "compactBytes": 16025572,
+          "prettyBytes": 33031995
+        },
+        "currentCapRejection": "Нужен JSON-файл размером не более 10 МиБ.",
+        "currentCapErrorCode": "INVALID_BACKUP",
+        "currentCapPreservedEmptyDatabase": true
+      },
+      "samples": [
+        {
+          "name": "generate-valid-screen-sessions",
+          "durationMs": 1782,
+          "maxHeartbeatDelayMs": 1766.5999999996275,
+          "longTasks": 0,
+          "longestTaskMs": 0
+        },
+        {
+          "name": "validateSnapshot-full-year",
+          "durationMs": 1243,
+          "maxHeartbeatDelayMs": 1228.2000000011176,
+          "longTasks": 1,
+          "longestTaskMs": 1243
+        },
+        {
+          "name": "stringify-compact",
+          "durationMs": 49.79999999888241,
+          "maxHeartbeatDelayMs": 34,
+          "longTasks": 1,
+          "longestTaskMs": 50
+        },
+        {
+          "name": "stringify-pretty",
+          "durationMs": 83.10000000149012,
+          "maxHeartbeatDelayMs": 67.40000000037253,
+          "longTasks": 1,
+          "longestTaskMs": 83
+        }
+      ],
+      "navigator": {
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "hardwareConcurrency": 24
+      },
+      "endedAt": "2026-11-08T10:26:46.119Z"
+    },
+    {
+      "browserVersion": "157.0.4341.42",
+      "candidate": true,
+      "servedSourceTransforms": [
+        "Served index.ts only: export JSON whitespace removed",
+        "Served model.ts only: 10MiB cap →64MiB"
+      ],
+      "checks": {
+        "mode": "candidate64MiBCompactExport",
+        "synthetic": true,
+        "sessions": 1460,
+        "questions": 29200,
+        "attemptsPerQuestion": 2,
+        "positionsPerSession": 52,
+        "maxBackupBytes": 67108864,
+        "sizes": {
+          "compactBytes": 16025572,
+          "prettyBytes": 33031995
+        },
+        "previewCount": 1460,
+        "restore": {
+          "status": "restored",
+          "presets": 0,
+          "history": 1460
+        },
+        "restoreTransaction": {
+          "successfulWrites": 1461,
+          "aborted": false
+        },
+        "restoredHistoryCount": 1460,
+        "firstQuestion": {
+          "questionId": "q-42021-name-note-E:0",
+          "answerRule": "pitch-class",
+          "target": {
+            "pitchClass": 4,
+            "name": "E",
+            "degree": "5"
+          },
+          "targetMidi": null,
+          "selectedPositionIds": [],
+          "attempts": 2,
+          "errors": 1,
+          "firstAnswer": 5,
+          "firstResponseMs": 450,
+          "completionMs": 900,
+          "firstAttemptCorrect": false,
+          "hintUsed": false,
+          "skipped": false,
+          "independentCorrect": false,
+          "corrected": true,
+          "outcome": "corrected",
+          "answerEvents": [
+            {
+              "answer": 5,
+              "elapsedMs": 450,
+              "correct": false
+            },
+            {
+              "answer": 4,
+              "elapsedMs": 900,
+              "correct": true
+            }
+          ],
+          "targetPositionId": "E:0"
+        },
+        "lastId": "synthetic-year-1459",
+        "exportBytes": 16025572,
+        "exportCompact": true,
+        "exportByteForByteEqual": true,
+        "restoredQuestions": 29200,
+        "restoredAttempts": 58400,
+        "renderedEntries": 10,
+        "renderedElementCount": 1057,
+        "reopenedCount": 1460
+      },
+      "samples": [
+        {
+          "name": "generate-valid-screen-sessions",
+          "durationMs": 1760.199999999255,
+          "maxHeartbeatDelayMs": 1744.699999999255,
+          "longTasks": 0,
+          "longestTaskMs": 0
+        },
+        {
+          "name": "validateSnapshot-full-year",
+          "durationMs": 1637.9000000003725,
+          "maxHeartbeatDelayMs": 1623.2000000011176,
+          "longTasks": 1,
+          "longestTaskMs": 1638
+        },
+        {
+          "name": "stringify-compact",
+          "durationMs": 69.5,
+          "maxHeartbeatDelayMs": 53.69999999925494,
+          "longTasks": 1,
+          "longestTaskMs": 69
+        },
+        {
+          "name": "stringify-pretty",
+          "durationMs": 131.19999999925494,
+          "maxHeartbeatDelayMs": 115.5,
+          "longTasks": 1,
+          "longestTaskMs": 131
+        },
+        {
+          "name": "previewImport-parse-and-validate",
+          "durationMs": 2710,
+          "maxHeartbeatDelayMs": 2694.7999999988824,
+          "longTasks": 1,
+          "longestTaskMs": 2710
+        },
+        {
+          "name": "restore-production-api-parse-validate-atomic-IDB",
+          "durationMs": 2838.9000000003725,
+          "maxHeartbeatDelayMs": 2814.199999999255,
+          "longTasks": 1,
+          "longestTaskMs": 2829
+        },
+        {
+          "name": "readSnapshot-native-IDB-and-full-validation",
+          "durationMs": 2792.9000000003725,
+          "maxHeartbeatDelayMs": 2621.699999999255,
+          "longTasks": 2,
+          "longestTaskMs": 2636
+        },
+        {
+          "name": "exportBackup-production-api-full-read-validation-stringify",
+          "durationMs": 2695.4000000003725,
+          "maxHeartbeatDelayMs": 2530.7999999988824,
+          "longTasks": 2,
+          "longestTaskMs": 2546
+        },
+        {
+          "name": "savePreferences-own-store",
+          "durationMs": 6.800000000745058,
+          "maxHeartbeatDelayMs": 1.099999999627471,
+          "longTasks": 1,
+          "longestTaskMs": 59
+        },
+        {
+          "name": "addHistory-single-session-upsert",
+          "durationMs": 3.5,
+          "maxHeartbeatDelayMs": 0.900000000372529,
+          "longTasks": 0,
+          "longestTaskMs": 0
+        },
+        {
+          "name": "readSnapshot-after-single-answer-write",
+          "durationMs": 2746.7000000011176,
+          "maxHeartbeatDelayMs": 2580.699999999255,
+          "longTasks": 2,
+          "longestTaskMs": 2596
+        },
+        {
+          "name": "actual-history-UI-refresh-from-already-validated-cache",
+          "durationMs": 1081.199999999255,
+          "maxHeartbeatDelayMs": 1081.5999999996275,
+          "longTasks": 1,
+          "longestTaskMs": 1082
+        },
+        {
+          "name": "actual-history-UI-refresh-native-read-full-validation",
+          "durationMs": 3213.9000000003725,
+          "maxHeartbeatDelayMs": 3029.699999999255,
+          "longTasks": 2,
+          "longestTaskMs": 3044
+        },
+        {
+          "name": "new-adapter-reopen-read-full-validation",
+          "durationMs": 2040,
+          "maxHeartbeatDelayMs": 1904.7999999988824,
+          "longTasks": 2,
+          "longestTaskMs": 1920
+        }
+      ],
+      "navigator": {
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "hardwareConcurrency": 24
+      },
+      "endedAt": "2026-11-08T10:27:10.820Z"
+    }
+  ]
+}

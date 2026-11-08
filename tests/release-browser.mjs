@@ -1,0 +1,268 @@
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+import { runReleaseBrowserChecks } from './helpers/release-browser-harness.mjs';
+
+const checks = [];
+const check = (name, run, options = {}) => checks.push({ name, run, ...options });
+const historyAction = (page, name) => page.locator(`[data-history-action="${name}"]`);
+const quizAction = (page, name) => page.locator(`[data-training-action="${name}"]`);
+const OPEN_MIDI = { E: 28, A: 33, D: 38, G: 43 };
+const midiForId = id => { const [string, fret] = id.split(':'); return OPEN_MIDI[string] + Number(fret); };
+
+function expectedMigration(literal) {
+  const expected = structuredClone(literal); expected.schemaVersion = 2;
+  expected.preferences.training.intervalDegree = '#4';
+  for (const preset of expected.presets) preset.preferences.training.intervalDegree = '#4';
+  for (const entry of expected.history) if (entry.result.kind === 'screen') for (const question of entry.result.questions) question.targetMidi = null;
+  for (const name of ['presets', 'history']) expected[name].sort((a, b) => a.id.localeCompare(b.id));
+  return expected;
+}
+async function ready(page) {
+  await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert);
+}
+async function saved(page) {
+  await page.waitForFunction(() => document.querySelector('[data-testid="history-save-status"]')?.dataset.status === 'saved');
+}
+async function openHistory(page) {
+  await ready(page); const drawer = page.locator('.history-drawer');
+  if (!await drawer.evaluate(element => element.open)) await drawer.locator('summary').first().click();
+  await page.getByLabel('Название пресета', { exact: true }).waitFor();
+}
+async function exportUi(page) {
+  await openHistory(page); const downloading = page.waitForEvent('download'); await historyAction(page, 'export').click();
+  const download = await downloading; return JSON.parse(await readFile(await download.path(), 'utf8'));
+}
+async function readLiteral(page, fixtureUrl) {
+  const tab = await page.context().newPage();
+  try { await tab.goto(fixtureUrl); await tab.waitForFunction(() => window.p6?.ready); return await tab.evaluate(() => window.p6.readV1Backup()); }
+  finally { await tab.close(); await page.bringToFront(); }
+}
+async function restoreUi(page, input) {
+  await openHistory(page);
+  await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name: 'legacy-v1.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(input)) });
+  await page.getByTestId('backup-preview').waitFor();
+  assert.ok(await historyAction(page, 'confirm-restore').isDisabled());
+  await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check();
+  await historyAction(page, 'confirm-restore').click(); await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); await ready(page);
+}
+async function scope(page, { root = 'C', structure = 'major', first = 0, last = 0, strings = ['E'] } = {}) {
+  await ready(page); await page.getByLabel('Тоника', { exact: true }).selectOption(root); await page.getByLabel('Структура', { exact: true }).selectOption(structure);
+  const min = page.getByLabel('Первый лад', { exact: true }); const max = page.getByLabel('Последний лад', { exact: true });
+  await max.fill('24'); await max.press('Tab'); await min.fill(String(first)); await min.press('Tab'); await max.fill(String(last)); await max.press('Tab');
+  for (const string of ['E', 'A', 'D', 'G']) await page.getByRole('checkbox', { name: `Струна ${string}`, exact: true }).setChecked(strings.includes(string));
+}
+async function quiz(page, mode, { count = 1, material = 'chromatic' } = {}) {
+  await page.getByRole('button', { name: 'Задания', exact: true }).click(); await page.getByLabel('Тип задания', { exact: true }).selectOption(mode);
+  const scopeField = page.getByLabel('Материал заданий', { exact: true }); if (await scopeField.isEnabled()) await scopeField.selectOption(material);
+  await page.getByLabel('Количество вопросов', { exact: true }).fill(String(count)); await page.getByLabel('Количество вопросов', { exact: true }).press('Tab');
+}
+function scientificMidi(text) {
+  const match = /\b([A-G])([♯♭#b]*)(-?\d+)\b/u.exec(text); assert.ok(match, `No visible scientific height in ${text}`);
+  const naturals = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const alteration = [...match[2]].reduce((value, mark) => value + (mark === '#' || mark === '♯' ? 1 : -1), 0);
+  return 12 * (Number(match[3]) + 1) + naturals[match[1]] + alteration;
+}
+
+check('genuine-v1-indexeddb-upgrades-all-stores-preserving-events-and-original-dates', async ({ page }) => {
+  const seeded = await page.evaluate(() => window.p6.seedV1()); assert.equal(seeded.raw.version, 1);
+  const upgraded = await page.evaluate(async () => { const store = await window.p6.loadCurrent(); await store.open(); return store.readSnapshot(); });
+  assert.deepEqual(upgraded, expectedMigration(seeded.literal));
+  const raw = await page.evaluate(() => window.p6.rawRead()); assert.equal(raw.version, 2);
+  assert.equal(upgraded.history.find(entry => entry.id === 'legacy-screen').localDate, '2026-11-07');
+  assert.equal(upgraded.history.find(entry => entry.id === 'legacy-manual').localDate, '2026-11-09');
+  await page.reload(); await page.waitForFunction(() => window.p6?.ready);
+  const reopened = await page.evaluate(async () => { const store = await window.p6.loadCurrent(); return store.readSnapshot(); }); assert.deepEqual(reopened, upgraded);
+  return { seededVersion: 1, rawVersion: raw.version, upgraded, reopenedWithoutSecondMigration: true };
+});
+
+check('bad-v1-record-aborts-entire-native-upgrade-and-preserves-version-one', async ({ page }) => {
+  const seeded = await page.evaluate(() => window.p6.seedV1({ invalid: true }));
+  const failure = await page.evaluate(async () => {
+    try { const store = await window.p6.loadCurrent(); await store.open(); return null; }
+    catch (error) { return { code: error.code, message: error.message }; }
+  });
+  assert.ok(failure, 'Invalid legacy data must reject migration');
+  const after = await page.evaluate(() => window.p6.rawRead()); assert.equal(after.version, 1); assert.deepEqual(after, seeded.raw);
+  assert.equal(Object.hasOwn(after.preferences.training, 'intervalDegree'), false, 'Partly updated preferences must roll back too');
+  return { failure, originalVersion: seeded.raw.version, preserved: after };
+});
+
+check('legacy-json-preview-and-restore-migrate-to-version-two', async ({ page }) => {
+  const literal = await page.evaluate(() => window.p6.readV1Backup());
+  const result = await page.evaluate(async literal => {
+    const store = await window.p6.loadCurrent(); const preview = store.previewImport(JSON.stringify(literal));
+    const before = await store.readSnapshot(); const cancel = await store.restore(JSON.stringify(literal), { confirmed: false });
+    const afterCancel = await store.readSnapshot(); await store.restore(JSON.stringify(literal), { confirmed: true });
+    return { preview, before, cancel, afterCancel, restored: await store.readSnapshot() };
+  }, literal);
+  assert.equal(result.preview.snapshot.schemaVersion, 2); assert.equal(result.preview.requiresConfirmation, true);
+  assert.deepEqual(result.cancel, { status: 'cancelled' }); assert.deepEqual(result.afterCancel, result.before);
+  assert.deepEqual(result.restored, expectedMigration(literal)); return result;
+});
+
+check('product-restores-real-v1-json-and-preserves-history-across-reload', async ({ page, fixtureUrl }) => {
+  const literal = await readLiteral(page, fixtureUrl); await restoreUi(page, literal);
+  const exported = await exportUi(page); assert.deepEqual(exported, expectedMigration(literal));
+  await page.reload(); await ready(page); assert.deepEqual(await exportUi(page), exported);
+  assert.match(await page.getByTestId('history-list').innerText(), /Старая ручная отметка/);
+  return { migratedVersion: exported.schemaVersion, originalEvents: exported.history.find(entry => entry.id === 'legacy-screen').result.questions[0].answerEvents, retainedDates: exported.history.map(entry => entry.localDate) };
+}, { scope: 'ui' });
+
+check('exact-height-mode-shows-A1-and-accepts-only-current-height', async ({ page }) => {
+  await scope(page, { first: 5, last: 5 }); await quiz(page, 'find-pitch'); await quizAction(page, 'start').click();
+  assert.match(await page.getByTestId('quiz-prompt').innerText(), /A1/); await page.locator('[data-answer-position="E:5"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /Верно.*A1/);
+  await scope(page, { first: 0, last: 12, strings: ['E', 'A'] }); await quiz(page, 'find-pitch'); await quizAction(page, 'start').click();
+  const prompt = await page.getByTestId('quiz-prompt').innerText(); const targetMidi = scientificMidi(prompt);
+  const ids = await page.getByTestId('quiz-answer-board').locator('[data-answer-position]').evaluateAll(nodes => nodes.map(node => node.dataset.answerPosition));
+  const correct = ids.filter(id => midiForId(id) === targetMidi); assert.ok(correct.length);
+  const octaveWrong = ids.find(id => midiForId(id) !== targetMidi && midiForId(id) % 12 === targetMidi % 12);
+  const wrong = octaveWrong ?? ids.find(id => midiForId(id) !== targetMidi); assert.ok(wrong);
+  await page.locator(`[data-answer-position="${wrong}"]`).click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /не подходит|октава/);
+  await page.locator(`[data-answer-position="${correct[0]}"]`).click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /Верно/);
+  await quizAction(page, 'next').click(); const output = await exportUi(page);
+  const stored = output.history.find(entry => entry.result.mode === 'find-pitch' && entry.result.questions.some(question => question.errors === 1));
+  assert.equal(stored.result.questions[0].targetMidi, targetMidi); assert.equal(stored.result.questions[0].independentCorrect, false);
+  const firstA1 = output.history.find(entry => entry.result.mode === 'find-pitch' && entry.result.questions.some(question => question.targetMidi === 33 && question.errors === 0));
+  assert.ok(firstA1, 'The earlier exact A1 result must remain in history');
+  const historyEntry = page.locator(`[data-history-entry="${firstA1.id}"]`);
+  await historyEntry.locator('.history-question-details > summary').click();
+  assert.match(await historyEntry.locator('.history-question-details strong').innerText(), /\bA1\b/, 'History must retain the octave in the visible exact-height target');
+  return { prompt, targetMidi, acceptedPositions: correct, rejected: wrong, rejectedDifferentOctave: Boolean(octaveWrong), historyRetainsScientificA1: true };
+}, { scope: 'ui' });
+
+check('chromatic-interval-mode-accepts-sharp-four-and-flat-five-by-height', async ({ page }) => {
+  await scope(page, { first: 0, last: 3 }); await quiz(page, 'find-interval');
+  const material = page.getByLabel('Материал заданий', { exact: true }); assert.ok(await material.isDisabled()); assert.equal(await material.inputValue(), 'chromatic');
+  await page.getByLabel('Интервал от тоники', { exact: true }).selectOption('#4'); await quizAction(page, 'start').click();
+  assert.match(await page.getByTestId('quiz-prompt').innerText(), /♯4.*C/);
+  await page.locator('[data-answer-position="E:1"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /не подходит/);
+  await page.locator('[data-answer-position="E:2"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /Верно.*F♯/);
+  await page.getByLabel('Интервал от тоники', { exact: true }).selectOption('b5'); await quizAction(page, 'start').click();
+  assert.match(await page.getByTestId('quiz-prompt').innerText(), /♭5.*C/); await page.locator('[data-answer-position="E:2"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /Верно.*G♭/);
+  await scope(page, { first: 0, last: 0 }); await page.getByLabel('Интервал от тоники', { exact: true }).selectOption('#4'); await quizAction(page, 'start').click();
+  assert.equal(await page.getByTestId('quiz-question').count(), 0); assert.match(await page.getByTestId('training-error').innerText(), /отсутствует|диапазон|интервал/i);
+  return { sharpFourPosition: 'E:2', flatFivePosition: 'E:2', scope: 'chromatic', impossibleIntervalExplained: true };
+}, { scope: 'ui' });
+
+check('partial-wrong-answer-survives-reload-without-finish-and-new-session-is-separate', async ({ page }) => {
+  await scope(page); await quiz(page, 'name-note'); await quizAction(page, 'start').click(); await page.locator('[data-choice="pc:5"]').click(); await saved(page);
+  // No Finish, Next, mode switch, export or other session-ending action occurs.
+  await page.reload(); await ready(page); const first = await exportUi(page);
+  assert.equal(first.history.length, 1); const original = first.history[0]; const question = original.result.questions[0];
+  assert.equal(question.outcome, 'interrupted'); assert.equal(question.errors, 1); assert.equal(question.skipped, false); assert.equal(question.independentCorrect, false);
+  assert.equal(question.answerEvents.length, 1); assert.equal(question.answerEvents[0].correct, false); assert.match(await page.getByTestId('history-list').innerText(), /Не завершено/);
+  await quizAction(page, 'start').click(); await page.locator('[data-choice="pc:4"]').click(); await quizAction(page, 'next').click(); await saved(page);
+  const second = await exportUi(page); assert.equal(second.history.length, 2); assert.deepEqual(second.history.find(entry => entry.id === original.id), original);
+  return { preservedOriginal: original, separateHistoryIds: second.history.map(entry => entry.id) };
+}, { scope: 'ui' });
+
+check('invalid-quiz-count-does-not-break-history-and-short-boards-stay-bounded', async ({ page, resultDir }) => {
+  await scope(page, { first: 0, last: 0 }); await quiz(page, 'name-note');
+  const count = page.getByLabel('Количество вопросов', { exact: true });
+  const rejected = [];
+  for (const value of ['99', '']) {
+    await count.fill(value); await count.press('Tab');
+    await openHistory(page); await historyAction(page, 'refresh-draft').click();
+    assert.ok(await page.getByLabel('Комфортный темп', { exact: true }).isVisible());
+    await quizAction(page, 'start').click(); assert.equal(await page.getByTestId('quiz-question').count(), 0);
+    const error = await page.getByTestId('training-error').innerText(); assert.match(error, /1.*30|число|вопрос/i); rejected.push({ value, error });
+  }
+  await count.fill('1'); await count.press('Tab'); await quizAction(page, 'start').click(); await page.getByTestId('quiz-question').waitFor();
+  const board = page.getByTestId('quiz-answer-board'); const desktop = await board.boundingBox();
+  assert.ok(desktop && desktop.height > 0 && desktop.height < 500, `A one-fret answer board must not stretch vertically: ${JSON.stringify(desktop)}`);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const narrow = await board.boundingBox(); assert.ok(narrow && narrow.height < 500);
+  const dimensions = await page.evaluate(() => ({ viewport: document.documentElement.clientWidth, page: document.documentElement.scrollWidth,
+    scrollContainers: [...document.querySelectorAll('*')].filter(element => element.scrollWidth > element.clientWidth + 2 && ['auto', 'scroll'].includes(getComputedStyle(element).overflowX)).map(element => ({ className: element.className.baseVal ?? element.className, width: element.clientWidth, content: element.scrollWidth })) }));
+  assert.ok(dimensions.page <= dimensions.viewport + 2, `Narrow page overflow escaped the board container: ${JSON.stringify(dimensions)}`);
+  await page.screenshot({ path: join(resultDir, 'p6-short-quiz-narrow.png'), fullPage: true });
+  await page.locator('[data-choice="pc:4"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /Верно/);
+  return { rejected, recoveredCount: 1, desktop, narrow, dimensions, screenshot: 'test-results/p6-short-quiz-narrow.png' };
+}, { scope: 'ui' });
+
+async function tabTo(page, locator, limit = 160) {
+  for (let index = 0; index < limit; index++) {
+    if (await locator.evaluate(element => element === document.activeElement)) return;
+    await page.keyboard.press('Tab');
+  }
+  throw new Error(`Could not reach ${await locator.getAttribute('aria-label') ?? await locator.innerText()} with Tab`);
+}
+async function keyboardText(page, locator, value) {
+  await tabTo(page, locator); await page.keyboard.press('Control+A'); await page.keyboard.type(String(value)); await page.keyboard.press('Tab');
+}
+async function keyboardSelect(page, locator, index) {
+  await tabTo(page, locator); await page.keyboard.press('Home'); for (let step = 0; step < index; step++) await page.keyboard.press('ArrowDown'); await page.keyboard.press('Tab');
+}
+async function keyboardActivate(page, locator) { await tabTo(page, locator); await page.keyboard.press('Enter'); }
+async function keyboardExport(page) {
+  const downloading = page.waitForEvent('download'); await keyboardActivate(page, historyAction(page, 'export')); const download = await downloading;
+  return JSON.parse(await readFile(await download.path(), 'utf8'));
+}
+
+check('keyboard-only-full-practice-survives-whole-browser-and-server-restart', async ({ freshPage, closeContext, restartServer, origin, resultDir }) => {
+  const first = await freshPage(origin, false, 'keyboard-release-profile'); let expected;
+  try {
+    const page = first.page; await ready(page);
+    await keyboardSelect(page, page.getByLabel('Тоника', { exact: true }), 0);
+    await keyboardSelect(page, page.getByLabel('Структура', { exact: true }), 0);
+    await keyboardText(page, page.getByLabel('Последний лад', { exact: true }), 0);
+    for (const string of ['A', 'D', 'G']) {
+      await tabTo(page, page.getByRole('checkbox', { name: `Струна ${string}`, exact: true })); await page.keyboard.press('Space');
+    }
+    await keyboardActivate(page, page.getByRole('button', { name: 'Задания', exact: true }));
+    await keyboardSelect(page, page.getByLabel('Материал заданий', { exact: true }), 1);
+    await keyboardText(page, page.getByLabel('Количество вопросов', { exact: true }), 1);
+    await keyboardActivate(page, quizAction(page, 'start')); await page.getByTestId('quiz-question').waitFor();
+    await keyboardActivate(page, page.locator('[data-choice="pc:4"]')); await keyboardActivate(page, quizAction(page, 'next')); await saved(page);
+    await keyboardActivate(page, page.getByRole('button', { name: 'Последовательности', exact: true }));
+    await keyboardSelect(page, page.getByLabel('Материал последовательности', { exact: true }), 1);
+    await keyboardSelect(page, page.getByLabel('Длительность нот', { exact: true }), 0);
+    await keyboardSelect(page, page.getByLabel('Повтор', { exact: true }), 1);
+    await tabTo(page, page.getByLabel('Отсчёт перед стартом', { exact: true })); await page.keyboard.press('Space');
+    await keyboardActivate(page, page.locator('[data-player-action="start"]'));
+    await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.currentPosition === 'E:0');
+    await delay(900); await keyboardActivate(page, page.locator('[data-player-action="stop"]'));
+    await keyboardActivate(page, page.locator('.history-drawer > summary'));
+    await keyboardText(page, page.getByLabel('Комфортный темп', { exact: true }), 76);
+    await keyboardText(page, page.getByLabel('Заметка к практике', { exact: true }), 'Полный сценарий только клавиатурой.');
+    await keyboardActivate(page, historyAction(page, 'save-manual')); await saved(page);
+    expected = await keyboardExport(page); assert.equal(expected.history.length, 2);
+    const screen = expected.history.find(entry => entry.result.kind === 'screen'); const manual = expected.history.find(entry => entry.result.kind === 'manual');
+    assert.equal(screen.result.questions[0].independentCorrect, true); assert.equal(manual.result.comfortableBpm, 76); assert.ok(manual.result.durationMs > 0);
+    assert.deepEqual(expected.preferences.study.strings, ['E']); assert.equal(expected.preferences.study.fretMax, 0);
+    await page.screenshot({ path: join(resultDir, 'p6-keyboard-practice.png'), fullPage: true });
+  } finally { await closeContext(first.context); }
+  await restartServer(); const reopened = await freshPage(origin, false, 'keyboard-release-profile');
+  try {
+    await ready(reopened.page); const restored = await exportUi(reopened.page); assert.deepEqual(restored, expected);
+    assert.equal(await reopened.page.getByLabel('Последний лад', { exact: true }).inputValue(), '0');
+    return { allScenarioActionsByKeyboard: true, wholeBrowserRestart: true, staticServerRestart: true, stableOrigin: origin, restored, screenshot: 'test-results/p6-keyboard-practice.png' };
+  } finally { await closeContext(reopened.context); }
+}, { scope: 'persistent' });
+
+check('actual-web-lock-prevents-second-writer-and-hands-off-after-close', async ({ page, context, origin }) => {
+  await ready(page); await page.getByLabel('Тоника', { exact: true }).selectOption('F'); await saved(page); await openHistory(page);
+  await page.getByLabel('Заметка к практике', { exact: true }).fill('Одна ведущая вкладка'); await historyAction(page, 'save-manual').click(); await saved(page);
+  const before = await exportUi(page); const second = await context.newPage(); await second.goto(origin);
+  await second.waitForFunction(() => document.querySelector('main')?.inert && !document.querySelector('#retry-tab')?.hidden);
+  assert.match(await second.locator('#persistence-message').innerText(), /друг.*вклад|открыт.*вклад/i);
+  const locks = await page.evaluate(async () => (await navigator.locks.query()).held.map(lock => lock.name)); assert.ok(locks.includes('bass-study:writer'));
+  await page.close(); await second.locator('#retry-tab').click(); await ready(second); const after = await exportUi(second);
+  assert.deepEqual(after, before); assert.equal(await second.getByLabel('Тоника', { exact: true }).inputValue(), 'F');
+  return { nativeHeldLocks: locks, blockedSecondWriter: true, explicitReloadAfterRelease: true, preservedHistoryIds: after.history.map(entry => entry.id) };
+}, { scope: 'ui' });
+
+check('local-production-server-refuses-busy-port-without-moving-origin', async ({ origin }) => {
+  const child = spawn(process.execPath, [join(process.cwd(), 'scripts', 'serve.mjs')], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }); let output = '';
+  child.stdout.on('data', chunk => { output += chunk; }); child.stderr.on('data', chunk => { output += chunk; });
+  try {
+    const code = await Promise.race([new Promise((resolve, reject) => { child.on('exit', resolve); child.on('error', reject); }), delay(4000).then(() => { throw new Error('Second server did not refuse the busy port'); })]);
+    assert.notEqual(code, 0); assert.match(output, /EADDRINUSE|занят/); assert.equal((await fetch(origin)).status, 200);
+    return { secondServerExitCode: code, refusal: output.trim(), originalOriginStillResponds: origin };
+  } finally { if (child.pid && child.exitCode === null) { const done = new Promise(resolve => child.once('exit', resolve)); child.kill(); await done; } }
+}, { scope: 'ui' });
+
+await runReleaseBrowserChecks(checks);

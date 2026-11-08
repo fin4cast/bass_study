@@ -22,7 +22,7 @@ export function createMemoryStudyStore() {
     return { snapshot: imported, presets: imported.presets.length, history: imported.history.length, requiresConfirmation: true as const, replacement: 'full' as const };
   }
   return {
-    open: () => enqueue(() => ({ name: 'bass-study-memory', version: 1 })),
+    open: () => enqueue(() => ({ name: 'bass-study-memory', version: 2 })),
     readSnapshot: () => enqueue(() => validateSnapshot(snapshot)),
     async savePreferences(preferences: AppPreferences) {
       const validated = validatePreferences(preferences);

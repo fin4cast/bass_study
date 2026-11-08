@@ -3,7 +3,9 @@ import { mountTraining } from './ui/training';
 import { mountPlayer } from './ui/player';
 import { mountHistory } from './ui/history';
 import { createWriteQueue } from './app/write-queue';
-import { createStudyStore, createMemoryStudyStore, DEFAULT_PREFERENCES, makeScreenHistory, validatePreferences, type AppPreferences } from './storage';
+import { acquireWriterLease } from './app/writer-lock';
+import type { QuizSession } from './training';
+import { createStudyStore, createMemoryStudyStore, DEFAULT_PREFERENCES, makeScreenHistory, validatePreferences, type AppPreferences, type HistoryMetadata } from './storage';
 import {
   STRUCTURES,
   annotatePositions,
@@ -41,7 +43,7 @@ app.innerHTML = `
       <span class="local-badge"><span aria-hidden="true"></span>Локально</span>
     </header>
 
-    <div id="persistence-banner" class="persistence-banner" role="status"><span id="persistence-message">Читаем локальные настройки…</span><button type="button" id="retry-save" hidden>Повторить сохранение</button></div>
+    <div id="persistence-banner" class="persistence-banner" role="status"><span id="persistence-message">Читаем локальные настройки…</span><button type="button" id="retry-save" hidden>Повторить сохранение</button><button type="button" id="retry-tab" hidden>Проверить снова</button></div>
     <main inert aria-busy="true">
       <section class="intro" aria-labelledby="page-title">
         <div><p class="eyebrow">ГРИФ · НОТЫ · СТУПЕНИ</p><h1 id="page-title">Изучи гриф.<br><span>Найди связи.</span></h1></div>
@@ -102,6 +104,10 @@ let history: ReturnType<typeof mountHistory> | undefined;
 let store: ReturnType<typeof createStudyStore> | ReturnType<typeof createMemoryStudyStore> = createStudyStore();
 let persistent = true;
 let applyingPreferences = true;
+let retiring = false;
+let retirement: Promise<void> | undefined;
+let writerLease: Awaited<ReturnType<typeof acquireWriterLease>> | undefined;
+const sessionMetadata = new WeakMap<object, HistoryMetadata>();
 let startupIssue = '';
 let preferenceIssue = '';
 let writeState: { pending: number; failures: readonly string[] } = { pending: 0, failures: [] };
@@ -126,7 +132,7 @@ function getPreferences(): AppPreferences {
 }
 
 function savePreferences() {
-  if (applyingPreferences || !training || !sequencePlayer || !rangeIsValid()) return;
+  if (retiring || applyingPreferences || !training || !sequencePlayer || !rangeIsValid()) return;
   try {
     const preferences = getPreferences();
     preferenceIssue = '';
@@ -136,6 +142,16 @@ function savePreferences() {
     preferenceIssue = `Настройки ещё не сохранены: ${failure instanceof Error ? failure.message : String(failure)}`;
     showPersistenceStatus();
   }
+}
+
+function persistSession(session: QuizSession) {
+  if (retiring) return;
+  try {
+    let metadata = sessionMetadata.get(session.questions);
+    if (!metadata) { metadata = { id: `screen-${crypto.randomUUID()}`, occurredAt: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }; sessionMetadata.set(session.questions, metadata); }
+    const entry = makeScreenHistory(session, metadata);
+    if (entry) void writes.run(() => store.addHistory(entry), metadata.id).then(() => history?.refresh()).catch(() => {});
+  } catch (failure) { history?.setSaveStatus(`Результат не сохранён: ${failure instanceof Error ? failure.message : String(failure)}`, 'error'); }
 }
 
 function applyPreferences(preferences: AppPreferences) {
@@ -203,12 +219,14 @@ function renderBoard() {
   const top = 58;
   const rowGap = 72;
   const width = left + columnCount * cell + right;
+  // A very short range must not magnify one fret to the entire desktop width.
+  const canvasWidth = Math.max(740, width);
   const height = top + (rows.length - 1) * rowGap + 58;
   const x = (fret: number) => left + (fret - state.fretMin + 0.5) * cell;
   const y = (string: StringId) => top + rows.indexOf(string) * rowGap;
   const frets = Array.from({ length: columnCount }, (_, index) => index + state.fretMin);
   const selected = positions.find(position => position.id === state.selectedId);
-  container.innerHTML = `<svg class="fretboard" data-testid="fretboard" viewBox="0 0 ${width} ${height}" style="min-width:${Math.max(740, width)}px" aria-labelledby="board-title board-description">
+  container.innerHTML = `<svg class="fretboard" data-testid="fretboard" viewBox="0 0 ${canvasWidth} ${height}" style="min-width:${canvasWidth}px" aria-labelledby="board-title board-description">
     <title id="board-title">Гриф четырёхструнного баса</title><desc id="board-description">Струны сверху вниз G, D, A, E. Выберите позицию мышью или перейдите стрелками и нажмите Enter. Лады от ${state.fretMin} до ${state.fretMax} включительно.</desc>
     <defs><linearGradient id="board-grain" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#303a39"/><stop offset="1" stop-color="#252f2e"/></linearGradient></defs>
     <rect class="board-surface" x="${left}" y="24" width="${columnCount * cell}" height="${height - 48}" rx="3" fill="url(#board-grain)"/>
@@ -346,12 +364,8 @@ byId('connections').addEventListener('click', event => {
 updateView();
 training = mountTraining(byId('training-mount'), () => ({ positions: rangeIsValid() ? positions : [], structure }), {
   onPreferencesChange: savePreferences,
-  onSessionFinished(session) {
-    try {
-      const entry = makeScreenHistory(session, { id: `screen-${crypto.randomUUID()}`, occurredAt: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
-      if (entry) void writes.run(() => store.addHistory(entry), entry.id).then(() => history?.refresh()).catch(() => {});
-    } catch (failure) { history?.setSaveStatus(`Результат не сохранён: ${failure instanceof Error ? failure.message : String(failure)}`, 'error'); }
-  },
+  onSessionFinished: persistSession,
+  onSessionChanged: persistSession,
   onModeChange(mode) {
     const quiz = mode === 'quiz';
     document.querySelector<HTMLElement>('.fretboard-section')!.hidden = quiz;
@@ -389,12 +403,12 @@ history = mountHistory(byId('history-mount'), {
   },
   getPreferences,
   applyPreferences: async value => { applyPreferences(value); savePreferences(); await writes.flush(); },
-  runWrite: operation => writes.run(operation),
+  runWrite: operation => retiring ? Promise.reject(new Error('Эта страница закрывается; дождись сохранения и открой занятие снова.')) : writes.run(operation),
   flush: () => writes.flush(),
   isPersistent: () => persistent,
   getPracticeDraft: () => ({
     ...(sequencePlayer?.getPracticeDraft() ?? { durationMs: 0, comfortableBpm: 80 }),
-    context: { root: structure.root, structureId: structure.id, scope: training?.getPreferences().sequenceScope ?? 'structure', positionIds: rangeIsValid() ? positions.map(position => position.id) : [] },
+    context: { root: structure.root, structureId: structure.id, scope: training?.getSequenceScope() ?? 'structure', positionIds: rangeIsValid() ? positions.map(position => position.id) : [] },
   }),
   onManualSaved: (durationMs, contextKey) => sequencePlayer?.consumePracticeDuration(durationMs, contextKey),
   onRepeatErrors(ids, context) {
@@ -423,12 +437,21 @@ history = mountHistory(byId('history-mount'), {
     } finally { main.inert = false; main.setAttribute('aria-busy', 'false'); }
   },
 });
-byId('retry-save').addEventListener('click', () => { void writes.retry().then(() => { if (!writes.failureCount) history?.clearActionError(); return history?.refresh(); }); });
+byId('retry-save').addEventListener('click', () => { if (!retiring) void writes.retry().then(() => { if (!writes.failureCount) history?.clearActionError(); return history?.refresh(); }); });
+byId('retry-tab').addEventListener('click', () => location.reload());
 
 async function initialize() {
+  writerLease = await acquireWriterLease();
+  if (retiring) { writerLease.release(); return; }
+  if (!writerLease.acquired) {
+    byId('persistence-message').textContent = 'Занятие уже открыто в другой вкладке. Закрой её и нажми «Проверить снова».';
+    byId('retry-tab').hidden = false;
+    return;
+  }
   let snapshot;
-  try { await store.open(); snapshot = await store.readSnapshot(); }
+  try { await store.open(); if (retiring) return; snapshot = await store.readSnapshot(); }
   catch (failure) {
+    if (retiring) return;
     await store.close().catch(() => {});
     store = createMemoryStudyStore();
     persistent = false;
@@ -436,9 +459,11 @@ async function initialize() {
     snapshot = await store.readSnapshot();
     console.warn('Локальная база не открылась; исходные данные не сброшены.', failure);
   }
+  if (retiring) return;
   applyPreferences(snapshot.preferences);
   writes.clearFailures();
   await history?.refresh();
+  if (retiring) return;
   main.inert = false;
   main.setAttribute('aria-busy', 'false');
 }
@@ -446,4 +471,14 @@ void initialize().catch(failure => {
   byId('persistence-message').textContent = `Не удалось подготовить страницу: ${failure instanceof Error ? failure.message : String(failure)}`;
   byId('persistence-banner').classList.add('has-error');
 });
-if (import.meta.hot) import.meta.hot.dispose(() => { sequencePlayer?.dispose(); training?.dispose(); history?.dispose(); void store.close(); });
+function retire() {
+  if (retirement) return retirement;
+  retiring = true;
+  main.inert = true;
+  sequencePlayer?.stop();
+  retirement = (async () => { try { await writes.flush(); await store.close(); } finally { writerLease?.release(); } })();
+  return retirement;
+}
+window.addEventListener('pagehide', () => { void retire(); });
+window.addEventListener('pageshow', event => { if (event.persisted) location.reload(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { void retire(); sequencePlayer?.dispose(); training?.dispose(); history?.dispose(); });

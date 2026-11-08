@@ -3,12 +3,13 @@ import {
   nextQuestion, revealAnswer, skipQuestion, startQuiz, submitAnswer,
   type AnswerEvent, type Question, type QuestionContext, type QuizAnswer, type QuizMode,
   type QuizResult, type QuizSession, type SequencePattern, type TrainingScope,
+  INTERVAL_DEGREES, createIntervalTarget, type IntervalDegree,
 } from '../training';
 import { createManualPracticeResult, type ManualPracticeResult } from '../training/results';
 
 export interface AppPreferences {
   readonly study: { readonly root: string; readonly structureId: StructureId; readonly labelMode: LabelMode; readonly strings: readonly StringId[]; readonly fretMin: number; readonly fretMax: number };
-  readonly training: { readonly mode: 'study' | 'quiz' | 'sequence'; readonly quizMode: QuizMode; readonly scope: TrainingScope; readonly count: number; readonly pattern: SequencePattern; readonly sequenceScope: TrainingScope; readonly reviewPositionIds: readonly string[] };
+  readonly training: { readonly mode: 'study' | 'quiz' | 'sequence'; readonly quizMode: QuizMode; readonly scope: TrainingScope; readonly intervalDegree: IntervalDegree; readonly count: number; readonly pattern: SequencePattern; readonly sequenceScope: TrainingScope; readonly reviewPositionIds: readonly string[] };
   readonly player: {
     readonly bpm: number; readonly duration: 'quarter' | 'eighth' | 'sixteenth'; readonly repeat: 'once' | 'infinite' | 'ladder';
     readonly countIn: boolean; readonly showPulse: boolean; readonly from: number | null; readonly to: number | null;
@@ -32,7 +33,7 @@ export interface ScreenHistoryEntry extends HistoryEnvelope { readonly result: S
 export interface ManualHistoryEntry extends HistoryEnvelope { readonly result: ManualPracticeResult }
 export type HistoryEntry = ScreenHistoryEntry | ManualHistoryEntry;
 export interface StudySnapshot {
-  readonly format: 'bass-study-backup'; readonly schemaVersion: 1; readonly preferences: AppPreferences;
+  readonly format: 'bass-study-backup'; readonly schemaVersion: 2; readonly preferences: AppPreferences;
   readonly presets: readonly Preset[]; readonly history: readonly HistoryEntry[];
 }
 
@@ -42,7 +43,8 @@ export class StudyStorageError extends Error {
 export const MAX_BACKUP_BYTES = 10_485_760;
 
 const ROOT_IDS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
-const MODES: readonly QuizMode[] = ['name-note', 'find-note', 'find-all', 'find-degree'];
+const LEGACY_MODES = ['name-note', 'find-note', 'find-all', 'find-degree'] as const;
+const MODES: readonly QuizMode[] = [...LEGACY_MODES, 'find-pitch', 'find-interval'];
 const PATTERNS: readonly SequencePattern[] = ['ascending', 'descending', 'round-trip', 'groups-of-three'];
 const SCOPES: readonly TrainingScope[] = ['structure', 'chromatic'];
 const DURATIONS = ['quarter', 'eighth', 'sixteenth'];
@@ -101,7 +103,7 @@ export function originalLocalDate(occurredAt: string, timeZone: string): string 
 
 export const DEFAULT_PREFERENCES: AppPreferences = immutable({
   study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12 },
-  training: { mode: 'study', quizMode: 'name-note', scope: 'structure', count: 10, pattern: 'ascending', sequenceScope: 'structure', reviewPositionIds: [] },
+  training: { mode: 'study', quizMode: 'name-note', scope: 'structure', intervalDegree: '#4', count: 10, pattern: 'ascending', sequenceScope: 'structure', reviewPositionIds: [] },
   player: { bpm: 80, duration: 'eighth', repeat: 'once', countIn: true, showPulse: true, from: null, to: null,
     ladderStart: 60, ladderEnd: 100, ladderStep: 5, ladderRepeats: 2, metronome: true, metronomeMode: 'all', subdivision: 'quarter', bassVolume: 70, clickVolume: 50 },
 });
@@ -125,10 +127,11 @@ export function validatePreferences(value: unknown): AppPreferences {
   const fretMin = number(study.fretMin, 0, 24, 'Первый лад');
   const fretMax = number(study.fretMax, 0, 24, 'Последний лад');
   if (fretMin > fretMax) invalid('Первый лад больше последнего.');
-  const training = object(data.training, ['mode', 'quizMode', 'scope', 'count', 'pattern', 'sequenceScope', 'reviewPositionIds'], 'Настройки заданий');
+  const training = object(data.training, ['mode', 'quizMode', 'scope', 'intervalDegree', 'count', 'pattern', 'sequenceScope', 'reviewPositionIds'], 'Настройки заданий');
   const quizMode = oneOf(training.quizMode, MODES, 'Тип задания');
   const scope = oneOf(training.scope, SCOPES, 'Область задания');
   if (quizMode === 'find-degree' && scope !== 'structure') invalid('Поиск ступени требует область «Ноты структуры».');
+  if (quizMode === 'find-interval' && scope !== 'chromatic') invalid('Поиск произвольного интервала требует область «Все ноты».');
   const player = object(data.player, ['bpm', 'duration', 'repeat', 'countIn', 'showPulse', 'from', 'to', 'ladderStart', 'ladderEnd', 'ladderStep', 'ladderRepeats', 'metronome', 'metronomeMode', 'subdivision', 'bassVolume', 'clickVolume'], 'Настройки проигрывателя');
   const from = player.from === null ? null : number(player.from, 1, 10000, 'Начало фрагмента');
   const to = player.to === null ? null : number(player.to, 1, 10000, 'Конец фрагмента');
@@ -138,7 +141,7 @@ export function validatePreferences(value: unknown): AppPreferences {
   if (ladderStart > ladderEnd) invalid('Конечный темп лестницы ниже начального.');
   return immutable({
     study: { root: oneOf(study.root, ROOT_IDS, 'Тоника'), structureId: oneOf(study.structureId, STRUCTURE_IDS, 'Структура'), labelMode: oneOf(study.labelMode, ['notes', 'degrees', 'hidden'] as const, 'Подписи'), strings, fretMin, fretMax },
-    training: { mode: oneOf(training.mode, ['study', 'quiz', 'sequence'] as const, 'Режим занятия'), quizMode, scope,
+    training: { mode: oneOf(training.mode, ['study', 'quiz', 'sequence'] as const, 'Режим занятия'), quizMode, scope, intervalDegree: oneOf(training.intervalDegree, INTERVAL_DEGREES, 'Интервал'),
       count: number(training.count, 1, 30, 'Число вопросов'), pattern: oneOf(training.pattern, PATTERNS, 'Порядок нот'), sequenceScope: oneOf(training.sequenceScope, SCOPES, 'Материал последовательности'), reviewPositionIds: positionIds(training.reviewPositionIds, 'Позиции для повторения', true) },
     player: { bpm: number(player.bpm, 40, 220, 'Темп'), duration: oneOf(player.duration, DURATIONS as readonly AppPreferences['player']['duration'][], 'Длительность'), repeat: oneOf(player.repeat, ['once', 'infinite', 'ladder'] as const, 'Повтор'),
       countIn: boolean(player.countIn, 'Отсчёт'), showPulse: boolean(player.showPulse, 'Визуальный пульс'), from, to, ladderStart, ladderEnd,
@@ -162,7 +165,8 @@ export function validatePreset(value: unknown): Preset {
   return immutable({ id: text(data.id, 'ID пресета', 120), name: text(data.name, 'Название пресета', 80).trim(), createdAt: utc(data.createdAt, 'Дата пресета'), preferences: validatePreferences(data.preferences) });
 }
 
-const QUESTION_KEYS = ['questionId', 'answerRule', 'target', 'targetPositionId', 'selectedPositionIds', 'attempts', 'errors', 'firstAnswer', 'firstResponseMs', 'completionMs', 'firstAttemptCorrect', 'hintUsed', 'skipped', 'independentCorrect', 'corrected', 'outcome', 'answerEvents'];
+const LEGACY_QUESTION_KEYS = ['questionId', 'answerRule', 'target', 'targetPositionId', 'selectedPositionIds', 'attempts', 'errors', 'firstAnswer', 'firstResponseMs', 'completionMs', 'firstAttemptCorrect', 'hintUsed', 'skipped', 'independentCorrect', 'corrected', 'outcome', 'answerEvents'];
+const QUESTION_KEYS = [...LEGACY_QUESTION_KEYS, 'targetMidi'];
 
 function answerValue(value: unknown): QuizAnswer {
   if (typeof value === 'string') return text(value, 'Ответ', 160);
@@ -178,14 +182,18 @@ function validateScreenQuestion(value: unknown, mode: QuizMode, originalContext:
   if (eligible.length === 0) invalid('В контексте нет доступных нот для задания.');
   const targetData = object(raw.target, ['pitchClass', 'name', 'degree'], 'Цель вопроса');
   const targetClass = number(targetData.pitchClass, 0, 11, 'Класс целевой ноты');
-  const candidates = eligible.filter(item => item.pitchClass === targetClass);
+  const targetMidi = raw.targetMidi === null ? null : number(raw.targetMidi, 0, 127, 'Целевая высота');
+  if (mode === 'find-pitch' ? targetMidi === null || targetMidi % 12 !== targetClass : targetMidi !== null) invalid('Целевая высота не соответствует режиму или классу ноты.');
+  const candidates = eligible.filter(item => item.pitchClass === targetClass && (targetMidi === null || item.midi === targetMidi));
   if (candidates.length === 0) invalid('Целевая нота отсутствует в исходной области.');
   let targetName: string;
   try { targetName = parseNote(text(targetData.name, 'Имя целевой ноты', 32)).name; } catch { invalid('Некорректное имя целевой ноты.'); }
-  if (targetName !== candidates[0].noteName || targetData.degree !== candidates[0].degree) invalid('Написание или ступень цели не соответствует исходному контексту.');
+  const intervalDegree = mode === 'find-interval' ? oneOf(targetData.degree, INTERVAL_DEGREES, 'Интервал цели') : undefined;
+  const interval = intervalDegree === undefined ? null : createIntervalTarget(originalContext.root, intervalDegree, allPositions);
+  if (interval ? interval.target.name !== targetName || interval.target.pitchClass !== targetClass : targetName !== candidates[0].noteName || targetData.degree !== candidates[0].degree) invalid('Написание или ступень цели не соответствует исходному контексту.');
   const targetPositionId = raw.targetPositionId === null ? null : text(raw.targetPositionId, 'Позиция вопроса', 5);
   if (mode === 'name-note' ? !candidates.some(item => item.id === targetPositionId) : targetPositionId !== null) invalid('Позиция вопроса не соответствует режиму или целевой ноте.');
-  const answerRule = mode === 'name-note' ? 'pitch-class' : mode === 'find-all' ? 'all-positions' : 'any-position';
+  const answerRule = mode === 'name-note' ? 'pitch-class' : mode === 'find-all' ? 'all-positions' : mode === 'find-pitch' ? 'exact-pitch' : 'any-position';
   if (raw.answerRule !== answerRule) invalid('Правило проверки не соответствует типу вопроса.');
   positionIds(raw.selectedPositionIds, 'Найденные позиции', true);
   const attempts = number(raw.attempts, 0, Number.MAX_SAFE_INTEGER, 'Число попыток');
@@ -194,9 +202,9 @@ function validateScreenQuestion(value: unknown, mode: QuizMode, originalContext:
   if (raw.firstResponseMs !== null) number(raw.firstResponseMs, 0, Number.MAX_SAFE_INTEGER, 'Первое время ответа', false);
   if (raw.firstAttemptCorrect !== null) boolean(raw.firstAttemptCorrect, 'Первый правильный ответ');
   for (const key of ['hintUsed', 'skipped', 'independentCorrect', 'corrected']) boolean(raw[key], key);
-  const target = { pitchClass: targetClass, name: targetName, degree: candidates[0].degree };
-  let replay = startQuiz({ positions: allPositions, structure, scope: originalContext.scope, mode, seed: 0 }, 1);
-  const question: Question = { ...replay.currentQuestion, id: questionId, context: originalContext, target,
+  const target = { pitchClass: targetClass, name: targetName, degree: intervalDegree ?? candidates[0].degree };
+  let replay = startQuiz({ positions: allPositions, structure, scope: originalContext.scope, mode, seed: 0, intervalDegree }, 1);
+  const question: Question = { ...replay.currentQuestion, id: questionId, context: originalContext, target, targetMidi,
     expectedPositionIds: candidates.map(item => item.id), ...(targetPositionId === null ? { targetPositionId: undefined } : { targetPositionId }) };
   replay = { ...replay, questions: [question], currentQuestion: question };
   const events = array(raw.answerEvents, Number.MAX_SAFE_INTEGER, 'Попытки ответа').map((item, index): AnswerEvent => {
@@ -218,7 +226,7 @@ function validateScreenQuestion(value: unknown, mode: QuizMode, originalContext:
   if (outcome === 'interrupted') {
     if (replay.status !== 'active' || replay.answerState.attempts === 0 || completionMs !== null) invalid('Прерванный вопрос должен содержать реальные незавершённые попытки.');
     const state = replay.answerState;
-    expected = { questionId, target, answerRule, selectedPositionIds: state.selectedPositionIds,
+    expected = { questionId, target, targetMidi, answerRule, selectedPositionIds: state.selectedPositionIds,
       attempts: state.attempts, errors: state.errors, firstAnswer: state.firstAnswer, firstResponseMs: state.firstResponseMs,
       completionMs: null, firstAttemptCorrect: state.firstAttemptCorrect, hintUsed: false, skipped: false,
       independentCorrect: false, corrected: false, outcome: 'interrupted', answerEvents: events };
@@ -260,6 +268,7 @@ export function validateHistoryEntry(value: unknown): HistoryEntry {
   const originalContext = context(result.context);
   const mode = oneOf(result.mode, MODES, 'Тип экранного задания');
   if (mode === 'find-degree' && originalContext.scope !== 'structure') invalid('Поиск ступени не может иметь хроматический контекст.');
+  if (mode === 'find-interval' && originalContext.scope !== 'chromatic') invalid('Произвольный интервал требует хроматический контекст.');
   const plannedCount = number(result.plannedCount, 1, 100, 'Запланированные вопросы');
   const questions = array(result.questions, plannedCount, 'Результаты вопросов').map(item => validateScreenQuestion(item, mode, originalContext));
   if (questions.length === 0 || new Set(questions.map(item => item.questionId)).size !== questions.length) invalid('Экранная история пуста или содержит повторяющиеся вопросы.');
@@ -270,24 +279,59 @@ export function validateHistoryEntry(value: unknown): HistoryEntry {
 export function validateSnapshot(value: unknown): StudySnapshot {
   const raw = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history'], 'Резервная копия');
   if (raw.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
-  if (raw.schemaVersion !== 1) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  if (raw.schemaVersion !== 2) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
   // Import bytes are bounded by parseBackup; ordinary native writes must never make
   // an otherwise valid database unreadable merely by exceeding an arbitrary count.
   const presets = array(raw.presets, Number.MAX_SAFE_INTEGER, 'Пресеты').map(validatePreset);
   const history = array(raw.history, Number.MAX_SAFE_INTEGER, 'История').map(validateHistoryEntry);
   if (new Set(presets.map(item => item.id)).size !== presets.length || new Set(history.map(item => item.id)).size !== history.length) invalid('ID пресетов или истории повторяются.');
   const byId = (a: { id: string }, b: { id: string }) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-  return immutable({ format: 'bass-study-backup', schemaVersion: 1, preferences: validatePreferences(raw.preferences), presets: presets.sort(byId), history: history.sort(byId) });
+  return immutable({ format: 'bass-study-backup', schemaVersion: 2, preferences: validatePreferences(raw.preferences), presets: presets.sort(byId), history: history.sort(byId) });
+}
+
+/** Exact schema-1 records are validated before adding schema-2 defaults. */
+export function migrateV1Preferences(value: unknown): AppPreferences {
+  const data = object(value, ['study', 'training', 'player'], 'Настройки версии 1');
+  const training = object(data.training, ['mode', 'quizMode', 'scope', 'count', 'pattern', 'sequenceScope', 'reviewPositionIds'], 'Настройки заданий версии 1');
+  oneOf(training.quizMode, LEGACY_MODES, 'Тип задания версии 1');
+  return validatePreferences({ ...data, training: { ...training, intervalDegree: '#4' } });
+}
+
+export function migrateV1Preset(value: unknown): Preset {
+  const data = object(value, ['id', 'name', 'createdAt', 'preferences'], 'Пресет версии 1');
+  return validatePreset({ ...data, preferences: migrateV1Preferences(data.preferences) });
+}
+
+export function migrateV1HistoryEntry(value: unknown): HistoryEntry {
+  const data = object(value, ['id', 'occurredAt', 'timeZone', 'localDate', 'result'], 'История версии 1');
+  if (!data.result || typeof data.result !== 'object') invalid('Отсутствует результат версии 1.');
+  const kind = Object.getOwnPropertyDescriptor(data.result, 'kind');
+  if (!kind || !Object.hasOwn(kind, 'value')) invalid('Происхождение результата версии 1 должно быть обычным JSON-полем.');
+  if (kind.value === 'manual') return validateHistoryEntry(data);
+  const result = object(data.result, ['kind', 'source', 'seed', 'mode', 'context', 'plannedCount', 'questions'], 'Экранное занятие версии 1');
+  oneOf(result.mode, LEGACY_MODES, 'Тип задания версии 1');
+  const questions = array(result.questions, 100, 'Вопросы версии 1').map(question => ({ ...object(question, LEGACY_QUESTION_KEYS, 'Вопрос версии 1'), targetMidi: null }));
+  return validateHistoryEntry({ ...data, result: { ...result, questions } });
+}
+
+export function migrateBackup(value: unknown): StudySnapshot {
+  const data = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history'], 'Резервная копия');
+  if (data.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
+  if (data.schemaVersion === 2) return validateSnapshot(data);
+  if (data.schemaVersion !== 1) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  return validateSnapshot({ ...data, schemaVersion: 2, preferences: migrateV1Preferences(data.preferences),
+    presets: array(data.presets, Number.MAX_SAFE_INTEGER, 'Пресеты версии 1').map(migrateV1Preset),
+    history: array(data.history, Number.MAX_SAFE_INTEGER, 'История версии 1').map(migrateV1HistoryEntry) });
 }
 
 export function parseBackup(json: string): StudySnapshot {
   if (typeof json !== 'string' || json.length > MAX_BACKUP_BYTES || new TextEncoder().encode(json).byteLength > MAX_BACKUP_BYTES) throw new StudyStorageError('INVALID_BACKUP', 'Нужен JSON-файл размером не более 10 МиБ.');
   let value: unknown;
   try { value = JSON.parse(json); } catch { throw new StudyStorageError('INVALID_BACKUP', 'Не удалось прочитать JSON резервной копии.'); }
-  return validateSnapshot(value);
+  return migrateBackup(value);
 }
 
-export function emptySnapshot(): StudySnapshot { return validateSnapshot({ format: 'bass-study-backup', schemaVersion: 1, preferences: DEFAULT_PREFERENCES, presets: [], history: [] }); }
+export function emptySnapshot(): StudySnapshot { return validateSnapshot({ format: 'bass-study-backup', schemaVersion: 2, preferences: DEFAULT_PREFERENCES, presets: [], history: [] }); }
 
 function envelope(metadata: HistoryMetadata) {
   return { id: metadata.id, occurredAt: metadata.occurredAt, timeZone: metadata.timeZone, localDate: originalLocalDate(metadata.occurredAt, metadata.timeZone) };
@@ -299,7 +343,7 @@ export function makeScreenHistory(session: QuizSession, metadata: HistoryMetadat
   else if (session.status === 'active' && session.answerState.attempts > 0) {
     const answer = session.answerState;
     results.push({ kind: 'screen', questionId: session.currentQuestion.id, mode: session.currentQuestion.mode,
-      context: session.currentQuestion.context, target: session.currentQuestion.target, answerRule: session.currentQuestion.answerRule,
+      context: session.currentQuestion.context, target: session.currentQuestion.target, targetMidi: session.currentQuestion.targetMidi, answerRule: session.currentQuestion.answerRule,
       selectedPositionIds: answer.selectedPositionIds, attempts: answer.attempts, errors: answer.errors, firstAnswer: answer.firstAnswer,
       firstResponseMs: answer.firstResponseMs, completionMs: null, firstAttemptCorrect: answer.firstAttemptCorrect,
       hintUsed: false, skipped: false, independentCorrect: false, corrected: false, outcome: 'interrupted', answerEvents: answer.answerEvents });
@@ -362,7 +406,7 @@ export function getReviewPositionIds(history: readonly HistoryEntry[]): readonly
       if (question.independentCorrect) continue;
       if (entry.result.mode === 'name-note') {
         if (question.targetPositionId) ids.add(question.targetPositionId);
-      } else for (const id of entry.result.context.positionIds) if (position(id).pitchClass === question.target.pitchClass) ids.add(id);
+      } else for (const id of entry.result.context.positionIds) if (question.targetMidi === null ? position(id).pitchClass === question.target.pitchClass : position(id).midi === question.targetMidi) ids.add(id);
     }
   }
   const order = ['E', 'A', 'D', 'G'];

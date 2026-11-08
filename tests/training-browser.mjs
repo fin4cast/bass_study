@@ -70,13 +70,13 @@ function expectSummary(actual, expected) {
   assert.deepEqual(actual, { independentCorrect: 0, corrected: 0, errors: 0, hints: 0, skipped: 0, completed: 1, total: 1, ...expected });
 }
 
-check('four-quiz-modes-and-default-session-length', async ({ page }) => {
+check('six-quiz-modes-and-default-session-length', async ({ page }) => {
   await page.getByRole('button', { name: 'Задания', exact: true }).click();
-  assert.deepEqual(await page.getByLabel('Тип задания', { exact: true }).locator('option').evaluateAll(nodes => nodes.map(node => node.value)), ['name-note', 'find-note', 'find-all', 'find-degree']);
+  assert.deepEqual(await page.getByLabel('Тип задания', { exact: true }).locator('option').evaluateAll(nodes => nodes.map(node => node.value)), ['name-note', 'find-note', 'find-all', 'find-degree', 'find-pitch', 'find-interval']);
   assert.equal(await page.getByLabel('Количество вопросов', { exact: true }).inputValue(), '10');
   assert.match(await page.getByTestId('training-content').innerText(), /на экране|экран/i);
   assert.equal(await page.getByTestId('quiz-question').count(), 0);
-  return { modes: 4, defaultCount: 10, startsExplicitly: true };
+  return { modes: 6, defaultCount: 10, startsExplicitly: true };
 });
 
 check('name-note-first-correct-answer-is-independent', async ({ page }) => {

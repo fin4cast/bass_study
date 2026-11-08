@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import v1BackupJson from './fixtures/v1-backup.json?raw';
 import { createMemoryStudyStore } from '../src/storage/memory';
 import { annotatePositions, createStructure, getPosition } from '../src/music';
 import { createManualPracticeResult, nextQuestion, revealAnswer, skipQuestion, startQuiz, submitAnswer, type QuizMode } from '../src/training';
@@ -22,7 +23,7 @@ function manual() {
 describe('явное временное хранилище', () => {
   it('сериализует соседние записи без потери истории и не раскрывает изменяемые ссылки', async () => {
     const store = createMemoryStudyStore();
-    expect(await store.open()).toEqual({ name: 'bass-study-memory', version: 1 });
+    expect(await store.open()).toEqual({ name: 'bass-study-memory', version: 2 });
     const preferences = { ...DEFAULT_PREFERENCES, player: { ...DEFAULT_PREFERENCES.player, bpm: 99 } };
     await Promise.all([store.addHistory(completed()), store.savePreferences(preferences), store.addHistory(manual())]);
     const snapshot = await store.readSnapshot();
@@ -257,11 +258,69 @@ describe('достоверность и переносимость копии', 
   it('отвергает лишние, повреждённые и дублированные записи до записи в базу', () => {
     expect(() => parseBackup('{broken')).toThrow();
     expect(() => validateSnapshot({ ...emptySnapshot(), format: 'other' })).toThrow();
-    expect(() => validateSnapshot({ ...emptySnapshot(), schemaVersion: 2 })).toThrow();
+    expect(() => validateSnapshot({ ...emptySnapshot(), schemaVersion: 3 })).toThrow();
     const entry: HistoryEntry = completed();
     expect(() => validateSnapshot({ ...emptySnapshot(), history: [entry, entry] })).toThrow(/повторяются/);
     const wrong: any = clone(manual()); wrong.result.accuracy = 100;
     expect(() => validateHistoryEntry(wrong)).toThrow(/неизвестные/);
     expect(() => validateHistoryEntry({ ...entry, occurredAt: '2026-02-30T00:00:00.000Z' })).toThrow();
+  });
+});
+
+describe('schema2: точная высота, интервалы и миграция настоящей копии v1', () => {
+  it('переносит старые данные, добавляя только новые семантические поля', () => {
+    const old = JSON.parse(v1BackupJson);
+    const inputBefore = JSON.stringify(old);
+    const migrated = parseBackup(v1BackupJson);
+    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.preferences.training.intervalDegree).toBe('#4');
+    expect(migrated.presets[0]?.preferences.training.intervalDegree).toBe('#4');
+    const legacyScreen = old.history.find((entry: any) => entry.id === 'legacy-screen');
+    const screen = migrated.history.find(entry => entry.id === 'legacy-screen') as ScreenHistoryEntry;
+    expect(screen).toEqual({ ...legacyScreen, result: { ...legacyScreen.result, questions: legacyScreen.result.questions.map((question: any) => ({ ...question, targetMidi: null })) } });
+    expect(migrated.history.find(entry => entry.id === 'legacy-manual')).toEqual(old.history.find((entry: any) => entry.id === 'legacy-manual'));
+    expect(screen.localDate).toBe('2026-11-07');
+    expect(screen.result.questions[0]?.answerEvents).toEqual([{ answer: 'F', elapsedMs: 500, correct: false }, { answer: 'E', elapsedMs: 950, correct: true }]);
+    expect(JSON.stringify(old)).toBe(inputBefore);
+    expect(parseBackup(JSON.stringify(migrated))).toEqual(migrated);
+  });
+
+  it('не принимает повреждённую или ложно помеченную v1 и будущую версию', () => {
+    for (const change of [
+      (value: any) => { value.preferences.training.intervalDegree = '#4'; },
+      (value: any) => { value.history[0].result.questions[0].targetMidi = null; },
+      (value: any) => { value.history[0].result.questions[0].errors = 0; },
+      (value: any) => { value.preferences.training.quizMode = 'find-pitch'; },
+      (value: any) => { value.schemaVersion = 3; },
+    ]) {
+      const malformed = JSON.parse(v1BackupJson); change(malformed);
+      expect(() => parseBackup(JSON.stringify(malformed))).toThrow();
+    }
+  });
+
+  it('точная высота сохраняется и повтор ошибок ограничен той же высотой', () => {
+    const available = annotatePositions([getPosition('E', 5), getPosition('A', 0), getPosition('A', 12)], structure);
+    let session = startQuiz({ positions: available, structure, mode: 'find-pitch', seed: 1 }, 1);
+    const midi = session.currentQuestion.targetMidi;
+    // A1 or A2 may be selected by the session's derived seed; the other octave must fail.
+    const wrong = midi === 33 ? 'A:12' : 'A:0';
+    session = submitAnswer(session, wrong, 100);
+    session = submitAnswer(session, session.currentQuestion.expectedPositionIds[0], 400);
+    const entry = makeScreenHistory(session, metadata)!;
+    expect(entry.result.questions[0]).toMatchObject({ targetMidi: midi, answerRule: 'exact-pitch', outcome: 'corrected', errors: 1 });
+    expect(getReviewPositionIds([entry])).toEqual(midi === 33 ? ['E:5', 'A:0'] : ['A:12']);
+    const bad: any = clone(entry); bad.result.questions[0].targetMidi = null;
+    expect(() => validateHistoryEntry(bad)).toThrow(/высота/);
+  });
+
+  it('произвольный интервал проверяет контекстное имя, а не только класс', () => {
+    const cMajor = createStructure('C', 'major');
+    const available = annotatePositions([getPosition('E', 2), getPosition('E', 14)], cMajor);
+    const session = submitAnswer(startQuiz({ positions: available, structure: cMajor, mode: 'find-interval', intervalDegree: '#4', seed: 1 }, 1), 'E:2', 200);
+    const entry = makeScreenHistory(session, metadata)!;
+    expect(entry.result).toMatchObject({ mode: 'find-interval', context: { scope: 'chromatic' } });
+    expect(entry.result.questions[0]?.target).toEqual({ name: 'F♯', pitchClass: 6, degree: '#4' });
+    const bad: any = clone(entry); bad.result.questions[0].target.name = 'G♭';
+    expect(() => validateHistoryEntry(bad)).toThrow(/Написание/);
   });
 });
