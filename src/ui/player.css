@@ -1,0 +1,378 @@
+.player-section {
+  border: 1px solid #d5dfcd;
+  border-radius: 10px;
+  padding: 22px 24px;
+  margin: 19px 0 23px;
+  background: #f8faf1;
+}
+
+.player-section[hidden],
+.player-ladder[hidden] {
+  display: none;
+}
+
+.player-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.player-heading .eyebrow {
+  margin-bottom: 5px;
+  font-size: 9px;
+}
+
+.player-heading h2 {
+  font-size: 19px;
+  font-weight: 550;
+  color: #4d6e43;
+}
+
+.player-scope {
+  font: 10px "Consolas", monospace;
+  color: #95a286;
+  text-align: right;
+}
+
+.player-settings,
+.player-fragment,
+.player-ladder,
+.player-metronome {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: end;
+}
+
+.player-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.player-field > span,
+.player-group-label {
+  font-size: 10px;
+  color: #849476;
+}
+
+.player-field input,
+.player-field select {
+  min-height: 38px;
+  font-size: 12px;
+}
+
+.player-field input {
+  width: 78px;
+  padding: 0 8px 0 10px;
+  color: #47633d;
+  background: #fffffa;
+  border: 1px solid #d0dcc5;
+  border-radius: 6px;
+}
+
+.player-field input[aria-invalid="true"] {
+  border-color: #b87c5f;
+  background: #fff4e9;
+}
+
+.player-field input:disabled,
+.player-field select:disabled {
+  opacity: .6;
+  color: #839279;
+  cursor: default;
+}
+
+.player-check {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  min-height: 38px;
+  font-size: 11px;
+  color: #6d855a;
+}
+
+.player-check input {
+  accent-color: #6e9259;
+}
+
+.player-fragment {
+  border-top: 1px solid #dfe7d5;
+  margin-top: 19px;
+  padding-top: 17px;
+}
+
+.player-group-label {
+  align-self: center;
+  min-width: 70px;
+  font-weight: 550;
+}
+
+.fragment-arrow {
+  font-size: 14px;
+  color: #a3b294;
+  padding-bottom: 9px;
+}
+
+.player-caption {
+  color: #9bab8d;
+  font-size: 10px;
+  max-width: 350px;
+  align-self: center;
+  line-height: 1.65;
+}
+
+.player-fragment .player-caption {
+  padding-top: 13px;
+}
+
+.player-ladder {
+  padding: 15px;
+  background: #eff4e6;
+  border: 1px solid #d9e4cd;
+  border-radius: 7px;
+  margin-top: 16px;
+}
+
+.player-ladder .player-caption {
+  max-width: 240px;
+}
+
+.player-metronome {
+  border-top: 1px solid #dfe7d5;
+  padding-top: 17px;
+  margin-top: 17px;
+}
+
+.player-metronome .player-check {
+  min-width: 86px;
+}
+
+.player-metronome .player-caption {
+  max-width: 230px;
+  margin-left: auto;
+  padding-top: 13px;
+}
+
+.player-volumes {
+  display: flex;
+  gap: 28px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #dfe7d5;
+}
+
+.player-volumes label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 10px;
+  color: #879a76;
+}
+
+.player-volumes input {
+  width: 130px;
+  accent-color: #87a36d;
+}
+
+.player-volumes output {
+  width: 30px;
+  font: 10px "Consolas", monospace;
+  color: #9eaf8e;
+}
+
+.player-error,
+.player-notice {
+  font-size: 11px;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-top: 16px;
+  color: #956246;
+  border: 1px solid #e8cfb7;
+  background: #f9eadb;
+}
+
+.player-notice {
+  color: #837344;
+  border-color: #e0d8b9;
+  background: #f5f1df;
+}
+
+.player-transport {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  justify-content: space-between;
+  margin-top: 21px;
+}
+
+.player-buttons {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.player-buttons .primary-button {
+  margin-left: 0;
+  min-width: 100px;
+}
+
+.player-buttons button:disabled {
+  opacity: .4;
+  cursor: default;
+}
+
+.player-shortcuts {
+  color: #9eae8f;
+  font-size: 9px;
+  text-align: right;
+}
+
+.player-now {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #edf3e3;
+  border: 1px solid #d8e3c9;
+  border-radius: 7px;
+  padding: 12px 14px;
+  margin-top: 17px;
+}
+
+.player-state-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid #9eaf8c;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.player-section[data-player-state="running"] .player-state-dot {
+  background: #7c9b60;
+  border-color: #7c9b60;
+}
+
+.player-section[data-player-state="paused"] .player-state-dot {
+  background: #c3ac71;
+  border-color: #c3ac71;
+}
+
+.player-now p {
+  font-size: 11px;
+  color: #768d60;
+}
+
+.player-now strong {
+  margin-left: auto;
+  color: #5e7f48;
+  font: 12px "Consolas", monospace;
+  white-space: nowrap;
+}
+
+.player-edit-help,
+.player-evaluation-note {
+  font-size: 10px;
+  color: #9cab8d;
+  margin-top: 9px;
+  line-height: 1.65;
+}
+
+.player-evaluation-note {
+  font-size: 9px;
+  color: #afba9f;
+  margin-top: 5px;
+}
+
+.sequence-route li.is-playing {
+  background: #e9d4ac;
+  border-color: #b89961;
+  box-shadow: inset 0 0 0 2px #f7e8c8;
+}
+
+.sequence-route li.is-playing strong {
+  color: #8f6937;
+}
+
+.sequence-route li.is-playing::after {
+  content: "▶";
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  color: #ad8c4c;
+  font-size: 8px;
+}
+
+.position.is-playing .note-marker {
+  fill: #e9b979;
+  stroke: #fff2d0;
+  stroke-width: 2;
+}
+
+.position.is-playing .position-selection {
+  opacity: 1;
+  stroke: #f7d9a8;
+  stroke-dasharray: 4 2;
+}
+
+@media (max-width: 900px) {
+  .player-metronome .player-caption {
+    margin-left: 0;
+  }
+  .player-ladder .player-caption {
+    max-width: none;
+    width: 100%;
+  }
+}
+
+@media (max-width: 620px) {
+  .player-section {
+    padding: 17px;
+  }
+  .player-heading {
+    align-items: start;
+  }
+  .player-heading h2 {
+    font-size: 17px;
+  }
+  .player-scope {
+    max-width: 100px;
+  }
+  .player-settings {
+    gap: 12px;
+  }
+  .player-fragment .player-group-label {
+    width: 100%;
+  }
+  .player-fragment .player-caption {
+    padding-top: 0;
+  }
+  .player-metronome .player-check {
+    width: 100%;
+  }
+  .player-metronome .player-caption {
+    padding-top: 0;
+    max-width: none;
+  }
+  .player-volumes {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .player-volumes input {
+    width: 120px;
+  }
+  .player-transport {
+    align-items: start;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .player-now {
+    flex-wrap: wrap;
+  }
+  .player-now strong {
+    margin-left: 14px;
+  }
+}

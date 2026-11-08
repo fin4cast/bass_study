@@ -22,6 +22,7 @@ export interface TrainingContext {
 }
 export interface TrainingOptions {
   onModeChange?: (mode: TrainingMode) => void;
+  onSequenceChange?: () => void;
 }
 
 const STRING_ORDER: StringId[] = ['G', 'D', 'A', 'E'];
@@ -166,6 +167,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       body = `<div class="sequence-heading"><h3>${escapeHtml(sequence.name)}</h3><span data-testid="sequence-count">${sequence.notes.length} нот</span></div><ol class="sequence-route" data-testid="sequence-route">${sequence.notes.map((position, index) => `<li data-sequence-index="${index}" data-sequence-position="${position.id}"><span>${index + 1}</span><strong>${escapeHtml(formatMidi(position.midi, position.noteName))}</strong><small>${position.string} · ${position.fret === 0 ? 'откр.' : `${position.fret} лад`}</small>${position.degree ? `<em>${escapeHtml(position.degree.replaceAll('b', '♭').replaceAll('#', '♯'))}</em>` : ''}</li>`).join('')}</ol><p class="sequence-caption">Маршрут выбирает одну позицию для каждой высоты: по порядку струн E → A → D → G. Это последовательность для изучения, без автоматической оценки исполнения.</p>`;
     } catch (failure) { body = `<p class="training-error" role="status" data-testid="sequence-error">${escapeHtml(failure instanceof Error ? failure.message : String(failure))}</p>`; }
     content.innerHTML = `<div class="training-intro"><div><p class="eyebrow">ПРОСТЫЕ ПОСЛЕДОВАТЕЛЬНОСТИ</p><h2>Один материал. Разные маршруты.</h2></div><p>Сначала посмотри порядок нот.<br>Затем пройди маршрут на инструменте.</p></div><div class="sequence-settings"><label class="training-field"><span>Порядок</span><select aria-label="Порядок последовательности" data-sequence-setting="pattern">${PATTERNS.map(item => `<option value="${item.id}"${item.id === pattern ? ' selected' : ''}>${item.name}</option>`).join('')}</select></label><label class="training-field"><span>Материал</span><select aria-label="Материал последовательности" data-sequence-setting="scope"><option value="structure"${sequenceScope === 'structure' ? ' selected' : ''}>Выбранная структура</option><option value="chromatic"${sequenceScope === 'chromatic' ? ' selected' : ''}>Все ноты диапазона</option></select></label></div>${body}`;
+    options.onSequenceChange?.();
   }
 
   function resetQuestionUi() {
@@ -332,6 +334,11 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
   render();
   return {
     getLastSession() { return lastSession; },
+    getCurrentSequence() {
+      try { return createSequence({ ...getContext(), scope: sequenceScope, pattern }); }
+      catch { return null; }
+    },
+    getSequenceContextKey() { return `${contextFingerprint(getContext())}|${sequenceScope}|${pattern}`; },
     refreshContext() {
       if (disposed) return;
       const nextFingerprint = contextFingerprint(getContext());

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>P4: реальный аудиодвижок</title>
+<body>
+  <h1>Изолированная проверка аудиодвижка</h1>
+  <button id="start">Старт</button>
+  <button id="pause">Пауза</button>
+  <button id="resume">Продолжить</button>
+  <button id="stop">Стоп</button>
+  <button id="start-pause">Старт и немедленная пауза</button>
+  <script type="module">
+    import { createPlayer } from '/src/audio/engine.ts';
+    import { annotatePositions, createStructure, getPosition } from '/src/music/index.ts';
+    const notes = annotatePositions([0, 1, 3, 5].map(fret => getPosition('E', fret)), createStructure('C', 'major'));
+    const player = createPlayer();
+    const makeConfig = (overrides = {}) => ({
+      notes, bpm: 120, duration: 'quarter', countIn: false, repeat: 'once',
+      metronome: { enabled: false, mode: 'all', subdivision: 'quarter' }, ...overrides,
+    });
+    window.p4 = { player, makeConfig, config: makeConfig(), ready: true, action: null };
+    for (const name of ['start', 'pause', 'resume', 'stop']) {
+      document.getElementById(name).addEventListener('click', async () => {
+        window.p4.action = { name, done: false, error: null };
+        try { await player[name](...(name === 'start' ? [window.p4.config] : [])); }
+        catch (error) { window.p4.action.error = error.message; }
+        finally { window.p4.action.done = true; }
+      });
+    }
+    document.getElementById('start-pause').addEventListener('click', async () => {
+      window.p4.action = { name: 'start-pause', done: false, error: null };
+      try { await player.start(window.p4.config); player.pause(); }
+      catch (error) { window.p4.action.error = error.message; }
+      finally { window.p4.action.done = true; }
+    });
+    window.addEventListener('pagehide', () => player.dispose(), { once: true });
+  </script>
+</body>
+</html>

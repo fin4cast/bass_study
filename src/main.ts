@@ -1,5 +1,6 @@
 import './styles.css';
 import { mountTraining } from './ui/training';
+import { mountPlayer } from './ui/player';
 import {
   STRUCTURES,
   annotatePositions,
@@ -67,6 +68,7 @@ app.innerHTML = `
         </div>
 
         <div id="training-mount"></div>
+        <div id="player-mount" hidden></div>
         <div class="fretboard-section">
           <div class="board-header"><div class="section-title"><span class="section-number">02</span><h2>Исследуй позиции</h2></div><span id="position-count" class="position-count"></span></div>
           <div class="board-scroll" id="board-scroll"><div id="fretboard-container"></div></div>
@@ -90,6 +92,7 @@ const container = byId('fretboard-container');
 let positions: readonly AnnotatedPosition[] = [];
 let structure = createStructure(state.root, state.structureId);
 let training: ReturnType<typeof mountTraining> | undefined;
+let sequencePlayer: ReturnType<typeof mountPlayer> | undefined;
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
@@ -117,6 +120,7 @@ function updateView(announce = false) {
   renderBoard();
   renderSelection(announce);
   training?.refreshContext();
+  sequencePlayer?.refreshContext();
 }
 
 function renderBoard() {
@@ -158,6 +162,7 @@ function renderBoard() {
       </g>`;
     }).join('')}
   </svg>`;
+  sequencePlayer?.refreshHighlight();
 }
 
 function renderSelection(announce: boolean) {
@@ -279,5 +284,22 @@ training = mountTraining(byId('training-mount'), () => ({ positions: rangeIsVali
     document.querySelector<HTMLElement>('.selection-section')!.hidden = quiz;
     document.querySelector<HTMLElement>('.structure-summary')!.hidden = quiz;
     document.querySelector<HTMLElement>('.label-field')!.hidden = quiz;
+    if (mode !== 'sequence') sequencePlayer?.stop();
+    byId('player-mount').hidden = mode !== 'sequence';
+    if (mode === 'sequence') sequencePlayer?.refreshContext();
+  },
+  onSequenceChange() { sequencePlayer?.refreshContext(); sequencePlayer?.refreshHighlight(); },
+});
+sequencePlayer = mountPlayer(byId('player-mount'), () => training?.getCurrentSequence()?.notes ?? [], {
+  getContextKey: () => training?.getSequenceContextKey() ?? '',
+  onPositionChange(id, noteIndex) {
+    container.querySelectorAll<SVGGElement>('[data-position]').forEach(element => element.classList.toggle('is-playing', id !== null && element.dataset.position === id));
+    document.querySelectorAll<HTMLElement>('[data-sequence-index]').forEach(element => {
+      const current = id !== null && Number(element.dataset.sequenceIndex) === noteIndex;
+      element.classList.toggle('is-playing', current);
+      if (current) element.setAttribute('aria-current', 'step');
+      else element.removeAttribute('aria-current');
+    });
   },
 });
+if (import.meta.hot) import.meta.hot.dispose(() => { sequencePlayer?.dispose(); training?.dispose(); });

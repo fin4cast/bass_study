@@ -14,6 +14,7 @@
     "test:unit": "vitest run",
     "test:browser": "node tests/browser.mjs",
     "test:training": "node tests/training-browser.mjs",
+    "test:audio": "node tests/audio-browser.mjs",
     "build": "npm run check && vite build",
     "start": "node scripts/serve.mjs"
   },

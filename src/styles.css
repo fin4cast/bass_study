@@ -15,6 +15,10 @@
 .workspace .training-content {
   margin-bottom: 20px;
 }
+
+.workspace > .player-section {
+  margin: 0 25px 22px;
+}
 :root {
   font-family:"Segoe UI",Arial,sans-serif;
   color:#233532;
