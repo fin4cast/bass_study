@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.vite/
+test-results/
+playwright-report/
+experiments/p1/results/
+*.log

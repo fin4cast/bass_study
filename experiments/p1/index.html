@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>bass_study — технические проверки P1</title>
+  </head>
+  <body>
+    <main>
+      <h1>Технические проверки P1</h1>
+      <p>Изолированная проверка запуска, звукового движка и локального хранения. Это ещё не тренажёр.</p>
+      <section aria-labelledby="audio-title">
+        <h2 id="audio-title">Звуковой сценарий</h2>
+        <button id="start" type="button">Старт</button>
+        <button id="pause" type="button">Пауза</button>
+        <button id="resume" type="button">Продолжить</button>
+        <button id="stop" type="button">Стоп</button>
+        <label>Темп <input id="bpm" type="number" min="40" max="220" value="180"></label>
+        <button id="tempo" type="button">Изменить темп</button>
+        <output id="audio-status" aria-live="polite">Не запущен</output>
+      </section>
+      <section aria-labelledby="storage-title">
+        <h2 id="storage-title">Синтетические данные</h2>
+        <button id="seed" type="button">Записать пример</button>
+        <button id="export" type="button">Экспорт в поле</button>
+        <label>Резервная копия <textarea id="backup" rows="8" cols="65"></textarea></label>
+        <button id="preview" type="button">Проверить импорт</button>
+        <label><input id="confirm" type="checkbox">Подтверждаю полную замену тестовых данных</label>
+        <button id="restore" type="button">Восстановить</button>
+        <output id="storage-status" aria-live="polite">Нет операции</output>
+      </section>
+      <details><summary>Диагностика</summary><pre id="diagnostics"></pre></details>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
