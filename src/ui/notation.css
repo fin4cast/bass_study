@@ -1,21 +1,40 @@
-.notation-section { min-width:0; margin:20px 25px; padding:20px 22px; background:#fffef8; border:1px solid #d8dfd0; border-radius:10px; }
+@import "../theme.css";
+
+.notation-section { min-width:0; margin:20px 25px; padding:20px 22px; background:var(--surface); border:1px solid var(--border); border-radius:10px; }
 .notation-section[hidden] { display:none !important; }
 .notation-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
-.notation-heading h2 { margin:0; color:#45623c; font-size:19px; font-weight:550; }
+.notation-heading h2 { margin:0; color:var(--accent-text); font-size:19px; font-weight:550; }
 .notation-heading .eyebrow { margin:0 0 5px; font-size:12px; }
-.notation-count { color:#53654a; font:12px Consolas,monospace; white-space:nowrap; }
-.notation-help,.notation-keyboard-help { margin:12px 0; color:#566050; font-size:13px; }
-.notation-status { margin:12px 0 8px; color:#47623d; font-size:13px; min-height:1.5em; }
-.notation-scroll { max-width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-gutter:stable; border:1px solid #e1e5d9; border-radius:8px; background:#fffef8; }
-.notation-scroll:focus-visible { outline:3px solid #dfa85a; outline-offset:3px; }
+.notation-count { color:var(--accent-text); font:12px Consolas,monospace; white-space:nowrap; }
+.notation-help,.notation-keyboard-help { margin:12px 0; color:var(--accent-text); font-size:13px; }
+.notation-status { margin:12px 0 8px; color:var(--accent-text); font-size:13px; min-height:1.5em; }
+.notation-scroll { max-width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-gutter:stable; border:1px solid var(--border); border-radius:8px; background:var(--surface); }
+.notation-scroll:focus-visible { outline:3px solid var(--focus-ring); outline-offset:3px; }
 .notation-surface { width:max-content; min-width:100%; }
 .notation-svg { display:block; max-width:none; overflow:visible; }
-.notation-string-label { fill:#53654a; font:12px Consolas,monospace; }
+.notation-string-label { fill:var(--text-secondary); font:12px Consolas,monospace; }
 .notation-note { cursor:pointer; outline:none; }
-.notation-note.is-selected { filter:drop-shadow(0 0 3px #e1a15f); }
-.notation-note:focus-visible { outline:none; filter:drop-shadow(0 0 2px #c67d23) drop-shadow(0 0 2px #c67d23); }
-.notation-note.is-playing text,.notation-note.is-playing path { fill:#206858 !important; stroke:#206858 !important; }
-.notation-cursor { fill:#e1edda; stroke:none; opacity:.7; pointer-events:none; }
-.notation-selected { margin:12px 0 0; min-height:1.5em; color:#2e5246; font-size:13px; }
+.notation-note.is-selected { filter:drop-shadow(0 0 3px var(--selection)); }
+.notation-note:focus-visible { outline:none; filter:drop-shadow(0 0 2px var(--focus-ring)) drop-shadow(0 0 2px var(--focus-ring)); }
+.notation-note.is-playing text,.notation-note.is-playing path { fill:var(--text-secondary) !important; stroke:var(--border-strong) !important; }
+.notation-cursor { fill:var(--text-secondary); stroke:none; opacity:.7; pointer-events:none; }
+.notation-selected { margin:12px 0 0; min-height:1.5em; color:var(--accent-text); font-size:13px; }
 @media(max-width:640px) { .notation-section { margin:16px 0; padding:16px 12px; } .notation-heading { align-items:flex-start; flex-direction:column; gap:8px; } .notation-help,.notation-keyboard-help,.notation-selected { font-size:12px; } }
 @media(prefers-reduced-motion:reduce) { .notation-scroll { scroll-behavior:auto; } }
+
+.notation-scroll, .notation-section { background: var(--notation-paper); }
+.notation-string-label { fill: var(--text-secondary); }
+.notation-note.is-playing text, .notation-note.is-playing path { fill: var(--notation-playing) !important; stroke: var(--notation-playing) !important; }
+.notation-cursor { fill: var(--notation-cursor); }
+.notation-note.outside-fragment { opacity: .65; }
+.notation-note.outside-fragment:focus-visible { opacity: 1; }
+.notation-note.fragment-start { filter: drop-shadow(-3px 0 1px var(--selection)); }
+.notation-note.fragment-end { filter: drop-shadow(3px 0 1px var(--selection)); }
+.notation-note.is-selected { filter: drop-shadow(0 0 3px var(--selection)); }
+.notation-note:focus-visible { filter: drop-shadow(0 0 2px var(--focus-ring)) drop-shadow(0 0 2px var(--focus-ring)); }
+.notation-fragment, .notation-playback { color: var(--text-secondary); font-size: 13px; margin: 9px 0; line-height: 1.65; }
+.notation-playback:empty, .notation-fragment:empty { display: none; }
+
+.notation-cursor { stroke: var(--notation-playing); stroke-width: 1.5; opacity: 1; }
+.notation-note.outside-fragment { opacity: 1; }
+.notation-note.outside-fragment text, .notation-note.outside-fragment path { fill: var(--text-muted) !important; stroke: var(--text-muted) !important; }

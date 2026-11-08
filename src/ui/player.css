@@ -1,9 +1,11 @@
+@import "../theme.css";
+
 .player-section {
-  border: 1px solid #d5dfcd;
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 22px 24px;
   margin: 19px 0 23px;
-  background: #f8faf1;
+  background: var(--surface);
 }
 
 .player-section[hidden],
@@ -27,12 +29,12 @@
 .player-heading h2 {
   font-size: 19px;
   font-weight: 550;
-  color: #45623c;
+  color: var(--accent-text);
 }
 
 .player-scope {
   font: 12px "Consolas", monospace;
-  color: #565d4d;
+  color: var(--text-secondary);
   text-align: right;
 }
 
@@ -55,7 +57,7 @@
 .player-field > span,
 .player-group-label {
   font-size: 12px;
-  color: #545e4b;
+  color: var(--accent-text);
 }
 
 .player-field input,
@@ -67,21 +69,21 @@
 .player-field input {
   width: 78px;
   padding: 0 8px 0 10px;
-  color: #47623d;
-  background: #fffffa;
-  border: 1px solid #d0dcc5;
+  color: var(--accent-text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
 }
 
 .player-field input[aria-invalid="true"] {
-  border-color: #b87c5f;
-  background: #fff4e9;
+  border-color: var(--warning-border);
+  background: var(--surface-raised);
 }
 
 .player-field input:disabled,
 .player-field select:disabled {
   opacity: .6;
-  color: #839279;
+  color: var(--accent-text);
   cursor: default;
 }
 
@@ -91,15 +93,15 @@
   align-items: center;
   min-height: 38px;
   font-size: 12px;
-  color: #4f6041;
+  color: var(--accent-text);
 }
 
 .player-check input {
-  accent-color: #6e9259;
+  accent-color: var(--accent);
 }
 
 .player-fragment {
-  border-top: 1px solid #dfe7d5;
+  border-top: 1px solid var(--border);
   margin-top: 19px;
   padding-top: 17px;
 }
@@ -112,12 +114,12 @@
 
 .fragment-arrow {
   font-size: 14px;
-  color: #565d4e;
+  color: var(--text-secondary);
   padding-bottom: 9px;
 }
 
 .player-caption {
-  color: #555e4e;
+  color: var(--accent-text);
   font-size: 12px;
   max-width: 350px;
   align-self: center;
@@ -130,8 +132,8 @@
 
 .player-ladder {
   padding: 15px;
-  background: #eff4e6;
-  border: 1px solid #d9e4cd;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
   border-radius: 7px;
   margin-top: 16px;
 }
@@ -141,7 +143,7 @@
 }
 
 .player-metronome {
-  border-top: 1px solid #dfe7d5;
+  border-top: 1px solid var(--border);
   padding-top: 17px;
   margin-top: 17px;
 }
@@ -161,7 +163,7 @@
   gap: 28px;
   margin-top: 18px;
   padding-top: 16px;
-  border-top: 1px solid #dfe7d5;
+  border-top: 1px solid var(--border);
 }
 
 .player-volumes label {
@@ -169,18 +171,18 @@
   align-items: center;
   gap: 9px;
   font-size: 12px;
-  color: #535f48;
+  color: var(--accent-text);
 }
 
 .player-volumes input {
   width: 130px;
-  accent-color: #87a36d;
+  accent-color: var(--accent);
 }
 
 .player-volumes output {
   width: 30px;
   font: 12px "Consolas", monospace;
-  color: #555e4d;
+  color: var(--accent-text);
 }
 
 .player-error,
@@ -189,15 +191,15 @@
   border-radius: 6px;
   padding: 10px 12px;
   margin-top: 16px;
-  color: #7c513a;
-  border: 1px solid #e8cfb7;
-  background: #f9eadb;
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
+  background: var(--danger-surface);
 }
 
 .player-notice {
-  color: #675a36;
-  border-color: #e0d8b9;
-  background: #f5f1df;
+  color: var(--warning-text);
+  border-color: var(--border);
+  background: var(--surface-raised);
 }
 
 .player-transport {
@@ -226,7 +228,7 @@
 }
 
 .player-shortcuts {
-  color: #555e4d;
+  color: var(--accent-text);
   font-size: 12px;
   text-align: right;
 }
@@ -235,8 +237,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #edf3e3;
-  border: 1px solid #d8e3c9;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
   border-radius: 7px;
   padding: 12px 14px;
   margin-top: 17px;
@@ -246,29 +248,29 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  border: 1px solid #9eaf8c;
+  border: 1px solid var(--border-strong);
   background: transparent;
   flex-shrink: 0;
 }
 
 .player-section[data-player-state="running"] .player-state-dot {
-  background: #7c9b60;
-  border-color: #7c9b60;
+  background: var(--accent);
+  border-color: var(--border-strong);
 }
 
 .player-section[data-player-state="paused"] .player-state-dot {
-  background: #c3ac71;
-  border-color: #c3ac71;
+  background: var(--warning-surface);
+  border-color: var(--warning-border);
 }
 
 .player-now p {
   font-size: 12px;
-  color: #516041;
+  color: var(--accent-text);
 }
 
 .player-now strong {
   margin-left: auto;
-  color: #496238;
+  color: var(--accent-text);
   font: 12px "Consolas", monospace;
   white-space: nowrap;
 }
@@ -276,25 +278,25 @@
 .player-edit-help,
 .player-evaluation-note {
   font-size: 12px;
-  color: #555e4d;
+  color: var(--accent-text);
   margin-top: 9px;
   line-height: 1.65;
 }
 
 .player-evaluation-note {
   font-size: 12px;
-  color: #585d50;
+  color: var(--text-secondary);
   margin-top: 5px;
 }
 
 .sequence-route li.is-playing {
-  background: #e9d4ac;
-  border-color: #b89961;
-  box-shadow: inset 0 0 0 2px #f7e8c8;
+  background: var(--warning-surface);
+  border-color: var(--warning-border);
+  box-shadow: inset 0 0 0 2px var(--shadow);
 }
 
 .sequence-route li.is-playing strong {
-  color: #74552d;
+  color: var(--warning-text);
 }
 
 .sequence-route li.is-playing::after {
@@ -302,19 +304,19 @@
   position: absolute;
   top: 4px;
   right: 6px;
-  color: #6d5830;
+  color: var(--warning-text);
   font-size: 12px;
 }
 
 .position.is-playing .note-marker {
-  fill: #e9b979;
-  stroke: #fff2d0;
+  fill: var(--text-secondary);
+  stroke: var(--border-strong);
   stroke-width: 2;
 }
 
 .position.is-playing .position-selection {
   opacity: 1;
-  stroke: #f7d9a8;
+  stroke: var(--border-strong);
   stroke-dasharray: 4 2;
 }
 
@@ -376,3 +378,5 @@
     margin-left: 14px;
   }
 }
+
+.player-buttons button:disabled { opacity: 1; color: var(--disabled-text); background: var(--disabled-surface); }

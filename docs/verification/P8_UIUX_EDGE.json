@@ -1,0 +1,1336 @@
+{
+  "generatedAt": "2026-11-08T15:39:10.519Z",
+  "platform": "win32",
+  "node": "v24.18.0",
+  "browserChannel": "msedge",
+  "browserVersion": "157.0.4341.42",
+  "scope": "P8 actual product UI, themes and first frame, source contexts, guided introduction, exact boxes, persistent manual drafts, confirmation, sampled computed contrast, laptop widths and CDP page scale. Native IndexedDB is only read, media access is denied before capture, no physical bass/latency assessment.",
+  "origin": "http://localhost:4173",
+  "fixtureOrigin": "http://127.0.0.1:4194",
+  "staticServer": {
+    "reuseRequested": true,
+    "owned": false,
+    "mode": "external-reused",
+    "indexVerifiedByteForByte": true,
+    "shutdownAllowed": false
+  },
+  "networkIsolation": "Fresh Edge contexts, cache disabled, non-loopback HTTP denied; no user browser profile or hardware microphone.",
+  "checks": [
+    {
+      "name": "themes-preserve-running-sequence-focus-and-authoritative-profile",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2801,
+      "evidence": {
+        "evidence": [
+          {
+            "choice": "dark",
+            "resolved": "dark"
+          },
+          {
+            "choice": "light",
+            "resolved": "light"
+          },
+          {
+            "choice": "system",
+            "resolved": "light"
+          }
+        ],
+        "audioContextsUnchanged": 1,
+        "presetDoesNotChangeTheme": true,
+        "existingHistoryPreserved": 0
+      }
+    },
+    {
+      "name": "corrupt-boot-cache-falls-back-to-system-before-first-frame",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1001,
+      "evidence": {
+        "first": {
+          "preference": "system",
+          "resolved": "dark",
+          "background": "rgb(21, 29, 25)"
+        },
+        "method": "Real first requestAnimationFrame after reload; browser colour-scheme media emulation, not an OS setting change."
+      }
+    },
+    {
+      "name": "guided-four-steps-do-not-create-graded-history-and-choice-survives-reload",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1728,
+      "evidence": {
+        "gradedHistoryEntries": 0,
+        "fourStepsCompleted": true,
+        "onboarding": {
+          "version": 1,
+          "choice": "guided",
+          "completed": true
+        },
+        "reopeningAvailable": true
+      }
+    },
+    {
+      "name": "default-box-and-quiz-use-exact-positions-interval-explicitly-uses-chromatic-area",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2606,
+      "evidence": {
+        "defaultExactIds": [
+          "A:5",
+          "A:7",
+          "D:5",
+          "D:7",
+          "E:5",
+          "E:8",
+          "G:5",
+          "G:7"
+        ],
+        "chromaticIntervalArea": 16,
+        "majorPentatonicStartsWithB": true,
+        "compact": [
+          {
+            "rootString": "E",
+            "rootFret": 8,
+            "emptyString": "G",
+            "visibleStringNames": [
+              "G",
+              "D",
+              "A",
+              "E"
+            ]
+          },
+          {
+            "rootString": "A",
+            "rootFret": 3,
+            "emptyString": "E",
+            "visibleStringNames": [
+              "G",
+              "D",
+              "A",
+              "E"
+            ]
+          }
+        ],
+        "fingerPreferenceSurvivesReload": true,
+        "userExample": {
+          "root": "G",
+          "structure": "major",
+          "option": "Тоника G · лад 3",
+          "strings": [
+            "G",
+            "D",
+            "A",
+            "E"
+          ],
+          "emptyString": "G",
+          "screenshots": [
+            "p8-user-four-strings-light.png",
+            "p8-user-four-strings-dark.png"
+          ]
+        }
+      }
+    },
+    {
+      "name": "draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deletion",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2176,
+      "evidence": {
+        "invalidBpmDidNotBlockNote": true,
+        "restoredNote": true,
+        "oneManualEntry": true,
+        "materialPreserved": "harmony",
+        "deletionRequiredConfirmation": true
+      }
+    },
+    {
+      "name": "six-modules-errors-and-empty-states-have-computed-light-and-dark-contrast",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2680,
+      "evidence": {
+        "evidence": [
+          {
+            "label": "light:fretboard",
+            "samples": 81,
+            "minimumTextRatio": 6.224567976539867,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Тоника",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Структура",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Учебная форма",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Соседняя форма",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Первый лад",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Последний лад",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Гриф и практика",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  224,
+                  236,
+                  214
+                ],
+                "ratio": 3.4030759325008986,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "light:quiz-error",
+            "samples": 71,
+            "minimumTextRatio": 6.306464205028216,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Тоника",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Структура",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Учебная форма",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Соседняя форма",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Первый лад",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Последний лад",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Тип задания",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Количество вопросов",
+                "colour": "rgb(156, 96, 69)",
+                "background": [
+                  249,
+                  233,
+                  224
+                ],
+                "ratio": 4.256241434554365,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Гриф и практика",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  224,
+                  236,
+                  214
+                ],
+                "ratio": 3.4030759325008986,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "light:ear-error",
+            "samples": 40,
+            "minimumTextRatio": 6.306464205028216,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Тоника слухового задания",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Трезвучие для слуха",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Слуховых вопросов",
+                "colour": "rgb(151, 115, 66)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.28820662741765,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Темп прослушивания",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Слух",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  224,
+                  236,
+                  214
+                ],
+                "ratio": 3.4030759325008986,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "light:route-ready",
+            "samples": 32,
+            "minimumTextRatio": 6.306464205028216,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Маршрут занятия",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  224,
+                  236,
+                  214
+                ],
+                "ratio": 3.4030759325008986,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "light:harmony-error",
+            "samples": 67,
+            "minimumTextRatio": 6.306464205028216,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Темп сопровождения",
+                "colour": "rgb(151, 115, 66)",
+                "background": [
+                  250,
+                  251,
+                  244
+                ],
+                "ratio": 4.1614875731905725,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Повтор сопровождения",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Аккомпанемент",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  224,
+                  236,
+                  214
+                ],
+                "ratio": 3.4030759325008986,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "light:tracks-empty",
+            "samples": 25,
+            "minimumTextRatio": 6.306464205028216,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Аудиодорожки",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  224,
+                  236,
+                  214
+                ],
+                "ratio": 3.4030759325008986,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "light:input-disconnected",
+            "samples": 42,
+            "minimumTextRatio": 6.306464205028216,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Аудиовход",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Аудиовход",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  224,
+                  236,
+                  214
+                ],
+                "ratio": 3.4030759325008986,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "light:input-denied",
+            "samples": 43,
+            "minimumTextRatio": 6.306464205028216,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Аудиовход",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  255,
+                  254,
+                  248
+                ],
+                "ratio": 4.12693967878218,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Аудиовход",
+                "colour": "rgb(110, 130, 99)",
+                "background": [
+                  224,
+                  236,
+                  214
+                ],
+                "ratio": 3.4030759325008986,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "dark:fretboard",
+            "samples": 81,
+            "minimumTextRatio": 7.044287744905412,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Тоника",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Структура",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Учебная форма",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Соседняя форма",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Первый лад",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Последний лад",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Гриф и практика",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  53,
+                  75,
+                  50
+                ],
+                "ratio": 3.0088192948269032,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "dark:quiz-error",
+            "samples": 71,
+            "minimumTextRatio": 7.044287744905412,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Тоника",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Структура",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Учебная форма",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Соседняя форма",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Первый лад",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Последний лад",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Тип задания",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Количество вопросов",
+                "colour": "rgb(217, 155, 130)",
+                "background": [
+                  77,
+                  48,
+                  41
+                ],
+                "ratio": 5.06181869309185,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Гриф и практика",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  53,
+                  75,
+                  50
+                ],
+                "ratio": 3.0088192948269032,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "dark:ear-error",
+            "samples": 41,
+            "minimumTextRatio": 6.775535093406782,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Тоника слухового задания",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Трезвучие для слуха",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Слуховых вопросов",
+                "colour": "rgb(198, 162, 104)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 6.216369746811088,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Темп прослушивания",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Слух",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  53,
+                  75,
+                  50
+                ],
+                "ratio": 3.0088192948269032,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "dark:route-ready",
+            "samples": 32,
+            "minimumTextRatio": 7.044287744905412,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Маршрут занятия",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  53,
+                  75,
+                  50
+                ],
+                "ratio": 3.0088192948269032,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "dark:harmony-error",
+            "samples": 67,
+            "minimumTextRatio": 6.775535093406782,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Темп сопровождения",
+                "colour": "rgb(198, 162, 104)",
+                "background": [
+                  38,
+                  50,
+                  41
+                ],
+                "ratio": 5.583069544183083,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Повтор сопровождения",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Аккомпанемент",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  53,
+                  75,
+                  50
+                ],
+                "ratio": 3.0088192948269032,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "dark:tracks-empty",
+            "samples": 25,
+            "minimumTextRatio": 7.044287744905412,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Аудиодорожки",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  53,
+                  75,
+                  50
+                ],
+                "ratio": 3.0088192948269032,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "dark:input-disconnected",
+            "samples": 42,
+            "minimumTextRatio": 7.044287744905412,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Аудиовход",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Аудиовход",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  53,
+                  75,
+                  50
+                ],
+                "ratio": 3.0088192948269032,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "label": "dark:input-denied",
+            "samples": 43,
+            "minimumTextRatio": 7.044287744905412,
+            "nonText": [
+              {
+                "kind": "control-boundary",
+                "text": "Тема оформления",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "control-boundary",
+                "text": "Аудиовход",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  30,
+                  42,
+                  35
+                ],
+                "ratio": 4.700661761622026,
+                "threshold": 3
+              },
+              {
+                "kind": "selected-boundary",
+                "text": "Аудиовход",
+                "colour": "rgb(131, 149, 138)",
+                "background": [
+                  53,
+                  75,
+                  50
+                ],
+                "ratio": 3.0088192948269032,
+                "threshold": 3
+              }
+            ]
+          }
+        ],
+        "method": "Computed RGB and actual ancestor backgrounds with alpha/opacity composition; sampled visible text >=4.5:1 and selected-module boundary >=3:1. Native permission denied before capture. Not a full WCAG certification."
+      }
+    },
+    {
+      "name": "meaningful-SVG-labels-fingers-focus-notation-and-TAB-masks-have-actual-contrast",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2321,
+      "evidence": {
+        "evidence": [
+          {
+            "choice": "light",
+            "mode": "notes",
+            "boardSamples": 18,
+            "minimumRatio": 6.663712209959129,
+            "outsideLabels": [
+              {
+                "kind": "outside-label",
+                "text": "B",
+                "position": "E:7",
+                "opacity": 1,
+                "ratio": 12.276229271751681,
+                "threshold": 4.5
+              }
+            ]
+          },
+          {
+            "choice": "light",
+            "mode": "degrees",
+            "boardSamples": 18,
+            "minimumRatio": 6.663712209959129,
+            "outsideLabels": [
+              {
+                "kind": "outside-label",
+                "text": "7",
+                "position": "E:7",
+                "opacity": 1,
+                "ratio": 12.276229271751681,
+                "threshold": 4.5
+              }
+            ]
+          },
+          {
+            "choice": "dark",
+            "mode": "notes",
+            "boardSamples": 18,
+            "minimumRatio": 6.663712209959129,
+            "outsideLabels": [
+              {
+                "kind": "outside-label",
+                "text": "B",
+                "position": "E:7",
+                "opacity": 1,
+                "ratio": 12.276229271751681,
+                "threshold": 4.5
+              }
+            ]
+          },
+          {
+            "choice": "dark",
+            "mode": "degrees",
+            "boardSamples": 18,
+            "minimumRatio": 6.663712209959129,
+            "outsideLabels": [
+              {
+                "kind": "outside-label",
+                "text": "7",
+                "position": "E:7",
+                "opacity": 1,
+                "ratio": 12.276229271751681,
+                "threshold": 4.5
+              }
+            ]
+          },
+          {
+            "choice": "light",
+            "notationGlyphs": 31,
+            "minimumGlyphRatio": 5.471487485387689,
+            "masks": 8,
+            "cursorRatio": 5.471487485387689
+          },
+          {
+            "choice": "dark",
+            "notationGlyphs": 31,
+            "minimumGlyphRatio": 6.05949014548012,
+            "masks": 8,
+            "cursorRatio": 6.05949014548012
+          }
+        ],
+        "method": "Actual computed SVG fills/strokes/gradient stops, circle/finger backgrounds and parent opacity; real running notation cursor and native VexFlow clearRect masks. No inverse filters or source-hex-only audit."
+      }
+    },
+    {
+      "name": "history-keyboard-focus-survives-four-rerender-actions-and-save-validation-error",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2070,
+      "evidence": {
+        "records": 11,
+        "showMore": "history-heading",
+        "refreshDraft": "same button",
+        "useCurrent": "manual-heading",
+        "cancelRestore": "backup-heading",
+        "validationFailure": "focused visible alert/invalid field",
+        "alertRect": {
+          "top": 15.671875,
+          "bottom": 57.671875,
+          "viewport": 1050
+        },
+        "invalidRect": {
+          "top": 655.015625,
+          "bottom": 689.015625,
+          "viewport": 1050,
+          "invalid": "true"
+        }
+      }
+    },
+    {
+      "name": "laptop-widths-show-board-by-500px-and-narrow-layout-uses-local-scroll",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1635,
+      "evidence": {
+        "evidence": [
+          {
+            "width": 1366,
+            "page": 1366,
+            "boardY": 498.578125
+          },
+          {
+            "width": 1024,
+            "page": 1024,
+            "boardY": 497.578125
+          },
+          {
+            "width": 640,
+            "page": 640,
+            "boardY": 717.828125
+          }
+        ],
+        "zoom": {
+          "scale": 2,
+          "viewportWidth": 683,
+          "layoutWidth": 1366,
+          "pageWidth": 1366
+        },
+        "zoomMethod": "Actual CDP page scale (visual viewport/pinch zoom), not CSS zoom and not a claim about Edge desktop menu zoom."
+      }
+    }
+  ],
+  "externalRequests": [],
+  "pageErrors": [],
+  "cleanupErrors": [],
+  "passed": 9,
+  "failed": 0,
+  "status": "passed"
+}

@@ -1,35 +1,37 @@
-.route-section { padding: 26px; margin: 21px 0; background: #fbfcf4; border: 1px solid #d8e0d0; border-radius: 10px; }
+@import "../theme.css";
+
+.route-section { padding: 26px; margin: 21px 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
 .route-section[hidden], .route-session-host[hidden] { display: none; }
 .route-heading { max-width: 730px; }
 .route-heading .eyebrow { font-size: 12px; margin-bottom: 8px; }
-.route-heading h2 { font-size: 25px; font-weight: 550; color: #415e3e; margin: 0 0 11px; }
-.route-heading > p { font-size: 12px; line-height: 1.8; color: #555e4e; }
+.route-heading h2 { font-size: 25px; font-weight: 550; color: var(--accent-text); margin: 0 0 11px; }
+.route-heading > p { font-size: 12px; line-height: 1.8; color: var(--accent-text); }
 .route-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; list-style: none; padding: 0; margin: 24px 0; }
-.route-steps > li { position: relative; border: 1px solid #dee7d5; border-radius: 8px; padding: 20px; background: #f5f8ed; }
-.route-steps > li.is-current { border: 2px solid #718e5d; padding: 19px; }
-.route-number { font: 12px Consolas, monospace; color: #555e4e; }
-.route-steps h3 { font-size: 18px; color: #476240; margin: 15px 0 10px; }
-.route-steps h3 small { display: inline-block; margin-left: 8px; font-size: 12px; font-weight: 400; color: #555e4d; }
-.route-steps p { font-size: 12px; line-height: 1.8; color: #555e4d; min-height: 58px; }
-.route-step-time { padding-top: 14px; border-top: 1px solid #e0e8d7; color: #535e49; font-size: 12px; }
-.route-step-time strong { font: 15px Consolas, monospace; color: #496140; margin-left: 5px; }
+.route-steps > li { position: relative; border: 1px solid var(--border); border-radius: 8px; padding: 20px; background: var(--surface-raised); }
+.route-steps > li.is-current { border: 2px solid var(--border-strong); padding: 19px; }
+.route-number { font: 12px Consolas, monospace; color: var(--accent-text); }
+.route-steps h3 { font-size: 18px; color: var(--accent-text); margin: 15px 0 10px; }
+.route-steps h3 small { display: inline-block; margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--accent-text); }
+.route-steps p { font-size: 12px; line-height: 1.8; color: var(--accent-text); min-height: 58px; }
+.route-step-time { padding-top: 14px; border-top: 1px solid var(--border); color: var(--accent-text); font-size: 12px; }
+.route-step-time strong { font: 15px Consolas, monospace; color: var(--accent-text); margin-left: 5px; }
 .route-steps button { margin-top: 15px; }
 .route-plan-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 22px 0; }
-.route-note, .route-finished-note { font-size: 12px; line-height: 1.8; color: #555e4d; margin: 18px 0 0; max-width: 850px; }
-.route-finished-note { padding: 13px 16px; border-radius: 6px; background: #edf3e2; color: #4f6040; }
+.route-note, .route-finished-note { font-size: 12px; line-height: 1.8; color: var(--accent-text); margin: 18px 0 0; max-width: 850px; }
+.route-finished-note { padding: 13px 16px; border-radius: 6px; background: var(--surface-raised); color: var(--accent-text); }
 .route-session-host { position: sticky; top: 10px; z-index: 8; margin: 12px 0 19px; }
-.route-session-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 17px; padding: 15px 18px; border: 1px solid #cbd9bf; border-radius: 8px; background: #f6f9ed; box-shadow: 0 5px 16px #2135260d; }
+.route-session-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 17px; padding: 15px 18px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); box-shadow: 0 5px 16px var(--shadow); }
 .route-bar-heading { display: flex; flex-direction: column; gap: 5px; }
-.route-bar-heading .eyebrow { font-size: 12px; margin: 0; color: #535f48; }
-.route-bar-heading strong { font-size: 16px; color: #44633b; }
-.route-bar-heading [role=status] { font-size: 12px; color: #555e4e; }
+.route-bar-heading .eyebrow { font-size: 12px; margin: 0; color: var(--accent-text); }
+.route-bar-heading strong { font-size: 16px; color: var(--accent-text); }
+.route-bar-heading [role=status] { font-size: 12px; color: var(--accent-text); }
 .route-bar-time { display: grid; grid-template-columns: 1fr auto; column-gap: 13px; row-gap: 5px; align-items: center; }
-.route-bar-time > span { font-size: 12px; color: #545e48; }
-.route-bar-time > strong { grid-row: span 2; font: 27px Consolas, monospace; color: #45633a; min-width: 82px; text-align: right; }
-.route-bar-time small { font-size: 12px; color: #565d50; }
+.route-bar-time > span { font-size: 12px; color: var(--accent-text); }
+.route-bar-time > strong { grid-row: span 2; font: 27px Consolas, monospace; color: var(--accent-text); min-width: 82px; text-align: right; }
+.route-bar-time small { font-size: 12px; color: var(--text-secondary); }
 .route-bar-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .route-bar-actions button { font-size: 12px; min-height: 36px; }
-.route-section :focus-visible, .route-session-host :focus-visible { outline: 3px solid #5384aa; outline-offset: 3px; }
+.route-section :focus-visible, .route-session-host :focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
 @media (max-width: 850px) { .route-steps { gap: 10px; } .route-steps > li { padding: 15px; } .route-steps > li.is-current { padding: 14px; } .route-session-host { top: 5px; } .route-bar-actions { width: 100%; justify-content: flex-end; } }
 @media (max-width: 600px) { .route-section { padding: 20px; } .route-heading h2 { font-size: 23px; } .route-steps { grid-template-columns: 1fr; } .route-steps p { min-height: 0; } .route-steps h3 { margin-top: 10px; } .route-session-bar { padding: 12px; gap: 13px; } .route-bar-heading { max-width: 59%; } .route-bar-time { column-gap: 8px; } .route-bar-time > strong { font-size: 23px; min-width: 68px; } .route-bar-actions { gap: 7px; justify-content: start; } .route-bar-actions button { font-size: 12px; } }
 

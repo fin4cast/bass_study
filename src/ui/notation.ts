@@ -2,8 +2,14 @@ import './notation.css';
 import { formatMidi, type AnnotatedPosition } from '../music';
 import { createNotationPlan, type NotationDuration, type NotationEvent, type NotationPlan } from '../notation';
 
-export interface NotationContext { readonly positions: readonly AnnotatedPosition[]; readonly duration: NotationDuration }
-export interface NotationOptions { readonly onSelect?: (index: number, positionId: string) => void }
+export interface NotationFragment { readonly from: number; readonly to: number }
+export interface NotationContext { readonly positions: readonly AnnotatedPosition[]; readonly duration: NotationDuration; readonly fragment?: NotationFragment | null }
+export interface NotationPlayback {
+  readonly state: string; readonly phase: 'count-in' | 'practice';
+  readonly bar: number; readonly beat: number; readonly passIndex: number; readonly showPulse: boolean;
+}
+export type NotationAction = 'select' | 'show-position';
+export interface NotationOptions { readonly onSelect?: (index: number, positionId: string, action: NotationAction) => void }
 let instanceCounter = 0;
 let fonts: Promise<typeof import('vexflow/bravura')> | null = null;
 function localFonts() {
@@ -26,9 +32,10 @@ export function mountNotation(container: HTMLElement, getContext: () => Notation
   let focusView: 'staff' | 'tab' = 'staff';
   let groups: Array<{ staff: SVGElement; tab: SVGElement; x: number }> = [];
   let cursor: SVGRectElement | null = null;
+  let fragment: NotationFragment | null = null;
   container.classList.add('notation-section');
   container.hidden = true;
-  container.innerHTML = `<div class="notation-heading"><div><p class="eyebrow">ЧТЕНИЕ И ПОЗИЦИИ</p><h2>Ноты и табулатура</h2></div><span class="notation-count"></span></div><p class="notation-help">Бас записан на октаву выше звучания. Таба сохраняет выбранную струну и лад. Подсветкой управляет проигрыватель последовательности.</p><p class="notation-status" role="status" aria-live="polite"></p><div class="notation-scroll" tabindex="0" role="region" aria-label="Ноты и табулатура с горизонтальной прокруткой"><div class="notation-surface"></div></div><p class="notation-selected"></p><p class="notation-keyboard-help">Выбери ноту мышью или клавишами ←/→, Home, End. Enter и пробел показывают позицию на грифе. Масштаб страницы можно увеличить до 200%.</p>`;
+  container.innerHTML = `<div class="notation-heading"><div><p class="eyebrow">ЧТЕНИЕ И ПОЗИЦИИ</p><h2>Ноты и табулатура</h2></div><span class="notation-count"></span></div><p class="notation-help">Бас записан на октаву выше звучания: открытая E звучит как E1 и записана E2. Таба показывает выбранную струну и лад.</p><p class="notation-fragment" data-testid="notation-fragment"></p><p class="notation-playback" data-testid="notation-playback"></p><p class="notation-status" role="status" aria-live="polite"></p><div class="notation-scroll" tabindex="0" role="region" aria-label="Ноты и табулатура с горизонтальной прокруткой"><div class="notation-surface"></div></div><p class="notation-selected"></p><p class="notation-keyboard-help">Мышь, ←/→, Home и End выбирают ноту, сохраняя управление здесь. Enter и пробел переводят к её позиции на грифе. Масштаб страницы можно увеличить до 200%.</p>`;
   const surface = container.querySelector<HTMLDivElement>('.notation-surface')!;
   const viewport = container.querySelector<HTMLElement>('.notation-scroll')!;
   const status = container.querySelector<HTMLElement>('.notation-status')!;
@@ -54,11 +61,31 @@ export function mountNotation(container: HTMLElement, getContext: () => Notation
     });
     selected.textContent = plan?.events[selectedIndex] ? selectedDescription(plan.events[selectedIndex]) : '';
   }
-  function choose(index: number, view: 'staff' | 'tab', focus = false) {
+  function choose(index: number, view: 'staff' | 'tab', focus = false, action: NotationAction = 'select') {
     if (!plan?.events[index]) return;
     selectedIndex = index; focusView = view; updateSelection(); keepVisible(index);
     if (focus) groups[index]?.[view].focus();
-    options.onSelect?.(index, plan.events[index].positionId);
+    options.onSelect?.(index, plan.events[index].positionId, action);
+  }
+  function setFragment(next: NotationFragment | null) {
+    fragment = next && Number.isInteger(next.from) && Number.isInteger(next.to) && next.from >= 1 && next.to >= next.from ? { ...next } : null;
+    const from = fragment?.from ?? 1, to = fragment?.to ?? plan?.events.length ?? 0;
+    groups.forEach((pair, index) => {
+      for (const view of ['staff', 'tab'] as const) {
+        pair[view].classList.toggle('outside-fragment', index + 1 < from || index + 1 > to);
+        pair[view].classList.toggle('fragment-start', index + 1 === from);
+        pair[view].classList.toggle('fragment-end', index + 1 === to);
+        pair[view].dataset.fragmentBoundary = index + 1 === from ? index + 1 === to ? 'start-end' : 'start' : index + 1 === to ? 'end' : '';
+      }
+    });
+    container.querySelector<HTMLElement>('.notation-fragment')!.textContent = to ? `Показана исходная последовательность. Фрагмент: ноты ${from}–${to}, обе границы включены. Курсор следует этому участку; счёт метронома продолжается через повторы.` : '';
+  }
+  function setPlaybackState(playback: NotationPlayback) {
+    const output = container.querySelector<HTMLElement>('.notation-playback')!;
+    const active = ['running', 'finishing', 'paused'].includes(playback.state);
+    const text = !playback.showPulse ? 'Визуальные подсказки выключены.' : !active ? '' : playback.phase === 'count-in' ? 'Отсчёт перед фрагментом' : `${playback.state === 'paused' ? 'Пауза · ' : ''}Звучащий такт ${playback.bar + 1} · доля ${playback.beat} · повтор ${playback.passIndex + 1}`;
+    if (output.textContent !== text) output.textContent = text;
+    if (!playback.showPulse) setActiveIndex(null);
   }
   function setActiveIndex(index: number | null) {
     if (disposed) return;
@@ -88,10 +115,10 @@ export function mountNotation(container: HTMLElement, getContext: () => Notation
   async function refreshContext() {
     if (disposed || !visible) return;
     let next: NotationPlan;
-    try { next = createNotationPlan(getContext()); }
+    try { const context = getContext(); next = createNotationPlan(context); if (Object.hasOwn(context, 'fragment')) fragment = context.fragment ?? null; }
     catch (error) { generation++; plan = null; groups = []; cursor = null; surface.replaceChildren(); count.textContent = ''; status.textContent = error instanceof Error ? error.message : String(error); return; }
     const nextSignature = `${next.duration}:${next.events.map(event => `${event.positionId}/${event.spelling}`).join('|')}`;
-    if (nextSignature === signature && surface.querySelector('svg')) { const saved = activeIndex; activeIndex = null; setActiveIndex(saved); return; }
+    if (nextSignature === signature && surface.querySelector('svg')) { setFragment(fragment); const saved = activeIndex; activeIndex = null; setActiveIndex(saved); return; }
     signature = nextSignature; const run = ++generation;
     const hadFocus = container.contains(document.activeElement);
     plan = next; groups = []; cursor = null; surface.replaceChildren();
@@ -108,7 +135,8 @@ export function mountNotation(container: HTMLElement, getContext: () => Notation
       const extraTop = Math.max(0, highest - 8) * 5;
       const staffY = 59 + extraTop; const tabY = staffY + 155; const height = tabY + 125;
       const renderer = new VF.Renderer(surface, VF.Renderer.Backends.SVG); renderer.resize(width, height);
-      const context = renderer.getContext(); context.setFillStyle('#233532'); context.setStrokeStyle('#233532');
+      const context = renderer.getContext(); context.setFillStyle('var(--notation-ink)'); context.setStrokeStyle('var(--notation-ink)');
+      if (context instanceof VF.SVGContext) context.setBackgroundFillStyle('var(--notation-paper)');
       const svg = surface.querySelector<SVGSVGElement>('svg')!;
       svg.setAttribute('viewBox', `0 0 ${width} ${height}`); svg.setAttribute('role', 'group'); svg.setAttribute('aria-label', 'Басовый ключ и табулатура четырёхструнного баса');
       svg.classList.add('notation-svg');
@@ -153,7 +181,7 @@ export function mountNotation(container: HTMLElement, getContext: () => Notation
         return pair;
       });
       cursor = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); cursor.setAttribute('class', 'notation-cursor'); cursor.setAttribute('y', '26'); cursor.setAttribute('width', '32'); cursor.setAttribute('height', String(height - 38)); cursor.setAttribute('rx', '8'); cursor.style.display = 'none'; svg.prepend(cursor);
-      updateSelection(); const savedActive = activeIndex; activeIndex = null; setActiveIndex(savedActive);
+      updateSelection(); setFragment(fragment); const savedActive = activeIndex; activeIndex = null; setActiveIndex(savedActive);
       if (hadFocus) groups[selectedIndex]?.[focusView].focus();
       const partial = next.totalBeats % 4 !== 0;
       status.textContent = partial ? 'Последний такт неполный. Запись повторяет длину последовательности.' : 'Ноты и таба готовы. Звук и курсор принадлежат общему проигрывателю.';
@@ -174,9 +202,9 @@ export function mountNotation(container: HTMLElement, getContext: () => Notation
     const index = Number(target.dataset.notationIndex); const view = target.dataset.notationView === 'tab' ? 'tab' : 'staff';
     const next = event.key === 'ArrowRight' ? Math.min(plan.events.length - 1, index + 1) : event.key === 'ArrowLeft' ? Math.max(0, index - 1)
       : event.key === 'Home' ? 0 : event.key === 'End' ? plan.events.length - 1 : event.key === 'Enter' || event.key === ' ' ? index : null;
-    if (next === null) return; event.preventDefault(); event.stopPropagation(); choose(next, view, true);
+    if (next === null) return; event.preventDefault(); event.stopPropagation(); choose(next, view, true, event.key === 'Enter' || event.key === ' ' ? 'show-position' : 'select');
   }, { signal: controller.signal });
-  return { refreshContext, setActiveIndex, getPlan: () => plan,
+  return { refreshContext, setActiveIndex, setFragment, setPlaybackState, getPlan: () => plan,
     setVisible(next: boolean) { if (disposed) return; visible = next; container.hidden = !next; if (next) void refreshContext(); else generation++; },
     dispose() { if (disposed) return; disposed = true; generation++; controller.abort(); groups = []; plan = null; cursor = null; container.replaceChildren(); } };
 }

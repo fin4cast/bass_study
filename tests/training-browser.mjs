@@ -3,13 +3,18 @@ import { join } from 'node:path';
 import { runTrainingBrowserChecks } from './helpers/training-browser-harness.mjs';
 
 const checks = [];
-const check = (name, run) => checks.push({ name, run });
+const check = (name, run) => checks.push({ name, run: async context => {
+  const free = context.page.locator('[data-intro="free"]'); if (await free.count() && await free.isVisible()) await free.click();
+  return run(context);
+} });
 const normalize = value => value.replaceAll('♭', 'b').replaceAll('♯', '#');
 const action = (page, name) => page.locator(`[data-training-action="${name}"]`);
 const answerAt = (page, id) => page.getByTestId('quiz-answer-board').locator(`[data-answer-position="${id}"]`);
 const feedback = page => page.getByTestId('quiz-feedback');
+async function disclose(page, selector) { const details = page.locator(selector); if (await details.count() && !await details.evaluate(element => element.open)) await details.locator('summary').first().click(); }
 
 async function range(page, first, last) {
+  await disclose(page, '#area-settings');
   const min = page.getByLabel('Первый лад', { exact: true });
   const max = page.getByLabel('Последний лад', { exact: true });
   await max.fill('24'); await max.press('Tab');
@@ -18,6 +23,7 @@ async function range(page, first, last) {
 }
 
 async function strings(page, enabled) {
+  await disclose(page, '#area-settings');
   for (const string of ['E', 'A', 'D', 'G']) {
     await page.getByRole('checkbox', { name: `Струна ${string}`, exact: true }).setChecked(enabled.includes(string));
   }
@@ -33,8 +39,9 @@ async function configure(page, {
   await strings(page, enabled);
   await page.getByRole('button', { name: 'Задания', exact: true }).click();
   await page.getByLabel('Тип задания', { exact: true }).selectOption(mode);
+  await disclose(page, '[data-training-details="quiz"]');
   const scopeSelect = page.getByLabel('Материал заданий', { exact: true });
-  if (mode !== 'find-degree') await scopeSelect.selectOption(scope);
+  if (mode !== 'find-degree' && mode !== 'find-interval') await scopeSelect.selectOption(scope);
   const countInput = page.getByLabel('Количество вопросов', { exact: true });
   await countInput.fill(String(count));
   await countInput.press('Tab');
@@ -320,6 +327,68 @@ check('insufficient-sequence-explains-restriction-without-placeholder-player', a
   assert.equal(await page.getByTestId('sequence-route').count(), 0);
   assert.equal(await page.getByRole('button', { name: /Играть|Воспроизвести|Слушать/ }).count(), 0);
   return { insufficientGroupsReported: true, audioControlsNotClaimed: true };
+});
+
+async function selectCompactC(page) {
+  await disclose(page, '#area-settings');
+  await page.getByLabel('Тоника', { exact: true }).selectOption('C');
+  await page.getByLabel('Структура', { exact: true }).selectOption('major-triad');
+  const box = page.getByLabel('Учебная форма', { exact: true });
+  const value = await box.locator('option').evaluateAll(nodes => nodes.find(node => /Тоника C · лад 8$/.test(node.textContent))?.value);
+  assert.ok(value, 'The public catalogue must explicitly name tonic C and fret8'); await box.selectOption(value);
+}
+
+check('selected-form-controls-exact-question-and-sequence-positions', async ({ page }) => {
+  await selectCompactC(page);
+  await page.getByRole('button', { name: 'Задания', exact: true }).click();
+  await page.getByLabel('Тип задания', { exact: true }).selectOption('find-note');
+  assert.ok(await page.getByLabel('Материал заданий', { exact: true }).isDisabled());
+  await start(page);
+  const ids = await page.getByTestId('quiz-answer-board').locator('[data-answer-position]').evaluateAll(nodes => nodes.map(node => node.dataset.answerPosition));
+  assert.deepEqual([...ids].sort(), ['A:10', 'A:7', 'D:10', 'E:8']);
+  assert.deepEqual(await page.getByTestId('quiz-answer-board').locator('.answer-string-name').allTextContents(), ['G', 'D', 'A', 'E']);
+  const names = { C: 'E:8', E: 'A:7', G: 'A:10' };
+  const prompt = await page.getByTestId('quiz-prompt').innerText(); const target = /Найдите ноту ([A-G])/.exec(prompt)?.[1]; assert.ok(names[target]);
+  await answerAt(page, names[target]).click(); assert.match(await feedback(page).innerText(), /Верно/);
+  await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
+  const route = await page.getByTestId('sequence-route').locator('[data-sequence-position]').evaluateAll(nodes => nodes.map(node => node.dataset.sequencePosition));
+  assert.deepEqual(route, ['E:8', 'A:7', 'A:10', 'D:10']);
+  assert.ok(await page.getByLabel('Материал последовательности', { exact: true }).isDisabled());
+  return { questionPositions: ids, sequencePositions: route, answerChosenFromVisiblePrompt: target };
+});
+
+check('answer-board-keeps-four-lettered-strings-when-only-E-is-available', async ({ page }) => {
+  await configure(page, { mode: 'find-note' }); await start(page);
+  assert.deepEqual(await page.getByTestId('quiz-answer-board').locator('.answer-string-name').allTextContents(), ['G', 'D', 'A', 'E']);
+  const ids = await page.getByTestId('quiz-answer-board').locator('[data-answer-position]').evaluateAll(nodes => nodes.map(node => node.dataset.answerPosition));
+  assert.deepEqual(ids, ['E:0']);
+  return { visibleStrings: ['G', 'D', 'A', 'E'], enabledPositions: ids, unusedRowsEmpty: true };
+});
+
+check('interval-explicitly-uses-full-chromatic-range-and-keeps-spelling', async ({ page }) => {
+  await selectCompactC(page); await page.getByRole('button', { name: 'Задания', exact: true }).click();
+  await page.getByLabel('Тип задания', { exact: true }).selectOption('find-interval');
+  await disclose(page, '[data-training-details="quiz"]');
+  await page.getByLabel('Интервал от тоники', { exact: true }).selectOption('b5');
+  assert.match(await page.getByTestId('training-content').innerText(), /хроматические позиции|бокса временно отключены/);
+  await start(page); const ids = await page.getByTestId('quiz-answer-board').locator('[data-answer-position]').evaluateAll(nodes => nodes.map(node => node.dataset.answerPosition));
+  assert.ok(ids.includes('A:9') && ids.length > 4, 'F-sharp/G-flat A9 is outside the exact triad form but inside the chromatic rectangle');
+  await action(page, 'hint').click(); assert.match(await feedback(page).innerText(), /G♭/);
+  assert.equal(await answerAt(page, 'A:9').locator('text').textContent(), 'G♭');
+  return { fullRangeCount: ids.length, shownName: 'G♭', outsideFormPosition: 'A:9' };
+});
+
+check('advanced-and-route-disclosures-keep-user-state-through-renders', async ({ page }) => {
+  await configure(page, { mode: 'find-note' });
+  const advanced = page.locator('[data-training-details="quiz"]'); assert.ok(await advanced.evaluate(element => element.open));
+  await page.getByLabel('Тип задания', { exact: true }).selectOption('find-pitch'); assert.ok(await advanced.evaluate(element => element.open));
+  await start(page); await advanced.locator('summary').click(); assert.equal(await advanced.evaluate(element => element.open), false);
+  await action(page, 'hint').click(); assert.equal(await advanced.evaluate(element => element.open), false);
+  await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
+  const route = page.locator('[data-training-details="sequence"]'); assert.equal(await route.evaluate(element => element.open), false);
+  await route.locator('summary').click(); await page.getByLabel('Порядок последовательности', { exact: true }).selectOption('descending');
+  assert.equal(await route.evaluate(element => element.open), true);
+  return { advancedPreservedOpenThenClosed: true, routePreviewPreservedOpen: true };
 });
 
 check('training-loads-locally-without-runtime-errors', async ({ page, resultDir, externalRequests, pageErrors }) => {

@@ -1,0 +1,372 @@
+{
+  "generatedAt": "2026-11-08T15:32:49.912Z",
+  "platform": "win32",
+  "architecture": "x64",
+  "node": "v24.18.0",
+  "browserChannel": "msedge",
+  "browserVersion": "157.0.4341.42",
+  "origin": "http://localhost:4173",
+  "scope": "P3 real-user quiz interactions and sequence preview; no audio or durable storage acceptance.",
+  "networkIsolation": "Non-loopback HTTP requests from application pages are aborted. Fresh browser context and disabled cache; no Windows NIC change.",
+  "checks": [
+    {
+      "name": "six-quiz-modes-and-default-session-length",
+      "status": "passed",
+      "durationMs": 484,
+      "evidence": {
+        "modes": 6,
+        "defaultCount": 10,
+        "startsExplicitly": true
+      }
+    },
+    {
+      "name": "name-note-first-correct-answer-is-independent",
+      "status": "passed",
+      "durationMs": 790,
+      "evidence": {
+        "independentCorrect": 1,
+        "corrected": 0,
+        "errors": 0,
+        "hints": 0,
+        "skipped": 0,
+        "completed": 1,
+        "total": 1
+      }
+    },
+    {
+      "name": "wrong-position-then-correction-keeps-first-attempt-error",
+      "status": "passed",
+      "durationMs": 730,
+      "evidence": {
+        "independentCorrect": 0,
+        "corrected": 1,
+        "errors": 1,
+        "hints": 0,
+        "skipped": 0,
+        "completed": 1,
+        "total": 1
+      }
+    },
+    {
+      "name": "shown-answer-is-not-independent-correct",
+      "status": "passed",
+      "durationMs": 783,
+      "evidence": {
+        "independentCorrect": 0,
+        "corrected": 0,
+        "errors": 0,
+        "hints": 1,
+        "skipped": 0,
+        "completed": 1,
+        "total": 1
+      }
+    },
+    {
+      "name": "skipped-question-is-counted-separately",
+      "status": "passed",
+      "durationMs": 1157,
+      "evidence": {
+        "independentCorrect": 0,
+        "corrected": 0,
+        "errors": 0,
+        "hints": 0,
+        "skipped": 1,
+        "completed": 1,
+        "total": 1
+      }
+    },
+    {
+      "name": "find-all-uses-visible-target-and-ignores-duplicate-selection",
+      "status": "passed",
+      "durationMs": 1470,
+      "evidence": {
+        "visibleTarget": "C",
+        "expectedPositions": [
+          "E:8",
+          "E:20"
+        ],
+        "duplicateIgnored": true,
+        "summary": {
+          "independentCorrect": 1,
+          "corrected": 0,
+          "errors": 0,
+          "hints": 0,
+          "skipped": 0,
+          "completed": 1,
+          "total": 1
+        }
+      }
+    },
+    {
+      "name": "degree-question-uses-tonic-and-structure-context",
+      "status": "passed",
+      "durationMs": 1106,
+      "evidence": {
+        "degree": "3",
+        "tonic": "C",
+        "position": "E:0",
+        "summary": {
+          "independentCorrect": 1,
+          "corrected": 0,
+          "errors": 0,
+          "hints": 0,
+          "skipped": 0,
+          "completed": 1,
+          "total": 1
+        }
+      }
+    },
+    {
+      "name": "empty-string-filter-does-not-create-impossible-question",
+      "status": "passed",
+      "durationMs": 1065,
+      "evidence": {
+        "questionsCreated": 0,
+        "errorExplainsScope": true
+      }
+    },
+    {
+      "name": "empty-structure-intersection-explains-how-to-recover",
+      "status": "passed",
+      "durationMs": 1266,
+      "evidence": {
+        "excludedFInMinorPentatonic": true,
+        "chromaticScopeRecovered": "F"
+      }
+    },
+    {
+      "name": "invalid-range-ends-session-and-cannot-use-stale-valid-context",
+      "status": "passed",
+      "durationMs": 1326,
+      "evidence": {
+        "invalidInputCannotReuseOldContext": true,
+        "recoveredTarget": "E"
+      }
+    },
+    {
+      "name": "configuration-change-ends-old-session-without-mixing-contexts",
+      "status": "passed",
+      "durationMs": 1309,
+      "evidence": {
+        "oldCompleted": 0,
+        "newContextIndependent": true,
+        "summary": {
+          "independentCorrect": 1,
+          "corrected": 0,
+          "errors": 0,
+          "hints": 0,
+          "skipped": 0,
+          "completed": 1,
+          "total": 1
+        }
+      }
+    },
+    {
+      "name": "study-map-is-hidden-during-quiz-and-mode-change-ends-session",
+      "status": "passed",
+      "durationMs": 1131,
+      "evidence": {
+        "studyHiddenWhileAnswering": true,
+        "noAnswerMetadataInBoard": true,
+        "oldSessionCompleted": 0,
+        "summary": {
+          "independentCorrect": 0,
+          "corrected": 0,
+          "errors": 0,
+          "hints": 0,
+          "skipped": 0,
+          "completed": 0,
+          "total": 1
+        }
+      }
+    },
+    {
+      "name": "keyboard-can-answer-the-quiz-without-study-selection",
+      "status": "passed",
+      "durationMs": 1041,
+      "evidence": {
+        "answerPosition": "E:0",
+        "nextFocusedAfterAnswer": true,
+        "summary": {
+          "independentCorrect": 1,
+          "corrected": 0,
+          "errors": 0,
+          "hints": 0,
+          "skipped": 0,
+          "completed": 1,
+          "total": 1
+        }
+      }
+    },
+    {
+      "name": "question-progress-and-final-summary-archive-each-result-once",
+      "status": "passed",
+      "durationMs": 1137,
+      "evidence": {
+        "independentCorrect": 1,
+        "corrected": 0,
+        "errors": 0,
+        "hints": 0,
+        "skipped": 1,
+        "completed": 2,
+        "total": 2
+      }
+    },
+    {
+      "name": "four-sequence-patterns-match-independent-position-routes",
+      "status": "passed",
+      "durationMs": 928,
+      "evidence": {
+        "fixtures": [
+          {
+            "pattern": "ascending",
+            "route": [
+              "E:0",
+              "E:1",
+              "E:2",
+              "E:3"
+            ]
+          },
+          {
+            "pattern": "descending",
+            "route": [
+              "E:3",
+              "E:2",
+              "E:1",
+              "E:0"
+            ]
+          },
+          {
+            "pattern": "round-trip",
+            "route": [
+              "E:0",
+              "E:1",
+              "E:2",
+              "E:3",
+              "E:2",
+              "E:1"
+            ]
+          },
+          {
+            "pattern": "groups-of-three",
+            "route": [
+              "E:0",
+              "E:1",
+              "E:2",
+              "E:1",
+              "E:2",
+              "E:3"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "sequence-deduplicates-height-and-uses-stable-string-priority",
+      "status": "passed",
+      "durationMs": 772,
+      "evidence": {
+        "expectedRoute": [
+          "E:0",
+          "E:1",
+          "E:3",
+          "E:5",
+          "A:2",
+          "A:3",
+          "A:5"
+        ],
+        "equalHeightExcluded": "A:0"
+      }
+    },
+    {
+      "name": "insufficient-sequence-explains-restriction-without-placeholder-player",
+      "status": "passed",
+      "durationMs": 806,
+      "evidence": {
+        "insufficientGroupsReported": true,
+        "audioControlsNotClaimed": true
+      }
+    },
+    {
+      "name": "selected-form-controls-exact-question-and-sequence-positions",
+      "status": "passed",
+      "durationMs": 696,
+      "evidence": {
+        "questionPositions": [
+          "E:8",
+          "A:7",
+          "A:10",
+          "D:10"
+        ],
+        "sequencePositions": [
+          "E:8",
+          "A:7",
+          "A:10",
+          "D:10"
+        ],
+        "answerChosenFromVisiblePrompt": "C"
+      }
+    },
+    {
+      "name": "answer-board-keeps-four-lettered-strings-when-only-E-is-available",
+      "status": "passed",
+      "durationMs": 1044,
+      "evidence": {
+        "visibleStrings": [
+          "G",
+          "D",
+          "A",
+          "E"
+        ],
+        "enabledPositions": [
+          "E:0"
+        ],
+        "unusedRowsEmpty": true
+      }
+    },
+    {
+      "name": "interval-explicitly-uses-full-chromatic-range-and-keeps-spelling",
+      "status": "passed",
+      "durationMs": 790,
+      "evidence": {
+        "fullRangeCount": 12,
+        "shownName": "G♭",
+        "outsideFormPosition": "A:9"
+      }
+    },
+    {
+      "name": "advanced-and-route-disclosures-keep-user-state-through-renders",
+      "status": "passed",
+      "durationMs": 1327,
+      "evidence": {
+        "advancedPreservedOpenThenClosed": true,
+        "routePreviewPreservedOpen": true
+      }
+    },
+    {
+      "name": "training-loads-locally-without-runtime-errors",
+      "status": "passed",
+      "durationMs": 1418,
+      "evidence": {
+        "externalApplicationRequests": 0,
+        "pageErrors": [],
+        "screenshots": [
+          "p3-quiz-desktop.png",
+          "p3-sequence-desktop.png"
+        ]
+      }
+    }
+  ],
+  "cleanupErrors": [],
+  "staticServer": {
+    "reuseRequested": true,
+    "owned": false,
+    "mode": "external-reused",
+    "indexMatchesBuild": true,
+    "restartAllowed": false,
+    "shutdownAllowed": false
+  },
+  "passed": 22,
+  "failed": 0,
+  "status": "passed"
+}

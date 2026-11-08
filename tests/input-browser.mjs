@@ -21,7 +21,7 @@ async function startFixture(page, context, fixtureOrigin) {
   await allow(context, fixtureOrigin); assert.equal(await fixtureAction(page, 'start'), null);
   await page.waitForFunction(() => window.p7input.monitor.getSnapshot().state === 'running' && window.p7input.monitor.getSnapshot().pitch !== null);
 }
-async function ready(page) { await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert); }
+async function ready(page) { await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert); const free = page.locator('[data-intro="free"]'); if (await free.isVisible()) await free.click(); }
 async function openInput(page) { await ready(page); await page.locator('[data-app-module="input"]').click(); await page.getByTestId('input-status').waitFor(); }
 async function stateIs(page, state) { await page.waitForFunction(state => document.querySelector('#input-mount')?.dataset.inputState === state, state); }
 async function connectUi(page, context, origin) { await allow(context, origin); await action(page, 'connect').click(); await stateIs(page, 'running'); await page.waitForFunction(() => document.querySelector('[data-testid="input-note"]').textContent !== '—'); }
@@ -91,12 +91,28 @@ check('ui-mount-navigation-refresh-and-reload-never-start-capture', 'ui', async 
   assert.match(await page.getByTestId('input-device-help').innerText(), /разрешения|выбери|Выбери|пока нет/); await page.reload(); await ready(page); assert.equal(await calls(page), 0); assert.equal(await liveTracks(page), 0); return { mountCaptureCalls: 0, refreshCaptureCalls: 0, reloadCaptureCalls: 0 };
 });
 
+check('ui-first-open-and-return-do-not-claim-the-visible-section-is-closed', 'ui', async ({ page }) => {
+  await openInput(page);
+  assert.ok(await page.getByTestId('input-notice').isHidden());
+  assert.match(await page.getByTestId('input-status').innerText(), /Вход не подключён/);
+  assert.ok(!/Раздел закрыт/.test(await page.locator('#input-mount').innerText()));
+  await page.locator('[data-app-module="tracks"]').click();
+  await openInput(page);
+  assert.ok(await page.getByTestId('input-notice').isHidden());
+  assert.equal(await calls(page), 0); assert.equal(await liveTracks(page), 0);
+  return { firstOpenNoticeHidden: true, returnedNoticeHidden: true, captureCalls: 0 };
+});
+
 check('ui-explicit-connect-displays-Hz-note-confidence-and-separate-track-context-settings', 'ui', async ({ page, context, origin }) => {
   await openInput(page); await connectUi(page, context, origin); assert.equal(await page.getByTestId('input-note').innerText(), 'A1'); near(Number((await page.getByTestId('input-hz').innerText()).replace(',', '.')), 55, .4);
   await page.locator('.input-diagnostics').evaluate(element => { element.open = true; });
   assert.match(await page.getByTestId('input-context').innerText(), /Частота AudioContext/); assert.match(await page.getByTestId('input-window').innerText(), /8192.*170,67 мс/); assert.match(await page.locator('.input-diagnostics').innerText(), /не измеряют сквозную задержку/); assert.match(await page.locator('.input-confidence').innerText(), /Эвристика/); assert.match(await page.locator('.input-card-help').last().innerText(), /не является вероятностью/);
+  const levelHelp = await page.locator('.input-level-card .input-card-help').innerText();
+  assert.match(levelHelp, /RMS — среднеквадратичный уровень сигнала за окно/);
+  assert.match(levelHelp, /пик — его кратковременный максимум/);
+  assert.match(levelHelp, /dBFS отсчитывает уровень от цифрового предела 0 dBFS: отрицательные значения ниже предела/);
   const track = await page.evaluate(() => window.__inputObservations.streams[0].getAudioTracks()[0].getSettings()); const rows = await page.getByTestId('input-settings').innerText(); for (const key of ['sampleRate', 'channelCount']) if (track[key] !== undefined) assert.match(rows, new RegExp(String(track[key])));
-  await action(page, 'stop').click(); assert.equal(await liveTracks(page), 0); return { trackSettings: track, hz: 55, soundingNote: 'A1', getUserMediaCalls: await calls(page), latencyMeasured: false };
+  await action(page, 'stop').click(); assert.equal(await liveTracks(page), 0); return { trackSettings: track, hz: 55, soundingNote: 'A1', levelHelp, getUserMediaCalls: await calls(page), latencyMeasured: false };
 });
 
 check('ui-denied-native-permission-is-visible-and-not-automatically-retried', 'ui', async ({ page, context, origin }) => {
@@ -120,9 +136,9 @@ check('ui-native-track-ended-event-releases-input-and-shows-explanation', 'ui', 
 check('ui-device-preferences-preset-reload-and-schema-five-restore-never-capture', 'ui', async ({ page, context, origin }) => {
   await openInput(page); await allow(context, origin); await action(page, 'refresh').click(); const picker = page.locator('[data-input-setting="deviceId"]'); await page.waitForFunction(() => document.querySelector('[data-input-setting=deviceId]').options.length > 1); const selected = await picker.locator('option').evaluateAll(elements => elements.find(element => element.value)?.value); await picker.selectOption(selected); await saved(page);
   await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill('USB диагностический вход'); await page.locator('[data-history-action="save-preset"]').click(); await page.locator('[data-apply-preset]').first().waitFor(); await picker.selectOption(''); await saved(page); await page.locator('[data-apply-preset]').first().click(); await saved(page); assert.equal(await picker.inputValue(), selected); assert.equal(await calls(page), 0);
-  const before = await exportUi(page); assert.equal(before.schemaVersion, 5); assert.equal(before.preferences.input.deviceId, selected); assert.equal(before.presets[0].preferences.input.deviceId, selected); assert.equal(before.history.length, 0);
+  const before = await exportUi(page); assert.equal(before.schemaVersion, 6); assert.equal(before.preferences.input.deviceId, selected); assert.equal(before.presets[0].preferences.input.deviceId, selected); assert.equal(before.history.length, 0);
   await page.reload(); await ready(page); assert.equal(await picker.inputValue(), selected); assert.equal(await calls(page), 0);
-  await openHistory(page); await page.locator('[data-history-file]').setInputFiles({ name: 'input-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(before)) }); await page.getByTestId('backup-preview').waitFor(); assert.equal(await calls(page), 0); await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check(); await page.locator('[data-history-action="confirm-restore"]').click(); await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); assert.equal(await calls(page), 0); assert.equal(await liveTracks(page), 0); assert.deepEqual(await exportUi(page), before); return { schemaVersion: 5, selectedDeviceId: selected, exactRoundtrip: true, captureCallsDuringPresetReloadRestore: 0, historyEntries: 0 };
+  await openHistory(page); await page.locator('[data-history-file]').setInputFiles({ name: 'input-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(before)) }); await page.getByTestId('backup-preview').waitFor(); assert.equal(await calls(page), 0); await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check(); await page.locator('[data-history-action="confirm-restore"]').click(); await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); assert.equal(await calls(page), 0); assert.equal(await liveTracks(page), 0); assert.deepEqual(await exportUi(page), before); return { schemaVersion: 6, selectedDeviceId: selected, exactRoundtrip: true, captureCallsDuringPresetReloadRestore: 0, historyEntries: 0 };
 });
 
 check('ui-module-leave-stops-native-tracks-and-return-does-not-auto-connect', 'ui', async ({ page, context, origin }) => {

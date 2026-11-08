@@ -29,7 +29,7 @@ function wavPayload({ name = 'long.wav', duration = 2, frequency = 55 } = {}) {
 }
 const uiFiles = () => [wavPayload({ name: 'long.wav', duration: 2, frequency: 55 }), wavPayload({ name: 'short.wav', duration: .75, frequency: 110 })];
 const tracksAction = (page, name) => page.locator(`[data-tracks-action="${name}"]`);
-async function ready(page) { await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert); }
+async function ready(page) { await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert); const free = page.locator('[data-intro="free"]'); if (await free.isVisible()) await free.click(); }
 async function setupUi(page, files = uiFiles()) {
   await ready(page); await page.locator('[data-app-module="tracks"]').click();
   if (files) { await page.getByLabel('Новый набор аудиофайлов', { exact: true }).setInputFiles(files); await page.waitForFunction(() => document.querySelector('#tracks-mount')?.dataset.tracksReady === 'true'); }
@@ -195,14 +195,66 @@ check('live-early-pause-and-disposal-cancel-voices-and-release-decoded-bindings'
 check('ui-local-file-selection-shows-shared-material-and-clear-scope-limits', 'ui', async ({ page }) => {
   await setupUi(page, null); assert.ok(await page.getByTestId('tracks-empty').isVisible());
   assert.match(await page.locator('#tracks-mount').innerText(), /автоматического выравнивания.*нет/);
+  assert.match(await page.locator('#tracks-mount .tracks-intro').innerText(), /четырёх.*64 МиБ/);
   await page.getByLabel('Новый набор аудиофайлов', { exact: true }).setInputFiles(uiFiles()); await page.waitForFunction(() => document.querySelector('#tracks-mount')?.dataset.tracksReady === 'true');
   assert.equal(await page.locator('[data-track-id]').count(), 2); assert.equal(await page.locator('[data-track-bound="true"]').count(), 2);
   assert.match(await page.getByTestId('tracks-rate-warning').innerText(), /исходная высота.*B исключается.*тишиной/);
   assert.equal(await page.getByLabel('Начало фрагмента A', { exact: true }).inputValue(), '0'); assert.equal(await page.getByLabel('Конец фрагмента B', { exact: true }).inputValue(), '2');
-  const copy = await exportUi(page); assert.equal(copy.schemaVersion, 5); assert.equal(copy.preferences.activeModule, 'tracks'); assert.equal(copy.preferences.tracks.tracks.length, 2);
+  const copy = await exportUi(page); assert.equal(copy.schemaVersion, 6); assert.equal(copy.preferences.activeModule, 'tracks'); assert.equal(copy.preferences.tracks.tracks.length, 2);
   assert.ok(await page.getByTestId('manual-unavailable').isVisible());
   assert.ok(await page.locator('[data-history-action="save-manual"]').isHidden());
   return { loadStatus: await page.getByTestId('tracks-load-status').innerText(), manifest: copy.preferences.tracks, externalUploadRequests: 0 };
+});
+
+check('ui-exact-native-B-and-subsecond-fragment-show-hundredths-without-truncating-source', 'ui', async ({ page }) => {
+  const frames = 130816, duration = frames / 48000;
+  await setupUi(page, [wavPayload({ name: 'fractional-end.wav', duration })]);
+  const end = page.getByLabel('Конец фрагмента B', { exact: true });
+  const validity = await end.evaluate(input => ({ valid: input.validity.valid, mismatch: input.validity.stepMismatch, overflow: input.validity.rangeOverflow, value: input.value, max: input.max }));
+  assert.equal(validity.valid, true); assert.equal(validity.mismatch, false); assert.equal(validity.overflow, false);
+  near(Number(validity.value), duration, 1e-12); assert.equal(validity.value, validity.max);
+  assert.match(await page.locator('#tracks-mount').innerText(), /Минимум фрагмента — 0,05 с/);
+  await fieldValue(page, 'Начало фрагмента A', .1); await fieldValue(page, 'Конец фрагмента B', .36);
+  await tracksAction(page, 'play').click(); await stateIs(page, 'finished');
+  assert.equal(await page.getByTestId('tracks-position').innerText(), '0:00,36 / 0:02,73');
+  const copy = await exportUi(page); near(copy.preferences.tracks.tracks[0].decoded.duration, duration, 1e-12);
+  assert.deepEqual(copy.preferences.tracks.clip, { from: .1, to: .36 });
+  return { validity, displayedPosition: '0:00,36 / 0:02,73', originalDuration: duration, clip: copy.preferences.tracks.clip };
+});
+
+check('ui-set-A-and-B-here-captures-position-and-never-resumes-implicitly', 'ui', async ({ page }) => {
+  await setupUi(page);
+  const seek = page.getByLabel('Позиция аудиофрагмента', { exact: true });
+  await seek.fill('.25'); await seek.press('Tab'); await tracksAction(page, 'from-here').click();
+  assert.equal(await page.getByLabel('Начало фрагмента A', { exact: true }).inputValue(), '0.25');
+  await seek.fill('.7'); await seek.press('Tab'); await tracksAction(page, 'to-here').click();
+  assert.equal(await page.getByLabel('Конец фрагмента B', { exact: true }).inputValue(), '0.7');
+  assert.notEqual(await page.locator('#tracks-mount').getAttribute('data-tracks-state'), 'playing');
+  await tracksAction(page, 'full-clip').click(); await tracksAction(page, 'play').click(); await stateIs(page, 'playing');
+  await page.waitForFunction(() => Number(document.querySelector('[data-tracks-setting="seek"]').value) > .2);
+  await tracksAction(page, 'from-here').click(); await stateIs(page, 'paused');
+  const captured = Number(await page.getByLabel('Начало фрагмента A', { exact: true }).inputValue()); assert.ok(captured > .2 && captured < 1.5);
+  await delay(150); assert.equal(await page.locator('#tracks-mount').getAttribute('data-tracks-state'), 'paused');
+  assert.match(await page.getByTestId('tracks-notice').innerText(), /на паузе/);
+  const copy = await exportUi(page); near(copy.preferences.tracks.clip.from, captured, 1e-12);
+  return { stoppedClip: [.25, .7], liveCapturedA: captured, noImplicitResume: true };
+});
+
+check('ui-clear-names-the-loss-and-cancel-preserves-set-before-confirmation', 'ui', async ({ page }) => {
+  await setupUi(page); await fieldValue(page, 'Начало фрагмента A', .25);
+  const before = (await exportUi(page)).preferences.tracks;
+  await tracksAction(page, 'clear').click();
+  const dialog = page.getByRole('dialog'); await dialog.waitFor();
+  const confirmationText = await dialog.innerText();
+  assert.match(confirmationText, /границы фрагмента.*привязки.*Аудиофайлы на компьютере сохранятся/);
+  for (const track of before.tracks) assert.ok(confirmationText.includes(`«${track.name}»`), `Confirmation must name ${track.name}`);
+  await dialog.getByRole('button', { name: 'Отмена', exact: true }).click();
+  assert.deepEqual((await exportUi(page)).preferences.tracks, before);
+  await tracksAction(page, 'clear').click(); await dialog.getByRole('button', { name: 'Очистить набор', exact: true }).click();
+  await page.getByTestId('tracks-empty').waitFor();
+  assert.equal((await exportUi(page)).preferences.tracks, null);
+  assert.equal(await page.locator('[data-track-id]').count(), 0);
+  return { cancelledManifest: before, namedFiles: before.tracks.map(track => track.name), confirmedManifest: null, diskFilesUntouched: true };
 });
 
 check('ui-ab-loop-and-varispeed-are-explicit-validatable-and-persisted', 'ui', async ({ page, resultDir }) => {
@@ -225,7 +277,9 @@ check('ui-live-mute-seek-pause-and-module-leave-preserve-one-common-timeline', '
   await page.getByLabel('Выключить дорожку 1', { exact: true }).check(); await delay(180);
   const afterMute = Number(await page.getByLabel('Позиция аудиофрагмента', { exact: true }).inputValue()); assert.ok(afterMute > before + .1); assert.ok(afterMute < before + .45);
   const volume = page.getByLabel('Громкость дорожки 2', { exact: true }); await volume.focus(); await volume.press('Home'); for (let index = 0; index < 25; index++) await volume.press('ArrowRight');
-  const seekBox = await page.getByLabel('Позиция аудиофрагмента', { exact: true }).boundingBox(); assert.ok(seekBox); await page.mouse.click(seekBox.x + seekBox.width / 2, seekBox.y + seekBox.height / 2);
+  const seekControl = page.getByLabel('Позиция аудиофрагмента', { exact: true });
+  await seekControl.scrollIntoViewIfNeeded();
+  const seekBox = await seekControl.boundingBox(); assert.ok(seekBox); await page.mouse.click(seekBox.x + seekBox.width / 2, seekBox.y + seekBox.height / 2);
   near(Number(await page.getByLabel('Позиция аудиофрагмента', { exact: true }).inputValue()), 1, .03, 'native slider midpoint');
   // The focused slider deliberately keeps the user's edit value. Leave it as
   // a user would before expecting its display to follow the real audio clock.

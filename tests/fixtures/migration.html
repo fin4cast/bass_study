@@ -13,7 +13,7 @@
     transaction.oncomplete = resolve; transaction.onabort = () => reject(transaction.error);
   });
   async function readLegacyBackup(version = 1) {
-    if (![1, 2, 3, 4].includes(version)) throw new Error('Only actual v1/v2/v3/v4 fixtures are supported');
+    if (![1, 2, 3, 4, 5].includes(version)) throw new Error('Only actual v1/v2/v3/v4/v5 fixtures are supported');
     const response = await fetch(`/tests/fixtures/v${version}-backup.json`, { cache: 'no-store' });
     if (!response.ok) throw new Error(`Literal v${version} fixture unavailable: ${response.status}`);
     return response.json();
@@ -22,14 +22,17 @@
   async function rawRead() {
     const db = await requestValue(indexedDB.open('bass-study'));
     try {
-      const transaction = db.transaction(['preferences', 'presets', 'history'], 'readonly');
+      const names = ['preferences', 'presets', 'history', ...(['profile', 'practiceDrafts'].filter(name => db.objectStoreNames.contains(name)))];
+      const transaction = db.transaction(names, 'readonly');
       const done = complete(transaction);
-      const [preferences, presets, history] = await Promise.all([
+      const [preferences, presets, history, profile, practiceDrafts] = await Promise.all([
         requestValue(transaction.objectStore('preferences').get('current')),
         requestValue(transaction.objectStore('presets').getAll()),
         requestValue(transaction.objectStore('history').getAll()),
+        names.includes('profile') ? requestValue(transaction.objectStore('profile').get('current')) : Promise.resolve(undefined),
+        names.includes('practiceDrafts') ? requestValue(transaction.objectStore('practiceDrafts').getAll()) : Promise.resolve(undefined),
       ]);
-      await done; return { version: db.version, preferences, presets, history };
+      await done; return { version: db.version, preferences, presets, history, ...(profile ? { profile, practiceDrafts } : {}) };
     } finally { db.close(); }
   }
   async function seedLegacy(version = 1, { invalid = false } = {}) {

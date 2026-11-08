@@ -1,0 +1,132 @@
+{
+  "version": "1.4.0",
+  "schemaVersion": 6,
+  "generatedAt": "2026-11-08T15:41:05.747Z",
+  "sourceHead": "26273e5a4d6f6aa17f2a3a5be46650a0d9d8170e",
+  "workingTreeModified": true,
+  "unit": {
+    "passed": 349,
+    "failed": 0,
+    "pending": 0,
+    "files": 19
+  },
+  "runners": {
+    "FRETBOARD": {
+      "passed": 15,
+      "failed": 0,
+      "file": "P8_FRETBOARD_EDGE.json",
+      "browser": "157.0.4341.42",
+      "generatedAt": "2026-11-08T15:32:34.380Z"
+    },
+    "TRAINING": {
+      "passed": 22,
+      "failed": 0,
+      "file": "P8_TRAINING_EDGE.json",
+      "browser": "157.0.4341.42",
+      "generatedAt": "2026-11-08T15:32:49.912Z"
+    },
+    "AUDIO": {
+      "passed": 27,
+      "failed": 0,
+      "file": "P8_AUDIO_EDGE.json",
+      "browser": "157.0.4341.42",
+      "generatedAt": "2026-11-08T15:33:14.216Z"
+    },
+    "STORAGE": {
+      "passed": 23,
+      "failed": 0,
+      "file": "P8_STORAGE_EDGE.json",
+      "browser": "157.0.4341.42",
+      "generatedAt": "2026-11-08T15:34:00.061Z"
+    },
+    "RELEASE": {
+      "passed": 21,
+      "failed": 0,
+      "file": "P8_RELEASE_EDGE.json",
+      "browser": "157.0.4341.42",
+      "generatedAt": "2026-11-08T15:35:31.463Z"
+    },
+    "EAR": {
+      "passed": 23,
+      "failed": 0,
+      "file": "P8_EAR_EDGE.json",
+      "browser": "157.0.4341.42",
+      "generatedAt": "2026-11-08T15:36:08.026Z"
+    },
+    "HARMONY": {
+      "passed": 20,
+      "failed": 0,
+      "file": "P8_HARMONY_EDGE.json",
+      "browser": "157.0.4341.42",
+      "generatedAt": "2026-11-08T15:37:15.232Z"
+    },
+    "NOTATION": {
+      "passed": 13,
+      "failed": 0,
+      "file": "P8_NOTATION_EDGE.json",
+      "browser": "157.0.4341.42",
+      "generatedAt": "2026-11-08T15:37:53.559Z"
+    },
+    "TRACKS": {
+      "passed": 22,
+      "failed": 0,
+      "file": "P8_TRACKS_EDGE.json",
+      "browser": "157.0.4341.42",
+      "generatedAt": "2026-11-08T15:38:15.237Z"
+    },
+    "INPUT": {
+      "passed": 20,
+      "failed": 0,
+      "file": "P8_INPUT_EDGE.json",
+      "browser": "157.0.4341.42",
+      "generatedAt": "2026-11-08T15:38:39.707Z"
+    },
+    "UIUX": {
+      "passed": 9,
+      "failed": 0,
+      "file": "P8_UIUX_EDGE.json",
+      "browser": "157.0.4341.42",
+      "generatedAt": "2026-11-08T15:39:10.519Z"
+    }
+  },
+  "totalBrowserPassed": 215,
+  "build": [
+    {
+      "file": "dist/assets/index-CIXRfJjI.js",
+      "bytes": 621815,
+      "sha256": "2D7E6C56934814BA29AEF821F09C4FCA8DD9760547B4C1123C95EB5656C2DEEE"
+    },
+    {
+      "file": "dist/assets/index-Caz7k_uS.css",
+      "bytes": 88032,
+      "sha256": "76E5D5BA2EB966635DB4F8383954276A559A38DD3A207B00BB3DA46D6E604AAD"
+    },
+    {
+      "file": "dist/assets/vexflow-bravura-iH-ZWq11.js",
+      "bytes": 721671,
+      "sha256": "0123BB57ACD87218A59E77F6BB4273F6B9C53F4204C152CA0A599EB438629569"
+    }
+  ],
+  "images": [
+    "p8-user-four-strings-light.png",
+    "p8-user-four-strings-dark.png",
+    "p8-uiux-1366.png",
+    "p8-uiux-1024.png",
+    "p8-uiux-640.png",
+    "p8-uiux-cdp-scale-200.png"
+  ],
+  "staticServer": "External user server reused; never stopped or restarted.",
+  "checks": {
+    "typeScript": "passed",
+    "build": "passed",
+    "docs": {
+      "status": "passed",
+      "documents": 26,
+      "links": 726,
+      "checkedAt": "2026-11-08T15:56:59.324Z"
+    },
+    "diff": "passed",
+    "cachedDiff": "passed"
+  },
+  "completedAt": "2026-11-08T15:48:41.476Z"
+}

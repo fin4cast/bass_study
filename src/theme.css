@@ -1,0 +1,114 @@
+/* Semantic roles shared by HTML, native controls, the fretboard and VexFlow SVG. */
+:root {
+  color-scheme: light;
+  --surface-canvas: #f5f3ec;
+  --surface: #fffef8;
+  --surface-raised: #fafbf4;
+  --surface-muted: #edf2e5;
+  --surface-hover: #e1ead8;
+  --text-primary: #233532;
+  --text-secondary: #465448;
+  --text-muted: #566050;
+  --text-inverse: #fffef8;
+  --border: #ccd5c5;
+  --border-strong: #6e8263;
+  --accent: #356843;
+  --accent-hover: #285635;
+  --accent-text: #305c3a;
+  --accent-soft: #e0ecd6;
+  --focus-ring: #246bb4;
+  --selection: #9b5e17;
+  --selection-soft: #f3e2bf;
+  --success-text: #365e35;
+  --success-surface: #e6f0dc;
+  --danger-text: #853c2b;
+  --danger-surface: #f9e9e0;
+  --danger-border: #9c6045;
+  --warning-text: #735224;
+  --warning-surface: #f7ecd5;
+  --warning-border: #977342;
+  --info-text: #35556e;
+  --info-surface: #e7eff5;
+  --disabled-text: #66705f;
+  --disabled-surface: #e8ecdf;
+  --shadow: #20312612;
+  --dialog-backdrop: #13251e80;
+  --notation-paper: #fffef8;
+  --notation-ink: #233532;
+  --notation-playing: #17624e;
+  --notation-cursor: #d4e5c7;
+  --board-top: #303a39;
+  --board-bottom: #252f2e;
+  --board-text: #edf4e9;
+  --board-muted: #c4d0bc;
+  --board-line: #94a18d;
+  --board-dot: #b6c9a3;
+  --board-dot-text: #233727;
+  --board-root: #f1be72;
+  --board-root-text: #473016;
+  --board-same: #a4cce2;
+  --board-octave: #cbb5e7;
+  --board-playing: #fbdf8e;
+  --board-focus: #92c8ff;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-canvas: #151d19;
+  --surface: #1e2a23;
+  --surface-raised: #263229;
+  --surface-muted: #2d3b30;
+  --surface-hover: #3a4b3c;
+  --text-primary: #ecf2ec;
+  --text-secondary: #b9c8bd;
+  --text-muted: #b7c7af;
+  --text-inverse: #102015;
+  --border: #52634f;
+  --border-strong: #83958a;
+  --accent: #a8cc90;
+  --accent-hover: #c7e8b6;
+  --accent-text: #c4e8b1;
+  --accent-soft: #354b32;
+  --focus-ring: #92c8ff;
+  --selection: #f5c77f;
+  --selection-soft: #564321;
+  --success-text: #bce3a6;
+  --success-surface: #2e432e;
+  --danger-text: #ffc3ad;
+  --danger-surface: #4d3029;
+  --danger-border: #d99b82;
+  --warning-text: #f5d69f;
+  --warning-surface: #493e28;
+  --warning-border: #c6a268;
+  --info-text: #bbd9f1;
+  --info-surface: #2a3e4b;
+  --disabled-text: #a5b49e;
+  --disabled-surface: #303a30;
+  --shadow: #00000040;
+  --dialog-backdrop: #000000a6;
+  --notation-paper: #1e2a23;
+  --notation-ink: #ecf2ec;
+  --notation-playing: #c2e6ab;
+  --notation-cursor: #405336;
+}
+
+html { background: var(--surface-canvas); color: var(--text-primary); }
+[hidden] { display: none !important; }
+input, select, textarea { accent-color: var(--accent); }
+input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 1; }
+input[type="range"], meter { accent-color: var(--accent); }
+button:disabled, input:disabled, select:disabled, textarea:disabled {
+  color: var(--disabled-text); cursor: default;
+}
+:where(button,input,select,textarea,a,summary,[tabindex]):focus-visible {
+  outline: 3px solid var(--focus-ring); outline-offset: 3px;
+}
+::selection { background: var(--selection-soft); color: var(--text-primary); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+
+.confirm-dialog { max-width: min(520px, calc(100vw - 32px)); padding: 24px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); color: var(--text-primary); box-shadow: 0 18px 60px var(--shadow); }
+.confirm-dialog::backdrop { background: var(--dialog-backdrop); }
+.confirm-dialog h2 { margin: 0 0 13px; font-size: 21px; }
+.confirm-dialog p { margin: 0 0 22px; line-height: 1.7; }
+.confirm-actions, .confirmation-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.confirm-dialog .restore-button { border: 1px solid var(--danger-border); background: var(--danger-surface); color: var(--danger-text); border-radius: 6px; padding: 9px 12px; font: inherit; cursor: pointer; }

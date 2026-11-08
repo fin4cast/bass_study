@@ -2,6 +2,8 @@ import './training.css';
 import type { AppPreferences } from '../storage';
 import { INTERVAL_DEGREES, type IntervalDegree } from '../training/constraints';
 import { formatMidi, type AnnotatedPosition, type MusicalStructure, type StringId } from '../music';
+import { getBoxInstance, type BoxSelection } from '../music/boxes';
+import type { RouteMaterial, RouteRef } from '../route';
 import {
   createSequence,
   getQuizSummary,
@@ -14,16 +16,21 @@ import {
   type SequencePattern,
   type TrainingScope,
   type QuestionContext,
+  type QuestionPolicy,
 } from '../training';
 
 type Session = ReturnType<typeof startQuiz>;
 type Summary = ReturnType<typeof getQuizSummary>;
 export type TrainingMode = 'study' | 'quiz' | 'sequence';
 export interface TrainingContext {
+  box?: BoxSelection | null;
+  fullPositions?: readonly AnnotatedPosition[];
   positions: readonly AnnotatedPosition[];
   structure: MusicalStructure;
 }
 export interface TrainingOptions {
+  navigationContainer?: HTMLElement;
+  onRouteExit?: () => void;
   onModeChange?: (mode: TrainingMode) => void;
   onSequenceChange?: () => void;
   onPreferencesChange?: () => void;
@@ -57,6 +64,11 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
   let sequenceScope: TrainingScope = 'structure';
   let pattern: SequencePattern = 'ascending';
   let count = 10;
+  let questionPolicy: QuestionPolicy = 'random-v1';
+  let routeRef: RouteRef | null = null;
+  let applyingRoute = false;
+  let quizAdvancedOpen = false;
+  let sequenceRouteOpen = false;
   let intervalDegree: IntervalDegree = '#4';
   let countDraft: string | null = null;
   let reviewPositionIds: readonly string[] = [];
@@ -86,21 +98,32 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     <div class="training-content" data-testid="training-content"></div>
   `;
   const content = container.querySelector<HTMLElement>('.training-content')!;
+  const navigation = options.navigationContainer ?? container;
+  if (options.navigationContainer) options.navigationContainer.append(container.querySelector('.training-switcher')!);
+  if (options.navigationContainer) navigation.addEventListener('click', event => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-training-mode]') : null;
+    if (button) setMode(button.dataset.trainingMode as TrainingMode);
+  }, { signal: controller.signal });
 
   function contextFingerprint(context: TrainingContext) {
-    return `${context.structure.root}|${context.structure.id}|${context.positions.map(position => position.id).join(',')}`;
+    return `${context.structure.root}|${context.structure.id}|${JSON.stringify(context.box ?? null)}|${context.positions.map(position => position.id).join(',')}|${context.fullPositions?.map(position => position.id).join(',') ?? ''}`;
   }
 
   function quizContext(): TrainingContext {
     const context = getContext();
+    if (quizMode === 'find-interval') return { ...context, box: null, positions: context.fullPositions ?? context.positions };
     if (!reviewPositionIds.length) return context;
     const ids = new Set(reviewPositionIds);
-    return { ...context, positions: context.positions.filter(position => ids.has(position.id)) };
+    return { ...context, box: null, positions: (context.fullPositions ?? context.positions).filter(position => ids.has(position.id)) };
   }
 
   function render() {
     if (disposed) return;
-    container.querySelectorAll<HTMLButtonElement>('[data-training-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.trainingMode === mode)));
+    const quizDetails = content.querySelector<HTMLDetailsElement>('[data-training-details="quiz"]');
+    const routeDetails = content.querySelector<HTMLDetailsElement>('[data-training-details="sequence"]');
+    if (quizDetails) quizAdvancedOpen = quizDetails.open;
+    if (routeDetails) sequenceRouteOpen = routeDetails.open;
+    navigation.querySelectorAll<HTMLButtonElement>('[data-training-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.trainingMode === mode)));
     content.hidden = mode === 'study';
     if (mode === 'study') { content.innerHTML = ''; return; }
     if (mode === 'quiz') renderQuiz();
@@ -109,14 +132,17 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
 
   function quizSetup() {
     const context = quizContext();
+    if (context.box) scope = 'structure';
     return `<div class="training-intro"><div><p class="eyebrow">ПРОВЕРКА ЗНАНИЙ</p><h2>Вспомни. Найди. Проверь себя.</h2></div><p>Здесь проверяются ответы на экране.<br>Точность игры на басу не измеряется.</p></div>
       <div class="quiz-settings">
         <label class="training-field"><span>Тип задания</span><select aria-label="Тип задания" data-quiz-setting="mode"${reviewPositionIds.length ? ' disabled' : ''}>${QUIZ_MODES.map(item => `<option value="${item.id}"${item.id === quizMode ? ' selected' : ''}>${item.name}</option>`).join('')}</select></label>
-        <label class="training-field"><span>Материал заданий</span><select aria-label="Материал заданий" data-quiz-setting="scope"${quizMode === 'find-degree' || quizMode === 'find-interval' || reviewPositionIds.length ? ' disabled' : ''}><option value="structure"${scope === 'structure' ? ' selected' : ''}>В выбранной структуре</option><option value="chromatic"${scope === 'chromatic' ? ' selected' : ''}>Все ноты диапазона</option></select></label>
-        ${quizMode === 'find-interval' ? `<label class="training-field"><span>Интервал от тоники</span><select aria-label="Интервал от тоники" data-quiz-setting="interval">${INTERVAL_DEGREES.map(degree => `<option value="${degree}"${degree === intervalDegree ? ' selected' : ''}>${degree.replaceAll('b', '♭').replaceAll('#', '♯')}</option>`).join('')}</select></label>` : ''}
-        <label class="training-field count-field"><span>Вопросов</span><input type="number" min="1" max="30" step="1" value="${escapeHtml(countDraft ?? String(count))}" aria-label="Количество вопросов" aria-invalid="${countDraft !== null && (!countDraft || !Number.isInteger(Number(countDraft)) || Number(countDraft) < 1 || Number(countDraft) > 30)}" data-quiz-setting="count"></label>
         <button class="primary-button" type="button" data-training-action="start">${session ? 'Начать заново' : 'Начать занятие'}<span aria-hidden="true">→</span></button>
       </div>
+      <details class="training-advanced" data-training-details="quiz"${quizAdvancedOpen ? ' open' : ''}><summary>Параметры задания</summary><div class="quiz-settings">
+        <label class="training-field"><span>Материал заданий</span><select aria-label="Материал заданий" data-quiz-setting="scope"${context.box || quizMode === 'find-degree' || quizMode === 'find-interval' || reviewPositionIds.length ? ' disabled' : ''}><option value="structure"${scope === 'structure' ? ' selected' : ''}>${context.box ? 'Точные позиции выбранной формы' : 'В выбранной структуре'}</option><option value="chromatic"${scope === 'chromatic' ? ' selected' : ''}>Все ноты диапазона</option></select></label>
+        ${quizMode === 'find-interval' ? `<label class="training-field"><span>Интервал от тоники</span><select aria-label="Интервал от тоники" data-quiz-setting="interval">${INTERVAL_DEGREES.map(degree => `<option value="${degree}"${degree === intervalDegree ? ' selected' : ''}>${degree.replaceAll('b', '♭').replaceAll('#', '♯')}</option>`).join('')}</select></label>` : ''}
+        <label class="training-field count-field"><span>Вопросов</span><input type="number" min="1" max="30" step="1" value="${escapeHtml(countDraft ?? String(count))}" aria-label="Количество вопросов" aria-invalid="${countDraft !== null && (!countDraft || !Number.isInteger(Number(countDraft)) || Number(countDraft) < 1 || Number(countDraft) > 30)}" data-quiz-setting="count"></label>
+      </div></details>
       <p class="training-scope-caption">${escapeHtml(QUIZ_MODES.find(item => item.id === quizMode)!.description)} ${quizMode === 'find-degree' ? 'Используются ступени выбранной структуры.' : ''}<span>${escapeHtml(context.structure.root)} · ${escapeHtml(context.structure.name)} · ${context.positions.length} доступных позиций</span></p>${reviewPositionIds.length ? `<div class="quiz-review-banner" role="status" data-testid="review-banner"><span>Повтор ошибок: только ${reviewPositionIds.length} выбранных позиций. Другие позиции не подмешиваются.</span><button class="text-button" type="button" data-training-action="clear-review">Обычные задания</button></div>` : ''}`;
   }
 
@@ -138,7 +164,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       </div>`;
     } else if (summary) body = summaryMarkup(summary);
     else body = '<div class="quiz-ready"><span aria-hidden="true">?</span><div><h3>Небольшая проверка без спешки</h3><p>Ошибки можно исправлять. Подсказки и пропуски сохраняют свой статус — они не превращаются в самостоятельный правильный ответ.</p></div></div>';
-    content.innerHTML = `${quizSetup()}${notice ? `<p class="training-notice" role="status">${escapeHtml(notice)}</p>` : ''}${error ? `<p class="training-error" role="alert" data-testid="training-error">${escapeHtml(error)}</p>` : ''}${body}`;
+    content.innerHTML = `${quizSetup()}${quizMode === 'find-interval' && getContext().box ? '<p class="training-notice" role="status">Для интервала доступны все хроматические позиции текущих струн и ладов. Ограничение и подсветка бокса временно отключены.</p>' : ''}${notice ? `<p class="training-notice" role="status">${escapeHtml(notice)}</p>` : ''}${error ? `<p class="training-error" role="alert" data-testid="training-error">${escapeHtml(error)}</p>` : ''}${body}`;
   }
 
   function answerBoard(terminal: boolean) {
@@ -146,7 +172,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     const positions = quizContext().positions;
     if (!positions.length) return '';
     const question = session.currentQuestion;
-    const rows = STRING_ORDER.filter(string => positions.some(position => position.string === string));
+    const rows = STRING_ORDER;
     const min = Math.min(...positions.map(position => position.fret));
     const max = Math.max(...positions.map(position => position.fret));
     const cell = 58, left = 56, top = 42, rowGap = 54;
@@ -161,7 +187,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     const revealed = session.answerState.status === 'revealed';
     const answerNames = new Map(positions.map(position => [position.id, quizMode === 'find-interval' && question.expectedPositionIds.includes(position.id) ? question.target.name : position.noteName]));
     return `<div class="quiz-board-scroll"><svg class="quiz-board" data-testid="quiz-answer-board" viewBox="0 0 ${canvasWidth} ${height}" style="min-width:${canvasWidth}px" aria-label="Гриф для ответа: позиции без названий нот">
-      <rect x="${left}" y="18" width="${(max - min + 1) * cell}" height="${height - 32}" rx="4" fill="#293631"/>
+      <rect x="${left}" y="18" width="${(max - min + 1) * cell}" height="${height - 32}" rx="4" fill="var(--board-bottom)"/>
       ${Array.from({ length: max - min + 1 }, (_, i) => min + i).map(fret => `<text class="answer-fret-number" x="${x(fret)}" y="11" text-anchor="middle">${fret}</text><line class="answer-wire" x1="${left + (fret - min + 1) * cell}" y1="18" x2="${left + (fret - min + 1) * cell}" y2="${height - 14}"/>`).join('')}
       ${rows.map(string => `<text class="answer-string-name" x="22" y="${y(string) + 4}" text-anchor="middle">${string}</text><line class="answer-string" x1="${left - 9}" y1="${y(string)}" x2="${width - 18}" y2="${y(string)}"/>`).join('')}
       ${positions.map(position => {
@@ -182,11 +208,12 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
 
   function renderSequence() {
     let body = '';
+    if (getContext().box) sequenceScope = 'structure';
     try {
       const sequence = createSequence({ ...getContext(), scope: sequenceScope, pattern });
-      body = `<div class="sequence-heading"><h3>${escapeHtml(sequence.name)}</h3><span data-testid="sequence-count">${sequence.notes.length} нот</span></div><ol class="sequence-route" data-testid="sequence-route">${sequence.notes.map((position, index) => `<li data-sequence-index="${index}" data-sequence-position="${position.id}"><span>${index + 1}</span><strong>${escapeHtml(formatMidi(position.midi, position.noteName))}</strong><small>${position.string} · ${position.fret === 0 ? 'откр.' : `${position.fret} лад`}</small>${position.degree ? `<em>${escapeHtml(position.degree.replaceAll('b', '♭').replaceAll('#', '♯'))}</em>` : ''}</li>`).join('')}</ol><p class="sequence-caption">Маршрут выбирает одну позицию для каждой высоты: по порядку струн E → A → D → G. Это последовательность для изучения, без автоматической оценки исполнения.</p>`;
+      body = `<div class="sequence-heading"><h3>${escapeHtml(sequence.name)}</h3><span data-testid="sequence-count">${sequence.notes.length} нот</span></div><details class="sequence-route-details" data-training-details="sequence"${sequenceRouteOpen ? " open" : ""}><summary>Ноты маршрута · ${sequence.notes.length}</summary><ol class="sequence-route" data-testid="sequence-route">${sequence.notes.map((position, index) => `<li data-sequence-index="${index}" data-sequence-position="${position.id}"><span>${index + 1}</span><strong>${escapeHtml(formatMidi(position.midi, position.noteName))}</strong><small>${position.string} · ${position.fret === 0 ? 'откр.' : `${position.fret} лад`}</small>${position.degree ? `<em>${escapeHtml(position.degree.replaceAll('b', '♭').replaceAll('#', '♯'))}</em>` : ''}</li>`).join('')}</ol></details><p class="sequence-caption">${getContext().box ? `Звучат точные позиции формы: ${escapeHtml(getBoxInstance(getContext().box!).label)}. Начальная нота формы не обязательно тоника.` : 'Показан порядок высот, а не рекомендуемая аппликатура. Для компактного пути выбери учебную форму.'} Исполнение на инструменте не оценивается.</p>`;
     } catch (failure) { body = `<p class="training-error" role="status" data-testid="sequence-error">${escapeHtml(failure instanceof Error ? failure.message : String(failure))}</p>`; }
-    content.innerHTML = `<div class="training-intro"><div><p class="eyebrow">ПРОСТЫЕ ПОСЛЕДОВАТЕЛЬНОСТИ</p><h2>Один материал. Разные маршруты.</h2></div><p>Сначала посмотри порядок нот.<br>Затем пройди маршрут на инструменте.</p></div><div class="sequence-settings"><label class="training-field"><span>Порядок</span><select aria-label="Порядок последовательности" data-sequence-setting="pattern">${PATTERNS.map(item => `<option value="${item.id}"${item.id === pattern ? ' selected' : ''}>${item.name}</option>`).join('')}</select></label><label class="training-field"><span>Материал</span><select aria-label="Материал последовательности" data-sequence-setting="scope"><option value="structure"${sequenceScope === 'structure' ? ' selected' : ''}>Выбранная структура</option><option value="chromatic"${sequenceScope === 'chromatic' ? ' selected' : ''}>Все ноты диапазона</option></select></label></div>${body}`;
+    content.innerHTML = `<div class="training-intro"><div><p class="eyebrow">ПРОСТЫЕ ПОСЛЕДОВАТЕЛЬНОСТИ</p><h2>Один материал. Разные маршруты.</h2></div><p>Сначала посмотри порядок нот.<br>Затем пройди маршрут на инструменте.</p></div><div class="sequence-settings"><label class="training-field"><span>Порядок</span><select aria-label="Порядок последовательности" data-sequence-setting="pattern">${PATTERNS.map(item => `<option value="${item.id}"${item.id === pattern ? ' selected' : ''}>${item.name}</option>`).join('')}</select></label><label class="training-field"><span>Материал</span><select aria-label="Материал последовательности" data-sequence-setting="scope"${getContext().box ? " disabled" : ""}><option value="structure"${sequenceScope === 'structure' ? ' selected' : ''}>Выбранная структура</option><option value="chromatic"${sequenceScope === 'chromatic' ? ' selected' : ''}>Все ноты диапазона</option></select></label></div>${body}`;
     options.onSequenceChange?.();
   }
 
@@ -215,7 +242,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       count = nextCount;
       countDraft = null;
       const random = crypto.getRandomValues(new Uint32Array(1))[0];
-      const nextSession = startQuiz({ ...quizContext(), mode: quizMode, scope, intervalDegree, seed: random }, count);
+      const nextSession = startQuiz({ ...quizContext(), mode: quizMode, scope: quizContext().box ? 'structure' : scope, intervalDegree, questionPolicy, routeRef, seed: random }, count);
       if (session) archiveSession();
       session = nextSession;
       sessionContextLabel = `${quizContext().structure.root} · ${quizContext().structure.name}; ${scope === 'structure' ? 'ноты структуры' : 'все ноты диапазона'}; ${quizContext().positions.length} позиций`;
@@ -227,7 +254,10 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       content.querySelector<HTMLElement>('#quiz-prompt')?.focus();
     } catch (failure) {
       error = failure instanceof Error ? failure.message : String(failure);
+      quizAdvancedOpen = true;
+      const details = content.querySelector<HTMLDetailsElement>('[data-training-details="quiz"]'); if (details) details.open = true;
       render();
+      content.querySelector<HTMLElement>('[aria-invalid="true"], [data-quiz-setting="interval"], [data-quiz-setting="count"]')?.focus();
     }
   }
 
@@ -277,6 +307,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
   }
 
   function setMode(nextMode: TrainingMode) {
+    if (!applyingRoute && routeRef && mode !== nextMode) { routeRef = null; questionPolicy = 'random-v1'; options.onRouteExit?.(); }
     if (mode !== nextMode && session) {
       finish('Занятие остановлено при смене режима');
       notice = 'Занятие прервано при смене режима. Начни новое занятие.';
@@ -331,6 +362,8 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     if (!(input instanceof HTMLSelectElement || input instanceof HTMLInputElement)) return;
     const setting = input.dataset.quizSetting;
     if (setting) {
+      if (!applyingRoute && routeRef) { routeRef = null; questionPolicy = 'random-v1'; options.onRouteExit?.(); }
+      if (!applyingRoute) questionPolicy = 'random-v1';
       if (setting === 'count') {
         const raw = input.value;
         const nextCount = Number(input.value);
@@ -352,7 +385,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       configurationChanged();
       if (setting === 'mode') {
         quizMode = input.value as QuizMode;
-        if (quizMode === 'find-degree') scope = 'structure';
+        if (quizMode === 'find-degree' || getContext().box) scope = 'structure';
         if (quizMode === 'find-interval') scope = 'chromatic';
       }
       if (setting === 'scope') scope = input.value as TrainingScope;
@@ -361,6 +394,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       content.querySelector<HTMLElement>(`[data-quiz-setting="${setting}"]`)?.focus();
       options.onPreferencesChange?.();
     }
+    if (input.dataset.sequenceSetting && !applyingRoute && routeRef) { routeRef = null; questionPolicy = 'random-v1'; options.onRouteExit?.(); }
     if (input.dataset.sequenceSetting === 'pattern') { pattern = input.value as SequencePattern; render(); content.querySelector<HTMLElement>('[data-sequence-setting="pattern"]')?.focus(); options.onPreferencesChange?.(); }
     if (input.dataset.sequenceSetting === 'scope') { sequenceScope = input.value as TrainingScope; render(); content.querySelector<HTMLElement>('[data-sequence-setting="scope"]')?.focus(); options.onPreferencesChange?.(); }
   }, { signal: controller.signal });
@@ -408,7 +442,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     getPreferences(): AppPreferences['training'] {
       const input = content.querySelector<HTMLInputElement>('[data-quiz-setting="count"]');
       if (input && (!input.value || !Number.isInteger(Number(input.value)) || Number(input.value) < 1 || Number(input.value) > 30)) throw new RangeError('Количество вопросов — целое число от 1 до 30.');
-      return { mode, quizMode, scope, intervalDegree, count, pattern, sequenceScope, reviewPositionIds: [...reviewPositionIds] };
+      return { mode, quizMode, scope: getContext().box && quizMode !== 'find-interval' ? 'structure' : scope, intervalDegree, count, pattern, sequenceScope: getContext().box ? 'structure' : sequenceScope, reviewPositionIds: [...reviewPositionIds], questionPolicy };
     },
     applyPreferences(preferences: AppPreferences['training']) {
       if (session) archiveSession();
@@ -418,6 +452,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       scope = preferences.scope;
       intervalDegree = preferences.intervalDegree;
       count = preferences.count;
+      questionPolicy = preferences.questionPolicy ?? 'random-v1'; routeRef = null;
       countDraft = null;
       pattern = preferences.pattern;
       sequenceScope = preferences.sequenceScope;
@@ -435,7 +470,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     setReviewPositions(ids: readonly string[], originalContext?: QuestionContext) {
       const context = getContext();
       if (originalContext && (originalContext.root !== context.structure.root || originalContext.structureId !== context.structure.id)) throw new RangeError('Для повторения сначала восстанови исходную тональность и структуру.');
-      const allowed = new Set(context.positions.map(position => position.id));
+      const allowed = new Set((context.fullPositions ?? context.positions).map(position => position.id));
       if (!ids.length || ids.some(id => !allowed.has(id))) throw new RangeError('Позиции для повторения должны входить в текущую область грифа.');
       configurationChanged();
       reviewPositionIds = [...new Set(ids)];
@@ -449,6 +484,21 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       options.onPreferencesChange?.();
     },
     finishCurrentSession(reason = 'Занятие завершено') { finish(reason); },
+    applyRouteContext(material: RouteMaterial, reference: RouteRef, startNew = true) {
+      const same = routeRef?.routeId === reference.routeId && routeRef.step === reference.step;
+      applyingRoute = true;
+      try {
+        if (!same) finish('Открыт общий материал маршрута');
+        routeRef = Object.freeze({ ...reference }); reviewPositionIds = []; count = material.questionCount; countDraft = null;
+        questionPolicy = material.questionPolicy; quizMode = 'find-note'; scope = material.scope; sequenceScope = material.scope; pattern = material.pattern;
+        setMode(reference.step === 'sequence' ? 'sequence' : 'quiz');
+        fingerprint = contextFingerprint(getContext());
+        if (reference.step === 'fretboard' && startNew && (!same || !session)) start();
+      } finally { applyingRoute = false; }
+    },
+    clearRouteContext() { if (routeRef) finish('Занятие общего маршрута завершено'); routeRef = null; questionPolicy = 'random-v1'; render(); },
+    getRouteRef() { return routeRef; },
+    getMode() { return mode; },
     getLastSession() { return lastSession; },
     getSequenceScope(): TrainingScope { return sequenceScope; },
     getCurrentSequence() {

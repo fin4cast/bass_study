@@ -23,19 +23,25 @@
     }
     function seedSnapshot() {
       const preferences = structuredClone(DEFAULT_PREFERENCES);
-      preferences.study = { root: 'C', structureId: 'major', labelMode: 'degrees', strings: ['E'], fretMin: 0, fretMax: 3 };
+      preferences.study = { root: 'C', structureId: 'major', labelMode: 'degrees', strings: ['E'], fretMin: 0, fretMax: 3, box: null, showFingers: false };
       preferences.training.mode = 'sequence'; preferences.training.sequenceScope = 'chromatic';
       preferences.player.bpm = 96; preferences.player.countIn = false;
-      return validateSnapshot({ ...emptySnapshot(), preferences,
+      return validateSnapshot({ ...emptySnapshot(), profile: { theme: 'system', onboarding: { version: 1, choice: 'free', completed: false } }, preferences,
         presets: [
           { id: 'fixture-preset-a', name: 'Нижняя струна', createdAt: metadata.occurredAt, preferences },
           { id: 'fixture-preset-b', name: 'Исходная область', createdAt: metadata.occurredAt, preferences: DEFAULT_PREFERENCES },
         ], history: [screen(), manual()] });
     }
+    function draft(id = 'native-draft') {
+      const area = { root: 'C', structureId: 'major-triad', scope: 'structure', positionIds: ['E:8', 'A:7', 'A:10', 'D:10'] };
+      return { id, createdAt: metadata.occurredAt, updatedAt: metadata.occurredAt, timeZone: metadata.timeZone, localDate: '2026-11-09', context: area,
+        material: { kind: 'sequence', pattern: 'ascending', routePositionIds: area.positionIds, duration: 'quarter', fragment: { from: 0, toExclusive: 4 }, box: null }, routeRef: null,
+        totalReferenceMs: 1200, recordedThroughMs: 0, suggestedBpm: 60, comfortableBpm: 64, note: 'Нативный черновик', editRevision: 1 };
+    }
     const store = createStudyStore();
     async function seed() {
       const snapshot = seedSnapshot();
-      await store.savePreferences(snapshot.preferences);
+      await store.savePreferences(snapshot.preferences); await store.saveProfile(snapshot.profile);
       for (const preset of snapshot.presets) await store.savePreset(preset);
       for (const entry of snapshot.history) await store.addHistory(entry);
       return store.readSnapshot({ fresh: true });
@@ -45,16 +51,17 @@
         const request = indexedDB.open('bass-study'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
       });
       try {
-        const transaction = db.transaction(['preferences', 'presets', 'history'], 'readonly');
+        const transaction = db.transaction(['preferences', 'presets', 'history', 'profile', 'practiceDrafts'], 'readonly');
         const complete = new Promise((resolve, reject) => { transaction.oncomplete = resolve; transaction.onabort = () => reject(transaction.error); });
         const get = request => new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
-        const [preferences, presets, history] = await Promise.all([
+        const [preferences, presets, history, profile, practiceDrafts] = await Promise.all([
           get(transaction.objectStore('preferences').get('current')), get(transaction.objectStore('presets').getAll()), get(transaction.objectStore('history').getAll()),
+          get(transaction.objectStore('profile').get('current')), get(transaction.objectStore('practiceDrafts').getAll()),
         ]);
-        await complete; return { version: db.version, preferences: preferences ?? null, presets, history };
+        await complete; return { version: db.version, preferences: preferences ?? null, presets, history, profile, practiceDrafts };
       } finally { db.close(); }
     }
-    window.p5 = { store, seed, seedSnapshot, screen, manual, emptySnapshot, readRaw, createStore: createStudyStore, defaults: DEFAULT_PREFERENCES, ready: true };
+    window.p5 = { store, seed, seedSnapshot, screen, manual, draft, emptySnapshot, readRaw, createStore: createStudyStore, defaults: DEFAULT_PREFERENCES, ready: true };
   </script>
 </body>
 </html>

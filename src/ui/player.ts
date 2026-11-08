@@ -7,6 +7,7 @@ type Engine = ReturnType<typeof createPlayer>;
 type Snapshot = ReturnType<Engine['getSnapshot']>;
 
 export interface PlayerOptions {
+  onBeforeStart?: () => void;
   onPositionChange?: (id: string | null, noteIndex: number | null) => void;
   onSnapshot?: (snapshot: Snapshot) => void;
   getContextKey?: () => string;
@@ -74,6 +75,13 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
     <p class="player-evaluation-note">Звучит эталонная последовательность. Точность твоей игры на басу не оценивается автоматически.</p>
   `;
 
+  const advanced = document.createElement('details'); advanced.className = 'learning-help player-advanced';
+  const advancedTitle = document.createElement('summary'); advancedTitle.textContent = 'Метроном и громкость'; advanced.append(advancedTitle);
+  for (const selector of ['.player-metronome', '.player-volumes']) { const panel = container.querySelector(selector); if (panel) advanced.append(panel); }
+  container.querySelector('.player-fragment')?.after(advanced);
+  const rhythmHelp = document.createElement('details'); rhythmHelp.className = 'learning-help'; rhythmHelp.innerHTML = '<summary>Доли, длительности и фрагмент</summary><p>Здесь 4/4: в такте четыре четвертных доли. BPM — число долей в минуту. Четверть занимает долю, восьмая — половину, шестнадцатая — четверть доли. Отсчёт перед стартом — четыре доли.</p><p>Обе границы фрагмента включены: «2–4» воспроизводит ноты2,3,4. Запись показывает весь исходный маршрут, выбранный фрагмент выделен.</p>';
+  advanced.after(rhythmHelp);
+  const transport = container.querySelector('.player-transport'); if (transport) container.querySelector('.player-settings')?.after(transport);
   const field = <T extends HTMLInputElement | HTMLSelectElement>(name: string) => container.querySelector<T>(`[data-player="${name}"]`)!;
   const button = (name: string) => container.querySelector<HTMLButtonElement>(`[data-player-action="${name}"]`)!;
   const element = (testId: string) => container.querySelector<HTMLElement>(`[data-testid="${testId}"]`)!;
@@ -82,6 +90,7 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
     const output = element(testId);
     output.hidden = !text;
     output.textContent = text;
+    if (testId === 'player-error' && text) container.querySelectorAll<HTMLElement>('[aria-invalid="true"]').forEach(input => { const detail = input.closest('details'); if (detail) detail.open = true; });
   }
 
   function number(name: string, min: number, max: number) {
@@ -226,6 +235,7 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
       if (action === 'start') {
         if (!notes.length) throw new RangeError('Для воспроизведения нужен непустой маршрут. Проверь диапазон и выбранные струны.');
         const config = configuration();
+        options.onBeforeStart?.();
         message('player-notice');
         operationPending = true;
         setVolumes();
@@ -234,6 +244,7 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
         await result;
       } else if (action === 'pause') player.pause('manual');
       else if (action === 'resume') {
+        options.onBeforeStart?.();
         operationPending = true;
         message('player-notice');
         await player.resume();

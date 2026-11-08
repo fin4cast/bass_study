@@ -27,7 +27,7 @@ async function waitSnapshot(page, predicate, argument, timeout = 9000) {
 }
 function onsets(actual, expected) { assert.equal(actual.length, expected.length, `Expected PCM onsets ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`); actual.forEach((value, index) => near(value, expected[index], .02, `PCM onset ${index}`)); }
 function finitePcm(result) { assert.equal(result.channels, 3); assert.equal(result.sampleRate, 44100); for (const source of ['bass', 'pad', 'click']) assert.ok(result[source].tailRms < .000001, `${source} tail`); }
-async function ready(page) { await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert); }
+async function ready(page) { await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert); const free = page.locator('[data-intro="free"]'); if (await free.isVisible()) await free.click(); }
 async function stateIs(page, state) { await page.waitForFunction(state => document.querySelector('#harmony-mount')?.dataset.harmonyState === state, state, { polling: 20, timeout: 9000 }); }
 async function setupUi(page, { bpm = 120, countIn = false, repeat = 'infinite' } = {}) {
   await ready(page); await page.locator('[data-app-module="harmony"]').click();
@@ -148,6 +148,12 @@ check('ui-four-chords-and-sixteen-bass-notes-use-independent-musical-fixture', '
   await setupUi(page); assert.deepEqual(await page.locator('[data-harmony-chord] > strong').allTextContents(), ['C', 'F', 'G', 'C']);
   assert.deepEqual(await page.locator('[data-harmony-note] > strong').allTextContents(), BASS_NAMES);
   assert.deepEqual(await page.locator('[data-harmony-note] > span').allTextContents(), Array.from({ length: 4 }, () => ['1', '3', '5', '3']).flat());
+  assert.deepEqual(await page.locator('.harmony-function').allTextContents(), ['Тоника · T', 'Субдоминанта · S', 'Доминанта · D', 'Тоника · T']);
+  assert.match(await page.locator('.harmony-preview h3').innerText(), /Основной тон аккорда/);
+  await page.locator('.harmony-learning > summary').click();
+  assert.match(await page.locator('.harmony-learning').innerText(), /Am–Dm–Em.*E использует G♯/s);
+  assert.match(await page.locator('.harmony-learning').innerText(), /не добавляет.*отсутствующие звуки/);
+  assert.deepEqual(await page.locator('[data-harmony-note] > strong').allTextContents(), BASS_NAMES);
   assert.match(await page.locator('#harmony-mount').innerText(), /нет автоматической оценки/); return { chords: ['C', 'F', 'G', 'C'], bassNotes: BASS_NAMES };
 });
 
@@ -186,7 +192,7 @@ check('ui-harmony-preferences-preset-reload-and-json-restore-are-exact', 'ui', a
   for (const [source, value] of [['bass', 40], ['pad', 30], ['click', 20]]) await page.locator(`[data-harmony-setting="${source}Volume"]`).fill(String(value));
   await page.getByLabel('Выключить бас сопровождения', { exact: true }).check(); await page.getByLabel('Выключить метроном сопровождения', { exact: true }).check(); await saved(page); await openHistory(page);
   await page.getByLabel('Название пресета', { exact: true }).fill('Три голоса'); await page.locator('[data-history-action="save-preset"]').click(); await page.getByTestId('preset-list').getByText('Три голоса', { exact: true }).waitFor();
-  const before = await exportUi(page); assert.equal(before.schemaVersion, 5); assert.deepEqual(before.preferences.harmony, { bpm: 96, countIn: false, repeat: 'infinite', bassVolume: 40, padVolume: 30, clickVolume: 20, bassMuted: true, padMuted: false, clickMuted: true });
+  const before = await exportUi(page); assert.equal(before.schemaVersion, 6); assert.deepEqual(before.preferences.harmony, { bpm: 96, countIn: false, repeat: 'infinite', bassVolume: 40, padVolume: 30, clickVolume: 20, bassMuted: true, padMuted: false, clickMuted: true });
   await page.reload(); await ready(page); assert.ok(await page.locator('#harmony-mount').isVisible()); assert.equal(await page.locator('#harmony-mount').getAttribute('data-harmony-state'), 'stopped'); assert.equal(await page.getByLabel('Темп сопровождения', { exact: true }).inputValue(), '96');
   await page.getByLabel('Темп сопровождения', { exact: true }).fill('120'); await page.getByLabel('Темп сопровождения', { exact: true }).press('Tab'); await openHistory(page); await page.getByTestId('preset-list').getByRole('button', { name: 'Применить', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('[aria-label="Темп сопровождения"]')?.value === '96');
@@ -212,7 +218,11 @@ check('native-hidden-tab-pauses-harmony-and-requires-explicit-resume', 'native',
   await setupUi(page); await act(page, 'start').click({ force: true }); await page.waitForFunction(() => document.querySelector('#harmony-mount')?.dataset.harmonyState === 'running', undefined, { polling: 100 });
   const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront(); await page.waitForFunction(() => document.hidden && document.querySelector('#harmony-mount')?.dataset.harmonyState === 'paused', undefined, { polling: 100 });
   await page.bringToFront(); await page.waitForFunction(() => !document.hidden, undefined, { polling: 100 }); assert.match(await page.getByTestId('harmony-status').innerText(), /скрывалась/);
-  await delay(150); assert.equal(await page.locator('#harmony-mount').getAttribute('data-harmony-state'), 'paused'); await act(page, 'resume').click({ force: true }); await page.waitForFunction(() => document.querySelector('#harmony-mount')?.dataset.harmonyState === 'running', undefined, { polling: 100 }); await act(page, 'stop').click({ force: true });
+  assert.match(await page.getByTestId('harmony-notice').innerText(), /нажми «Продолжить»/);
+  await delay(150); assert.equal(await page.locator('#harmony-mount').getAttribute('data-harmony-state'), 'paused'); await act(page, 'resume').click({ force: true }); await page.waitForFunction(() => document.querySelector('#harmony-mount')?.dataset.harmonyState === 'running', undefined, { polling: 100 });
+  await page.getByTestId('harmony-notice').waitFor({ state: 'hidden' });
+  assert.equal(await page.getByTestId('harmony-notice').innerText(), '');
+  await act(page, 'stop').click({ force: true });
   return { realDocumentHidden: true, explicitResumeRequired: true, method: 'Separate Edge/CDP noDefaults:true, actual tab activation; physical output muted.' };
 }));
 

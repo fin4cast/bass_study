@@ -4,14 +4,16 @@ import {
   migrateV2Preferences, migrateV2Preset, migrateV2HistoryEntry,
   migrateV3Preferences, migrateV3Preset, migrateV3HistoryEntry,
   migrateV4Preferences, migrateV4Preset, migrateV4HistoryEntry,
-  type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot,
+  migrateV5Preferences, migrateV5Preset, migrateV5HistoryEntry,
+  DEFAULT_PROFILE, validateProfile, validatePracticeDraft, mergePracticeDraft, applyDraftDrain,
+  type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
 } from './model';
 
 export * from './model';
 export { createMemoryStudyStore } from './memory';
 export const STUDY_DB_NAME = 'bass-study';
-export const STUDY_DB_VERSION = 5;
-const STORES = ['preferences', 'presets', 'history'] as const;
+export const STUDY_DB_VERSION = 6;
+const STORES = ['preferences', 'presets', 'history', 'profile', 'practiceDrafts'] as const;
 
 function storageError(error: unknown): StudyStorageError {
   if (error instanceof StudyStorageError) return error;
@@ -32,7 +34,7 @@ export function createStudyStore() {
   let lastTransaction = { successfulWrites: 0, aborted: false };
   let cachedSnapshot: StudySnapshot | null = null;
 
-  function rememberRecord(kind: 'presets' | 'history', value: Preset | HistoryEntry) {
+  function rememberRecord(kind: 'presets' | 'history' | 'practiceDrafts', value: Preset | HistoryEntry | PracticeDraft) {
     if (!cachedSnapshot || !database) return;
     const records = [...cachedSnapshot[kind].filter(item => item.id !== value.id), value].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
     cachedSnapshot = Object.freeze({ ...cachedSnapshot, [kind]: Object.freeze(records) });
@@ -51,15 +53,19 @@ export function createStudyStore() {
         if (!db.objectStoreNames.contains('preferences')) db.createObjectStore('preferences');
         if (!db.objectStoreNames.contains('presets')) db.createObjectStore('presets', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('history')) db.createObjectStore('history', { keyPath: 'id' });
-        if (event.oldVersion === 1 || event.oldVersion === 2 || event.oldVersion === 3 || event.oldVersion === 4) {
+        if (!db.objectStoreNames.contains('profile')) db.createObjectStore('profile');
+        if (!db.objectStoreNames.contains('practiceDrafts')) db.createObjectStore('practiceDrafts', { keyPath: 'id' });
+        request.transaction!.objectStore('profile').put(DEFAULT_PROFILE, 'current');
+        if (event.oldVersion >= 1 && event.oldVersion <= 5) {
           const transaction = request.transaction!;
           const migrations = event.oldVersion === 1
             ? { preferences: migrateV1Preferences, presets: migrateV1Preset, history: migrateV1HistoryEntry }
             : event.oldVersion === 2 ? { preferences: migrateV2Preferences, presets: migrateV2Preset, history: migrateV2HistoryEntry }
             : event.oldVersion === 3 ? { preferences: migrateV3Preferences, presets: migrateV3Preset, history: migrateV3HistoryEntry }
-            : { preferences: migrateV4Preferences, presets: migrateV4Preset, history: migrateV4HistoryEntry };
+            : event.oldVersion === 4 ? { preferences: migrateV4Preferences, presets: migrateV4Preset, history: migrateV4HistoryEntry }
+            : { preferences: migrateV5Preferences, presets: migrateV5Preset, history: migrateV5HistoryEntry };
           let aborted = false;
-          for (const name of STORES) {
+          for (const name of ['preferences', 'presets', 'history'] as const) {
             const cursorRequest = transaction.objectStore(name).openCursor();
             cursorRequest.onsuccess = () => {
               if (aborted) return;
@@ -110,12 +116,14 @@ export function createStudyStore() {
     if (fresh) cachedSnapshot = null;
     const transaction = db.transaction([...STORES], 'readonly');
     const done = completion(transaction);
-    const [preferences, presets, history] = await Promise.all([
+    const [preferences, presets, history, profile, practiceDrafts] = await Promise.all([
       requestValue<unknown>(transaction.objectStore('preferences').get('current')),
       requestValue<unknown[]>(transaction.objectStore('presets').getAll()),
-      requestValue<unknown[]>(transaction.objectStore('history').getAll()), done,
+      requestValue<unknown[]>(transaction.objectStore('history').getAll()),
+      requestValue<unknown>(transaction.objectStore('profile').get('current')),
+      requestValue<unknown[]>(transaction.objectStore('practiceDrafts').getAll()), done,
     ]);
-    const snapshot = validateSnapshot({ format: 'bass-study-backup', schemaVersion: 5, preferences: preferences ?? DEFAULT_PREFERENCES, presets, history });
+    const snapshot = validateSnapshot({ format: 'bass-study-backup', schemaVersion: 6, preferences: preferences ?? DEFAULT_PREFERENCES, presets, history, profile: profile ?? DEFAULT_PROFILE, practiceDrafts });
     if (database === db) cachedSnapshot = snapshot;
     return snapshot;
   }
@@ -131,7 +139,7 @@ export function createStudyStore() {
     await done;
   }
 
-  async function remove(name: 'presets' | 'history', id: string): Promise<void> {
+  async function remove(name: 'presets' | 'history' | 'practiceDrafts', id: string): Promise<void> {
     if (typeof id !== 'string' || !id.trim() || id.length > 160) throw new StudyStorageError('INVALID_DATA', 'Некорректный ID удаляемой записи.');
     const db = await getDatabase();
     const transaction = db.transaction(name, 'readwrite');
@@ -147,10 +155,55 @@ export function createStudyStore() {
     return { snapshot, presets: snapshot.presets.length, history: snapshot.history.length, requiresConfirmation: true as const, replacement: 'full' as const };
   }
 
+  async function mutateDraft(id: string, update: (current: PracticeDraft | undefined) => PracticeDraft): Promise<PracticeDraft> {
+    const db = await getDatabase();
+    const transaction = db.transaction('practiceDrafts', 'readwrite');
+    lastTransaction = { successfulWrites: 0, aborted: false };
+    const done = completion(transaction, true);
+    try {
+      const store = transaction.objectStore('practiceDrafts');
+      const raw = await requestValue<unknown>(store.get(id));
+      const draft = update(raw === undefined ? undefined : validatePracticeDraft(raw));
+      store.put(draft).addEventListener('success', () => { lastTransaction.successfulWrites++; });
+      await done;
+      if (database === db) rememberRecord('practiceDrafts', draft);
+      return draft;
+    } catch (failure) { try { transaction.abort(); } catch { /* already completed */ } await done.catch(() => {}); throw failure; }
+  }
+
+  async function drainDraft(request: DrainDraftRequest) {
+    const db = await getDatabase();
+    const transaction = db.transaction(['history', 'practiceDrafts'], 'readwrite');
+    lastTransaction = { successfulWrites: 0, aborted: false };
+    let injectedAbort = false;
+    const done = completion(transaction, true, () => injectedAbort);
+    try {
+      const history = transaction.objectStore('history'), drafts = transaction.objectStore('practiceDrafts');
+      const [rawDraft, existing] = await Promise.all([requestValue<unknown>(drafts.get(request.draftId)), requestValue<HistoryEntry | undefined>(history.get(request.historyId))]);
+      if (!rawDraft) throw new StudyStorageError('MISSING_DRAFT', 'Черновик уже удалён или отсутствует.');
+      const result = applyDraftDrain(validatePracticeDraft(rawDraft), request, existing);
+      if (!existing) {
+        for (const write of [history.add(result.entry), drafts.put(result.draft)]) write.addEventListener('success', () => {
+          lastTransaction.successfulWrites++;
+          if (lastTransaction.successfulWrites === request.failAfterWrite) { injectedAbort = true; transaction.abort(); }
+        });
+      }
+      await done;
+      if (database === db) { rememberRecord('history', result.entry); rememberRecord('practiceDrafts', result.draft); }
+      return result;
+    } catch (failure) { try { transaction.abort(); } catch { /* already completed */ } await done.catch(() => {}); throw failure; }
+  }
+
   return {
     open: () => enqueue(async () => { const db = await getDatabase(); return { name: db.name, version: db.version }; }),
     /** The application holds the writer lease. Use fresh for explicit external-change checks. */
     readSnapshot: (options: { fresh?: boolean } = {}) => enqueue(() => read(options.fresh === true)),
+    async saveProfile(profile: GlobalProfile) { const validated = validateProfile(profile); return enqueue(async () => { await write('profile', validated, 'current'); if (cachedSnapshot && database) cachedSnapshot = Object.freeze({ ...cachedSnapshot, profile: validated }); }); },
+    async upsertPracticeDraft(draft: PracticeDraft) { const validated = validatePracticeDraft(draft); return enqueue(() => mutateDraft(validated.id, current => mergePracticeDraft(current, validated))); },
+    updateDraftProgress: (id: string, totalReferenceMs: number, suggestedBpm: number, updatedAt: string) => enqueue(() => mutateDraft(id, current => { if (!current) throw new StudyStorageError('MISSING_DRAFT', 'Черновик отсутствует.'); return validatePracticeDraft({ ...current, totalReferenceMs: Math.max(current.totalReferenceMs, totalReferenceMs), suggestedBpm, updatedAt }); })),
+    updateDraftText: (id: string, change: Pick<PracticeDraft, 'editRevision' | 'note' | 'comfortableBpm' | 'updatedAt'>) => enqueue(() => mutateDraft(id, current => { if (!current) throw new StudyStorageError('MISSING_DRAFT', 'Черновик отсутствует.'); return change.editRevision > current.editRevision ? validatePracticeDraft({ ...current, ...change }) : current; })),
+    deletePracticeDraft: (id: string) => enqueue(() => remove('practiceDrafts', id)),
+    drainDraft: (request: DrainDraftRequest) => enqueue(() => drainDraft(request)),
     async savePreferences(preferences: AppPreferences) {
       const validated = validatePreferences(preferences);
       return enqueue(async () => {
@@ -171,7 +224,7 @@ export function createStudyStore() {
     async restore(json: string, options: { confirmed: boolean; failAfterWrite?: number }) {
       const { snapshot } = previewImport(json);
       if (!options?.confirmed) return { status: 'cancelled' as const };
-      const totalWrites = 1 + snapshot.presets.length + snapshot.history.length;
+      const totalWrites = 2 + snapshot.presets.length + snapshot.history.length + snapshot.practiceDrafts.length;
       if (options.failAfterWrite !== undefined && (!Number.isInteger(options.failAfterWrite) || options.failAfterWrite < 1 || options.failAfterWrite > totalWrites)) {
         throw new StudyStorageError('INVALID_DATA', 'Некорректная точка тестового отказа транзакции.');
       }
@@ -182,9 +235,10 @@ export function createStudyStore() {
         let injectedAbort = false;
         const done = completion(transaction, true, () => injectedAbort);
         STORES.forEach(name => transaction.objectStore(name).clear());
-        const writes: IDBRequest[] = [transaction.objectStore('preferences').put(snapshot.preferences, 'current')];
+        const writes: IDBRequest[] = [transaction.objectStore('preferences').put(snapshot.preferences, 'current'), transaction.objectStore('profile').put(snapshot.profile, 'current')];
         snapshot.presets.forEach(preset => writes.push(transaction.objectStore('presets').put(preset)));
         snapshot.history.forEach(entry => writes.push(transaction.objectStore('history').put(entry)));
+        snapshot.practiceDrafts.forEach(draft => writes.push(transaction.objectStore('practiceDrafts').put(draft)));
         writes.forEach(request => request.addEventListener('success', () => {
           lastTransaction.successfulWrites++;
           if (lastTransaction.successfulWrites === options.failAfterWrite) { injectedAbort = true; transaction.abort(); }

@@ -1,6 +1,6 @@
 {
   "name": "bass-study",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "type": "module",
   "packageManager": "npm@11.16.0",
@@ -24,7 +24,8 @@
     "test:input": "node tests/input-browser.mjs",
     "docs:check": "node scripts/check-docs.mjs",
     "build": "npm run check && vite build",
-    "start": "node scripts/serve.mjs"
+    "start": "node scripts/serve.mjs",
+    "test:uiux": "node tests/uiux-browser.mjs"
   },
   "devDependencies": {
     "playwright": "1.65.0",

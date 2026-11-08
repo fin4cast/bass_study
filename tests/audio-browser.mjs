@@ -41,12 +41,15 @@ async function stateIs(page, state) {
   await page.waitForFunction(state => document.querySelector('#player-mount')?.dataset.playerState === state, state, { polling: 20, timeout: 7000 });
 }
 async function setupUi(page, { last = 3, bpm = 120, repeat = 'infinite', countIn = false, duration = 'quarter' } = {}) {
+  if (!await page.locator('#area-settings').evaluate(element => element.open)) await page.locator('#area-settings > summary').click();
   await page.getByLabel('Тоника', { exact: true }).selectOption('C');
   await page.getByLabel('Структура', { exact: true }).selectOption('major');
+  await page.getByLabel('Первый лад', { exact: true }).fill('0');
   const maximum = page.getByLabel('Последний лад', { exact: true });
   await maximum.fill(String(last)); await maximum.press('Tab');
   for (const string of ['A', 'D', 'G']) await page.getByRole('checkbox', { name: `Струна ${string}`, exact: true }).uncheck();
   await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
+  if (!await page.locator('.player-advanced').evaluate(element => element.open)) await page.locator('.player-advanced > summary').click();
   await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
   await page.getByLabel('Темп, BPM', { exact: true }).fill(String(bpm));
   await page.getByLabel('Длительность нот', { exact: true }).selectOption(duration);

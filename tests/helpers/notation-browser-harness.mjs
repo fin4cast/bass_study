@@ -7,13 +7,13 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
-export async function runNotationBrowserChecks(checks) {
+export async function runNotationBrowserChecks(checks, suite = {}) {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   const origin = 'http://localhost:4173', fixtureOrigin = 'http://127.0.0.1:4194';
   const fixtureUrl = `${fixtureOrigin}/tests/fixtures/notation.html`, resultDir = join(root, 'test-results');
   const reuseRequested = process.argv.includes('--reuse-server');
   const report = { generatedAt: new Date().toISOString(), platform: process.platform, node: process.version, browserChannel: 'msedge', browserVersion: null,
-    scope: 'R018 independent real SVG geometry/glyphs, local bundled fonts, keyboard/mobile/zoom and existing sequence audio cursor; synthetic notes, no physical bass assessment.',
+    scope: suite.scope ?? 'R018 independent real SVG geometry/glyphs, local bundled fonts, keyboard/mobile/zoom and existing sequence audio cursor; synthetic notes, no physical bass assessment.',
     origin, fixtureOrigin, staticServer: { reuseRequested, owned: false, mode: 'not-started' },
     networkIsolation: 'Fresh Edge contexts, cache disabled, non-loopback HTTP denied; no user browser profile or hardware microphone.',
     checks: [], externalRequests: [], pageErrors: [], cleanupErrors: [] };
@@ -84,7 +84,8 @@ export async function runNotationBrowserChecks(checks) {
     await cleanup('owned-static-server', async () => { if (!externalServer && server?.pid && server.exitCode === null) { const exited = new Promise(resolve => server.once('exit', resolve)); server.kill(); await exited; } });
     report.passed = report.checks.filter(check => check.status === 'passed').length; report.failed = report.checks.filter(check => check.status === 'failed').length;
     report.status = !report.setupError && !report.failed && !report.cleanupErrors.length ? 'passed' : 'failed';
-    await mkdir(resultDir, { recursive: true }); await writeFile(join(resultDir, 'p7-notation-edge.json'), JSON.stringify(report, null, 2) + '\n');
-    console.log(`${report.status}: ${report.passed} passed, ${report.failed} failed; test-results/p7-notation-edge.json`); process.exitCode = report.status === 'passed' ? 0 : 1;
+    const reportName = suite.reportName ?? 'p7-notation-edge.json';
+    await mkdir(resultDir, { recursive: true }); await writeFile(join(resultDir, reportName), JSON.stringify(report, null, 2) + '\n');
+    console.log(`${report.status}: ${report.passed} passed, ${report.failed} failed; test-results/${reportName}`); process.exitCode = report.status === 'passed' ? 0 : 1;
   }
 }

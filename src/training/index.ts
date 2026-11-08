@@ -3,6 +3,8 @@ import {
   type AnnotatedPosition, type MusicalStructure, type StructureId,
 } from '../music';
 import { createIntervalTarget, createPitchTarget, type IntervalDegree } from './constraints';
+import { getBoxInstance, type BoxSelection } from '../music/boxes';
+import type { RouteRef } from '../route';
 export { INTERVAL_DEGREES, createIntervalTarget, createPitchTarget, spellInterval } from './constraints';
 export type { IntervalDegree } from './constraints';
 
@@ -13,20 +15,25 @@ export type QuizMode = 'name-note' | 'find-note' | 'find-all' | 'find-degree' | 
 export type TrainingScope = 'structure' | 'chromatic';
 export type SequencePattern = 'ascending' | 'descending' | 'round-trip' | 'groups-of-three';
 export type QuizAnswer = string | number;
+export type QuestionPolicy = 'random-v1' | 'triad-6-v1' | 'shape-6-v1';
 
 export interface TrainingConfig {
+  readonly box?: BoxSelection | null;
   readonly positions: readonly AnnotatedPosition[];
   readonly structure: MusicalStructure;
   readonly scope?: TrainingScope;
 }
 
 export interface QuizConfig extends TrainingConfig {
+  readonly questionPolicy?: QuestionPolicy;
+  readonly routeRef?: RouteRef | null;
   readonly mode: QuizMode;
   readonly seed: number;
   readonly intervalDegree?: IntervalDegree;
 }
 
 export interface QuestionContext {
+  readonly box?: BoxSelection | null;
   readonly scope: TrainingScope;
   readonly root: string;
   readonly structureId: StructureId;
@@ -95,6 +102,8 @@ export interface QuizResult {
 }
 
 export interface QuizSession {
+  readonly questionPolicy: QuestionPolicy;
+  readonly routeRef?: RouteRef | null;
   readonly kind: 'screen';
   readonly seed: number;
   readonly questions: readonly Question[];
@@ -137,12 +146,20 @@ function randomUint32(seed: number): () => number {
 function eligiblePositions(config: TrainingConfig): readonly AnnotatedPosition[] {
   const scope = config.scope ?? 'structure';
   if (scope !== 'structure' && scope !== 'chromatic') throw new RangeError('Неизвестная область: выберите ноты структуры или все ноты.');
-  const annotated = annotatePositions(config.positions, config.structure);
+  let supplied = config.positions;
+  if (config.box) {
+    const box = getBoxInstance(config.box);
+    if (box.selection.root !== config.structure.root || box.selection.structureId !== config.structure.id) throw new RangeError('Форма не соответствует выбранной тонике и структуре.');
+    const allowed = new Set(config.positions.map(position => position.id));
+    if (box.referencePositionIds.some(id => !allowed.has(id))) throw new RangeError('Учебная форма не помещается в доступную область. Покажи её целиком.');
+    supplied = box.positions;
+  }
+  const annotated = annotatePositions(supplied, config.structure);
   const unique = [...new Map(annotated.map(position => [position.id, position])).values()];
   return unique.filter(position => scope === 'chromatic' || position.inStructure);
 }
 
-export function createQuestion(config: QuizConfig): Question {
+export function createQuestion(config: QuizConfig, forcedPitchClass?: number): Question {
   validateSeed(config.seed);
   if (!QUIZ_MODES.includes(config.mode)) throw new RangeError('Неизвестный режим задания.');
   const scope = config.mode === 'find-interval' ? 'chromatic' : config.scope ?? 'structure';
@@ -154,9 +171,10 @@ export function createQuestion(config: QuizConfig): Question {
     label: config.structure.notes.find(note => note.pitchClass === pitchClass)?.name ?? fallback,
     pitchClass,
   }));
-  const context = { scope, root: config.structure.root, structureId: config.structure.id, positionIds: [...new Set(config.positions.map(position => position.id))] };
+  const effectiveIds = config.box && config.mode !== 'find-interval' ? eligiblePositions(config).map(position => position.id) : config.positions.map(position => position.id);
+  const context: QuestionContext = { scope, root: config.structure.root, structureId: config.structure.id, positionIds: [...new Set(effectiveIds)], ...(config.box && config.mode !== 'find-interval' ? { box: getBoxInstance(config.box).selection } : {}) };
   if (config.mode === 'find-pitch' || config.mode === 'find-interval') {
-    const generated = config.mode === 'find-pitch' ? createPitchTarget(config)
+    const generated = config.mode === 'find-pitch' ? createPitchTarget({ ...config, positions: eligiblePositions(config) })
       : createIntervalTarget(config.structure.root, config.intervalDegree ?? '#4', config.positions);
     return immutable({
       id: `q-${config.seed.toString(16)}-${config.mode}-${generated.targetMidi ?? generated.target.degree}`,
@@ -170,7 +188,8 @@ export function createQuestion(config: QuizConfig): Question {
   const targets = config.mode === 'name-note'
     ? positions
     : [...new Map(positions.map(position => [position.pitchClass, position])).values()];
-  const selected = targets[Math.floor((next() / 0x100000000) * targets.length)];
+  const selected = forcedPitchClass === undefined ? targets[Math.floor((next() / 0x100000000) * targets.length)] : targets.find(position => position.pitchClass === forcedPitchClass);
+  if (!selected) throw new RangeError('Запрошенная нота отсутствует в учебной форме.');
   const expectedPositionIds = positions.filter(position => position.pitchClass === selected.pitchClass).map(position => position.id);
   const target = { pitchClass: selected.pitchClass, name: selected.noteName, degree: selected.degree };
   const prompts = {
@@ -204,9 +223,24 @@ export function startQuiz(config: QuizConfig, count = 10): QuizSession {
   validateSeed(config.seed);
   if (!Number.isInteger(count) || count < 1 || count > 100) throw new RangeError('Число заданий должно быть целым от 1 до 100.');
   const next = randomUint32(config.seed);
-  const questions = Array.from({ length: count }, () => createQuestion({ ...config, seed: next() }));
+  const questionPolicy = config.questionPolicy ?? 'random-v1';
+  if (!['random-v1', 'triad-6-v1', 'shape-6-v1'].includes(questionPolicy)) throw new RangeError('Неизвестное правило набора вопросов.');
+  let targetClasses: number[] | null = null;
+  if (questionPolicy === 'triad-6-v1') {
+    if (count !== 6 || config.mode !== 'find-note' || !['major-triad', 'minor-triad'].includes(config.structure.id)) throw new RangeError('Учебная серия трезвучия — шесть вопросов «Найди ноту».');
+    targetClasses = config.structure.notes.flatMap(note => [note.pitchClass, note.pitchClass]);
+    for (let index = targetClasses.length - 1; index > 0; index--) { const swap = next() % (index + 1); [targetClasses[index], targetClasses[swap]] = [targetClasses[swap], targetClasses[index]]; }
+  }
+  if (questionPolicy === 'shape-6-v1') {
+    if (count !== 6 || config.mode !== 'find-note') throw new RangeError('Серия формы — шесть вопросов «Найди ноту».');
+    const classes = [...new Set(eligiblePositions(config).map(position => position.pitchClass))];
+    if (!classes.length) throw new RangeError('В выбранном материале нет доступных нот.');
+    for (let index = classes.length - 1; index > 0; index--) { const swap = next() % (index + 1); [classes[index], classes[swap]] = [classes[swap], classes[index]]; }
+    targetClasses = Array.from({ length: 6 }, (_, index) => classes[index % classes.length]);
+  }
+  const questions = Array.from({ length: count }, (_, index) => createQuestion({ ...config, seed: next() }, targetClasses?.[index]));
   return immutable({
-    kind: 'screen', seed: config.seed, questions, questionIndex: 0, currentQuestion: questions[0],
+    kind: 'screen', questionPolicy, ...(config.routeRef ? { routeRef: { ...config.routeRef } } : {}), seed: config.seed, questions, questionIndex: 0, currentQuestion: questions[0],
     status: 'active', answerState: initialAnswer(), results: [],
   });
 }

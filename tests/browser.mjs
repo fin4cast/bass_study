@@ -52,6 +52,10 @@ async function check(name, operation) {
     await page.goto(origin);
     await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
     await page.waitForSelector('[data-position="E:5"]');
+    await page.locator('#area-settings > summary').click();
+    // P2 retains its explicit free-map baseline; P8 tests the new default form.
+    await page.getByLabel('Учебная форма', { exact: true }).selectOption('');
+    await setRange(0, 12);
     const evidence = await operation();
     report.checks.push({ name, status: 'passed', durationMs: Math.round(performance.now() - start), evidence });
     console.log(`PASS ${name}`);
@@ -218,13 +222,16 @@ try {
 
   await check('same-height-different-string-and-octave', async () => {
     await at('E:5').click();
+    await page.getByTestId('selection-detail').locator('summary').click();
     assert.match(await detail().innerText(), /A1/);
     assert.match(await detail().innerText(), /33/);
     await at('A:0').click();
+    await page.getByTestId('selection-detail').locator('summary').click();
     assert.match(await detail().innerText(), /A1/);
     assert.match(await detail().innerText(), /33/);
     assert.equal(await selectedPosition(), 'A:0');
     await at('E:12').click();
+    await page.getByTestId('selection-detail').locator('summary').click();
     assert.match(await detail().innerText(), /E2/);
     assert.match(await detail().innerText(), /40/);
     return { sameHeightPositions: ['E:5', 'A:0'], sameHeightMidi: 33, octavePosition: 'E:12', octaveMidi: 40 };
@@ -321,7 +328,10 @@ try {
     ({ ctx: context, nextPage: page } = await newContext());
     await page.goto(origin);
     await page.waitForSelector('[data-position="E:5"]');
-    assert.equal(await positions().count(), 52);
+    await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
+    assert.equal(await positions().count(), 16);
+    assert.match(await page.locator('#box-select option:checked').innerText(), /^Форма A/);
+    assert.equal(await firstFret().inputValue(), '5'); assert.equal(await lastFret().inputValue(), '8');
     assert.deepEqual(externalRequests, []);
     const sentinel = await page.evaluate(async () => {
       try { await fetch('https://example.com/p2-network-sentinel'); return 'unexpected-success'; }
@@ -332,7 +342,7 @@ try {
     externalRequests = [];
     assert.deepEqual(pageErrors, []);
     await page.screenshot({ path: join(resultDir, 'p2-desktop.png'), fullPage: true });
-    return { freshContextPositions: 52, externalApplicationRequests: 0, sentinel, pageErrors: [] };
+    return { freshContextPositions: 16, defaultShape: 'A', defaultRange: [5, 8], externalApplicationRequests: 0, sentinel, pageErrors: [] };
   });
 } catch (error) {
   report.setupError = error.stack || String(error);

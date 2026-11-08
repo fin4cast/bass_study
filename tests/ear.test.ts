@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  GUIDED_ROUTE_STEPS, beginEarListen, cancelEarListen, collectEarResults, completeEarListen, createEarQuestion, getEarAudioEvents,
+  GUIDED_ROUTE_STEPS, beginEarListen, cancelEarListen, collectEarResults, completeEarListen, createEarQuestion, createEarExample, getEarAudioEvents,
   getEarSummary, nextEarQuestion, revealEarAnswer, skipEarQuestion, startEarSession, submitEarAnswer,
   type EarConfig, type EarSession,
 } from '../src/ear';
@@ -12,6 +12,20 @@ function heard(session = startEarSession(config), startMs = 0, bpm = 80) {
 }
 
 describe('содержательная музыкальная модель слухового задания', () => {
+  it('явная опора сохраняет регистр маршрута, свободный режим остаётся прежним', () => {
+    expect(createEarQuestion({ root: 'A', quality: 'minor', referenceMidi: 33, seed: 10000 })).toMatchObject({ referenceMidi: 33, targetMidi: 36, targetName: 'C' });
+    expect(createEarQuestion({ root: 'A', quality: 'minor', seed: 10000 })).toMatchObject({ referenceMidi: 45, targetMidi: 48 });
+    for (const referenceMidi of [32, -1, 121, 33.5]) expect(() => createEarQuestion({ root: 'A', quality: 'minor', referenceMidi, seed: 10000 })).toThrow();
+  });
+  it('подписанные образцы имеют независимые C2/E2/G2, не создают попытки или результат', () => {
+    const session = startEarSession(config); const before = JSON.stringify(session);
+    const examples = (['1', '3', '5'] as const).map(degree => createEarExample({ root: 'C', quality: 'major', referenceMidi: 36 }, degree));
+    expect(examples.map(question => question.targetMidi)).toEqual([36, 40, 43]);
+    expect(examples.map(question => question.targetName)).toEqual(['C', 'E', 'G']);
+    expect(createEarExample({ root: 'C', quality: 'minor', referenceMidi: 36 }, 'b3').targetMidi).toBe(39);
+    expect(() => createEarExample({ root: 'C', quality: 'major' }, 'b3')).toThrow();
+    expect(JSON.stringify(session)).toBe(before); expect(collectEarResults(session)).toEqual([]);
+  });
   it.each([
     ['C', 'major', 36, 40, '3', 'E'], ['A', 'minor', 45, 48, 'b3', 'C'], ['C#', 'major', 37, 41, '3', 'E♯'],
     ['Gb', 'major', 42, 46, '3', 'B♭'], ['Cb', 'minor', 47, 50, 'b3', 'E♭♭'],

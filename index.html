@@ -4,6 +4,21 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f3ec">
+    <script>
+      // Confirmed display cache only; the validated profile wins after startup.
+      (() => {
+        let preference = 'system';
+        try {
+          const cache = JSON.parse(localStorage.getItem('bass-study-theme-v1') || 'null');
+          if (cache && !Array.isArray(cache) && Object.keys(cache).length === 2 && cache.version === 1 && ['light', 'dark', 'system'].includes(cache.preference)) preference = cache.preference;
+        } catch { /* The system theme also works without browser storage. */ }
+        const dark = preference === 'dark' || preference === 'system' && matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.themePreference = preference;
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+      })();
+    </script>
+    <link rel="stylesheet" href="/src/theme.css">
     <meta name="description" content="Локальный тренажёр бас-гитары: ноты, ступени, гаммы и связи на грифе четырёхструнного баса.">
     <title>bass.study — Изучение грифа</title>
   </head>

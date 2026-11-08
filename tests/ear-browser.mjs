@@ -17,7 +17,11 @@ async function fixtureAction(page, name) {
   await page.waitForFunction(name => window.p7ear.action?.name === name && window.p7ear.action.done, name);
   assert.equal((await page.evaluate(() => window.p7ear.action)).error, null);
 }
-async function ready(page) { await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert); }
+async function ready(page) {
+  await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert);
+  const free = page.locator('[data-intro="free"]'); if (await free.count() && await free.isVisible()) await free.click();
+}
+async function disclose(page, selector) { const details = page.locator(selector); if (await details.count() && !await details.evaluate(element => element.open)) await details.locator('summary').first().click(); }
 async function saved(page) { await page.waitForFunction(() => document.querySelector('[data-testid="history-save-status"]')?.dataset.status === 'saved'); }
 async function configure(page, { root = 'C', quality = 'major', count = 1, bpm = 120 } = {}) {
   await ready(page); await page.locator('[data-app-module="ear"]').click();
@@ -134,6 +138,25 @@ check('ui-listen-gates-answers-until-actual-end-and-first-correct-is-independent
   return { oracle, result, entry };
 });
 
+check('ui-labelled-study-and-revealed-answer-playback-do-not-create-score-events', 'ui', async ({ page }) => {
+  await configure(page); await page.evaluate(() => window.__earAudioObserved.reset());
+  await page.locator('[data-ear-example="3"]').click();
+  await page.waitForFunction(() => window.__earAudioObserved.read().frequencies.filter(event => event.frequency > 0).length >= 2);
+  const sample = (await observation(page)).frequencies.filter(event => event.frequency > 0).slice(-2);
+  near(sample[0].frequency, 65.40639132514966, .01, 'labelled C2 reference'); near(sample[1].frequency, 82.4068892282175, .01, 'labelled E2 example');
+  await page.waitForFunction(() => !document.querySelector('[data-ear-example="3"]').disabled);
+  assert.equal(await page.getByTestId('ear-question').count(), 0); assert.equal((await exportUi(page)).history.length, 0);
+  await start(page); await action(page, 'reveal').click(); await saved(page);
+  const before = (await exportUi(page)).history.find(entry => entry.result.kind === 'ear').result;
+  assert.equal(before.questions[0].outcome, 'revealed'); assert.equal(before.questions[0].listensStarted, 0);
+  await page.evaluate(() => window.__earAudioObserved.reset()); await page.locator('[data-ear-review]').click();
+  await page.waitForFunction(() => window.__earAudioObserved.read().frequencies.filter(event => event.frequency > 0).length >= 2);
+  await page.waitForFunction(() => !document.querySelector('[data-ear-example="1"]').disabled);
+  const after = (await exportUi(page)).history.find(entry => entry.result.kind === 'ear').result;
+  assert.deepEqual(after, before, 'Review audio must leave the saved graded result unchanged');
+  return { labelledFrequencies: sample, reviewPreservedWholeResult: true, outcome: after.questions[0].outcome };
+});
+
 check('ui-replay-is-counted-separately-from-first-answer-score', 'ui', async ({ page }) => {
   await configure(page, { root: 'A', quality: 'minor' }); await start(page); const first = await fullListen(page); const replay = await fullListen(page);
   assert.equal(first.degree, replay.degree); assert.equal(await page.getByTestId('ear-completed-listens').innerText(), '2'); assert.equal(await page.getByTestId('ear-replay-count').innerText(), '1');
@@ -186,7 +209,7 @@ check('ui-unfinished-ear-target-stays-hidden-in-global-history-and-after-reload'
 });
 
 check('ui-ear-preferences-and-three-route-links-persist-without-fret-filter-dependence', 'ui', async ({ page }) => {
-  await ready(page); for (const string of ['E', 'A', 'D', 'G']) await page.getByRole('checkbox', { name: `Струна ${string}`, exact: true }).uncheck();
+  await ready(page); await disclose(page, '#area-settings'); for (const string of ['E', 'A', 'D', 'G']) await page.getByRole('checkbox', { name: `Струна ${string}`, exact: true }).uncheck();
   await configure(page, { root: 'F#', quality: 'minor', bpm: 120 }); await start(page); const oracle = await fullListen(page); await choice(page, oracle.degree).click(); await action(page, 'next').click(); await saved(page);
   await page.reload(); await ready(page); assert.ok(await page.locator('#ear-mount').isVisible()); assert.equal(await page.getByLabel('Тоника слухового задания', { exact: true }).inputValue(), 'F#'); assert.equal(await page.getByLabel('Трезвучие для слуха', { exact: true }).inputValue(), 'minor');
   const visits = [];
@@ -201,16 +224,20 @@ check('ui-ear-preferences-and-three-route-links-persist-without-fret-filter-depe
 
 check('ui-ear-history-filter-counts-reload-and-backup-replacement-stay-separate', 'ui', async ({ page }) => {
   await configure(page); await start(page); const oracle = await fullListen(page); await choice(page, oracle.degree).click(); await action(page, 'next').click();
-  const exported = await exportUi(page); assert.equal(exported.schemaVersion, 5); assert.equal(exported.history[0].result.kind, 'ear');
+  const exported = await exportUi(page); assert.equal(exported.schemaVersion, 6); assert.equal(exported.history[0].result.kind, 'ear');
   assert.match(await page.getByTestId('ear-history-summary').innerText(), /Слух — отдельно/); assert.match(await page.getByTestId('ear-history-summary').innerText(), /1 самостоятельных/);
   await page.getByLabel('Тип записей истории', { exact: true }).selectOption('screen'); assert.equal(await page.getByTestId('history-list').locator('[data-history-entry]').count(), 0);
   await page.getByLabel('Тип записей истории', { exact: true }).selectOption('ear'); assert.equal(await page.getByTestId('history-list').locator('[data-history-kind="ear"]').count(), 1);
-  await page.getByLabel('Тип записей истории', { exact: true }).selectOption('all'); await page.getByLabel('Заметка к практике', { exact: true }).fill('Лишняя ручная отметка до полной замены');
-  await page.locator('[data-history-action="save-manual"]').click(); await saved(page); assert.equal((await exportUi(page)).history.length, 2);
+  await page.getByLabel('Тип записей истории', { exact: true }).selectOption('all');
+  await page.locator('[data-app-module="foundation"]').click(); await page.getByRole('button', { name: 'Задания', exact: true }).click();
+  await disclose(page, '[data-training-details="quiz"]');
+  await page.getByLabel('Количество вопросов', { exact: true }).fill('1'); await page.getByLabel('Количество вопросов', { exact: true }).press('Tab');
+  await page.locator('[data-training-action="start"]').click(); await page.locator('[data-training-action="hint"]').click(); await page.locator('[data-training-action="next"]').click();
+  await saved(page); assert.equal((await exportUi(page)).history.length, 2);
   await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name: 'ear-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(exported)) });
   await page.getByTestId('backup-preview').waitFor(); await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check(); await page.locator('[data-history-action="confirm-restore"]').click();
   await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); assert.deepEqual(await exportUi(page), exported);
-  await page.reload(); await ready(page); assert.deepEqual(await exportUi(page), exported); return { oracle, source: exported.history[0].result.source, restoredExactly: true, manualRecordRemoved: true };
+  await page.reload(); await ready(page); assert.deepEqual(await exportUi(page), exported); return { oracle, source: exported.history[0].result.source, restoredExactly: true, extraScreenRecordRemoved: true };
 });
 
 check('ui-invalid-ear-settings-recover-and-narrow-layout-remains-usable', 'ui', async ({ page, resultDir }) => {
@@ -234,6 +261,80 @@ async function startRoute(page) {
   assert.ok(await page.getByTestId('route-session-bar').isVisible());
 }
 
+check('guided-route-shares-exact-material-and-links-screen-ear-results', 'ui', async ({ page }) => {
+  await startRoute(page);
+  // Read the actual viewport geometry after the route coordinator's focus and
+  // ResizeObserver update; the test never scrolls the prompt on its behalf.
+  await page.waitForFunction(() => {
+    const prompt = document.querySelector('[data-testid="quiz-prompt"]');
+    const bar = document.querySelector('[data-testid="route-session-bar"]');
+    if (!prompt || !bar || document.activeElement !== prompt) return false;
+    const target = prompt.getBoundingClientRect(), pinned = bar.getBoundingClientRect();
+    return target.top >= pinned.bottom + 8 && target.bottom <= innerHeight;
+  }, undefined, { polling: 'raf', timeout: 3000 });
+  const initialFocus = await page.evaluate(() => {
+    const prompt = document.querySelector('[data-testid="quiz-prompt"]').getBoundingClientRect();
+    const bar = document.querySelector('[data-testid="route-session-bar"]').getBoundingClientRect();
+    return { promptTop: prompt.top, promptBottom: prompt.bottom, pinnedBottom: bar.bottom, viewportHeight: innerHeight, focusedId: document.activeElement.id };
+  });
+  assert.equal(initialFocus.focusedId, 'quiz-prompt');
+  assert.ok(initialFocus.promptTop >= initialFocus.pinnedBottom + 8, JSON.stringify(initialFocus));
+  assert.ok(initialFocus.promptBottom <= initialFocus.viewportHeight, JSON.stringify(initialFocus));
+  const expectedIds = ['E:8', 'A:7', 'A:10', 'D:10'];
+  const boardIds = await page.getByTestId('quiz-answer-board').locator('[data-answer-position]').evaluateAll(nodes => nodes.map(node => node.dataset.answerPosition));
+  assert.deepEqual([...boardIds].sort(), [...expectedIds].sort());
+  const targets = []; const positionForName = { C: 'E:8', E: 'A:7', G: 'A:10' };
+  for (let index = 0; index < 6; index++) {
+    const target = await page.getByTestId('quiz-target').innerText(); targets.push(target); assert.ok(positionForName[target]);
+    await page.getByTestId('quiz-answer-board').locator(`[data-answer-position="${positionForName[target]}"]`).click();
+    await page.locator('[data-training-action="next"]').click();
+  }
+  assert.deepEqual([...targets].sort(), ['C', 'C', 'E', 'E', 'G', 'G']);
+  await routeAction(page, 'next').click(); assert.ok(await page.locator('#ear-mount').isVisible());
+  assert.ok(await page.locator('[data-ear-example="3"]').isVisible());
+  assert.equal(await page.getByLabel('Слуховых вопросов', { exact: true }).inputValue(), '6');
+  await start(page); const oracle = await fullListen(page); near(oracle.frequencies[0].frequency, 65.40639132514966, .01, 'route C2 reference');
+  await choice(page, oracle.degree).click(); await action(page, 'finish').click();
+  await routeAction(page, 'next').click(); assert.equal(await page.locator('[data-training-mode="sequence"]').getAttribute('aria-pressed'), 'true');
+  assert.deepEqual(await page.getByTestId('sequence-route').locator('[data-sequence-position]').evaluateAll(nodes => nodes.map(node => node.dataset.sequencePosition)), expectedIds);
+  assert.equal(await page.getByLabel('Длительность нот', { exact: true }).inputValue(), 'quarter');
+  assert.equal(await page.getByLabel('Темп, BPM', { exact: true }).inputValue(), '60');
+  assert.equal(await page.getByLabel('Повтор', { exact: true }).inputValue(), 'infinite');
+  assert.ok(await page.getByLabel('Отсчёт перед стартом', { exact: true }).isChecked());
+  await routeAction(page, 'stop').click(); const exported = await exportUi(page);
+  const route = exported.history.find(entry => entry.result.kind === 'route'); const screen = exported.history.find(entry => entry.result.kind === 'screen'); const ear = exported.history.find(entry => entry.result.kind === 'ear');
+  assert.equal(route.result.material.kind, 'triad-route-v1'); assert.deepEqual(route.result.material.referencePositionIds, expectedIds);
+  assert.equal(screen.result.questionPolicy, 'triad-6-v1'); assert.equal(screen.result.context.box.shapeId, 'compact-e');
+  assert.equal(ear.result.context.referenceMidi, 36); assert.equal(ear.result.plannedCount, 6);
+  assert.deepEqual(screen.routeRef, { routeId: route.result.id, step: 'fretboard' }); assert.deepEqual(ear.routeRef, { routeId: route.result.id, step: 'ear' });
+  assert.ok(route.result.sessionLinks.some(link => link.id === screen.id && link.step === 'fretboard'));
+  assert.ok(route.result.sessionLinks.some(link => link.id === ear.id && link.step === 'ear'));
+  await routeAction(page, 'close').click(); assert.ok(await page.locator('#route-session-mount').isHidden());
+  return { targets, exactPositions: expectedIds, referenceMidi: 36, linkedScreen: screen.id, linkedEar: ear.id, resultClosed: true, initialFocus };
+});
+
+check('route-card-preview-pauses-old-step-and-keeps-free-ear-unlinked-until-next', 'ui', async ({ page }) => {
+  await startRoute(page);
+  await page.waitForFunction(() => Number(document.querySelector('#route-session-mount')?.dataset.routeActiveMs) > 200);
+  await page.locator('[data-app-module="route"]').click();
+  await page.locator('[data-route-step="ear"]').click(); await routeState(page, 'paused');
+  assert.equal(await page.locator('#route-session-mount').getAttribute('data-route-step'), 'fretboard');
+  const paused = await routeActive(page);
+  await start(page); const previewOracle = await fullListen(page); await choice(page, previewOracle.degree).click(); await action(page, 'finish').click();
+  assert.equal(await routeActive(page), paused, 'Preview listening must not add time to the paused fretboard block');
+  await routeAction(page, 'next').click(); await routeState(page, 'running');
+  assert.equal(await page.locator('#route-session-mount').getAttribute('data-route-step'), 'ear');
+  await start(page); const linkedOracle = await fullListen(page); await choice(page, linkedOracle.degree).click(); await action(page, 'finish').click();
+  await routeAction(page, 'stop').click(); const exported = await exportUi(page);
+  const route = exported.history.find(entry => entry.result.kind === 'route');
+  const ears = exported.history.filter(entry => entry.result.kind === 'ear'); assert.equal(ears.length, 2);
+  const free = ears.find(entry => entry.routeRef === null); const linked = ears.find(entry => entry.routeRef?.routeId === route.result.id);
+  assert.ok(free); assert.ok(linked); assert.equal(linked.routeRef.step, 'ear');
+  assert.ok(!route.result.sessionLinks.some(link => link.id === free.id));
+  assert.ok(route.result.sessionLinks.some(link => link.id === linked.id && link.step === 'ear'));
+  return { previewKeptStep: 'fretboard', pausedActiveMs: paused, freeEarId: free.id, linkedEarId: linked.id, nextOpenedTimedEar: true };
+});
+
 check('timed-route-real-pause-resume-early-next-and-stop-save-actual-time', 'ui', async ({ page }) => {
   await startRoute(page);
   await page.waitForFunction(() => Number(document.querySelector('#route-session-mount')?.dataset.routeActiveMs) >= 900);
@@ -254,7 +355,7 @@ check('timed-route-real-pause-resume-early-next-and-stop-save-actual-time', 'ui'
   return { pausedActiveMs: paused, pausedWallMsExcluded: 1000, earlyNextOpenedEar: true, entry, fullTenMinuteWaitClaimed: false };
 });
 
-check('timed-route-five-second-checkpoint-preserves-history-draft-focus-and-one-id', 'ui', async ({ page }) => {
+check('timed-route-five-second-checkpoint-preserves-history-field-focus-and-one-id', 'ui', async ({ page }) => {
   await startRoute(page);
   await page.waitForFunction(() => Number(document.querySelector('#route-session-mount')?.dataset.routeActiveMs) > 200);
   // A zero-active start deliberately creates no history row. A real pause with
@@ -262,7 +363,7 @@ check('timed-route-five-second-checkpoint-preserves-history-draft-focus-and-one-
   await routeAction(page, 'pause').click(); await routeState(page, 'paused'); await saved(page);
   await routeAction(page, 'resume').click(); await routeState(page, 'running');
   const first = await exportUi(page); const initial = first.history.find(entry => entry.result.kind === 'route'); assert.ok(initial);
-  const note = page.getByLabel('Заметка к практике', { exact: true }); const text = 'Черновик остаётся на месте при сохранении таймера.';
+  const note = page.getByLabel('Название пресета', { exact: true }); const text = 'Редактируемое поле остаётся на месте при сохранении таймера.';
   await note.fill(text); await note.press('ArrowLeft'); await note.press('ArrowLeft');
   const caret = await note.evaluate(element => element.selectionStart);
   await delay(5500);
@@ -271,7 +372,7 @@ check('timed-route-five-second-checkpoint-preserves-history-draft-focus-and-one-
   assert.ok(await routeActive(page) >= 5000); await routeAction(page, 'stop').click(); await routeState(page, 'finished');
   const after = await exportUi(page); const entries = after.history.filter(entry => entry.result.kind === 'route'); assert.equal(entries.length, 1); assert.equal(entries[0].id, initial.id);
   assert.ok(entries[0].result.actualStepMs[0] >= 5000); assert.deepEqual(entries[0].result.actualStepMs.slice(1), [0, 0]);
-  return { sameHistoryId: initial.id, observedCheckpointAfterMs: 5500, draftFocusAndCaretPreserved: true, entry: entries[0] };
+  return { sameHistoryId: initial.id, observedCheckpointAfterMs: 5500, historyFieldFocusAndCaretPreserved: true, entry: entries[0] };
 });
 
 check('native-hidden-tab-pauses-timed-route-and-return-requires-explicit-resume', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {

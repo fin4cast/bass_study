@@ -1,8 +1,10 @@
 import { createStructure } from '../music';
+import type { RouteRef } from '../route';
 
 export type EarQuality = 'major' | 'minor';
 export type EarDegree = '1' | '3' | 'b3' | '5';
-export interface EarConfig { readonly root: string; readonly quality: EarQuality; readonly count: number; readonly seed: number }
+export interface EarContext { readonly root: string; readonly quality: EarQuality; readonly referenceMidi: number }
+export interface EarConfig { readonly root: string; readonly quality: EarQuality; readonly count: number; readonly seed: number; readonly referenceMidi?: number; readonly routeRef?: RouteRef | null }
 export interface EarQuestion {
   readonly id: string; readonly seed: number; readonly root: string; readonly quality: EarQuality;
   readonly referenceMidi: number; readonly targetMidi: number; readonly targetDegree: EarDegree; readonly targetName: string;
@@ -30,6 +32,7 @@ export interface EarResult {
   readonly closedAtMs: number; readonly completionAfterListenMs: number | null;
 }
 export interface EarSession {
+  readonly routeRef?: RouteRef | null;
   readonly kind: 'ear'; readonly source: 'audio-choice'; readonly seed: number;
   readonly questions: readonly EarQuestion[]; readonly questionIndex: number; readonly currentQuestion: EarQuestion;
   readonly status: 'active' | 'review' | 'finished'; readonly answerState: EarAnswerState; readonly results: readonly EarResult[];
@@ -63,11 +66,21 @@ export function createEarQuestion(config: Omit<EarConfig, 'count'>): EarQuestion
   if (config.quality !== 'major' && config.quality !== 'minor') throw new RangeError('Выберите мажорное или минорное трезвучие.');
   const structure = createStructure(config.root, config.quality === 'major' ? 'major-triad' : 'minor-triad');
   const selected = structure.notes[Math.floor(seedValue(config.seed) / 0x100000000 * 3)];
-  const referenceMidi = 36 + structure.rootPitchClass;
+  const referenceMidi = config.referenceMidi ?? 36 + structure.rootPitchClass;
+  if (!Number.isInteger(referenceMidi) || referenceMidi < 0 || referenceMidi > 120 || referenceMidi % 12 !== structure.rootPitchClass) throw new RangeError('Опорная высота должна быть тоникой и оставлять место для квинты в MIDI 0–127.');
   return immutable({ id: `ear-${config.seed.toString(16)}-${config.quality}-${structure.root}`, seed: config.seed,
     root: structure.root, quality: config.quality, referenceMidi, targetMidi: referenceMidi + selected.semitones,
     targetDegree: selected.degree as EarDegree, targetName: selected.name,
     choices: structure.notes.map(note => ({ id: note.degree as EarDegree, label: note.degree.replace('b', '♭') })) });
+}
+
+/** Labelled study/review cues have no answer state and never contribute to a score. */
+export function createEarExample(context: { readonly root: string; readonly quality: EarQuality; readonly referenceMidi?: number }, degree: EarDegree): EarQuestion {
+  const question = createEarQuestion({ ...context, seed: 0 });
+  const structure = createStructure(context.root, context.quality === 'major' ? 'major-triad' : 'minor-triad');
+  const note = structure.notes.find(candidate => candidate.degree === degree);
+  if (!note) throw new RangeError('В выбранном трезвучии нет такой ступени.');
+  return immutable({ ...question, id: `example-${question.referenceMidi}-${context.quality}-${degree}`, targetDegree: degree, targetMidi: question.referenceMidi + note.semitones, targetName: note.name });
 }
 
 /** Beat 0: tonic, beat 1: silence, beat 2: target. The controller uses actual audio-end callbacks. */
@@ -85,7 +98,7 @@ export function startEarSession(config: EarConfig): EarSession {
   seedValue(config.seed);
   let seed = config.seed;
   const questions = Array.from({ length: config.count }, () => { seed = seedValue(seed); return createEarQuestion({ ...config, seed }); });
-  return immutable({ kind: 'ear', source: 'audio-choice', seed: config.seed, questions, questionIndex: 0,
+  return immutable({ kind: 'ear', source: 'audio-choice', ...(config.routeRef ? { routeRef: { ...config.routeRef } } : {}), seed: config.seed, questions, questionIndex: 0,
     currentQuestion: questions[0], status: 'active', answerState: initialAnswer(), results: [] });
 }
 

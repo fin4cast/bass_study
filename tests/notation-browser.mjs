@@ -137,20 +137,31 @@ check('real-audio-clock-fragment-cursor-count-in-pause-stop-with-one-player', 'f
   assert.equal(rows.contexts, 1); assert.ok(rows.rows.length > 10); assert.ok(rows.rows.some(row => row.rms > 0.001));
   assert.deepEqual([...new Set(rows.rows.map(row => row.index))].sort(), [1, 2]);
   for (const row of rows.rows) assert.deepEqual(row.notation, [[row.index, row.position], [row.index, row.position]]);
-  await action(page, 'pause'); assert.equal(await page.locator('.notation-note.is-playing').count(), 0);
+  await action(page, 'pause');
+  // The fixture deliberately supplies its shared-player cursor from RAF. Wait
+  // for that real render frame instead of racing the click's resolved promise.
+  await page.waitForFunction(() => document.querySelectorAll('.notation-note.is-playing').length === 0, undefined, { polling: 'raf', timeout: 1500 });
+  assert.equal(await page.locator('.notation-note.is-playing').count(), 0);
   await action(page, 'resume'); await page.waitForSelector('.notation-note.is-playing');
-  await action(page, 'stop'); assert.equal(await page.locator('.notation-note.is-playing').count(), 0);
+  await action(page, 'stop'); await page.waitForFunction(() => document.querySelectorAll('.notation-note.is-playing').length === 0, undefined, { polling: 'raf', timeout: 1500 }); assert.equal(await page.locator('.notation-note.is-playing').count(), 0);
   return { countIn: { phase: countIn.snapshot.phase, active: 0 }, ...rows };
 });
 
 async function setupApp(page, { pattern = 'ascending', countIn = false, duration = 'eighth' } = {}) {
+  await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
+  const free = page.locator('[data-intro="free"]'); if (await free.isVisible()) await free.click();
+  const area = page.locator('#area-settings'); if (!await area.evaluate(element => element.open)) await area.locator(':scope > summary').click();
   await page.getByLabel('Тоника', { exact: true }).selectOption('C'); await page.getByLabel('Структура', { exact: true }).selectOption('major');
   await page.getByLabel('Первый лад', { exact: true }).fill('0'); await page.getByLabel('Первый лад', { exact: true }).press('Tab');
   await page.getByLabel('Последний лад', { exact: true }).fill('3'); await page.getByLabel('Последний лад', { exact: true }).press('Tab');
   for (const string of ['E', 'A', 'D', 'G']) await page.getByRole('checkbox', { name: `Струна ${string}`, exact: true }).setChecked(string === 'E');
   const contexts = await page.evaluate(() => window.__notationAudioContexts.length);
   await page.locator('[data-training-mode="sequence"]').click(); await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  await page.getByLabel('Порядок последовательности', { exact: true }).selectOption(pattern); await page.locator('#notation-mount [data-notation-index="0"]').first().waitFor();
+  await page.getByLabel('Порядок последовательности', { exact: true }).selectOption(pattern);
+  assert.ok(await page.locator('.fretboard-section').isVisible(), 'The sequence opens on its fretboard view.');
+  assert.ok(await page.locator('#notation-mount').isHidden());
+  await page.locator('[data-sequence-view="notation"]').click();
+  await page.locator('#notation-mount [data-notation-index="0"]').first().waitFor();
   assert.equal(await page.evaluate(() => window.__notationAudioContexts.length), contexts, 'Showing notation created another audio context.');
   await page.getByLabel('Длительность нот', { exact: true }).selectOption(duration); await page.getByLabel('Темп, BPM', { exact: true }).fill('120'); await page.getByLabel('Темп, BPM', { exact: true }).press('Tab');
   await page.getByLabel('Отсчёт перед стартом', { exact: true }).setChecked(countIn); await page.getByLabel('Повтор', { exact: true }).selectOption('infinite');
@@ -175,6 +186,24 @@ function consistent(rows) {
 }
 const appAction = (page, name) => page.locator(`[data-player-action="${name}"]`);
 
+check('built-app-three-score-arrows-keep-focus-enter-and-return-are-explicit', 'ui', async ({ page }) => {
+  await setupApp(page);
+  await note(page, 0).focus();
+  const rows = [];
+  for (const expected of [1, 2, 3]) {
+    await page.keyboard.press('ArrowRight');
+    const actual = await page.evaluate(() => ({ index: document.activeElement?.dataset.notationIndex, inScore: !!document.activeElement?.closest('#notation-mount'), visible: !document.querySelector('#notation-mount').hidden, boardVisible: !document.querySelector('.fretboard-section').hidden }));
+    assert.equal(actual.index, String(expected)); assert.equal(actual.inScore, true); assert.equal(actual.visible, true); assert.equal(actual.boardVisible, false); rows.push(actual);
+  }
+  await page.keyboard.press('Enter');
+  assert.ok(await page.locator('.fretboard-section').isVisible());
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset.position), 'E:3');
+  await page.getByRole('button', { name: 'Вернуться к выбранной ноте в записи', exact: true }).click();
+  assert.ok(await page.locator('#notation-mount').isVisible());
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset.notationIndex), '3');
+  return { rows, explicitBoardPosition: 'E:3', restoredScoreIndex: 3 };
+});
+
 check('built-app-one-shared-sequence-cursor-with-repeated-positions', 'ui', async ({ page, resultDir }) => {
   const initialContexts = await setupApp(page, { pattern: 'groups-of-three' });
   assert.deepEqual(await page.locator('.sequence-route li').evaluateAll(items => items.map(item => item.dataset.sequencePosition)), ['E:0', 'E:1', 'E:2', 'E:1', 'E:2', 'E:3']);
@@ -191,6 +220,11 @@ check('built-app-fragment-uses-absolute-indices-across-repeated-passes', 'ui', a
   await setupApp(page, { pattern: 'groups-of-three' });
   await page.getByLabel('Первая нота фрагмента', { exact: true }).fill('2'); await page.getByLabel('Последняя нота фрагмента', { exact: true }).fill('4');
   await appAction(page, 'start').click(); await page.waitForSelector('#notation-mount .notation-note.is-playing');
+  assert.match(await page.getByTestId('notation-fragment').innerText(), /ноты 2–4.*обе границы включены.*счёт метронома продолжается/);
+  assert.deepEqual(await page.locator('#notation-mount [data-notation-view="staff"].outside-fragment').evaluateAll(nodes => nodes.map(node => Number(node.dataset.notationIndex))), [0, 4, 5]);
+  assert.equal(await note(page, 1).getAttribute('data-fragment-boundary'), 'start');
+  assert.equal(await note(page, 3).getAttribute('data-fragment-boundary'), 'end');
+  assert.match(await page.getByTestId('notation-playback').innerText(), /Звучащий такт.*доля.*повтор/);
   const rows = await appSamples(page, 1700); consistent(rows);
   assert.deepEqual([...new Set(rows.map(row => row.index))].sort(), [1, 2, 3]);
   await appAction(page, 'stop').click(); return { indices: [1, 2, 3], rows };
