@@ -1,6 +1,9 @@
 import './styles.css';
 import { mountTraining } from './ui/training';
 import { mountPlayer } from './ui/player';
+import { mountHistory } from './ui/history';
+import { createWriteQueue } from './app/write-queue';
+import { createStudyStore, createMemoryStudyStore, DEFAULT_PREFERENCES, makeScreenHistory, validatePreferences, type AppPreferences } from './storage';
 import {
   STRUCTURES,
   annotatePositions,
@@ -38,7 +41,8 @@ app.innerHTML = `
       <span class="local-badge"><span aria-hidden="true"></span>Локально</span>
     </header>
 
-    <main>
+    <div id="persistence-banner" class="persistence-banner" role="status"><span id="persistence-message">Читаем локальные настройки…</span><button type="button" id="retry-save" hidden>Повторить сохранение</button></div>
+    <main inert aria-busy="true">
       <section class="intro" aria-labelledby="page-title">
         <div><p class="eyebrow">ГРИФ · НОТЫ · СТУПЕНИ</p><h1 id="page-title">Изучи гриф.<br><span>Найди связи.</span></h1></div>
         <div class="intro-copy"><p>Выбери тональность и структуру.<br>Нажми на позицию, чтобы узнать ноту<br class="desktop-break"> и увидеть, где она повторяется.</p><div class="instrument-chips"><span>4 струны</span><span>E–A–D–G</span></div></div>
@@ -77,6 +81,7 @@ app.innerHTML = `
       </section>
 
       <section class="selection-section" aria-label="Выбранная нота и её связи"><div id="selection-detail" data-testid="selection-detail"></div><div id="connections" class="connections"></div></section>
+      <section id="history-mount" aria-label="История и настройки"></section>
       <p id="selection-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
       <footer class="page-footer"><span>Маленький участок. Понятная структура. Больше уверенности на грифе.</span><span>E1 · A1 · D2 · G2</span></footer>
     </main>
@@ -93,6 +98,67 @@ let positions: readonly AnnotatedPosition[] = [];
 let structure = createStructure(state.root, state.structureId);
 let training: ReturnType<typeof mountTraining> | undefined;
 let sequencePlayer: ReturnType<typeof mountPlayer> | undefined;
+let history: ReturnType<typeof mountHistory> | undefined;
+let store: ReturnType<typeof createStudyStore> | ReturnType<typeof createMemoryStudyStore> = createStudyStore();
+let persistent = true;
+let applyingPreferences = true;
+let startupIssue = '';
+let preferenceIssue = '';
+let writeState: { pending: number; failures: readonly string[] } = { pending: 0, failures: [] };
+const main = document.querySelector<HTMLElement>('main')!;
+function showPersistenceStatus() {
+  const { pending, failures } = writeState;
+  const message = failures.length ? `Не сохранено операций: ${failures.length}. ${failures[0]} Экспорт содержит только подтверждённые записи.` : preferenceIssue || (pending ? 'Сохранение…' : persistent ? 'Сохранено локально в этом браузере' : `Только в памяти страницы. Экспортируй копию перед закрытием. ${startupIssue}`);
+  const error = failures.length > 0 || preferenceIssue !== '';
+  byId('persistence-message').textContent = message;
+  byId('persistence-banner').classList.toggle('has-error', error);
+  byId('retry-save').hidden = failures.length === 0;
+  history?.setSaveStatus(message, error ? 'error' : pending ? 'saving' : persistent ? 'saved' : 'memory');
+}
+const writes = createWriteQueue(value => { writeState = value; showPersistenceStatus(); });
+
+function getPreferences(): AppPreferences {
+  return validatePreferences({
+    study: { root: state.root, structureId: state.structureId, labelMode: state.labelMode, strings: state.strings, fretMin: state.fretMin, fretMax: state.fretMax },
+    training: training?.getPreferences() ?? DEFAULT_PREFERENCES.training,
+    player: sequencePlayer?.getPreferences() ?? DEFAULT_PREFERENCES.player,
+  });
+}
+
+function savePreferences() {
+  if (applyingPreferences || !training || !sequencePlayer || !rangeIsValid()) return;
+  try {
+    const preferences = getPreferences();
+    preferenceIssue = '';
+    void writes.run(() => store.savePreferences(preferences), 'preferences').catch(() => {});
+  } catch (failure) {
+    // An unfinished input is not a valid preference and must not overwrite the last valid one.
+    preferenceIssue = `Настройки ещё не сохранены: ${failure instanceof Error ? failure.message : String(failure)}`;
+    showPersistenceStatus();
+  }
+}
+
+function applyPreferences(preferences: AppPreferences) {
+  const value = validatePreferences(preferences);
+  preferenceIssue = '';
+  training?.finishCurrentSession('Занятие остановлено перед применением настроек');
+  sequencePlayer?.stop();
+  applyingPreferences = true;
+  try {
+    Object.assign(state, value.study, { strings: [...value.study.strings] });
+    rootSelect.value = value.study.root;
+    structureSelect.value = value.study.structureId;
+    minInput.value = String(value.study.fretMin);
+    maxInput.value = String(value.study.fretMax);
+    document.querySelectorAll<HTMLInputElement>('.string-switch input').forEach(input => { input.checked = value.study.strings.includes(input.value as StringId); });
+    byId('range-error').hidden = true;
+    minInput.setAttribute('aria-invalid', 'false'); maxInput.setAttribute('aria-invalid', 'false');
+    updateView();
+    training?.applyPreferences(value.training);
+    sequencePlayer?.refreshContext();
+    sequencePlayer?.applyPreferences(value.player);
+  } finally { applyingPreferences = false; }
+}
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
@@ -121,6 +187,7 @@ function updateView(announce = false) {
   renderSelection(announce);
   training?.refreshContext();
   sequencePlayer?.refreshContext();
+  savePreferences();
 }
 
 function renderBoard() {
@@ -278,6 +345,13 @@ byId('connections').addEventListener('click', event => {
 
 updateView();
 training = mountTraining(byId('training-mount'), () => ({ positions: rangeIsValid() ? positions : [], structure }), {
+  onPreferencesChange: savePreferences,
+  onSessionFinished(session) {
+    try {
+      const entry = makeScreenHistory(session, { id: `screen-${crypto.randomUUID()}`, occurredAt: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+      if (entry) void writes.run(() => store.addHistory(entry), entry.id).then(() => history?.refresh()).catch(() => {});
+    } catch (failure) { history?.setSaveStatus(`Результат не сохранён: ${failure instanceof Error ? failure.message : String(failure)}`, 'error'); }
+  },
   onModeChange(mode) {
     const quiz = mode === 'quiz';
     document.querySelector<HTMLElement>('.fretboard-section')!.hidden = quiz;
@@ -291,6 +365,7 @@ training = mountTraining(byId('training-mount'), () => ({ positions: rangeIsVali
   onSequenceChange() { sequencePlayer?.refreshContext(); sequencePlayer?.refreshHighlight(); },
 });
 sequencePlayer = mountPlayer(byId('player-mount'), () => training?.getCurrentSequence()?.notes ?? [], {
+  onPreferencesChange: savePreferences,
   getContextKey: () => training?.getSequenceContextKey() ?? '',
   onPositionChange(id, noteIndex) {
     container.querySelectorAll<SVGGElement>('[data-position]').forEach(element => element.classList.toggle('is-playing', id !== null && element.dataset.position === id));
@@ -302,4 +377,73 @@ sequencePlayer = mountPlayer(byId('player-mount'), () => training?.getCurrentSeq
     });
   },
 });
-if (import.meta.hot) import.meta.hot.dispose(() => { sequencePlayer?.dispose(); training?.dispose(); });
+history = mountHistory(byId('history-mount'), {
+  store: {
+    readSnapshot: () => store.readSnapshot(),
+    savePreset: value => store.savePreset(value),
+    deletePreset: id => store.deletePreset(id),
+    addHistory: value => store.addHistory(value),
+    deleteHistory: id => store.deleteHistory(id),
+    exportBackup: () => store.exportBackup(),
+    previewImport: value => store.previewImport(value),
+  },
+  getPreferences,
+  applyPreferences: async value => { applyPreferences(value); savePreferences(); await writes.flush(); },
+  runWrite: operation => writes.run(operation),
+  flush: () => writes.flush(),
+  isPersistent: () => persistent,
+  getPracticeDraft: () => ({
+    ...(sequencePlayer?.getPracticeDraft() ?? { durationMs: 0, comfortableBpm: 80 }),
+    context: { root: structure.root, structureId: structure.id, scope: training?.getPreferences().sequenceScope ?? 'structure', positionIds: rangeIsValid() ? positions.map(position => position.id) : [] },
+  }),
+  onManualSaved: (durationMs, contextKey) => sequencePlayer?.consumePracticeDuration(durationMs, contextKey),
+  onRepeatErrors(ids, context) {
+    const frets = ids.map(id => Number(id.split(':')[1]));
+    const root = context.root.replaceAll('♭', 'b').replaceAll('♯', '#');
+    const preferences = getPreferences();
+    applyPreferences({ ...preferences, study: { ...preferences.study, root, structureId: context.structureId, strings: STRING_ORDER.filter(string => ids.some(id => id.startsWith(`${string}:`))), fretMin: Math.min(...frets), fretMax: Math.max(...frets) }, training: { ...preferences.training, mode: 'quiz', quizMode: 'name-note', scope: context.scope, reviewPositionIds: [] } });
+    training?.setReviewPositions(ids, context);
+    savePreferences();
+    byId('training-mount').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  },
+  async restoreBackup(json) {
+    // Validation and preview happen before this explicit confirmation callback.
+    store.previewImport(json);
+    main.inert = true;
+    main.setAttribute('aria-busy', 'true');
+    try {
+      sequencePlayer?.stop();
+      training?.finishCurrentSession('Занятие остановлено перед восстановлением');
+      await writes.flush();
+      await store.restore(json, { confirmed: true });
+      const snapshot = await store.readSnapshot();
+      writes.clearFailures();
+      applyPreferences(snapshot.preferences);
+      return snapshot;
+    } finally { main.inert = false; main.setAttribute('aria-busy', 'false'); }
+  },
+});
+byId('retry-save').addEventListener('click', () => { void writes.retry().then(() => { if (!writes.failureCount) history?.clearActionError(); return history?.refresh(); }); });
+
+async function initialize() {
+  let snapshot;
+  try { await store.open(); snapshot = await store.readSnapshot(); }
+  catch (failure) {
+    await store.close().catch(() => {});
+    store = createMemoryStudyStore();
+    persistent = false;
+    startupIssue = `Исходная база не сброшена: ${failure instanceof Error ? failure.message : String(failure)}`;
+    snapshot = await store.readSnapshot();
+    console.warn('Локальная база не открылась; исходные данные не сброшены.', failure);
+  }
+  applyPreferences(snapshot.preferences);
+  writes.clearFailures();
+  await history?.refresh();
+  main.inert = false;
+  main.setAttribute('aria-busy', 'false');
+}
+void initialize().catch(failure => {
+  byId('persistence-message').textContent = `Не удалось подготовить страницу: ${failure instanceof Error ? failure.message : String(failure)}`;
+  byId('persistence-banner').classList.add('has-error');
+});
+if (import.meta.hot) import.meta.hot.dispose(() => { sequencePlayer?.dispose(); training?.dispose(); history?.dispose(); void store.close(); });

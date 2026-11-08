@@ -1,4 +1,5 @@
 import './training.css';
+import type { AppPreferences } from '../storage';
 import { formatMidi, type AnnotatedPosition, type MusicalStructure, type StringId } from '../music';
 import {
   createSequence,
@@ -11,6 +12,7 @@ import {
   type QuizMode,
   type SequencePattern,
   type TrainingScope,
+  type QuestionContext,
 } from '../training';
 
 type Session = ReturnType<typeof startQuiz>;
@@ -23,6 +25,8 @@ export interface TrainingContext {
 export interface TrainingOptions {
   onModeChange?: (mode: TrainingMode) => void;
   onSequenceChange?: () => void;
+  onPreferencesChange?: () => void;
+  onSessionFinished?: (session: Session) => void;
 }
 
 const STRING_ORDER: StringId[] = ['G', 'D', 'A', 'E'];
@@ -49,6 +53,8 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
   let sequenceScope: TrainingScope = 'structure';
   let pattern: SequencePattern = 'ascending';
   let count = 10;
+  let countDraft: string | null = null;
+  let reviewPositionIds: readonly string[] = [];
   let session: Session | null = null;
   let lastSession: Session | null = null;
   let summary: Summary | null = null;
@@ -80,6 +86,13 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     return `${context.structure.root}|${context.structure.id}|${context.positions.map(position => position.id).join(',')}`;
   }
 
+  function quizContext(): TrainingContext {
+    const context = getContext();
+    if (!reviewPositionIds.length) return context;
+    const ids = new Set(reviewPositionIds);
+    return { ...context, positions: context.positions.filter(position => ids.has(position.id)) };
+  }
+
   function render() {
     if (disposed) return;
     container.querySelectorAll<HTMLButtonElement>('[data-training-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.trainingMode === mode)));
@@ -90,15 +103,15 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
   }
 
   function quizSetup() {
-    const context = getContext();
+    const context = quizContext();
     return `<div class="training-intro"><div><p class="eyebrow">ПРОВЕРКА ЗНАНИЙ</p><h2>Вспомни. Найди. Проверь себя.</h2></div><p>Здесь проверяются ответы на экране.<br>Точность игры на басу не измеряется.</p></div>
       <div class="quiz-settings">
-        <label class="training-field"><span>Тип задания</span><select aria-label="Тип задания" data-quiz-setting="mode">${QUIZ_MODES.map(item => `<option value="${item.id}"${item.id === quizMode ? ' selected' : ''}>${item.name}</option>`).join('')}</select></label>
-        <label class="training-field"><span>Материал заданий</span><select aria-label="Материал заданий" data-quiz-setting="scope"${quizMode === 'find-degree' ? ' disabled' : ''}><option value="structure"${scope === 'structure' ? ' selected' : ''}>В выбранной структуре</option><option value="chromatic"${scope === 'chromatic' ? ' selected' : ''}>Все ноты диапазона</option></select></label>
-        <label class="training-field count-field"><span>Вопросов</span><input type="number" min="1" max="30" step="1" value="${count}" aria-label="Количество вопросов" data-quiz-setting="count"></label>
+        <label class="training-field"><span>Тип задания</span><select aria-label="Тип задания" data-quiz-setting="mode"${reviewPositionIds.length ? ' disabled' : ''}>${QUIZ_MODES.map(item => `<option value="${item.id}"${item.id === quizMode ? ' selected' : ''}>${item.name}</option>`).join('')}</select></label>
+        <label class="training-field"><span>Материал заданий</span><select aria-label="Материал заданий" data-quiz-setting="scope"${quizMode === 'find-degree' || reviewPositionIds.length ? ' disabled' : ''}><option value="structure"${scope === 'structure' ? ' selected' : ''}>В выбранной структуре</option><option value="chromatic"${scope === 'chromatic' ? ' selected' : ''}>Все ноты диапазона</option></select></label>
+        <label class="training-field count-field"><span>Вопросов</span><input type="number" min="1" max="30" step="1" value="${escapeHtml(countDraft ?? String(count))}" aria-label="Количество вопросов" aria-invalid="${countDraft !== null && (!countDraft || !Number.isInteger(Number(countDraft)) || Number(countDraft) < 1 || Number(countDraft) > 30)}" data-quiz-setting="count"></label>
         <button class="primary-button" type="button" data-training-action="start">${session ? 'Начать заново' : 'Начать занятие'}<span aria-hidden="true">→</span></button>
       </div>
-      <p class="training-scope-caption">${escapeHtml(QUIZ_MODES.find(item => item.id === quizMode)!.description)} ${quizMode === 'find-degree' ? 'Используются ступени выбранной структуры.' : ''}<span>${escapeHtml(context.structure.root)} · ${escapeHtml(context.structure.name)} · ${context.positions.length} доступных позиций</span></p>`;
+      <p class="training-scope-caption">${escapeHtml(QUIZ_MODES.find(item => item.id === quizMode)!.description)} ${quizMode === 'find-degree' ? 'Используются ступени выбранной структуры.' : ''}<span>${escapeHtml(context.structure.root)} · ${escapeHtml(context.structure.name)} · ${context.positions.length} доступных позиций</span></p>${reviewPositionIds.length ? `<div class="quiz-review-banner" role="status" data-testid="review-banner"><span>Повтор ошибок: только ${reviewPositionIds.length} выбранных позиций. Другие позиции не подмешиваются.</span><button class="text-button" type="button" data-training-action="clear-review">Обычные задания</button></div>` : ''}`;
   }
 
   function renderQuiz() {
@@ -124,7 +137,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
 
   function answerBoard(terminal: boolean) {
     if (!session) return '';
-    const positions = getContext().positions;
+    const positions = quizContext().positions;
     if (!positions.length) return '';
     const question = session.currentQuestion;
     const rows = STRING_ORDER.filter(string => positions.some(position => position.string === string));
@@ -192,9 +205,12 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       const nextCount = Number(input?.value ?? count);
       if (!input?.value || !Number.isInteger(nextCount) || nextCount < 1 || nextCount > 30) throw new RangeError('Количество вопросов — целое число от 1 до 30.');
       count = nextCount;
+      countDraft = null;
       const random = crypto.getRandomValues(new Uint32Array(1))[0];
-      session = startQuiz({ ...getContext(), mode: quizMode, scope, seed: random }, count);
-      sessionContextLabel = `${getContext().structure.root} · ${getContext().structure.name}; ${scope === 'structure' ? 'ноты структуры' : 'все ноты диапазона'}; ${getContext().positions.length} позиций`;
+      const nextSession = startQuiz({ ...quizContext(), mode: quizMode, scope, seed: random }, count);
+      if (session) archiveSession();
+      session = nextSession;
+      sessionContextLabel = `${quizContext().structure.root} · ${quizContext().structure.name}; ${scope === 'structure' ? 'ноты структуры' : 'все ноты диапазона'}; ${quizContext().positions.length} позиций`;
       summary = null;
       notice = '';
       error = '';
@@ -248,6 +264,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     lastSession = session.status === 'review' ? nextQuestion(session) : session;
     summary = getQuizSummary(lastSession);
     summaryContextLabel = sessionContextLabel;
+    options.onSessionFinished?.(lastSession);
   }
 
   container.addEventListener('click', event => {
@@ -260,8 +277,10 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
         notice = 'Занятие прервано при смене режима. Начни новое занятие.';
       }
       mode = nextMode;
+      countDraft = null;
       options.onModeChange?.(mode);
       render();
+      options.onPreferencesChange?.();
       return;
     }
     const choice = target?.closest<HTMLButtonElement>('[data-choice]');
@@ -270,6 +289,15 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     if (position?.dataset.answerPosition) { answerFocus = position.dataset.answerPosition; answer(position.dataset.answerPosition); return; }
     const action = target?.closest<HTMLButtonElement>('[data-training-action]')?.dataset.trainingAction;
     if (!action) return;
+    if (action === 'clear-review') {
+      configurationChanged();
+      reviewPositionIds = [];
+      scope = 'structure';
+      notice = 'Повтор ошибок выключен. Можно выбрать обычный тип задания и материал.';
+      render();
+      options.onPreferencesChange?.();
+      return;
+    }
     if (action === 'start') { start(); return; }
     if (!session) return;
     if (action === 'finish') { finish(); return; }
@@ -292,7 +320,11 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     if (setting) {
       if (setting === 'count') {
         const nextCount = Number(input.value);
-        if (input.value !== '' && Number.isInteger(nextCount) && nextCount >= 1 && nextCount <= 30) count = nextCount;
+        if (input.value !== '' && Number.isInteger(nextCount) && nextCount >= 1 && nextCount <= 30) {
+          count = nextCount;
+          countDraft = null;
+          options.onPreferencesChange?.();
+        }
         return;
       }
       configurationChanged();
@@ -303,24 +335,33 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       if (setting === 'scope') scope = input.value as TrainingScope;
       render();
       content.querySelector<HTMLElement>(`[data-quiz-setting="${setting}"]`)?.focus();
+      options.onPreferencesChange?.();
     }
-    if (input.dataset.sequenceSetting === 'pattern') { pattern = input.value as SequencePattern; render(); content.querySelector<HTMLElement>('[data-sequence-setting="pattern"]')?.focus(); }
-    if (input.dataset.sequenceSetting === 'scope') { sequenceScope = input.value as TrainingScope; render(); content.querySelector<HTMLElement>('[data-sequence-setting="scope"]')?.focus(); }
+    if (input.dataset.sequenceSetting === 'pattern') { pattern = input.value as SequencePattern; render(); content.querySelector<HTMLElement>('[data-sequence-setting="pattern"]')?.focus(); options.onPreferencesChange?.(); }
+    if (input.dataset.sequenceSetting === 'scope') { sequenceScope = input.value as TrainingScope; render(); content.querySelector<HTMLElement>('[data-sequence-setting="scope"]')?.focus(); options.onPreferencesChange?.(); }
+  }, { signal: controller.signal });
+
+  container.addEventListener('input', event => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || input.dataset.quizSetting !== 'count') return;
+    countDraft = input.value;
+    const number = Number(input.value);
+    input.setAttribute('aria-invalid', String(!input.value || !Number.isInteger(number) || number < 1 || number > 30));
   }, { signal: controller.signal });
 
   container.addEventListener('keydown', event => {
     const target = event.target instanceof Element ? event.target.closest<SVGGElement>('[data-answer-position][role="button"]') : null;
-    const current = getContext().positions.find(position => position.id === target?.dataset.answerPosition);
+    const current = quizContext().positions.find(position => position.id === target?.dataset.answerPosition);
     if (!current || !session || session.answerState.status !== 'awaiting') return;
     if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); answer(current.id); return; }
-    const positions = getContext().positions;
+    const positions = quizContext().positions;
     const rows = STRING_ORDER.filter(string => positions.some(position => position.string === string));
     const frets = positions.filter(position => position.string === current.string).map(position => position.fret);
     let string = current.string;
     let fret = current.fret;
     switch (event.key) {
-      case 'ArrowLeft': fret = Math.max(Math.min(...frets), fret - 1); break;
-      case 'ArrowRight': fret = Math.min(Math.max(...frets), fret + 1); break;
+      case 'ArrowLeft': fret = [...frets].sort((a, b) => b - a).find(value => value < current.fret) ?? current.fret; break;
+      case 'ArrowRight': fret = [...frets].sort((a, b) => a - b).find(value => value > current.fret) ?? current.fret; break;
       case 'ArrowUp': string = rows[Math.max(0, rows.indexOf(string) - 1)]; break;
       case 'ArrowDown': string = rows[Math.min(rows.length - 1, rows.indexOf(string) + 1)]; break;
       case 'Home': fret = Math.min(...frets); break;
@@ -328,11 +369,55 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       default: return;
     }
     event.preventDefault();
+    if (string !== current.string) fret = positions.filter(position => position.string === string).sort((a, b) => Math.abs(a.fret - current.fret) - Math.abs(b.fret - current.fret) || a.fret - b.fret)[0].fret;
     focusAnswer(`${string}:${fret}`, true);
   }, { signal: controller.signal });
 
   render();
   return {
+    getPreferences(): AppPreferences['training'] {
+      const input = content.querySelector<HTMLInputElement>('[data-quiz-setting="count"]');
+      if (input && (!input.value || !Number.isInteger(Number(input.value)) || Number(input.value) < 1 || Number(input.value) > 30)) throw new RangeError('Количество вопросов — целое число от 1 до 30.');
+      return { mode, quizMode, scope, count, pattern, sequenceScope, reviewPositionIds: [...reviewPositionIds] };
+    },
+    applyPreferences(preferences: AppPreferences['training']) {
+      if (session) archiveSession();
+      session = null;
+      mode = preferences.mode;
+      quizMode = preferences.quizMode;
+      scope = preferences.scope;
+      count = preferences.count;
+      countDraft = null;
+      pattern = preferences.pattern;
+      sequenceScope = preferences.sequenceScope;
+      const allowed = new Set(getContext().positions.map(position => position.id));
+      reviewPositionIds = preferences.reviewPositionIds.filter(id => allowed.has(id));
+      if (reviewPositionIds.length) { quizMode = 'name-note'; scope = 'chromatic'; }
+      fingerprint = contextFingerprint(getContext());
+      summary = null;
+      notice = '';
+      error = '';
+      resetQuestionUi();
+      options.onModeChange?.(mode);
+      render();
+    },
+    setReviewPositions(ids: readonly string[], originalContext?: QuestionContext) {
+      const context = getContext();
+      if (originalContext && (originalContext.root !== context.structure.root || originalContext.structureId !== context.structure.id)) throw new RangeError('Для повторения сначала восстанови исходную тональность и структуру.');
+      const allowed = new Set(context.positions.map(position => position.id));
+      if (!ids.length || ids.some(id => !allowed.has(id))) throw new RangeError('Позиции для повторения должны входить в текущую область грифа.');
+      configurationChanged();
+      reviewPositionIds = [...new Set(ids)];
+      countDraft = null;
+      mode = 'quiz'; quizMode = 'name-note'; scope = 'chromatic';
+      fingerprint = contextFingerprint(context);
+      summary = null;
+      notice = 'Повторяем только позиции из прошлых ошибок. Для нового набора нажми «Начать занятие».';
+      options.onModeChange?.(mode);
+      render();
+      options.onPreferencesChange?.();
+    },
+    finishCurrentSession(reason = 'Занятие завершено') { finish(reason); },
     getLastSession() { return lastSession; },
     getCurrentSequence() {
       try { return createSequence({ ...getContext(), scope: sequenceScope, pattern }); }
@@ -344,8 +429,11 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       const nextFingerprint = contextFingerprint(getContext());
       if (nextFingerprint !== fingerprint) {
         fingerprint = nextFingerprint;
+        const hadReview = reviewPositionIds.length > 0;
+        reviewPositionIds = [];
         configurationChanged();
         render();
+        if (hadReview) options.onPreferencesChange?.();
       }
     },
     dispose() {

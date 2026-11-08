@@ -19,6 +19,10 @@
 .workspace > .player-section {
   margin: 0 25px 22px;
 }
+.persistence-banner { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:11px 0; font-size:13px; color:#52716b; }
+.persistence-banner.has-error { color:#963e29; }
+.persistence-banner button { flex-shrink:0; border:1px solid currentColor; border-radius:6px; padding:6px 10px; color:inherit; background:transparent; cursor:pointer; }
+.persistence-banner button:focus-visible { outline:3px solid #dc9d45; outline-offset:3px; }
 :root {
   font-family:"Segoe UI",Arial,sans-serif;
   color:#233532;

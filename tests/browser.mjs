@@ -44,8 +44,12 @@ const selectedPosition = () => page.locator('[data-position][aria-pressed="true"
 async function check(name, operation) {
   const start = performance.now();
   try {
+    // Every case specifies a fresh P2 baseline; persistence itself is tested in P5.
+    await context?.close();
+    ({ ctx: context, nextPage: page } = await newContext());
     await page.setViewportSize({ width: 1280, height: 950 });
     await page.goto(origin);
+    await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
     await page.waitForSelector('[data-position="E:5"]');
     const evidence = await operation();
     report.checks.push({ name, status: 'passed', durationMs: Math.round(performance.now() - start), evidence });

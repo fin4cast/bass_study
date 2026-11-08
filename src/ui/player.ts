@@ -1,4 +1,5 @@
 import './player.css';
+import type { AppPreferences } from '../storage';
 import { formatMidi, type AnnotatedPosition } from '../music';
 import { createPlayer, type PlaybackConfig } from '../audio/engine';
 
@@ -9,6 +10,7 @@ export interface PlayerOptions {
   onPositionChange?: (id: string | null, noteIndex: number | null) => void;
   onSnapshot?: (snapshot: Snapshot) => void;
   getContextKey?: () => string;
+  onPreferencesChange?: () => void;
 }
 
 /** User-facing controls for a sequence; the engine owns all musical timing. */
@@ -24,6 +26,8 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
   let forcePositionCallback = false;
   let lastAnnouncedState = '';
   let animationFrame = 0;
+  let practiceElapsedMs = 0;
+  let practiceClock: { at: number; runId: number; active: boolean } | null = null;
 
   container.classList.add('player-section');
   container.innerHTML = `
@@ -132,6 +136,20 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
     return ['starting', 'running', 'paused', 'finishing'].includes(snapshot.state);
   }
 
+  function measurePractice(snapshot: Snapshot) {
+    let end = snapshot.audioTime;
+    if (snapshot.finishAt !== null) end = Math.min(end, snapshot.finishAt);
+    if (snapshot.state === 'paused' || snapshot.state === 'stopped') {
+      const boundary = [...snapshot.trace].reverse().find(event => event.runId === snapshot.runId && (event.type === 'pause' || event.type === 'stop') && event.time <= snapshot.audioTime);
+      if (boundary) end = Math.min(end, boundary.time);
+    }
+    const latestNote = [...snapshot.trace].reverse().find(event => event.runId === snapshot.runId && event.epoch === snapshot.epoch && event.type === 'note' && event.time <= snapshot.audioTime);
+    const active = ['running', 'finishing'].includes(snapshot.state) && snapshot.phase === 'practice' && latestNote !== undefined;
+    if (practiceClock?.runId === snapshot.runId && practiceClock.active) practiceElapsedMs += Math.max(0, end - practiceClock.at) * 1000;
+    else if (active && latestNote) practiceElapsedMs += Math.max(0, end - latestNote.time) * 1000;
+    practiceClock = { at: end, runId: snapshot.runId, active };
+  }
+
   function renderControls(snapshot: Snapshot) {
     const locked = playing(snapshot);
     const ladder = field<HTMLSelectElement>('repeat').value === 'ladder';
@@ -164,6 +182,7 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
   function renderSnapshot() {
     if (disposed) return;
     const snapshot = player.getSnapshot();
+    measurePractice(snapshot);
     container.dataset.playerState = snapshot.state;
     container.dataset.playerPhase = snapshot.phase;
     container.dataset.currentPosition = snapshot.positionId ?? '';
@@ -201,6 +220,7 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
     if (disposed || (operationPending && action !== 'stop')) return;
     message('player-error');
     try {
+      measurePractice(player.getSnapshot());
       if (action === 'start') {
         if (!notes.length) throw new RangeError('Для воспроизведения нужен непустой маршрут. Проверь диапазон и выбранные струны.');
         const config = configuration();
@@ -244,17 +264,20 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
       }
       if (name === 'bassVolume' || name === 'clickVolume') setVolumes();
       renderSnapshot();
+      getPreferences();
+      options.onPreferencesChange?.();
     } catch (failure) { message('player-error', failure instanceof Error ? failure.message : String(failure)); }
   }, { signal: controller.signal });
   container.addEventListener('input', event => {
     const input = event.target;
     if (input instanceof HTMLInputElement && ['bassVolume', 'clickVolume'].includes(input.dataset.player ?? '')) {
-      try { setVolumes(); } catch (failure) { message('player-error', failure instanceof Error ? failure.message : String(failure)); }
+      try { setVolumes(); getPreferences(); options.onPreferencesChange?.(); } catch (failure) { message('player-error', failure instanceof Error ? failure.message : String(failure)); }
     }
   }, { signal: controller.signal });
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && ['starting', 'running', 'finishing'].includes(player.getSnapshot().state)) {
+      measurePractice(player.getSnapshot());
       player.pause('hidden');
       message('player-notice', 'Вкладка была скрыта. Воспроизведение на паузе — для продолжения нажми «Продолжить».');
       renderSnapshot();
@@ -282,6 +305,8 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
     if (nextKey !== contextKey) {
       const hadContext = notes.length > 0 || playing();
       player.stop();
+      practiceElapsedMs = 0;
+      practiceClock = null;
       notes = nextNotes;
       contextKey = nextKey;
       field<HTMLInputElement>('from').value = '1';
@@ -298,13 +323,67 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
     if (!container.hidden && container.getClientRects().length > 0) renderSnapshot();
     if (!disposed) animationFrame = requestAnimationFrame(frame);
   }
+
+  function getPreferences(): AppPreferences['player'] {
+    const from = number('from', 1, Math.max(1, notes.length));
+    const to = number('to', 1, Math.max(1, notes.length));
+    if (from > to) throw new RangeError('Первая нота фрагмента не может быть позже последней.');
+    const ladderStart = number('ladderStart', 40, 220);
+    const ladderEnd = number('ladderEnd', 40, 220);
+    if (ladderStart > ladderEnd) throw new RangeError('Целевой темп лестницы должен быть не меньше начального.');
+    return {
+      bpm: number('bpm', 40, 220),
+      duration: field<HTMLSelectElement>('duration').value as AppPreferences['player']['duration'],
+      repeat: field<HTMLSelectElement>('repeat').value as AppPreferences['player']['repeat'],
+      countIn: field<HTMLInputElement>('countIn').checked,
+      showPulse: field<HTMLInputElement>('showPulse').checked,
+      from: from === 1 ? null : from,
+      to: to === notes.length || notes.length === 0 ? null : to,
+      ladderStart, ladderEnd,
+      ladderStep: number('ladderStep', 1, 180),
+      ladderRepeats: number('ladderRepeats', 1, 20),
+      metronome: field<HTMLInputElement>('metronome').checked,
+      metronomeMode: field<HTMLSelectElement>('metronomeMode').value as AppPreferences['player']['metronomeMode'],
+      subdivision: field<HTMLSelectElement>('subdivision').value as AppPreferences['player']['subdivision'],
+      bassVolume: number('bassVolume', 0, 100), clickVolume: number('clickVolume', 0, 100),
+    };
+  }
   refreshContext();
   animationFrame = requestAnimationFrame(frame);
   return {
+    getPreferences,
+    applyPreferences(preferences: AppPreferences['player']) {
+      measurePractice(player.getSnapshot());
+      player.stop();
+      practiceElapsedMs = 0;
+      practiceClock = null;
+      for (const name of ['bpm', 'duration', 'repeat', 'ladderStart', 'ladderEnd', 'ladderStep', 'ladderRepeats', 'metronomeMode', 'subdivision', 'bassVolume', 'clickVolume'] as const) field(name).value = String(preferences[name]);
+      for (const name of ['countIn', 'showPulse', 'metronome'] as const) field<HTMLInputElement>(name).checked = preferences[name];
+      field<HTMLInputElement>('from').value = String(preferences.from ?? 1);
+      field<HTMLInputElement>('to').value = String(preferences.to ?? Math.max(1, notes.length));
+      player.setBpm(preferences.bpm);
+      setVolumes();
+      message('player-error');
+      message('player-notice');
+      renderSnapshot();
+    },
+    getPracticeDraft() {
+      const snapshot = player.getSnapshot();
+      measurePractice(snapshot);
+      const configured = Number(field<HTMLInputElement>('bpm').value);
+      const comfortableBpm = Math.round(playing(snapshot) ? snapshot.bpm : Number.isFinite(configured) && configured >= 40 && configured <= 220 ? configured : snapshot.bpm);
+      return { durationMs: Math.round(practiceElapsedMs), comfortableBpm, runtimeContextKey: contextKey };
+    },
+    consumePracticeDuration(durationMs: number, expectedContextKey?: string) {
+      if (!Number.isFinite(durationMs) || durationMs < 0) throw new RangeError('Длительность должна быть неотрицательной.');
+      measurePractice(player.getSnapshot());
+      if (expectedContextKey !== undefined && expectedContextKey !== contextKey) return;
+      practiceElapsedMs = Math.max(0, practiceElapsedMs - durationMs);
+    },
     refreshContext,
     refreshHighlight() { forcePositionCallback = true; renderSnapshot(); },
     getSnapshot: () => player.getSnapshot(),
-    stop() { player.stop(); renderSnapshot(); },
+    stop() { measurePractice(player.getSnapshot()); player.stop(); renderSnapshot(); },
     dispose() {
       if (disposed) return;
       disposed = true;

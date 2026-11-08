@@ -100,6 +100,11 @@
   font-size: 12px;
 }
 
+.training-field input[aria-invalid="true"] {
+  border-color: #b77958;
+  background: #fcf0e3;
+}
+
 .training-field input {
   border: 1px solid #d3d8ce;
   border-radius: 6px;
@@ -178,6 +183,20 @@
   padding: 10px 13px;
   border-radius: 6px;
   font-size: 11px;
+}
+
+.quiz-review-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  background: #edf3e2;
+  border: 1px solid #d2e1bf;
+  border-radius: 6px;
+  margin-top: 13px;
+  padding: 8px 12px;
+  color: #839d66;
+  font-size: 10px;
 }
 
 .training-error {

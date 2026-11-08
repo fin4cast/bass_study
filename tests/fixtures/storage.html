@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>P5: настоящее локальное хранилище</title>
+<body>
+  <h1>Изолированная проверка IndexedDB</h1>
+  <script type="module">
+    import { createStudyStore, DEFAULT_PREFERENCES, emptySnapshot, makeManualHistory, makeScreenHistory, validateSnapshot } from '/src/storage/index.ts';
+    import { annotatePositions, createStructure, getPosition } from '/src/music/index.ts';
+    import { createManualPracticeResult, nextQuestion, startQuiz, submitAnswer } from '/src/training/index.ts';
+    const structure = createStructure('A', 'minor-pentatonic');
+    const positions = annotatePositions([getPosition('E', 0), getPosition('E', 12)], structure);
+    const context = { scope: 'structure', root: 'A', structureId: 'minor-pentatonic', positionIds: ['E:0', 'E:12'] };
+    const metadata = { occurredAt: '2026-11-08T22:30:00.000Z', timeZone: 'Europe/Moscow' };
+    function screen(id = 'fixture-screen') {
+      let session = startQuiz({ positions, structure, mode: 'name-note', scope: 'structure', seed: 100 }, 1);
+      session = submitAnswer(session, 'F', 350);
+      session = nextQuestion(submitAnswer(session, 'E', 600));
+      return makeScreenHistory(session, { ...metadata, id });
+    }
+    function manual(id = 'fixture-manual', note = 'Ручная отметка; не измеренная точность.') {
+      return makeManualHistory(createManualPracticeResult({ context, comfortableBpm: 72, durationMs: 300000, note }), { ...metadata, id });
+    }
+    function seedSnapshot() {
+      const preferences = structuredClone(DEFAULT_PREFERENCES);
+      preferences.study = { root: 'C', structureId: 'major', labelMode: 'degrees', strings: ['E'], fretMin: 0, fretMax: 3 };
+      preferences.training.mode = 'sequence'; preferences.training.sequenceScope = 'chromatic';
+      preferences.player.bpm = 96; preferences.player.countIn = false;
+      return validateSnapshot({ ...emptySnapshot(), preferences,
+        presets: [
+          { id: 'fixture-preset-a', name: 'Нижняя струна', createdAt: metadata.occurredAt, preferences },
+          { id: 'fixture-preset-b', name: 'Исходная область', createdAt: metadata.occurredAt, preferences: DEFAULT_PREFERENCES },
+        ], history: [screen(), manual()] });
+    }
+    const store = createStudyStore();
+    async function seed() {
+      const snapshot = seedSnapshot();
+      await store.savePreferences(snapshot.preferences);
+      for (const preset of snapshot.presets) await store.savePreset(preset);
+      for (const entry of snapshot.history) await store.addHistory(entry);
+      return store.readSnapshot();
+    }
+    window.p5 = { store, seed, seedSnapshot, screen, manual, emptySnapshot, defaults: DEFAULT_PREFERENCES, ready: true };
+  </script>
+</body>
+</html>

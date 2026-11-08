@@ -59,7 +59,14 @@ export async function runTrainingBrowserChecks(checks) {
     for (const { name, run } of checks) {
       const started = performance.now();
       try {
+        // Re-navigation now preserves settings. These independent P3 cases need
+        // an empty origin; P5 owns persistence and full-browser restart checks.
+        await page.goto('about:blank');
+        const session = await context.newCDPSession(page);
+        await session.send('Storage.clearDataForOrigin', { origin, storageTypes: 'indexeddb' });
+        await session.detach();
         await page.goto(origin);
+        await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
         await page.waitForSelector('[data-position="E:5"]');
         const evidence = await run({ page, origin, resultDir, externalRequests, pageErrors });
         report.checks.push({ name, status: 'passed', durationMs: Math.round(performance.now() - started), evidence });
