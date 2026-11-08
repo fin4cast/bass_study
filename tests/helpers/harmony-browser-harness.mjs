@@ -1,0 +1,179 @@
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
+import { chromium } from 'playwright';
+import { createServer } from 'vite';
+
+const loopback = url => ['localhost', '127.0.0.1', '[::1]'].includes(new URL(url).hostname);
+
+export async function runHarmonyBrowserChecks(checks) {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+  const origin = 'http://localhost:4173';
+  const fixtureOrigin = 'http://127.0.0.1:4187';
+  const fixtureUrl = `${fixtureOrigin}/tests/fixtures/harmony.html`;
+  const resultDir = join(root, 'test-results');
+  const reuseRequested = process.argv.includes('--reuse-server');
+  const report = {
+    generatedAt: new Date().toISOString(), platform: process.platform, architecture: process.arch,
+    node: process.version, browserChannel: 'msedge', browserVersion: null, origin, fixtureOrigin,
+    scope: 'R017 real three-channel PCM, native live scheduling/pause/mix/finish and harmony UI; physical output muted, no hardware latency measurement.',
+    networkIsolation: 'Fresh Edge contexts with cache disabled; non-loopback page HTTP requests aborted. No user profile or Windows network adapter change.',
+    staticServer: { reuseRequested, owned: false, mode: 'not-started' },
+    checks: [], externalRequests: [], pageErrors: [], cleanupErrors: [],
+  };
+  let server, fixtureServer, browser, temporary; let externalServer = false; let nativeSequence = 0;
+  const contexts = new Set();
+  async function cleanup(name, operation) {
+    try { await operation(); }
+    catch (error) { report.cleanupErrors.push({ name, error: error.stack || String(error) }); console.error(`Cleanup failed (${name}): ${error.message}`); }
+  }
+  async function isolate(context) {
+
+    await context.route('**/*', route => {
+      if (loopback(route.request().url())) return route.continue();
+      report.externalRequests.push(route.request().url()); return route.abort('internetdisconnected');
+    });
+    context.on('page', page => page.on('pageerror', error => report.pageErrors.push(error.message)));
+  }
+  async function freshPage(url) {
+    const context = await browser.newContext({ viewport: { width: 1360, height: 1050 } });
+    contexts.add(context); await isolate(context);
+    const page = await context.newPage();
+    page.setDefaultTimeout(6000);
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Network.enable');
+    await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
+    await page.goto(url);
+    if (url === fixtureUrl) await page.waitForFunction(() => window.p7harmony?.ready);
+    else await page.waitForSelector('#history-mount', { state: 'attached' });
+    return { context, page };
+  }
+  async function withNativeBrowser(run) {
+    const nativeProfile = `visibility-${++nativeSequence}`;
+    const edge = process.env.BASS_HARMONY_EDGE_PATH || join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe');
+    const child = spawn(edge, [
+      '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${join(temporary, nativeProfile)}`,
+      '--no-first-run', '--no-default-browser-check', '--mute-audio', 'about:blank',
+    ], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let nativeBrowser, output = '', launchError;
+    child.on('error', error => { launchError = error; });
+    child.stderr.on('data', data => { output += data; });
+    try {
+      let endpoint;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (launchError) throw launchError;
+        endpoint = output.match(/DevTools listening on (ws:\/\/[^\s]+)/)?.[1];
+        if (endpoint) break;
+        if (child.exitCode !== null) throw new Error(`Isolated Edge exited: ${output.slice(-500)}`);
+        await delay(100);
+      }
+      assert.ok(endpoint, 'No isolated Edge CDP endpoint');
+      nativeBrowser = await chromium.connectOverCDP(endpoint, { noDefaults: true });
+      const context = nativeBrowser.contexts()[0]; await isolate(context);
+      const page = context.pages()[0]; page.setDefaultTimeout(6000);
+      page.on('pageerror', error => report.pageErrors.push(error.message));
+      await page.goto(origin);
+      await page.waitForFunction(() => document.querySelector('#history-mount'), undefined, { polling: 100 });
+      await page.bringToFront();
+      try { return await run({ page, context }); }
+      catch (error) {
+        const tabs = await Promise.all(context.pages().map(async tab => {
+          const url = tab.url();
+          try { return { url, ...await tab.evaluate(() => ({ persistenceMessage: document.querySelector('#persistence-message')?.textContent ?? null, hidden: document.hidden, mainInert: document.querySelector('main')?.inert ?? null, mainBusy: document.querySelector('main')?.getAttribute('aria-busy') ?? null })) }; }
+          catch (failure) { return { url, diagnosticError: failure.message }; }
+        }));
+        throw new Error(`${error.stack || error}\nIsolated native Edge diagnostics: ${JSON.stringify({ nativeProfile, tabs })}`, { cause: error });
+      }
+    } finally {
+      await cleanup('native-browser-cdp', async () => {
+        if (!nativeBrowser) return;
+        try { await (await nativeBrowser.newBrowserCDPSession()).send('Browser.close'); } catch { /* already closed */ }
+        await nativeBrowser.close();
+      });
+      await cleanup('native-browser-process', async () => {
+        if (child.pid && child.exitCode === null) { const done = new Promise(resolve => child.once('exit', resolve)); child.kill(); await done; }
+      });
+    }
+  }
+  try {
+    const expectedIndex = await readFile(join(root, 'dist', 'index.html'));
+    let existing;
+    try { existing = await fetch(origin, { signal: AbortSignal.timeout(500), redirect: 'error' }); } catch { /* no usable HTTP listener */ }
+    if (existing) {
+      assert.ok(reuseRequested, `Port already occupied: ${origin}; explicit --reuse-server is required`);
+      assert.equal(existing.status, 200, 'Existing server must return the built index directly');
+      assert.ok(Buffer.from(await existing.arrayBuffer()).equals(expectedIndex), 'Existing server index differs from root/dist/index.html; refusing reuse');
+      externalServer = true;
+      report.staticServer = { reuseRequested, owned: false, mode: 'external-reused', indexVerifiedByteForByte: true, restartAllowed: false, shutdownAllowed: false };
+    }
+    for (const url of [fixtureOrigin]) {
+      try { await fetch(url, { signal: AbortSignal.timeout(500) }); throw new Error(`Port already occupied: ${url}`); }
+      catch (error) { if (error.message.startsWith('Port already occupied:')) throw error; }
+    }
+    await mkdir(resultDir, { recursive: true });
+    temporary = await mkdtemp(join(tmpdir(), 'bass-study-harmony-'));
+    fixtureServer = await createServer({ configFile: false, root, server: { host: '127.0.0.1', port: 4187, strictPort: true }, clearScreen: false, logLevel: 'warn' });
+    await fixtureServer.listen();
+    if (!externalServer) {
+    server = spawn(process.execPath, [join(root, 'scripts', 'serve.mjs')], { cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let startup = '', launchError;
+    server.on('error', error => { launchError = error; });
+    server.stdout.on('data', data => { startup += data; }); server.stderr.on('data', data => { startup += data; });
+    let ready = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (launchError) throw launchError;
+      if (server.exitCode !== null) throw new Error(`Static server exited: ${startup}`);
+      try { if ((await fetch(origin, { signal: AbortSignal.timeout(300) })).ok) { ready = true; break; } } catch { /* listener starting */ }
+      await delay(50);
+    }
+    assert.ok(ready, `Static server did not become ready: ${startup}`);
+    report.staticServer = { reuseRequested, owned: true, mode: 'runner-owned', restartAllowed: true, shutdownAllowed: true };
+    }
+    browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--mute-audio'] });
+    report.browserVersion = browser.version();
+    for (const { name, scope, run } of checks) {
+      const started = performance.now(); let context;
+      try {
+        const setup = scope === 'native' ? {} : await freshPage(scope === 'ui' ? origin : fixtureUrl);
+        context = setup.context;
+        const evidence = await run({ ...setup, origin, fixtureOrigin, resultDir, report, withNativeBrowser });
+        report.checks.push({ name, scope, status: 'passed', durationMs: Math.round(performance.now() - started), evidence });
+        console.log(`PASS ${name}`);
+      } catch (error) {
+        report.checks.push({ name, scope, status: 'failed', durationMs: Math.round(performance.now() - started), error: error.stack || String(error) });
+        console.error(`FAIL ${name}: ${error.message}`);
+      } finally {
+        if (context) { await cleanup(`context:${name}`, () => context.close()); contexts.delete(context); }
+      }
+    }
+    assert.deepEqual(report.externalRequests, [], 'The audio/player must not request remote assets');
+    assert.deepEqual(report.pageErrors, [], 'Browser runtime errors occurred');
+  } catch (error) {
+    report.setupError = error.stack || String(error); console.error(error);
+  } finally {
+    for (const context of contexts) await cleanup('remaining-context', () => context.close());
+    await cleanup('browser', async () => { await browser?.close(); });
+    await cleanup('fixture-server', async () => { await fixtureServer?.close(); });
+    await cleanup('static-server', async () => {
+      if (!externalServer && server?.pid && server.exitCode === null) { const done = new Promise(resolve => server.once('exit', resolve)); server.kill(); await done; }
+    });
+    await cleanup('isolated-profile', async () => {
+      if (!temporary) return;
+      const parentPath = await realpath(tmpdir()); const target = await realpath(temporary);
+      const inside = relative(parentPath, target);
+      assert.ok(inside.startsWith('bass-study-harmony-') && !inside.includes(sep) && !inside.startsWith('..'), 'Temporary profile escaped the intended temp directory');
+      await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 });
+    });
+    report.passed = report.checks.filter(check => check.status === 'passed').length;
+    report.failed = report.checks.filter(check => check.status === 'failed').length;
+    report.status = !report.setupError && report.failed === 0 && report.cleanupErrors.length === 0 ? 'passed' : 'failed';
+    await mkdir(resultDir, { recursive: true });
+    await writeFile(join(resultDir, 'p7-harmony-edge.json'), JSON.stringify(report, null, 2) + '\n');
+    console.log(`${report.status}: ${report.passed} passed, ${report.failed} failed; report test-results/p7-harmony-edge.json`);
+    process.exitCode = report.status === 'passed' ? 0 : 1;
+  }
+}

@@ -12,7 +12,7 @@ const seed = page => page.evaluate(() => window.p5.seed());
 const backup = page => page.evaluate(() => window.p5.store.exportBackup());
 
 check('native-indexeddb-schema-preferences-presets-and-distinct-results', async ({ page }) => {
-  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 3); assert.deepEqual(empty.presets, []); assert.deepEqual(empty.history, []);
+  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 4); assert.deepEqual(empty.presets, []); assert.deepEqual(empty.history, []);
   const state = await seed(page);
   assert.equal(state.format, 'bass-study-backup'); assert.equal(state.preferences.player.bpm, 96);
   assert.deepEqual(state.presets.map(item => item.name), ['Нижняя струна', 'Исходная область']);
@@ -27,7 +27,7 @@ check('native-indexeddb-schema-preferences-presets-and-distinct-results', async 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => { const db = request.result; const result = { name: db.name, version: db.version, stores: [...db.objectStoreNames] }; db.close(); resolve(result); };
   }));
-  assert.deepEqual(schema, { name: 'bass-study', version: 3, stores: ['history', 'preferences', 'presets'] });
+  assert.deepEqual(schema, { name: 'bass-study', version: 4, stores: ['history', 'preferences', 'presets'] });
   return { schema, state };
 });
 
@@ -84,7 +84,7 @@ check('native-cancel-and-validation-refusals-never-change-existing-data', async 
     const mutations = [
       ['broken-json', '{broken', 'INVALID_BACKUP'],
       ['unknown-format', JSON.stringify({ ...clone(), format: 'another-app' }), 'UNSUPPORTED_FORMAT'],
-      ['future-version', JSON.stringify({ ...clone(), schemaVersion: 4 }), 'UNSUPPORTED_VERSION'],
+      ['future-version', JSON.stringify({ ...clone(), schemaVersion: 5 }), 'UNSUPPORTED_VERSION'],
       ['wrong-bpm-type', (() => { const value = clone(); value.preferences.player.bpm = '96'; return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['duplicate-presets', (() => { const value = clone(); value.presets.push(value.presets[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['duplicate-history', (() => { const value = clone(); value.history.push(value.history[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
@@ -294,7 +294,7 @@ check('ui-settings-reload-presets-apply-delete-and-download-export', async ({ pa
   await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
   await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill('Мой нижний участок'); await historyAction(page, 'save-preset').click();
   await page.getByTestId('preset-list').getByText('Мой нижний участок', { exact: true }).waitFor();
-  const exported = await uiBackup(page); assert.equal(exported.schemaVersion, 3); assert.equal(exported.presets.length, 1);
+  const exported = await uiBackup(page); assert.equal(exported.schemaVersion, 4); assert.equal(exported.presets.length, 1);
   assert.deepEqual(exported.preferences.study, { root: 'C', structureId: 'major', labelMode: 'degrees', strings: ['E'], fretMin: 0, fretMax: 3 });
   assert.equal(exported.preferences.player.bpm, 96); assert.equal(exported.preferences.player.countIn, false);
   await page.reload(); await openHistory(page);
@@ -330,7 +330,7 @@ check('ui-invalid-import-shows-error-and-preserves-valid-data', async ({ page, f
   const incoming = await fixtureBackup(page, fixtureUrl); await confirmImport(page, incoming); const before = await uiBackup(page);
   const mutations = [
     ['broken.json', '{broken'],
-    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 4 })],
+    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 5 })],
     ['corrupt.json', (() => { const value = structuredClone(incoming); value.history[1].result.questions[0].errors = 0; return JSON.stringify(value); })()],
   ];
   const errors = [];

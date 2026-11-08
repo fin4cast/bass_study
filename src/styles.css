@@ -19,12 +19,12 @@
 .workspace > .player-section {
   margin: 0 25px 22px;
 }
-.persistence-banner { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:11px 0; font-size:13px; color:#52716b; }
+.persistence-banner { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:11px 0; font-size:13px; color:#46605b; }
 .persistence-banner.has-error { color:#963e29; }
 .persistence-banner button { flex-shrink:0; border:1px solid currentColor; border-radius:6px; padding:6px 10px; color:inherit; background:transparent; cursor:pointer; }
 .persistence-banner button:focus-visible { outline:3px solid #dc9d45; outline-offset:3px; }
 .module-navigation { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 22px; }
-.module-navigation button { border:1px solid #d3ddd0; border-radius:7px; padding:12px 18px; background:transparent; color:#4d6c61; font:inherit; font-size:14px; cursor:pointer; }
+.module-navigation button { border:1px solid #d3ddd0; border-radius:7px; padding:12px 18px; background:transparent; color:#456057; font:inherit; font-size:14px; cursor:pointer; }
 .module-navigation button[aria-pressed="true"] { background:#e4eddc; border-color:#9db88b; color:#365d36; font-weight:600; }
 .module-navigation button:focus-visible { outline:3px solid #dfa85a; outline-offset:3px; }
 .workspace[hidden], #ear-mount[hidden], #route-mount[hidden] { display:none !important; }
@@ -37,7 +37,7 @@
   line-height:1.5;
   --paper:#f5f3ec;
   --ink:#233532;
-  --muted:#71807a;
+  --muted:#535d59;
   --teal:#2d6a60;
   --orange:#e4a168;
   --line:#dddcd2;
@@ -166,7 +166,7 @@ h2 {
   display:flex;
   align-items:center;
   gap:7px;
-  color:#527168;
+  color:#466059;
   font-size:12px;
   background:#eaf0e8;
   border:1px solid #dce5db;
@@ -190,10 +190,10 @@ h2 {
 }
 
 .eyebrow {
-  font-size:10px;
+  font-size:12px;
   font-weight:700;
   letter-spacing:1.5px;
-  color:#7a847c;
+  color:#565d57;
 }
 
 .intro .eyebrow {
@@ -208,11 +208,11 @@ h1 {
 }
 
 h1 span {
-  color:#6c8378;
+  color:#4e5f57;
 }
 
 .intro-copy {
-  color:#768078;
+  color:#565d57;
   font-size:13px;
   line-height:1.7;
   max-width:340px;
@@ -227,11 +227,11 @@ h1 span {
 }
 
 .instrument-chips span {
-  font-size:10px;
+  font-size:12px;
   letter-spacing:.5px;
   border:1px solid #d9ddd3;
   border-radius:4px;
-  color:#688074;
+  color:#4e5f57;
   padding:3px 8px;
 }
 
@@ -254,9 +254,9 @@ h1 span {
 }
 
 .section-number {
-  font:11px/1.4 "Consolas",monospace;
+  font:12px/1.4 "Consolas",monospace;
   font-weight:500;
-  color:#9aa59a;
+  color:#565d56;
   border:1px solid #dce0d6;
   width:24px;
   height:24px;
@@ -281,8 +281,8 @@ h1 span {
 }
 
 .field>span,fieldset legend {
-  font-size:11px;
-  color:#748076;
+  font-size:12px;
+  color:#555d56;
   font-weight:550;
   margin-bottom:0;
 }
@@ -344,7 +344,7 @@ fieldset legend {
   font-size:12px;
   line-height:1.55;
   background:transparent;
-  color:#7b847b;
+  color:#565d56;
   white-space:nowrap;
 }
 
@@ -391,7 +391,7 @@ fieldset legend {
   justify-content:center;
   font-size:12px;
   font-weight:650;
-  color:#90988e;
+  color:#585c56;
   background:#f1f1ea;
   pointer-events:none;
 }
@@ -399,7 +399,7 @@ fieldset legend {
 .string-switch input:checked+span {
   background:#e4eee5;
   border-color:#bbd0be;
-  color:#3b6b50;
+  color:#37644b;
 }
 
 .string-switch input:focus-visible+span {
@@ -417,9 +417,9 @@ fieldset legend {
 }
 
 .range-hint {
-  font-size:10px;
+  font-size:12px;
   font-weight:400;
-  color:#a0a79b;
+  color:#595c56;
   margin-left:7px;
 }
 
@@ -447,7 +447,7 @@ fieldset legend {
 }
 
 .range-dash {
-  color:#9ea69c;
+  color:#585c57;
   font-size:12px;
 }
 
@@ -459,20 +459,20 @@ fieldset legend {
 
 .range-presets button {
   border:0;
-  color:#82907f;
+  color:#545e52;
   padding:6px 9px;
-  font-size:11px;
+  font-size:12px;
   background:transparent;
 }
 
 .range-presets button[aria-pressed="true"] {
   background:#e9eee4;
-  color:#3b6750;
+  color:#39634d;
 }
 
 .range-description {
-  font-size:10px;
-  color:#929b8d;
+  font-size:12px;
+  color:#575d54;
   line-height:1.6;
   margin-left:auto;
 }
@@ -497,10 +497,10 @@ fieldset legend {
 }
 
 .summary-eyebrow {
-  font-size:8px;
+  font-size:12px;
   letter-spacing:1.3px;
   margin-bottom:3px;
-  color:#8d9a88;
+  color:#565d53;
 }
 
 .structure-summary h2 {
@@ -529,12 +529,12 @@ fieldset legend {
 .note-pill strong {
   font-size:12px;
   font-weight:650;
-  color:#4f7059;
+  color:#45614d;
 }
 
 .note-pill small {
-  font-size:8px;
-  color:#98a58f;
+  font-size:12px;
+  color:#565d51;
   margin-top:2px;
 }
 
@@ -544,11 +544,11 @@ fieldset legend {
 }
 
 .note-pill.is-root strong {
-  color:#97643c;
+  color:#7b5231;
 }
 
 .note-pill.is-root small {
-  color:#ae8c65;
+  color:#6d573f;
 }
 
 .formula {
@@ -562,15 +562,15 @@ fieldset legend {
 }
 
 .formula>span {
-  font-size:9px;
-  color:#94a08d;
+  font-size:12px;
+  color:#565d52;
 }
 
 .formula strong {
   font-family:"Consolas",monospace;
-  font-size:11px;
+  font-size:12px;
   font-weight:400;
-  color:#6d8067;
+  color:#515f4d;
   white-space:nowrap;
 }
 
@@ -586,8 +586,8 @@ fieldset legend {
 }
 
 .position-count {
-  font:10px "Consolas",monospace;
-  color:#929e8f;
+  font:12px "Consolas",monospace;
+  color:#565d55;
 }
 
 .board-scroll {
@@ -606,9 +606,9 @@ fieldset legend {
 }
 
 .fret-number {
-  fill:#85947f;
+  fill:#4f604a;
   font-family:"Consolas",monospace;
-  font-size:11px;
+  font-size:12px;
 }
 
 .fret-wire {
@@ -642,15 +642,15 @@ fieldset legend {
 }
 
 .string-name {
-  fill:#5f755d;
+  fill:#4c6047;
   font-size:14px;
   font-weight:600;
 }
 
 .string-caption {
-  fill:#9baa92;
+  fill:#59634f;
   font-family:"Consolas",monospace;
-  font-size:9px;
+  font-size:12px;
 }
 
 .fret-inlay {
@@ -765,8 +765,8 @@ fieldset legend {
   display:flex;
   align-items:center;
   gap:6px;
-  font-size:9px;
-  color:#87917f;
+  font-size:12px;
+  color:#575d52;
 }
 
 .legend i {
@@ -793,8 +793,8 @@ fieldset legend {
 }
 
 .board-navigation {
-  font-size:9px;
-  color:#8f9a87;
+  font-size:12px;
+  color:#575d52;
   text-align:right;
 }
 
@@ -804,7 +804,7 @@ fieldset legend {
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  color:#6e7d65;
+  color:#535e4c;
   gap:8px;
 }
 
@@ -812,7 +812,7 @@ fieldset legend {
   font-family:monospace;
   font-size:24px;
   letter-spacing:7px;
-  color:#a6b39e;
+  color:#575d53;
 }
 
 .empty-state h3 {
@@ -822,7 +822,7 @@ fieldset legend {
 
 .empty-state p {
   font-size:12px;
-  color:#899580;
+  color:#565d50;
 }
 
 .selection-section {
@@ -847,13 +847,13 @@ fieldset legend {
 }
 
 .selected-heading .eyebrow {
-  font-size:9px;
+  font-size:12px;
   letter-spacing:1.2px;
 }
 
 .selection-kind {
-  font-size:9px;
-  color:#63845c;
+  font-size:12px;
+  color:#496144;
   background:#e8eee0;
   border:1px solid #d8e3ce;
   padding:3px 8px;
@@ -862,13 +862,13 @@ fieldset legend {
 }
 
 .selection-kind.is-root {
-  color:#986b3d;
+  color:#775430;
   background:#f4e8d2;
   border-color:#e8d6b5;
 }
 
 .selection-kind.outside {
-  color:#8a7863;
+  color:#66594a;
   background:#f0eade;
   border-color:#e4dac8;
 }
@@ -885,7 +885,7 @@ fieldset legend {
   letter-spacing:-1.8px;
   font-weight:550;
   min-width:68px;
-  color:#3d6449;
+  color:#3d6349;
   line-height:1.2;
 }
 
@@ -901,8 +901,8 @@ fieldset legend {
 }
 
 .selected-note span {
-  font-size:10px;
-  color:#8b9583;
+  font-size:12px;
+  color:#575d52;
 }
 
 .note-facts {
@@ -921,14 +921,14 @@ fieldset legend {
 }
 
 .note-facts dt {
-  font-size:9px;
-  color:#98a18f;
+  font-size:12px;
+  color:#575d52;
 }
 
 .note-facts dd {
   font-size:12px;
   font-family:"Consolas",monospace;
-  color:#6a8064;
+  color:#4f5f4b;
   margin:0;
 }
 
@@ -949,12 +949,12 @@ fieldset legend {
 .connections-heading .section-number {
   height:20px;
   width:20px;
-  font-size:9px;
+  font-size:12px;
 }
 
 .connections-intro {
-  font-size:10px;
-  color:#949d8b;
+  font-size:12px;
+  color:#575d52;
   margin:8px 0 13px;
 }
 
@@ -966,16 +966,16 @@ fieldset legend {
 }
 
 .connection-group h3 {
-  font-size:10px;
+  font-size:12px;
   font-weight:500;
-  color:#85927c;
+  color:#555d4f;
   min-width:102px;
   padding-top:6px;
 }
 
 .connection-group h3>span {
-  font:9px "Consolas",monospace;
-  color:#a3af9a;
+  font:12px "Consolas",monospace;
+  color:#575d52;
   margin-left:4px;
 }
 
@@ -992,7 +992,7 @@ fieldset legend {
   align-items:center;
   gap:7px;
   padding:6px 9px;
-  font-size:10px;
+  font-size:12px;
   border-radius:5px;
 }
 
@@ -1002,24 +1002,24 @@ fieldset legend {
 }
 
 .connection-button strong {
-  font-size:10px;
+  font-size:12px;
   font-weight:650;
-  color:#547448;
+  color:#47623d;
 }
 
 .connection-button>span {
-  font-size:9px;
-  color:#94a387;
+  font-size:12px;
+  color:#555e4e;
 }
 
 .connection-button>span:last-child {
-  color:#a6b598;
+  color:#565d4f;
   margin-left:2px;
 }
 
 .no-connections {
-  font-size:10px;
-  color:#9ba48f;
+  font-size:12px;
+  color:#585d51;
   padding-top:6px;
 }
 
@@ -1034,12 +1034,12 @@ fieldset legend {
 .selection-empty h2 {
   font-size:23px;
   font-weight:500;
-  color:#6e8264;
+  color:#515f49;
 }
 
 .selection-empty>p:last-child {
   font-size:12px;
-  color:#9aa38c;
+  color:#585d50;
 }
 
 .page-footer {
@@ -1050,8 +1050,8 @@ fieldset legend {
   border-top:1px solid #e0e3d7;
   margin-top:28px;
   padding:15px 0 22px;
-  color:#9aa28f;
-  font-size:9px;
+  color:#585c52;
+  font-size:12px;
 }
 
 .page-footer>span:last-child {
@@ -1177,7 +1177,7 @@ fieldset legend {
   }
 
   .header-caption {
-    font-size:11px;
+    font-size:12px;
   }
 
   .note-pills {
@@ -1220,13 +1220,13 @@ fieldset legend {
   }
 
   .intro-copy {
-    font-size:11px;
+    font-size:12px;
     max-width:250px;
     padding-top:18px;
   }
 
   .intro .eyebrow {
-    font-size:8px;
+    font-size:12px;
   }
 
   .desktop-break {
@@ -1293,7 +1293,7 @@ fieldset legend {
   }
 
   .position-count {
-    font-size:9px;
+    font-size:12px;
   }
 
   .board-footer {
@@ -1332,7 +1332,7 @@ fieldset legend {
   }
 
   .page-footer {
-    font-size:8px;
+    font-size:12px;
     align-items:start;
   }
 
@@ -1369,7 +1369,7 @@ fieldset legend {
   }
 
   .local-badge {
-    font-size:10px;
+    font-size:12px;
   }
 
   .scope-controls {

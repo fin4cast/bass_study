@@ -9,9 +9,11 @@ import { createManualPracticeResult, type ManualPracticeResult } from '../traini
 import { beginEarListen, cancelEarListen, collectEarResults, completeEarListen, createEarQuestion, revealEarAnswer, skipEarQuestion, startEarSession, submitEarAnswer,
   type EarDegree, type EarQuality, type EarSession, type SavedEarResult } from '../ear';
 import { getRouteResult, replayRouteResult, type RouteEvent, type RouteResult } from '../route';
+import { DEFAULT_HARMONY_PREFERENCES, type HarmonyPreferences } from '../harmony';
 
 export interface AppPreferences {
-  readonly activeModule: 'foundation' | 'ear' | 'route';
+  readonly activeModule: 'foundation' | 'ear' | 'route' | 'harmony';
+  readonly harmony: HarmonyPreferences;
   readonly ear: { readonly root: string; readonly quality: EarQuality; readonly count: number; readonly bpm: number };
   readonly study: { readonly root: string; readonly structureId: StructureId; readonly labelMode: LabelMode; readonly strings: readonly StringId[]; readonly fretMin: number; readonly fretMax: number };
   readonly training: { readonly mode: 'study' | 'quiz' | 'sequence'; readonly quizMode: QuizMode; readonly scope: TrainingScope; readonly intervalDegree: IntervalDegree; readonly count: number; readonly pattern: SequencePattern; readonly sequenceScope: TrainingScope; readonly reviewPositionIds: readonly string[] };
@@ -44,7 +46,7 @@ export interface EarHistoryEntry extends HistoryEnvelope { readonly result: EarH
 export interface RouteHistoryEntry extends HistoryEnvelope { readonly result: RouteResult }
 export type HistoryEntry = ScreenHistoryEntry | ManualHistoryEntry | EarHistoryEntry | RouteHistoryEntry;
 export interface StudySnapshot {
-  readonly format: 'bass-study-backup'; readonly schemaVersion: 3; readonly preferences: AppPreferences;
+  readonly format: 'bass-study-backup'; readonly schemaVersion: 4; readonly preferences: AppPreferences;
   readonly presets: readonly Preset[]; readonly history: readonly HistoryEntry[];
 }
 
@@ -119,6 +121,7 @@ export function originalLocalDate(occurredAt: string, timeZone: string): string 
 }
 
 export const DEFAULT_PREFERENCES: AppPreferences = immutable({
+  harmony: DEFAULT_HARMONY_PREFERENCES,
   activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 },
   study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12 },
   training: { mode: 'study', quizMode: 'name-note', scope: 'structure', intervalDegree: '#4', count: 10, pattern: 'ascending', sequenceScope: 'structure', reviewPositionIds: [] },
@@ -138,8 +141,9 @@ function positionIds(value: unknown, label: string, allowEmpty: boolean): string
 function position(id: string) { const [string, fret] = id.split(':'); return getPosition(string as StringId, Number(fret)); }
 
 export function validatePreferences(value: unknown): AppPreferences {
-  const data = object(value, ['activeModule', 'ear', 'study', 'training', 'player'], 'Настройки');
+  const data = object(value, ['activeModule', 'ear', 'harmony', 'study', 'training', 'player'], 'Настройки');
   const ear = object(data.ear, ['root', 'quality', 'count', 'bpm'], 'Настройки слуха');
+  const harmony = object(data.harmony, ['bpm', 'countIn', 'repeat', 'bassVolume', 'padVolume', 'clickVolume', 'bassMuted', 'padMuted', 'clickMuted'], 'Настройки сопровождения');
   const study = object(data.study, ['root', 'structureId', 'labelMode', 'strings', 'fretMin', 'fretMax'], 'Настройки грифа');
   const strings = array(study.strings, 4, 'Струны').map(item => oneOf(item, ['E', 'A', 'D', 'G'] as const, 'Струна'));
   if (new Set(strings).size !== strings.length) invalid('Струны не должны повторяться.');
@@ -159,7 +163,10 @@ export function validatePreferences(value: unknown): AppPreferences {
   const ladderEnd = number(player.ladderEnd, 40, 220, 'Конечный BPM');
   if (ladderStart > ladderEnd) invalid('Конечный темп лестницы ниже начального.');
   return immutable({
-    activeModule: oneOf(data.activeModule, ['foundation', 'ear', 'route'] as const, 'Раздел'),
+    activeModule: oneOf(data.activeModule, ['foundation', 'ear', 'route', 'harmony'] as const, 'Раздел'),
+    harmony: { bpm: number(harmony.bpm, 40, 220, 'Темп сопровождения'), countIn: boolean(harmony.countIn, 'Отсчёт сопровождения'), repeat: oneOf(harmony.repeat, ['once', 'infinite'] as const, 'Повтор сопровождения'),
+      bassVolume: number(harmony.bassVolume, 0, 100, 'Громкость басового рисунка'), padVolume: number(harmony.padVolume, 0, 100, 'Громкость гармонии'), clickVolume: number(harmony.clickVolume, 0, 100, 'Громкость клика сопровождения'),
+      bassMuted: boolean(harmony.bassMuted, 'Отключение басового рисунка'), padMuted: boolean(harmony.padMuted, 'Отключение гармонии'), clickMuted: boolean(harmony.clickMuted, 'Отключение клика сопровождения') },
     ear: { root: oneOf(ear.root, ROOT_IDS, 'Тоника слухового задания'), quality: oneOf(ear.quality, ['major', 'minor'] as const, 'Трезвучие слухового задания'), count: number(ear.count, 1, 20, 'Число слуховых вопросов'), bpm: number(ear.bpm, 60, 120, 'Темп слухового задания') },
     study: { root: oneOf(study.root, ROOT_IDS, 'Тоника'), structureId: oneOf(study.structureId, STRUCTURE_IDS, 'Структура'), labelMode: oneOf(study.labelMode, ['notes', 'degrees', 'hidden'] as const, 'Подписи'), strings, fretMin, fretMax },
     training: { mode: oneOf(training.mode, ['study', 'quiz', 'sequence'] as const, 'Режим занятия'), quizMode, scope, intervalDegree: oneOf(training.intervalDegree, INTERVAL_DEGREES, 'Интервал'),
@@ -378,14 +385,14 @@ export function validateHistoryEntry(value: unknown): HistoryEntry {
 export function validateSnapshot(value: unknown): StudySnapshot {
   const raw = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history'], 'Резервная копия');
   if (raw.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
-  if (raw.schemaVersion !== 3) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  if (raw.schemaVersion !== 4) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
   // Import bytes are bounded by parseBackup; ordinary native writes must never make
   // an otherwise valid database unreadable merely by exceeding an arbitrary count.
   const presets = array(raw.presets, Number.MAX_SAFE_INTEGER, 'Пресеты').map(validatePreset);
   const history = array(raw.history, Number.MAX_SAFE_INTEGER, 'История').map(validateHistoryEntry);
   if (new Set(presets.map(item => item.id)).size !== presets.length || new Set(history.map(item => item.id)).size !== history.length) invalid('ID пресетов или истории повторяются.');
   const byId = (a: { id: string }, b: { id: string }) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-  return immutable({ format: 'bass-study-backup', schemaVersion: 3, preferences: validatePreferences(raw.preferences), presets: presets.sort(byId), history: history.sort(byId) });
+  return immutable({ format: 'bass-study-backup', schemaVersion: 4, preferences: validatePreferences(raw.preferences), presets: presets.sort(byId), history: history.sort(byId) });
 }
 
 /** Exact schema-1 records are validated before adding schema-2 defaults. */
@@ -398,7 +405,7 @@ export function migrateV1Preferences(value: unknown): AppPreferences {
 
 export function migrateV2Preferences(value: unknown): AppPreferences {
   const data = object(value, ['study', 'training', 'player'], 'Настройки версии 2');
-  return validatePreferences({ ...data, activeModule: 'foundation', ear: DEFAULT_PREFERENCES.ear });
+  return migrateV3Preferences({ ...data, activeModule: 'foundation', ear: DEFAULT_PREFERENCES.ear });
 }
 export function migrateV2Preset(value: unknown): Preset {
   const data = object(value, ['id', 'name', 'createdAt', 'preferences'], 'Пресет версии 2');
@@ -409,6 +416,16 @@ export function migrateV2HistoryEntry(value: unknown): HistoryEntry {
   if (entry.result.kind !== 'screen' && entry.result.kind !== 'manual') invalid('Версия 2 поддерживала только экранные результаты и ручные отметки.');
   return entry;
 }
+export function migrateV3Preferences(value: unknown): AppPreferences {
+  const data = object(value, ['activeModule', 'ear', 'study', 'training', 'player'], 'Настройки версии 3');
+  oneOf(data.activeModule, ['foundation', 'ear', 'route'] as const, 'Раздел версии 3');
+  return validatePreferences({ ...data, harmony: DEFAULT_HARMONY_PREFERENCES });
+}
+export function migrateV3Preset(value: unknown): Preset {
+  const data = object(value, ['id', 'name', 'createdAt', 'preferences'], 'Пресет версии 3');
+  return validatePreset({ ...data, preferences: migrateV3Preferences(data.preferences) });
+}
+export function migrateV3HistoryEntry(value: unknown): HistoryEntry { return validateHistoryEntry(value); }
 
 export function migrateV1Preset(value: unknown): Preset {
   const data = object(value, ['id', 'name', 'createdAt', 'preferences'], 'Пресет версии 1');
@@ -430,12 +447,14 @@ export function migrateV1HistoryEntry(value: unknown): HistoryEntry {
 export function migrateBackup(value: unknown): StudySnapshot {
   const data = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history'], 'Резервная копия');
   if (data.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
-  if (data.schemaVersion === 3) return validateSnapshot(data);
-  if (data.schemaVersion !== 1 && data.schemaVersion !== 2) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
-  const legacy = data.schemaVersion === 1;
-  return validateSnapshot({ ...data, schemaVersion: 3, preferences: (legacy ? migrateV1Preferences : migrateV2Preferences)(data.preferences),
-    presets: array(data.presets, Number.MAX_SAFE_INTEGER, 'Старые пресеты').map(legacy ? migrateV1Preset : migrateV2Preset),
-    history: array(data.history, Number.MAX_SAFE_INTEGER, 'Старая история').map(legacy ? migrateV1HistoryEntry : migrateV2HistoryEntry) });
+  if (data.schemaVersion === 4) return validateSnapshot(data);
+  if (data.schemaVersion !== 1 && data.schemaVersion !== 2 && data.schemaVersion !== 3) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  const migrations = data.schemaVersion === 1 ? { preferences: migrateV1Preferences, preset: migrateV1Preset, history: migrateV1HistoryEntry }
+    : data.schemaVersion === 2 ? { preferences: migrateV2Preferences, preset: migrateV2Preset, history: migrateV2HistoryEntry }
+    : { preferences: migrateV3Preferences, preset: migrateV3Preset, history: migrateV3HistoryEntry };
+  return validateSnapshot({ ...data, schemaVersion: 4, preferences: migrations.preferences(data.preferences),
+    presets: array(data.presets, Number.MAX_SAFE_INTEGER, 'Старые пресеты').map(migrations.preset),
+    history: array(data.history, Number.MAX_SAFE_INTEGER, 'Старая история').map(migrations.history) });
 }
 
 export function parseBackup(json: string): StudySnapshot {
@@ -445,7 +464,7 @@ export function parseBackup(json: string): StudySnapshot {
   return migrateBackup(value);
 }
 
-export function emptySnapshot(): StudySnapshot { return validateSnapshot({ format: 'bass-study-backup', schemaVersion: 3, preferences: DEFAULT_PREFERENCES, presets: [], history: [] }); }
+export function emptySnapshot(): StudySnapshot { return validateSnapshot({ format: 'bass-study-backup', schemaVersion: 4, preferences: DEFAULT_PREFERENCES, presets: [], history: [] }); }
 
 function envelope(metadata: HistoryMetadata) {
   return { id: metadata.id, occurredAt: metadata.occurredAt, timeZone: metadata.timeZone, localDate: originalLocalDate(metadata.occurredAt, metadata.timeZone) };

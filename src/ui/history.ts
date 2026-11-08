@@ -20,6 +20,7 @@ export interface ManualPracticeDraft {
   context: QuestionContext;
   durationMs: number;
   comfortableBpm: number;
+  label?: string;
   runtimeContextKey?: string;
 }
 
@@ -77,6 +78,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
   let presetName = '';
   let manualBpm: string | null = null;
   let manualNote = '';
+  let manualDraft: ManualPracticeDraft | null = null;
   let pendingImport: string | null = null;
   let pendingFilename = '';
   let preview: ReturnType<Store['previewImport']> | null = null;
@@ -99,6 +101,14 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     output.dataset.status = statusKind;
   }
 
+  const draftKey = (draft: ManualPracticeDraft) => JSON.stringify({ context: draft.context, runtime: draft.runtimeContextKey });
+  function captureDraft() {
+    const current = options.getPracticeDraft();
+    manualDraft = { ...current, context: { ...current.context, positionIds: [...current.context.positionIds] } };
+    if (manualBpm === null) manualBpm = String(Math.round(current.comfortableBpm));
+    return manualDraft;
+  }
+
   function render() {
     if (disposed) return;
     setSaveStatus(status, statusKind);
@@ -114,7 +124,10 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     reviewContextKey = review?.key ?? null;
     const reviewIds = review?.ids ?? [];
     const ordered = [...snapshot.history].filter(entry => filter === 'all' || entry.result.kind === filter).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt) || a.id.localeCompare(b.id));
-    const draft = options.getPracticeDraft();
+    const currentDraft = options.getPracticeDraft();
+    const draft = manualDraft ?? currentDraft;
+    const draftChanged = manualDraft !== null && draftKey(manualDraft) !== draftKey(currentDraft);
+    const manualInfo = `<p class="history-help" data-testid="manual-material">${escapeHtml(draft.label ?? 'Практика с эталоном')} · ${escapeHtml(contextName(draft.context))}</p><p class="history-help" data-testid="manual-draft-state">${manualDraft ? 'Черновик не сохранён. Материал и время зафиксированы при начале ввода; время можно обновить кнопкой.' : 'Перед сохранением проверь материал и комфортный темп.'}</p>${draftChanged ? '<p class="history-notice" data-testid="manual-context-notice">Текущий материал изменился. Эта отметка относится к прежнему занятию; её можно сохранить отдельно.</p><button class="text-button" type="button" data-history-action="use-current-draft">Отнести заметку к текущему материалу</button>' : ''}`;
     const canSaveManual = draft.context.positionIds.length > 0;
     const currentManualBpm = manualBpm ?? String(Math.round(draft.comfortableBpm));
     container.querySelector<HTMLElement>('[data-history-count]')!.textContent = `${snapshot.history.length} записей · ${snapshot.presets.length} пресетов`;
@@ -126,7 +139,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
       ${actionNotice ? `<p class="history-notice" data-testid="history-notice" role="status">${escapeHtml(actionNotice)}</p>` : ''}
       <div class="history-overview"><div><strong>${summary.screenSessions}</strong><span>Экранных занятий</span></div><div><strong>${summary.completedQuestions}</strong><span>Завершённых вопросов</span></div><div><strong>${summary.independentCorrect}</strong><span>Самостоятельных ответов</span></div><div><strong>${summary.errors}</strong><span>Ошибочных ответов</span></div><div><strong>${summary.manualSessions}</strong><span>Ручных отметок</span></div></div>
       <section class="history-block history-weak" aria-labelledby="weak-heading"><div><p class="eyebrow">ТОЧЕЧНОЕ ПОВТОРЕНИЕ</p><h3 id="weak-heading">Вернись к трудным позициям</h3><p>${reviewIds.length ? `${reviewIds.length} позиций из прошлых ошибок. Повтор содержит только эту выборку и сохраняет исходную тональность.` : 'Пока нет позиций для повторения. Они появятся из реальных ошибочных ответов.'}</p>${groups.length > 1 ? `<label class="history-field review-context-field"><span>Контекст повторения</span><select aria-label="Контекст повторения" data-history-field="reviewContext">${groups.map(group => `<option value="${escapeHtml(group.key)}"${group.key === reviewContextKey ? ' selected' : ''}>${escapeHtml(contextName(group.context))}</option>`).join('')}</select></label>` : review ? `<p>${escapeHtml(contextName(review.context))}</p>` : ''}<div class="weak-position-chips">${reviewIds.slice(0, 12).map(id => { const [string, fret] = id.split(':'); const position = getPosition(string as StringId, Number(fret)); return `<span>${escapeHtml(formatMidi(position.midi))}<small>${escapeHtml(string)}/${fret}</small></span>`; }).join('')}${reviewIds.length > 12 ? `<span>ещё ${reviewIds.length - 12}</span>` : ''}</div></div><button class="secondary-button" type="button" data-history-action="review-errors"${reviewIds.length === 0 || busy ? ' disabled' : ''}>Повторить ошибки</button></section>
-      <section class="history-block" aria-labelledby="manual-heading"><div class="history-block-heading"><div><p class="eyebrow">СВОЯ ОЦЕНКА ПРАКТИКИ</p><h3 id="manual-heading">Отметь комфортный темп</h3></div><span class="history-kind manual">Ручная отметка</span></div><p class="history-help">Темп и заметка — твоя оценка. Длительность берётся из проигрывателя эталона и не измеряет, сколько ты играл на басу.</p>${!canSaveManual ? '<p class="history-help" role="status">Выбери хотя бы одну струну и корректный диапазон. Без доступных позиций ручная отметка не сохраняется.</p>' : ''}<div class="manual-form"><label class="history-field"><span>Комфортный темп, BPM</span><input type="number" min="40" max="220" step="1" value="${escapeHtml(currentManualBpm)}" aria-label="Комфортный темп" data-history-field="manualBpm"${busy ? ' disabled' : ''}></label><div class="manual-duration"><span>Время с эталоном</span><strong data-testid="manual-duration">${formatDuration(draft.durationMs)}</strong><small>${escapeHtml(contextName(draft.context))}</small></div></div><label class="history-field manual-note-field"><span>Заметка</span><textarea maxlength="2000" rows="2" aria-label="Заметка к практике" data-history-field="manualNote" placeholder="Что получилось и что хочется повторить"${busy ? ' disabled' : ''}>${escapeHtml(manualNote)}</textarea></label><div class="history-form-actions"><button class="secondary-button" type="button" data-history-action="save-manual"${busy || !canSaveManual ? ' disabled' : ''}>Сохранить ручную отметку</button><button class="text-button" type="button" data-history-action="refresh-draft"${busy ? ' disabled' : ''}>Обновить время</button></div></section>
+      <section class="history-block" aria-labelledby="manual-heading"><div class="history-block-heading"><div><p class="eyebrow">СВОЯ ОЦЕНКА ПРАКТИКИ</p><h3 id="manual-heading">Отметь комфортный темп</h3></div><span class="history-kind manual">Ручная отметка</span></div><p class="history-help">Темп и заметка — твоя оценка. Длительность берётся из проигрывателя эталона и не измеряет, сколько ты играл на басу.</p>${!canSaveManual ? '<p class="history-help" role="status">Выбери хотя бы одну струну и корректный диапазон. Без доступных позиций ручная отметка не сохраняется.</p>' : ''}${manualInfo}<div class="manual-form"><label class="history-field"><span>Комфортный темп, BPM</span><input type="number" min="40" max="220" step="1" value="${escapeHtml(currentManualBpm)}" aria-label="Комфортный темп" data-history-field="manualBpm"${busy ? ' disabled' : ''}></label><div class="manual-duration"><span>Время с эталоном</span><strong data-testid="manual-duration">${formatDuration(draft.durationMs)}</strong><small>${escapeHtml(contextName(draft.context))}</small></div></div><label class="history-field manual-note-field"><span>Заметка</span><textarea maxlength="2000" rows="2" aria-label="Заметка к практике" data-history-field="manualNote" placeholder="Что получилось и что хочется повторить"${busy ? ' disabled' : ''}>${escapeHtml(manualNote)}</textarea></label><div class="history-form-actions"><button class="secondary-button" type="button" data-history-action="save-manual"${busy || !canSaveManual ? ' disabled' : ''}>Сохранить ручную отметку</button><button class="text-button" type="button" data-history-action="refresh-draft"${busy ? ' disabled' : ''}>Обновить время</button></div></section>
       <section class="history-block" aria-labelledby="presets-heading"><div class="history-block-heading"><div><p class="eyebrow">БЫСТРО ВЕРНУТЬСЯ К ЗАНЯТИЮ</p><h3 id="presets-heading">Сохранённые настройки</h3></div><span class="history-small-count">${snapshot.presets.length} пресетов</span></div><p class="history-help">Пресет включает область грифа, тип заданий, последовательность и параметры проигрывателя. Ответы текущего занятия в него не входят.</p><div class="preset-save-form"><label class="history-field"><span>Название пресета</span><input type="text" maxlength="80" value="${escapeHtml(presetName)}" aria-label="Название пресета" data-history-field="presetName" placeholder="Например, A minor · первые пять ладов"${busy ? ' disabled' : ''}></label><button class="secondary-button" type="button" data-history-action="save-preset"${busy ? ' disabled' : ''}>Сохранить пресет</button></div><div class="preset-list" data-testid="preset-list">${snapshot.presets.length ? [...snapshot.presets].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(preset => `<article class="preset-card"><div><strong>${escapeHtml(preset.name)}</strong><p>${escapeHtml(preset.preferences.study.root)} · ${escapeHtml(STRUCTURES.find(item => item.id === preset.preferences.study.structureId)?.name ?? '')} · ${preset.preferences.study.fretMin}–${preset.preferences.study.fretMax} лады</p><small>${formatDate(preset.createdAt)}</small></div><div><button class="secondary-button" type="button" data-apply-preset="${escapeHtml(preset.id)}"${busy ? ' disabled' : ''}>Применить</button><button class="text-button" type="button" data-delete-preset="${escapeHtml(preset.id)}" aria-label="Удалить пресет ${escapeHtml(preset.name)}"${busy ? ' disabled' : ''}>Удалить</button></div></article>`).join('') : '<p class="history-empty">Сохрани удобную настройку, чтобы вернуться к ней одной кнопкой.</p>'}</div></section>
       <section class="history-block" aria-labelledby="history-heading"><div class="history-block-heading"><div><p class="eyebrow">ФАКТИЧЕСКИЕ РЕЗУЛЬТАТЫ</p><h3 id="history-heading">История занятий</h3></div><label class="history-filter"><span class="sr-only">Тип записей истории</span><select aria-label="Тип записей истории" data-history-field="filter"><option value="all"${filter === 'all' ? ' selected' : ''}>Все записи</option><option value="screen"${filter === 'screen' ? ' selected' : ''}>Экранные задания</option><option value="manual"${filter === 'manual' ? ' selected' : ''}>Ручные отметки</option><option value="ear"${filter === "ear" ? " selected" : ""}>Слух</option><option value="route"${filter === "route" ? " selected" : ""}>Маршруты</option></select></label></div><p class="history-help">Результаты хранят исходную тональность, область и способ оценки. Здесь нет общего «уровня басиста».</p><div class="history-entry-list" data-testid="history-list">${ordered.length ? ordered.slice(0, visibleEntries).map(entryMarkup).join('') : '<p class="history-empty">Записей пока нет. Выполни экранное задание или добавь свою отметку практики.</p>'}</div>${ordered.length > visibleEntries ? '<button class="text-button" type="button" data-history-action="show-more">Показать ещё</button>' : ''}
       ${summary.groups.length ? `<details class="history-context-groups"><summary>Сводка по одинаковым условиям · ${summary.groups.length} групп</summary><p class="history-help">Время первого ответа сравнивается только внутри одинакового режима и музыкального контекста.</p><div class="history-table-scroll"><table><thead><tr><th>Контекст</th><th>Самостоятельно</th><th>Ошибки</th><th>Первый ответ, среднее</th></tr></thead><tbody>${summary.groups.map(group => `<tr><td>${escapeHtml(MODE_NAMES[group.mode] ?? group.mode)}<small>${escapeHtml(contextName(group.context))}</small></td><td>${group.independentCorrect} / ${group.completedQuestions}</td><td>${group.errors}</td><td>${group.meanFirstResponseMs === null ? '—' : `${(group.meanFirstResponseMs / 1000).toFixed(2)} с`}</td></tr>`).join('')}</tbody></table></div></details>` : ''}</section>
@@ -139,7 +152,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     const date = formatDate(entry.occurredAt, entry.timeZone);
     if (result.kind === 'route') {
       const total = result.actualStepMs.reduce((sum, value) => sum + value, 0);
-      return `<article class="history-entry route-entry" data-history-entry="${escapeHtml(entry.id)}" data-history-kind="route"><header><span class="history-kind">Маршрут</span><time datetime="${entry.occurredAt}">${date}</time><button class="text-button" type="button" data-delete-history="${escapeHtml(entry.id)}" aria-label="Удалить маршрут от ${escapeHtml(date)}"${busy ? ' disabled' : ''}>Удалить</button></header><h4>Гриф → слух → практика</h4><p class="entry-facts">${result.status !== 'finished' ? 'Не завершено' : result.finishReason === 'completed' ? 'Маршрут пройден' : 'Остановлен'} · активный таймер ${formatDuration(total)} из ${formatDuration(result.totalPlannedMs)}</p><p class="history-help">Гриф: ${formatDuration(result.actualStepMs[0])} · слух: ${formatDuration(result.actualStepMs[1])} · практика: ${formatDuration(result.actualStepMs[2])}. Паузы и ожидание следующего блока исключены. Таймер не измеряет игру на инструменте.</p></article>`;
+      return `<article class="history-entry route-entry" data-history-entry="${escapeHtml(entry.id)}" data-history-kind="route"><header><span class="history-kind">Маршрут</span><time datetime="${entry.occurredAt}">${date}</time><button class="text-button" type="button" data-delete-history="${escapeHtml(entry.id)}" aria-label="Удалить маршрут от ${escapeHtml(date)}"${busy ? ' disabled' : ''}>Удалить</button></header><h4>Гриф → слух → практика</h4><p class="entry-facts">${result.status !== 'finished' ? 'Не завершено' : result.finishReason === 'completed' ? total < result.totalPlannedMs ? 'Завершён досрочно' : 'Маршрут пройден' : 'Остановлен'} · активный таймер ${formatDuration(total)} из ${formatDuration(result.totalPlannedMs)}</p><p class="history-help">Гриф: ${formatDuration(result.actualStepMs[0])} · слух: ${formatDuration(result.actualStepMs[1])} · практика: ${formatDuration(result.actualStepMs[2])}. Паузы и ожидание следующего блока исключены. Таймер не измеряет игру на инструменте.</p></article>`;
     }
     if (result.kind === 'ear') {
       const completed = result.questions.filter(question => question.outcome !== 'interrupted').length;
@@ -205,6 +218,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     } finally {
       busy = false;
       await refresh();
+      if (actionNotice && (document.activeElement === document.body || container.contains(document.activeElement))) { const confirmation = body.querySelector<HTMLElement>('[data-testid="history-notice"]'); if (confirmation) { confirmation.tabIndex = -1; confirmation.focus(); } }
     }
   }
 
@@ -230,6 +244,11 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     const input = event.target;
     if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement)) return;
     if (input.dataset.historyField === 'presetName') presetName = input.value;
+    if (input.dataset.historyField === 'manualBpm' || input.dataset.historyField === 'manualNote') {
+      if (!manualDraft) captureDraft();
+      const state = body.querySelector<HTMLElement>('[data-testid="manual-draft-state"]');
+      if (state) state.textContent = 'Черновик не сохранён. Его материал и время зафиксированы; время можно обновить кнопкой.';
+    }
     if (input.dataset.historyField === 'manualBpm') manualBpm = input.value;
     if (input.dataset.historyField === 'manualNote') manualNote = input.value;
   }, { signal: controller.signal });
@@ -240,6 +259,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
       filter = input.value as typeof filter;
       visibleEntries = 10;
       render();
+      body.querySelector<HTMLElement>('[data-history-field="filter"]')?.focus();
     }
     if (input instanceof HTMLSelectElement && input.dataset.historyField === 'reviewContext') {
       reviewContextKey = input.value;
@@ -286,7 +306,13 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     if (!action || busy) return;
     if (action === 'refresh') { void refresh({ fresh: true }); return; }
     if (action === 'show-more') { visibleEntries += 10; render(); return; }
-    if (action === 'refresh-draft') { render(); return; }
+    if (action === 'refresh-draft') {
+      const current = options.getPracticeDraft();
+      if (manualDraft && draftKey(manualDraft) !== draftKey(current)) actionNotice = 'Черновик относится к прежнему занятию. Сохрани его отдельно или явно отнеси заметку к текущему материалу.';
+      else captureDraft();
+      render(); return;
+    }
+    if (action === 'use-current-draft') { captureDraft(); actionNotice = 'Заметка отнесена к текущему материалу; текст сохранён.'; render(); return; }
     if (action === 'cancel-restore') {
       pendingImport = null; preview = null; importConfirmed = false; actionNotice = 'Импорт отменён. Данные не изменились.'; actionError = ''; render(); return;
     }
@@ -305,7 +331,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
         presetName = '';
         actionNotice = 'Пресет сохранён.';
       } else if (action === 'save-manual') {
-        const draft = options.getPracticeDraft();
+        const draft = manualDraft ?? options.getPracticeDraft();
         const rawBpm = manualBpm ?? String(draft.comfortableBpm);
         if (!rawBpm.trim()) throw new RangeError('Укажи комфортный темп от 40 до 220 BPM.');
         const bpm = Number(rawBpm);
@@ -313,7 +339,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
         const entry = makeManualHistory(result, { id: `manual-${crypto.randomUUID()}`, occurredAt: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
         await write(() => options.store.addHistory(entry));
         options.onManualSaved?.(draft.durationMs, draft.runtimeContextKey);
-        manualNote = '';
+        manualNote = ''; manualBpm = null; manualDraft = null;
         actionNotice = 'Ручная отметка сохранена отдельно от экранных результатов.';
       } else if (action === 'export') await downloadBackup();
       else if (action === 'confirm-restore') {
@@ -328,6 +354,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
   render();
   return {
     refresh,
+    updatePracticeContext() { if (!body.contains(document.activeElement)) render(); },
     commitEntry(entry: HistoryEntry) {
       if (disposed || !snapshot) return;
       const history = [...snapshot.history];

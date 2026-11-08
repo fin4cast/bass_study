@@ -13,7 +13,7 @@
     transaction.oncomplete = resolve; transaction.onabort = () => reject(transaction.error);
   });
   async function readLegacyBackup(version = 1) {
-    if (![1, 2].includes(version)) throw new Error('Only actual v1/v2 fixtures are supported');
+    if (![1, 2, 3].includes(version)) throw new Error('Only actual v1/v2/v3 fixtures are supported');
     const response = await fetch(`/tests/fixtures/v${version}-backup.json`, { cache: 'no-store' });
     if (!response.ok) throw new Error(`Literal v${version} fixture unavailable: ${response.status}`);
     return response.json();

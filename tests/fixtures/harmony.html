@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>Сопровождение: реальный Web Audio</title>
+<body>
+<h1>Изолированная проверка сопровождения</h1>
+<button id="start">Старт</button><button id="pause">Пауза</button><button id="resume">Продолжить</button><button id="stop">Стоп</button><button id="start-pause">Старт и немедленная пауза</button>
+<script type="module">
+  import { createHarmonyPlayer, renderHarmonyOffline } from '/src/audio/harmony.ts';
+  const player = createHarmonyPlayer();
+  const makeConfig = overrides => ({ bpm: 120, countIn: false, repeat: 'once', ...overrides });
+  const padPitches = [[130.8127826502993, 164.81377845643496, 195.99771799087463], [174.61411571650194, 220, 261.6255653005986], [195.99771799087463, 246.94165062806206, 293.6647679174076], [130.8127826502993, 164.81377845643496, 195.99771799087463]];
+  function rms(samples, sampleRate, from, to) {
+    const first = Math.max(0, Math.ceil(from * sampleRate)), last = Math.min(samples.length, Math.floor(to * sampleRate)); let squares = 0;
+    for (let i = first; i < last; i++) squares += samples[i] ** 2;
+    return Math.sqrt(squares / Math.max(1, last - first));
+  }
+  function peak(samples, sampleRate, from, to) {
+    let result = 0; for (let i = Math.max(0, Math.ceil(from * sampleRate)); i < Math.min(samples.length, Math.floor(to * sampleRate)); i++) result = Math.max(result, Math.abs(samples[i])); return result;
+  }
+  function frequency(samples, sampleRate, from, to) {
+    if (rms(samples, sampleRate, from, to) < .001) return null;
+    const crossings = [];
+    for (let i = Math.ceil(from * sampleRate); i < Math.min(samples.length - 1, Math.floor(to * sampleRate)); i++) if (samples[i] <= 0 && samples[i + 1] > 0) crossings.push(i + -samples[i] / (samples[i + 1] - samples[i]));
+    return crossings.length < 3 ? null : sampleRate * (crossings.length - 1) / (crossings.at(-1) - crossings[0]);
+  }
+  function component(samples, sampleRate, from, to, hz) {
+    const first = Math.ceil(from * sampleRate), last = Math.min(samples.length, Math.floor(to * sampleRate)); let sin = 0, cos = 0;
+    for (let i = first; i < last; i++) { const phase = 2 * Math.PI * hz * i / sampleRate; sin += samples[i] * Math.sin(phase); cos += samples[i] * Math.cos(phase); }
+    return 2 * Math.hypot(sin, cos) / Math.max(1, last - first);
+  }
+  function stats(samples, sampleRate) {
+    const width = Math.round(sampleRate * .005), onsets = []; let active = false;
+    for (let i = 0; i < samples.length; i += width) {
+      const next = rms(samples, sampleRate, i / sampleRate, Math.min(i + width, samples.length) / sampleRate) > .002;
+      if (next && !active) onsets.push(i / sampleRate); active = next;
+    }
+    return { onsets, peak: peak(samples, sampleRate, 0, samples.length / sampleRate), rms: rms(samples, sampleRate, 0, samples.length / sampleRate), tailRms: rms(samples, sampleRate, samples.length / sampleRate - .05, samples.length / sampleRate) };
+  }
+  async function render(overrides = {}, options = {}) {
+    const config = makeConfig(overrides); const buffer = await renderHarmonyOffline(config, options);
+    const sampleRate = buffer.sampleRate, bass = buffer.getChannelData(0), pad = buffer.getChannelData(1), click = buffer.getChannelData(2);
+    const seconds = 60 / config.bpm, offset = config.countIn === false ? 0 : 4 * seconds;
+    const noteCount = Math.min(32, Math.floor((buffer.duration - offset) / seconds));
+    const barCount = Math.min(8, Math.floor((buffer.duration - offset) / (4 * seconds)));
+    return { duration: buffer.duration, sampleRate, channels: buffer.numberOfChannels,
+      bass: { ...stats(bass, sampleRate), noteHz: Array.from({ length: noteCount }, (_, i) => frequency(bass, sampleRate, offset + (i + .2) * seconds, offset + (i + .7) * seconds)) },
+      pad: { ...stats(pad, sampleRate), bars: Array.from({ length: barCount }, (_, i) => {
+        const from = offset + (i * 4 + .4) * seconds, to = offset + (i * 4 + 3.4) * seconds;
+        return { index: i, rms: rms(pad, sampleRate, from, to), expectedComponentsHz: padPitches[i % 4], amplitudes: padPitches[i % 4].map(hz => component(pad, sampleRate, from, to, hz)), nonChordFSharp3: component(pad, sampleRate, from, to, 184.9972113558172) };
+      }) },
+      click: { ...stats(click, sampleRate), countInPeaks: Array.from({ length: config.countIn === false ? 0 : 4 }, (_, i) => peak(click, sampleRate, i * seconds, i * seconds + .08)) } };
+  }
+  window.p7harmony = { ready: true, player, makeConfig, render, current: makeConfig(), action: null };
+  for (const name of ['start', 'pause', 'resume', 'stop', 'start-pause']) document.getElementById(name).addEventListener('click', async () => {
+    window.p7harmony.action = { name, done: false, error: null };
+    try { if (name === 'start-pause') { await player.start(window.p7harmony.current); player.pause(); } else await player[name](...(name === 'start' ? [window.p7harmony.current] : [])); }
+    catch (error) { window.p7harmony.action.error = error.message; }
+    finally { window.p7harmony.action.done = true; }
+  });
+  window.addEventListener('pagehide', () => { void player.dispose(); }, { once: true });
+</script>
+</body>
+</html>

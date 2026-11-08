@@ -159,7 +159,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     if (!positions.some(position => position.id === answerFocus)) answerFocus = firstId;
     const found = new Set(session.answerState.selectedPositionIds);
     const revealed = session.answerState.status === 'revealed';
-    const answerNames = new Map(positions.map(position => [position.id, position.noteName]));
+    const answerNames = new Map(positions.map(position => [position.id, quizMode === 'find-interval' && question.expectedPositionIds.includes(position.id) ? question.target.name : position.noteName]));
     return `<div class="quiz-board-scroll"><svg class="quiz-board" data-testid="quiz-answer-board" viewBox="0 0 ${canvasWidth} ${height}" style="min-width:${canvasWidth}px" aria-label="Гриф для ответа: позиции без названий нот">
       <rect x="${left}" y="18" width="${(max - min + 1) * cell}" height="${height - 32}" rx="4" fill="#293631"/>
       ${Array.from({ length: max - min + 1 }, (_, i) => min + i).map(fret => `<text class="answer-fret-number" x="${x(fret)}" y="11" text-anchor="middle">${fret}</text><line class="answer-wire" x1="${left + (fret - min + 1) * cell}" y1="18" x2="${left + (fret - min + 1) * cell}" y2="${height - 14}"/>`).join('')}
@@ -197,13 +197,14 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     wrongChoices.clear();
   }
 
-  function finish(title = 'Занятие завершено') {
+  function finish(title = 'Занятие завершено', focusSummary = false) {
     if (!session) return;
     archiveSession();
     summaryTitle = title;
     session = null;
     error = '';
     render();
+    if (focusSummary) { const heading = content.querySelector<HTMLElement>('[data-testid="quiz-summary"] h3'); if (heading) { heading.tabIndex = -1; heading.focus(); } }
   }
 
   function start() {
@@ -311,13 +312,13 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     }
     if (action === 'start') { start(); return; }
     if (!session) return;
-    if (action === 'finish') { finish(); return; }
+    if (action === 'finish') { finish(undefined, true); return; }
     const elapsed = Math.max(0, performance.now() - questionStartedAt);
     if (action === 'hint') session = revealAnswer(session, elapsed);
     if (action === 'skip') session = skipQuestion(session, elapsed);
     if (action === 'next') {
       session = nextQuestion(session);
-      if (session.status === 'finished') { finish(); return; }
+      if (session.status === 'finished') { finish(undefined, true); return; }
       resetQuestionUi();
     }
     options.onSessionChanged?.(session);
@@ -331,12 +332,21 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     const setting = input.dataset.quizSetting;
     if (setting) {
       if (setting === 'count') {
+        const raw = input.value;
         const nextCount = Number(input.value);
+        const hadSession = session !== null;
+        configurationChanged();
         if (input.value !== '' && Number.isInteger(nextCount) && nextCount >= 1 && nextCount <= 30) {
           count = nextCount;
           countDraft = null;
-          options.onPreferencesChange?.();
+        } else countDraft = raw;
+        // Keep the setup controls connected during blur: replacing the Start
+        // button here would swallow the pointer click that committed the field.
+        if (hadSession) {
+          render();
+          content.querySelector<HTMLElement>('[data-quiz-setting="count"]')?.focus();
         }
+        options.onPreferencesChange?.();
         return;
       }
       configurationChanged();
@@ -361,6 +371,11 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     countDraft = input.value;
     const number = Number(input.value);
     input.setAttribute('aria-invalid', String(!input.value || !Number.isInteger(number) || number < 1 || number > 30));
+    if (session) {
+      configurationChanged();
+      render();
+      content.querySelector<HTMLElement>('[data-quiz-setting="count"]')?.focus();
+    }
   }, { signal: controller.signal });
 
   container.addEventListener('keydown', event => {

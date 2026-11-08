@@ -13,14 +13,15 @@ const OPEN_MIDI = { E: 28, A: 33, D: 38, G: 43 };
 const midiForId = id => { const [string, fret] = id.split(':'); return OPEN_MIDI[string] + Number(fret); };
 
 function expectedMigration(literal) {
-  const expected = structuredClone(literal); expected.schemaVersion = 3;
+  const expected = structuredClone(literal); expected.schemaVersion = 4;
   if (literal.schemaVersion === 1) {
     expected.preferences.training.intervalDegree = '#4';
     for (const preset of expected.presets) preset.preferences.training.intervalDegree = '#4';
     for (const entry of expected.history) if (entry.result.kind === 'screen') for (const question of entry.result.questions) question.targetMidi = null;
   }
   for (const preferences of [expected.preferences, ...expected.presets.map(preset => preset.preferences)]) {
-    preferences.activeModule = 'foundation'; preferences.ear = { root: 'A', quality: 'minor', count: 10, bpm: 80 };
+    if (literal.schemaVersion <= 2) { preferences.activeModule = 'foundation'; preferences.ear = { root: 'A', quality: 'minor', count: 10, bpm: 80 }; }
+    preferences.harmony = { bpm: 80, countIn: true, repeat: 'once', bassVolume: 70, padVolume: 45, clickVolume: 50, bassMuted: false, padMuted: false, clickMuted: false };
   }
   for (const name of ['presets', 'history']) expected[name].sort((a, b) => a.id.localeCompare(b.id));
   return expected;
@@ -71,11 +72,11 @@ function scientificMidi(text) {
   return 12 * (Number(match[3]) + 1) + naturals[match[1]] + alteration;
 }
 
-check('genuine-v1-indexeddb-upgrades-all-stores-to-v3-preserving-events-and-original-dates', async ({ page }) => {
+check('genuine-v1-indexeddb-upgrades-all-stores-to-v4-preserving-events-and-original-dates', async ({ page }) => {
   const seeded = await page.evaluate(() => window.p6.seedV1()); assert.equal(seeded.raw.version, 1);
   const upgraded = await page.evaluate(async () => { const store = await window.p6.loadCurrent(); await store.open(); return store.readSnapshot(); });
   assert.deepEqual(upgraded, expectedMigration(seeded.literal));
-  const raw = await page.evaluate(() => window.p6.rawRead()); assert.equal(raw.version, 3);
+  const raw = await page.evaluate(() => window.p6.rawRead()); assert.equal(raw.version, 4);
   assert.equal(upgraded.history.find(entry => entry.id === 'legacy-screen').localDate, '2026-11-07');
   assert.equal(upgraded.history.find(entry => entry.id === 'legacy-manual').localDate, '2026-11-09');
   await page.reload(); await page.waitForFunction(() => window.p6?.ready);
@@ -95,7 +96,7 @@ check('bad-v1-record-aborts-entire-native-upgrade-and-preserves-version-one', as
   return { failure, originalVersion: seeded.raw.version, preserved: after };
 });
 
-check('legacy-json-preview-and-restore-migrate-to-version-three', async ({ page }) => {
+check('legacy-json-preview-and-restore-migrate-to-version-four', async ({ page }) => {
   const literal = await page.evaluate(() => window.p6.readV1Backup());
   const result = await page.evaluate(async literal => {
     const store = await window.p6.loadCurrent(); const preview = store.previewImport(JSON.stringify(literal));
@@ -103,12 +104,12 @@ check('legacy-json-preview-and-restore-migrate-to-version-three', async ({ page 
     const afterCancel = await store.readSnapshot(); await store.restore(JSON.stringify(literal), { confirmed: true });
     return { preview, before, cancel, afterCancel, restored: await store.readSnapshot() };
   }, literal);
-  assert.equal(result.preview.snapshot.schemaVersion, 3); assert.equal(result.preview.requiresConfirmation, true);
+  assert.equal(result.preview.snapshot.schemaVersion, 4); assert.equal(result.preview.requiresConfirmation, true);
   assert.deepEqual(result.cancel, { status: 'cancelled' }); assert.deepEqual(result.afterCancel, result.before);
   assert.deepEqual(result.restored, expectedMigration(literal)); return result;
 });
 
-check('genuine-v2-indexeddb-and-literal-json-migrate-to-v3-without-changing-old-results', async ({ page }) => {
+check('genuine-v2-indexeddb-and-literal-json-migrate-to-v4-without-changing-old-results', async ({ page }) => {
   const seeded = await page.evaluate(() => window.p6.seedLegacy(2)); assert.equal(seeded.raw.version, 2);
   const result = await page.evaluate(async literal => {
     const store = await window.p6.loadCurrent(); await store.open();
@@ -117,8 +118,20 @@ check('genuine-v2-indexeddb-and-literal-json-migrate-to-v3-without-changing-old-
     return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
   }, seeded.literal);
   const expected = expectedMigration(seeded.literal);
-  assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected); assert.equal(result.raw.version, 3);
+  assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected); assert.equal(result.raw.version, 4);
   assert.deepEqual(result.restored.history, seeded.literal.history); return { seededVersion: 2, ...result };
+});
+
+check('genuine-v3-native-and-json-upgrade-preserve-screen-manual-ear-route-records', async ({ page }) => {
+  const seeded = await page.evaluate(() => window.p6.seedLegacy(3)); assert.equal(seeded.raw.version, 3);
+  assert.deepEqual(seeded.literal.history.map(entry => entry.result.kind).sort(), ['ear', 'manual', 'route', 'screen']);
+  const result = await page.evaluate(async literal => {
+    const store = await window.p6.loadCurrent(); await store.open(); const native = await store.readSnapshot({ fresh: true });
+    const preview = store.previewImport(JSON.stringify(literal)); await store.restore(JSON.stringify(literal), { confirmed: true });
+    return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
+  }, seeded.literal);
+  const expected = expectedMigration(seeded.literal); assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected);
+  assert.deepEqual(result.restored.history, seeded.literal.history); assert.equal(result.raw.version, 4); return { seededVersion: 3, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
 });
 
 check('product-restores-real-v1-json-and-preserves-history-across-reload', async ({ page, fixtureUrl }) => {
@@ -163,6 +176,84 @@ check('chromatic-interval-mode-accepts-sharp-four-and-flat-five-by-height', asyn
   await scope(page, { first: 0, last: 0 }); await page.getByLabel('Интервал от тоники', { exact: true }).selectOption('#4'); await quizAction(page, 'start').click();
   assert.equal(await page.getByTestId('quiz-question').count(), 0); assert.match(await page.getByTestId('training-error').innerText(), /отсутствует|диапазон|интервал/i);
   return { sharpFourPosition: 'E:2', flatFivePosition: 'E:2', scope: 'chromatic', impossibleIntervalExplained: true };
+}, { scope: 'ui' });
+
+check('revealed-interval-svg-and-feedback-use-contextual-enharmonic-names', async ({ page }) => {
+  const cases = [{ root: 'C', fret: 2, interval: 'b5', name: 'G♭', rejectedName: 'F♯' }, { root: 'A', fret: 11, interval: '#4', name: 'D♯', rejectedName: 'E♭' }];
+  const evidence = [];
+  for (const example of cases) {
+    await scope(page, { root: example.root, first: example.fret, last: example.fret }); await quiz(page, 'find-interval');
+    await page.getByLabel('Интервал от тоники', { exact: true }).selectOption(example.interval); await quizAction(page, 'start').click();
+    const position = page.locator(`[data-answer-position="E:${example.fret}"]`); assert.equal(await position.locator('text').count(), 0);
+    await quizAction(page, 'hint').click(); assert.deepEqual(await position.locator('text').allTextContents(), [example.name]);
+    const feedback = await page.getByTestId('quiz-feedback').innerText(); assert.ok(feedback.includes(example.name)); assert.ok(!feedback.includes(example.rejectedName));
+    evidence.push({ ...example, feedback });
+  }
+  return evidence;
+}, { scope: 'ui' });
+
+check('inactive-invalid-tempo-ladder-does-not-block-ordinary-play-or-canonical-preferences', async ({ page }) => {
+  await scope(page); await page.getByRole('button', { name: 'Последовательности', exact: true }).click(); await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
+  await page.getByLabel('Повтор', { exact: true }).selectOption('ladder'); await page.getByLabel('Начальный темп', { exact: true }).fill('200'); await page.getByLabel('Целевой темп', { exact: true }).fill('80'); await page.getByLabel('Целевой темп', { exact: true }).press('Tab');
+  await page.locator('[data-player-action="start"]').click(); assert.match(await page.getByTestId('player-error').innerText(), /не меньше начального/);
+  await page.getByLabel('Повтор', { exact: true }).selectOption('once'); await page.getByLabel('Темп, BPM', { exact: true }).fill('96'); await page.getByLabel('Темп, BPM', { exact: true }).press('Tab');
+  assert.ok(await page.getByTestId('player-error').isHidden()); await page.locator('[data-player-action="start"]').click();
+  await page.waitForFunction(() => ['running', 'finishing', 'finished'].includes(document.querySelector('#player-mount')?.dataset.playerState));
+  await page.locator('[data-player-action="stop"]').click(); await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill('Обычный темп после ошибки лестницы'); await historyAction(page, 'save-preset').click();
+  await page.getByTestId('preset-list').getByText('Обычный темп после ошибки лестницы', { exact: true }).waitFor(); const exported = await exportUi(page);
+  assert.equal(exported.preferences.player.repeat, 'once'); assert.equal(exported.preferences.player.bpm, 96); assert.equal(exported.preferences.player.ladderStart, 60); assert.equal(exported.preferences.player.ladderEnd, 100);
+  assert.deepEqual(exported.presets[0].preferences.player, exported.preferences.player);
+  return { rejectedActiveLadder: [200, 80], ordinaryPlaybackAccepted: true, canonicalPlayer: exported.preferences.player };
+}, { scope: 'ui' });
+
+check('changing-active-quiz-count-archives-original-attempt-and-new-session-focuses-summary', async ({ page }) => {
+  await scope(page); await quiz(page, 'name-note'); await quizAction(page, 'start').click(); await page.locator('[data-choice="pc:5"]').click();
+  const count = page.getByLabel('Количество вопросов', { exact: true }); await count.fill('2'); await count.press('Tab');
+  assert.equal(await page.getByTestId('quiz-question').count(), 0); await page.getByTestId('quiz-summary').waitFor();
+  const before = await exportUi(page); assert.equal(before.history.length, 1); const original = before.history[0];
+  assert.equal(original.result.plannedCount, 1); assert.equal(original.result.questions[0].outcome, 'interrupted'); assert.equal(original.result.questions[0].errors, 1);
+  assert.equal(await page.getByLabel('Количество вопросов', { exact: true }).inputValue(), '2'); await quizAction(page, 'start').click();
+  for (let index = 0; index < 2; index++) { await page.locator('[data-choice="pc:4"]').click(); await quizAction(page, 'next').click(); }
+  await page.getByTestId('quiz-summary').waitFor(); assert.equal(await page.getByTestId('quiz-summary').locator('[data-result="completed"]').innerText(), '2');
+  assert.equal(await page.getByTestId('quiz-summary').locator('h3').evaluate(element => element === document.activeElement), true, 'User completion must focus the new summary');
+  const after = await exportUi(page); assert.equal(after.history.length, 2); assert.deepEqual(after.history.find(entry => entry.id === original.id), original);
+  const next = after.history.find(entry => entry.id !== original.id); assert.equal(next.result.plannedCount, 2); assert.equal(next.result.questions.length, 2);
+  return { oldPlannedCount: 1, oldErrorsPreserved: 1, newPlannedCount: 2, separateIds: [original.id, next.id], summaryFocusedOnCompletion: true };
+}, { scope: 'ui' });
+
+check('manual-draft-keeps-original-material-and-cannot-consume-a-new-runtime-epoch', async ({ page }) => {
+  await scope(page); await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
+  await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic'); await page.getByLabel('Повтор', { exact: true }).selectOption('infinite');
+  await page.getByLabel('Темп, BPM', { exact: true }).fill('120'); await page.getByLabel('Темп, BPM', { exact: true }).press('Tab'); await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
+  async function playFor(milliseconds) {
+    await page.locator('[data-player-action="start"]').click();
+    await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerState === 'running' && document.querySelector('#player-mount')?.dataset.currentPosition === 'E:0');
+    await delay(milliseconds); await page.locator('[data-player-action="stop"]').click();
+  }
+  await playFor(650); await openHistory(page);
+  await page.getByLabel('Название пресета', { exact: true }).fill('Тот же материал C с новым запуском'); await historyAction(page, 'save-preset').click();
+  await page.getByTestId('preset-list').getByText('Тот же материал C с новым запуском', { exact: true }).waitFor();
+  const oldText = 'Заметка к прежнему материалу C.';
+  await page.getByLabel('Заметка к практике', { exact: true }).fill(oldText); await page.getByLabel('Комфортный темп', { exact: true }).fill('72');
+  assert.match(await page.getByTestId('manual-material').innerText(), /C ·/);
+  await page.getByLabel('Тоника', { exact: true }).selectOption('G'); await historyAction(page, 'refresh-draft').click();
+  assert.match(await page.getByTestId('manual-context-notice').innerText(), /прежнему занятию|изменился/);
+  assert.match(await page.getByTestId('manual-material').innerText(), /C ·/); assert.doesNotMatch(await page.getByTestId('manual-material').innerText(), /G ·/);
+  assert.equal(await page.getByLabel('Заметка к практике', { exact: true }).inputValue(), oldText); assert.ok(await historyAction(page, 'use-current-draft').isVisible());
+  await page.getByTestId('preset-list').getByRole('button', { name: 'Применить', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('[aria-label="Тоника"]')?.value === 'C');
+  await playFor(1400); await historyAction(page, 'refresh-draft').click(); await historyAction(page, 'save-manual').click();
+  await page.getByTestId('history-list').locator('[data-history-kind="manual"]').waitFor(); const first = await exportUi(page); const oldEntry = first.history.find(entry => entry.result.note === oldText);
+  assert.ok(oldEntry); assert.equal(oldEntry.result.context.root, 'C'); assert.deepEqual(oldEntry.result.context.positionIds, ['E:0']); assert.equal(oldEntry.result.comfortableBpm, 72);
+  assert.ok(oldEntry.result.durationMs >= 500 && oldEntry.result.durationMs < 1300, `Old draft must retain its earlier measured time: ${oldEntry.result.durationMs}`);
+  const newText = 'Отдельная отметка нового запуска C.';
+  await page.getByLabel('Заметка к практике', { exact: true }).fill(newText); await page.getByLabel('Комфортный темп', { exact: true }).fill('84'); await historyAction(page, 'save-manual').click();
+  await page.waitForFunction(() => document.querySelectorAll('[data-history-kind="manual"]').length === 2);
+  const after = await exportUi(page); const newEntry = after.history.find(entry => entry.result.note === newText); assert.ok(newEntry);
+  assert.equal(newEntry.result.context.root, 'C'); assert.equal(newEntry.result.comfortableBpm, 84);
+  assert.ok(newEntry.result.durationMs >= 1300, `Saving a stale draft must not subtract from the new runtime: ${newEntry.result.durationMs}`);
+  assert.deepEqual(after.history.find(entry => entry.id === oldEntry.id), oldEntry);
+  return { oldEntry, newEntry, oldContextPreservedWhileCurrentWasG: true, explicitRebindControlAvailable: true, sameMaterialNewEpochNotConsumed: true };
 }, { scope: 'ui' });
 
 check('partial-wrong-answer-survives-reload-without-finish-and-new-session-is-separate', async ({ page }) => {

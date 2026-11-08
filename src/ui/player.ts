@@ -27,6 +27,8 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
   let lastAnnouncedState = '';
   let animationFrame = 0;
   let practiceElapsedMs = 0;
+  let practiceEpoch = 0;
+  let lastValidLadder = { start: 60, end: 100, step: 5, repeats: 2 };
   let practiceClock: { at: number; runId: number; active: boolean } | null = null;
 
   container.classList.add('player-section');
@@ -306,6 +308,7 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
       const hadContext = notes.length > 0 || playing();
       player.stop();
       practiceElapsedMs = 0;
+      practiceEpoch++;
       practiceClock = null;
       notes = nextNotes;
       contextKey = nextKey;
@@ -328,9 +331,15 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
     const from = number('from', 1, Math.max(1, notes.length));
     const to = number('to', 1, Math.max(1, notes.length));
     if (from > to) throw new RangeError('Первая нота фрагмента не может быть позже последней.');
-    const ladderStart = number('ladderStart', 40, 220);
-    const ladderEnd = number('ladderEnd', 40, 220);
-    if (ladderStart > ladderEnd) throw new RangeError('Целевой темп лестницы должен быть не меньше начального.');
+    const activeLadder = field<HTMLSelectElement>('repeat').value === 'ladder';
+    if (activeLadder) {
+      const start = number('ladderStart', 40, 220), end = number('ladderEnd', 40, 220);
+      if (start > end) throw new RangeError('Целевой темп лестницы должен быть не меньше начального.');
+      lastValidLadder = { start, end, step: number('ladderStep', 1, 180), repeats: number('ladderRepeats', 1, 20) };
+    } else {
+      const start = Number(field('ladderStart').value), end = Number(field('ladderEnd').value), step = Number(field('ladderStep').value), repeats = Number(field('ladderRepeats').value);
+      if ([start, end, step, repeats].every(Number.isInteger) && start >= 40 && end <= 220 && start <= end && step >= 1 && step <= 180 && repeats >= 1 && repeats <= 20) lastValidLadder = { start, end, step, repeats };
+    }
     return {
       bpm: number('bpm', 40, 220),
       duration: field<HTMLSelectElement>('duration').value as AppPreferences['player']['duration'],
@@ -339,9 +348,9 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
       showPulse: field<HTMLInputElement>('showPulse').checked,
       from: from === 1 ? null : from,
       to: to === notes.length || notes.length === 0 ? null : to,
-      ladderStart, ladderEnd,
-      ladderStep: number('ladderStep', 1, 180),
-      ladderRepeats: number('ladderRepeats', 1, 20),
+      ladderStart: lastValidLadder.start, ladderEnd: lastValidLadder.end,
+      ladderStep: lastValidLadder.step,
+      ladderRepeats: lastValidLadder.repeats,
       metronome: field<HTMLInputElement>('metronome').checked,
       metronomeMode: field<HTMLSelectElement>('metronomeMode').value as AppPreferences['player']['metronomeMode'],
       subdivision: field<HTMLSelectElement>('subdivision').value as AppPreferences['player']['subdivision'],
@@ -356,7 +365,9 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
       measurePractice(player.getSnapshot());
       player.stop();
       practiceElapsedMs = 0;
+      practiceEpoch++;
       practiceClock = null;
+      lastValidLadder = { start: preferences.ladderStart, end: preferences.ladderEnd, step: preferences.ladderStep, repeats: preferences.ladderRepeats };
       for (const name of ['bpm', 'duration', 'repeat', 'ladderStart', 'ladderEnd', 'ladderStep', 'ladderRepeats', 'metronomeMode', 'subdivision', 'bassVolume', 'clickVolume'] as const) field(name).value = String(preferences[name]);
       for (const name of ['countIn', 'showPulse', 'metronome'] as const) field<HTMLInputElement>(name).checked = preferences[name];
       field<HTMLInputElement>('from').value = String(preferences.from ?? 1);
@@ -372,12 +383,12 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
       measurePractice(snapshot);
       const configured = Number(field<HTMLInputElement>('bpm').value);
       const comfortableBpm = Math.round(playing(snapshot) ? snapshot.bpm : Number.isFinite(configured) && configured >= 40 && configured <= 220 ? configured : snapshot.bpm);
-      return { durationMs: Math.round(practiceElapsedMs), comfortableBpm, runtimeContextKey: contextKey };
+      return { durationMs: Math.round(practiceElapsedMs), comfortableBpm, runtimeContextKey: `sequence:${contextKey}#${practiceEpoch}` };
     },
     consumePracticeDuration(durationMs: number, expectedContextKey?: string) {
       if (!Number.isFinite(durationMs) || durationMs < 0) throw new RangeError('Длительность должна быть неотрицательной.');
       measurePractice(player.getSnapshot());
-      if (expectedContextKey !== undefined && expectedContextKey !== contextKey) return;
+      if (expectedContextKey !== undefined && expectedContextKey !== `sequence:${contextKey}#${practiceEpoch}`) return;
       practiceElapsedMs = Math.max(0, practiceElapsedMs - durationMs);
     },
     refreshContext,

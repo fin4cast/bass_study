@@ -1,0 +1,1304 @@
+{
+  "generatedAt": "2026-11-08T12:16:55.456Z",
+  "platform": "win32",
+  "architecture": "x64",
+  "node": "v24.18.0",
+  "browserChannel": "msedge",
+  "browserVersion": "157.0.4341.42",
+  "origin": "http://localhost:4173",
+  "fixtureOrigin": "http://127.0.0.1:4185",
+  "scope": "R016 actual native Web Audio cue/PCM, live clock/cancellation, user ear answers derived from observed native oscillator scheduling, separate persisted ear history. Physical output muted; no hardware/latency claims.",
+  "oracle": "Fixture PCM frequencies are measured from samples. UI answer oracle observes actual native oscillator frequency.setValueAtTime calls; those properties are not represented as PCM measurements or a private application answer API.",
+  "networkIsolation": "Fresh Edge contexts with cache disabled; non-loopback page HTTP requests aborted. No user profile or Windows network adapter change.",
+  "staticServer": {
+    "reuseRequested": true,
+    "owned": false,
+    "mode": "external-reused",
+    "indexVerifiedByteForByte": true,
+    "restartAllowed": false,
+    "shutdownAllowed": false
+  },
+  "checks": [
+    {
+      "name": "pcm-reference-rest-target-C-major-E",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 281,
+      "evidence": {
+        "expectedHz": [
+          65.40639132514966,
+          82.4068892282175
+        ],
+        "question": {
+          "id": "ear-2710-major-C",
+          "seed": 10000,
+          "root": "C",
+          "quality": "major",
+          "referenceMidi": 36,
+          "targetMidi": 40,
+          "targetDegree": "3",
+          "targetName": "E",
+          "choices": [
+            {
+              "id": "1",
+              "label": "1"
+            },
+            {
+              "id": "3",
+              "label": "3"
+            },
+            {
+              "id": "5",
+              "label": "5"
+            }
+          ]
+        },
+        "duration": 1.6,
+        "sampleRate": 44100,
+        "channels": 1,
+        "onsets": [
+          0,
+          0.9972562358276644
+        ],
+        "referenceHz": 65.40639407008749,
+        "targetHz": 82.40688811339908,
+        "referenceRms": 0.15543274224175507,
+        "targetRms": 0.1557872389198832,
+        "restRms": 0,
+        "tailRms": 0
+      }
+    },
+    {
+      "name": "pcm-reference-rest-target-A-minor-C",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 191,
+      "evidence": {
+        "expectedHz": [
+          110,
+          130.8127826502993
+        ],
+        "question": {
+          "id": "ear-2710-minor-A",
+          "seed": 10000,
+          "root": "A",
+          "quality": "minor",
+          "referenceMidi": 45,
+          "targetMidi": 48,
+          "targetDegree": "b3",
+          "targetName": "C",
+          "choices": [
+            {
+              "id": "1",
+              "label": "1"
+            },
+            {
+              "id": "b3",
+              "label": "♭3"
+            },
+            {
+              "id": "5",
+              "label": "5"
+            }
+          ]
+        },
+        "duration": 1.6,
+        "sampleRate": 44100,
+        "channels": 1,
+        "onsets": [
+          0,
+          0.9972562358276644
+        ],
+        "referenceHz": 109.99999675551612,
+        "targetHz": 130.81278770057224,
+        "referenceRms": 0.1555634646479646,
+        "targetRms": 0.15555308417484376,
+        "restRms": 0,
+        "tailRms": 0
+      }
+    },
+    {
+      "name": "pcm-reference-rest-target-C-sharp-major-E-sharp",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 173,
+      "evidence": {
+        "expectedHz": [
+          69.29565774421802,
+          87.30705785825097
+        ],
+        "question": {
+          "id": "ear-2710-major-C♯",
+          "seed": 10000,
+          "root": "C♯",
+          "quality": "major",
+          "referenceMidi": 37,
+          "targetMidi": 41,
+          "targetDegree": "3",
+          "targetName": "E♯",
+          "choices": [
+            {
+              "id": "1",
+              "label": "1"
+            },
+            {
+              "id": "3",
+              "label": "3"
+            },
+            {
+              "id": "5",
+              "label": "5"
+            }
+          ]
+        },
+        "duration": 1.6,
+        "sampleRate": 44100,
+        "channels": 1,
+        "onsets": [
+          0,
+          0.9972562358276644
+        ],
+        "referenceHz": 69.29565405781928,
+        "targetHz": 87.30706248060635,
+        "referenceRms": 0.15521243768116166,
+        "targetRms": 0.15589795021182568,
+        "restRms": 0,
+        "tailRms": 0
+      }
+    },
+    {
+      "name": "live-user-gesture-real-signal-and-completion-follow-actual-cue-clock",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 1910,
+      "evidence": {
+        "started": {
+          "state": "playing",
+          "runId": 1,
+          "audioTime": 0,
+          "startAt": 0.035,
+          "finishAt": 1.535
+        },
+        "sounding": {
+          "frequencies": [
+            {
+              "frequency": 65.40639132514966,
+              "time": 0.035,
+              "observedAt": 0,
+              "contextId": 1
+            },
+            {
+              "frequency": 82.4068892282175,
+              "time": 1.035,
+              "observedAt": 0,
+              "contextId": 1
+            }
+          ],
+          "levels": [
+            {
+              "contextId": 1,
+              "audioTime": 0.050666666666666665,
+              "state": "running",
+              "peak": 0.18168020248413086,
+              "rms": 0.06005176520650241
+            }
+          ]
+        },
+        "finished": {
+          "state": "finished",
+          "runId": 1,
+          "audioTime": 1.5413333333333334,
+          "startAt": 0.035,
+          "finishAt": 1.535
+        },
+        "completions": [
+          {
+            "runId": 1,
+            "snapshot": {
+              "state": "finished",
+              "runId": 1,
+              "audioTime": 1.5413333333333334,
+              "startAt": 0.035,
+              "finishAt": 1.535
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "live-stop-in-rest-cancels-future-target-and-completion",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 1585,
+      "evidence": {
+        "started": {
+          "state": "playing",
+          "runId": 1,
+          "audioTime": 0.010666666666666666,
+          "startAt": 0.035,
+          "finishAt": 1.535
+        },
+        "stopped": {
+          "state": "stopped",
+          "runId": 2,
+          "audioTime": 1.3706666666666667,
+          "startAt": null,
+          "finishAt": null
+        },
+        "signal": {
+          "frequencies": [
+            {
+              "frequency": 65.40639132514966,
+              "time": 0.035,
+              "observedAt": 0,
+              "contextId": 1
+            },
+            {
+              "frequency": 82.4068892282175,
+              "time": 1.035,
+              "observedAt": 0,
+              "contextId": 1
+            }
+          ],
+          "levels": [
+            {
+              "contextId": 1,
+              "audioTime": 1.3706666666666667,
+              "state": "running",
+              "peak": 0,
+              "rms": 0
+            }
+          ]
+        },
+        "futureTargetCancelled": true
+      }
+    },
+    {
+      "name": "live-three-restarts-do-not-complete-cancelled-cues",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 2043,
+      "evidence": {
+        "runs": [
+          {
+            "state": "playing",
+            "runId": 1,
+            "audioTime": 0.010666666666666666,
+            "startAt": 0.035,
+            "finishAt": 1.535
+          },
+          {
+            "state": "playing",
+            "runId": 3,
+            "audioTime": 0.16,
+            "startAt": 0.195,
+            "finishAt": 1.695
+          },
+          {
+            "state": "playing",
+            "runId": 5,
+            "audioTime": 0.312,
+            "startAt": 0.347,
+            "finishAt": 1.847
+          }
+        ],
+        "completions": [
+          {
+            "runId": 5,
+            "snapshot": {
+              "state": "finished",
+              "runId": 5,
+              "audioTime": 1.8506666666666667,
+              "startAt": 0.347,
+              "finishAt": 1.847
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ui-listen-gates-answers-until-actual-end-and-first-correct-is-independent",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2354,
+      "evidence": {
+        "oracle": {
+          "degree": "3",
+          "semitones": 4,
+          "frequencies": [
+            {
+              "frequency": 65.40639132514966,
+              "time": 0.035,
+              "observedAt": 0,
+              "contextId": 1
+            },
+            {
+              "frequency": 82.4068892282175,
+              "time": 1.035,
+              "observedAt": 0,
+              "contextId": 1
+            }
+          ]
+        },
+        "result": {
+          "independentCorrect": 1,
+          "corrected": 0,
+          "errors": 0,
+          "hints": 0,
+          "skipped": 0,
+          "replayCount": 0
+        },
+        "entry": {
+          "id": "ear-cc32bf10-c59e-4029-9ffa-e371347919e5",
+          "occurredAt": "2026-11-08T12:17:02.451Z",
+          "timeZone": "Europe/Moscow",
+          "localDate": "2026-11-08",
+          "result": {
+            "kind": "ear",
+            "source": "audio-choice",
+            "context": {
+              "root": "C",
+              "quality": "major"
+            },
+            "seed": 1252892025,
+            "plannedCount": 1,
+            "questions": [
+              {
+                "kind": "ear",
+                "source": "audio-choice",
+                "question": {
+                  "id": "ear-d95afef8-major-C",
+                  "seed": 3646619384,
+                  "root": "C",
+                  "quality": "major",
+                  "referenceMidi": 36,
+                  "targetMidi": 40,
+                  "targetDegree": "3",
+                  "targetName": "E",
+                  "choices": [
+                    {
+                      "id": "1",
+                      "label": "1"
+                    },
+                    {
+                      "id": "3",
+                      "label": "3"
+                    },
+                    {
+                      "id": "5",
+                      "label": "5"
+                    }
+                  ]
+                },
+                "listensStarted": 1,
+                "listensCompleted": 1,
+                "listensCancelled": 0,
+                "replayCount": 0,
+                "listenEvents": [
+                  {
+                    "type": "start",
+                    "listenId": "ear-d95afef8-major-C:listen-1",
+                    "atMs": 44.19999999925494,
+                    "bpm": 120,
+                    "order": 1
+                  },
+                  {
+                    "type": "complete",
+                    "listenId": "ear-d95afef8-major-C:listen-1",
+                    "atMs": 1591.300000000745,
+                    "order": 2
+                  }
+                ],
+                "answerEvents": [
+                  {
+                    "degree": "3",
+                    "atMs": 1627.6000000014901,
+                    "correct": true,
+                    "order": 3
+                  }
+                ],
+                "attempts": 1,
+                "errors": 0,
+                "firstAnswer": "3",
+                "firstResponseMs": 36.30000000074506,
+                "firstAttemptCorrect": true,
+                "independentCorrect": true,
+                "corrected": false,
+                "hintUsed": false,
+                "skipped": false,
+                "outcome": "correct",
+                "closedAtMs": 1627.6000000014901,
+                "completionAfterListenMs": 36.30000000074506
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "ui-replay-is-counted-separately-from-first-answer-score",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 3773,
+      "evidence": {
+        "first": {
+          "degree": "b3",
+          "semitones": 3,
+          "frequencies": [
+            {
+              "frequency": 110,
+              "time": 0.035,
+              "observedAt": 0,
+              "contextId": 1
+            },
+            {
+              "frequency": 130.8127826502993,
+              "time": 1.035,
+              "observedAt": 0,
+              "contextId": 1
+            }
+          ]
+        },
+        "replay": {
+          "degree": "b3",
+          "semitones": 3,
+          "frequencies": [
+            {
+              "frequency": 110,
+              "time": 1.6056666666666666,
+              "observedAt": 1.5706666666666667,
+              "contextId": 1
+            },
+            {
+              "frequency": 130.8127826502993,
+              "time": 2.6056666666666666,
+              "observedAt": 1.5706666666666667,
+              "contextId": 1
+            }
+          ]
+        },
+        "result": {
+          "independentCorrect": 1,
+          "corrected": 0,
+          "errors": 0,
+          "hints": 0,
+          "skipped": 0,
+          "replayCount": 1
+        }
+      }
+    },
+    {
+      "name": "ui-wrong-then-correct-preserves-error-and-corrected-result",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2262,
+      "evidence": {
+        "oracle": {
+          "degree": "3",
+          "semitones": 4,
+          "frequencies": [
+            {
+              "frequency": 65.40639132514966,
+              "time": 0.035,
+              "observedAt": 0,
+              "contextId": 1
+            },
+            {
+              "frequency": 82.4068892282175,
+              "time": 1.035,
+              "observedAt": 0,
+              "contextId": 1
+            }
+          ]
+        },
+        "wrong": "1",
+        "result": {
+          "independentCorrect": 0,
+          "corrected": 1,
+          "errors": 1,
+          "hints": 0,
+          "skipped": 0,
+          "replayCount": 0
+        },
+        "question": {
+          "kind": "ear",
+          "source": "audio-choice",
+          "question": {
+            "id": "ear-7a865dbf-major-C",
+            "seed": 2055626175,
+            "root": "C",
+            "quality": "major",
+            "referenceMidi": 36,
+            "targetMidi": 40,
+            "targetDegree": "3",
+            "targetName": "E",
+            "choices": [
+              {
+                "id": "1",
+                "label": "1"
+              },
+              {
+                "id": "3",
+                "label": "3"
+              },
+              {
+                "id": "5",
+                "label": "5"
+              }
+            ]
+          },
+          "listensStarted": 1,
+          "listensCompleted": 1,
+          "listensCancelled": 0,
+          "replayCount": 0,
+          "listenEvents": [
+            {
+              "type": "start",
+              "listenId": "ear-7a865dbf-major-C:listen-1",
+              "atMs": 34.69999999925494,
+              "bpm": 120,
+              "order": 1
+            },
+            {
+              "type": "complete",
+              "listenId": "ear-7a865dbf-major-C:listen-1",
+              "atMs": 1581.1000000014901,
+              "order": 2
+            }
+          ],
+          "answerEvents": [
+            {
+              "degree": "1",
+              "atMs": 1608.1000000014901,
+              "correct": false,
+              "order": 3
+            },
+            {
+              "degree": "3",
+              "atMs": 1654.5,
+              "correct": true,
+              "order": 4
+            }
+          ],
+          "attempts": 2,
+          "errors": 1,
+          "firstAnswer": "1",
+          "firstResponseMs": 27,
+          "firstAttemptCorrect": false,
+          "independentCorrect": false,
+          "corrected": true,
+          "hintUsed": false,
+          "skipped": false,
+          "outcome": "corrected",
+          "closedAtMs": 1654.5,
+          "completionAfterListenMs": 73.39999999850988
+        }
+      }
+    },
+    {
+      "name": "ui-reveal-skip-and-next-have-distinct-nonindependent-outcomes",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 696,
+      "evidence": {
+        "result": {
+          "independentCorrect": 0,
+          "corrected": 0,
+          "errors": 0,
+          "hints": 1,
+          "skipped": 1,
+          "replayCount": 0
+        },
+        "questions": [
+          {
+            "kind": "ear",
+            "source": "audio-choice",
+            "question": {
+              "id": "ear-2ff27755-major-C",
+              "seed": 804419413,
+              "root": "C",
+              "quality": "major",
+              "referenceMidi": 36,
+              "targetMidi": 36,
+              "targetDegree": "1",
+              "targetName": "C",
+              "choices": [
+                {
+                  "id": "1",
+                  "label": "1"
+                },
+                {
+                  "id": "3",
+                  "label": "3"
+                },
+                {
+                  "id": "5",
+                  "label": "5"
+                }
+              ]
+            },
+            "listensStarted": 0,
+            "listensCompleted": 0,
+            "listensCancelled": 0,
+            "replayCount": 0,
+            "listenEvents": [],
+            "answerEvents": [],
+            "attempts": 0,
+            "errors": 0,
+            "firstAnswer": null,
+            "firstResponseMs": null,
+            "firstAttemptCorrect": null,
+            "independentCorrect": false,
+            "corrected": false,
+            "hintUsed": true,
+            "skipped": false,
+            "outcome": "revealed",
+            "closedAtMs": 32.400000002235174,
+            "completionAfterListenMs": null
+          },
+          {
+            "kind": "ear",
+            "source": "audio-choice",
+            "question": {
+              "id": "ear-42041cf9-major-C",
+              "seed": 1107565817,
+              "root": "C",
+              "quality": "major",
+              "referenceMidi": 36,
+              "targetMidi": 43,
+              "targetDegree": "5",
+              "targetName": "G",
+              "choices": [
+                {
+                  "id": "1",
+                  "label": "1"
+                },
+                {
+                  "id": "3",
+                  "label": "3"
+                },
+                {
+                  "id": "5",
+                  "label": "5"
+                }
+              ]
+            },
+            "listensStarted": 0,
+            "listensCompleted": 0,
+            "listensCancelled": 0,
+            "replayCount": 0,
+            "listenEvents": [],
+            "answerEvents": [],
+            "attempts": 0,
+            "errors": 0,
+            "firstAnswer": null,
+            "firstResponseMs": null,
+            "firstAttemptCorrect": null,
+            "independentCorrect": false,
+            "corrected": false,
+            "hintUsed": false,
+            "skipped": true,
+            "outcome": "skipped",
+            "closedAtMs": 33.69999999925494,
+            "completionAfterListenMs": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "ui-stop-cancel-requires-a-new-full-listen-and-no-stale-completion",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 3968,
+      "evidence": {
+        "oracle": {
+          "degree": "1",
+          "semitones": 0,
+          "frequencies": [
+            {
+              "frequency": 65.40639132514966,
+              "time": 1.827,
+              "observedAt": 1.792,
+              "contextId": 1
+            },
+            {
+              "frequency": 65.40639132514966,
+              "time": 2.827,
+              "observedAt": 1.792,
+              "contextId": 1
+            }
+          ]
+        },
+        "question": {
+          "kind": "ear",
+          "source": "audio-choice",
+          "question": {
+            "id": "ear-faeb2495-major-C",
+            "seed": 4209714325,
+            "root": "C",
+            "quality": "major",
+            "referenceMidi": 36,
+            "targetMidi": 36,
+            "targetDegree": "1",
+            "targetName": "C",
+            "choices": [
+              {
+                "id": "1",
+                "label": "1"
+              },
+              {
+                "id": "3",
+                "label": "3"
+              },
+              {
+                "id": "5",
+                "label": "5"
+              }
+            ]
+          },
+          "listensStarted": 2,
+          "listensCompleted": 1,
+          "listensCancelled": 1,
+          "replayCount": 0,
+          "listenEvents": [
+            {
+              "type": "start",
+              "listenId": "ear-faeb2495-major-C:listen-1",
+              "atMs": 32.5,
+              "bpm": 120,
+              "order": 1
+            },
+            {
+              "type": "cancel",
+              "listenId": "ear-faeb2495-major-C:listen-1",
+              "atMs": 282.30000000074506,
+              "order": 2
+            },
+            {
+              "type": "start",
+              "listenId": "ear-faeb2495-major-C:listen-2",
+              "atMs": 1824.6000000014901,
+              "bpm": 120,
+              "order": 3
+            },
+            {
+              "type": "complete",
+              "listenId": "ear-faeb2495-major-C:listen-2",
+              "atMs": 3372.2000000029802,
+              "order": 4
+            }
+          ],
+          "answerEvents": [
+            {
+              "degree": "1",
+              "atMs": 3399,
+              "correct": true,
+              "order": 5
+            }
+          ],
+          "attempts": 1,
+          "errors": 0,
+          "firstAnswer": "1",
+          "firstResponseMs": 26.799999997019768,
+          "firstAttemptCorrect": true,
+          "independentCorrect": true,
+          "corrected": false,
+          "hintUsed": false,
+          "skipped": false,
+          "outcome": "correct",
+          "closedAtMs": 3399,
+          "completionAfterListenMs": 26.799999997019768
+        }
+      }
+    },
+    {
+      "name": "ui-root-change-and-module-leave-archive-real-interruption",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 919,
+      "evidence": {
+        "firstEntry": {
+          "id": "ear-9da23fca-e172-44d1-b3c1-666d5eb5b70e",
+          "occurredAt": "2026-11-08T12:17:15.526Z",
+          "timeZone": "Europe/Moscow",
+          "localDate": "2026-11-08",
+          "result": {
+            "kind": "ear",
+            "source": "audio-choice",
+            "context": {
+              "root": "C",
+              "quality": "major"
+            },
+            "seed": 4142635398,
+            "plannedCount": 1,
+            "questions": [
+              {
+                "kind": "ear",
+                "source": "audio-choice",
+                "question": {
+                  "id": "ear-3eb8760b-major-C",
+                  "seed": 1052276235,
+                  "root": "C",
+                  "quality": "major",
+                  "referenceMidi": 36,
+                  "targetMidi": 36,
+                  "targetDegree": "1",
+                  "targetName": "C",
+                  "choices": [
+                    {
+                      "id": "1",
+                      "label": "1"
+                    },
+                    {
+                      "id": "3",
+                      "label": "3"
+                    },
+                    {
+                      "id": "5",
+                      "label": "5"
+                    }
+                  ]
+                },
+                "listensStarted": 1,
+                "listensCompleted": 0,
+                "listensCancelled": 1,
+                "replayCount": 0,
+                "listenEvents": [
+                  {
+                    "type": "start",
+                    "listenId": "ear-3eb8760b-major-C:listen-1",
+                    "atMs": 32.599999997764826,
+                    "bpm": 120,
+                    "order": 1
+                  },
+                  {
+                    "type": "cancel",
+                    "listenId": "ear-3eb8760b-major-C:listen-1",
+                    "atMs": 62.19999999925494,
+                    "order": 2
+                  }
+                ],
+                "answerEvents": [],
+                "attempts": 0,
+                "errors": 0,
+                "firstAnswer": null,
+                "firstResponseMs": null,
+                "firstAttemptCorrect": null,
+                "independentCorrect": false,
+                "corrected": false,
+                "hintUsed": false,
+                "skipped": false,
+                "outcome": "interrupted",
+                "closedAtMs": null,
+                "completionAfterListenMs": null
+              }
+            ]
+          }
+        },
+        "secondHistoryIds": [
+          "ear-6c73b1aa-a835-4109-b2da-6d3d4c71cf0d",
+          "ear-9da23fca-e172-44d1-b3c1-666d5eb5b70e"
+        ]
+      }
+    },
+    {
+      "name": "ui-unfinished-ear-target-stays-hidden-in-global-history-and-after-reload",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 751,
+      "evidence": {
+        "unfinishedTargetRedacted": true,
+        "persistsRedactedAfterReload": true
+      }
+    },
+    {
+      "name": "ui-ear-preferences-and-three-route-links-persist-without-fret-filter-dependence",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2431,
+      "evidence": {
+        "oracle": {
+          "degree": "5",
+          "semitones": 7,
+          "frequencies": [
+            {
+              "frequency": 92.4986056779086,
+              "time": 0.035,
+              "observedAt": 0,
+              "contextId": 1
+            },
+            {
+              "frequency": 138.59131548843604,
+              "time": 1.035,
+              "observedAt": 0,
+              "contextId": 1
+            }
+          ]
+        },
+        "configuredRoot": "F#",
+        "quality": "minor",
+        "emptyFretFilterDidNotPreventEar": true,
+        "visits": [
+          {
+            "step": "fretboard",
+            "module": "foundation"
+          },
+          {
+            "step": "ear",
+            "module": "ear"
+          },
+          {
+            "step": "sequence",
+            "module": "foundation"
+          }
+        ],
+        "timedRouteClaimed": false
+      }
+    },
+    {
+      "name": "ui-ear-history-filter-counts-reload-and-backup-replacement-stay-separate",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2857,
+      "evidence": {
+        "oracle": {
+          "degree": "5",
+          "semitones": 7,
+          "frequencies": [
+            {
+              "frequency": 65.40639132514966,
+              "time": 0.035,
+              "observedAt": 0,
+              "contextId": 1
+            },
+            {
+              "frequency": 97.99885899543733,
+              "time": 1.035,
+              "observedAt": 0,
+              "contextId": 1
+            }
+          ]
+        },
+        "source": "audio-choice",
+        "restoredExactly": true,
+        "manualRecordRemoved": true
+      }
+    },
+    {
+      "name": "ui-invalid-ear-settings-recover-and-narrow-layout-remains-usable",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 707,
+      "evidence": {
+        "width": {
+          "viewport": 390,
+          "page": 390
+        },
+        "recovered": true,
+        "screenshot": "test-results/p7-ear-narrow.png"
+      }
+    },
+    {
+      "name": "timed-route-real-pause-resume-early-next-and-stop-save-actual-time",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2948,
+      "evidence": {
+        "pausedActiveMs": 924,
+        "pausedWallMsExcluded": 1000,
+        "earlyNextOpenedEar": true,
+        "entry": {
+          "id": "route-a1e1cf4f-b9c5-447a-b795-667c59fdca7a",
+          "occurredAt": "2026-11-08T12:17:23.144Z",
+          "timeZone": "Europe/Moscow",
+          "localDate": "2026-11-08",
+          "result": {
+            "id": "fa46e77b-5e9b-4788-badf-6d66a7f8dfd7",
+            "kind": "route",
+            "source": "active-timer",
+            "plannedStepMs": [
+              180000,
+              180000,
+              240000
+            ],
+            "actualStepMs": [
+              1199,
+              233,
+              0
+            ],
+            "stepIndex": 1,
+            "totalPlannedMs": 600000,
+            "status": "finished",
+            "finishReason": "stopped",
+            "events": [
+              {
+                "type": "start",
+                "atMs": 0,
+                "reason": null
+              },
+              {
+                "type": "pause",
+                "atMs": 924,
+                "reason": "manual"
+              },
+              {
+                "type": "resume",
+                "atMs": 1957,
+                "reason": null
+              },
+              {
+                "type": "next",
+                "atMs": 2232,
+                "reason": null
+              },
+              {
+                "type": "stop",
+                "atMs": 2465,
+                "reason": null
+              }
+            ],
+            "asOfMs": 2465
+          }
+        },
+        "fullTenMinuteWaitClaimed": false
+      }
+    },
+    {
+      "name": "timed-route-five-second-checkpoint-preserves-history-draft-focus-and-one-id",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 6518,
+      "evidence": {
+        "sameHistoryId": "route-329d5810-7063-4287-8b76-337b835084be",
+        "observedCheckpointAfterMs": 5500,
+        "draftFocusAndCaretPreserved": true,
+        "entry": {
+          "id": "route-329d5810-7063-4287-8b76-337b835084be",
+          "occurredAt": "2026-11-08T12:17:26.136Z",
+          "timeZone": "Europe/Moscow",
+          "localDate": "2026-11-08",
+          "result": {
+            "id": "c344bc8f-63b3-4189-b14e-c71d783e9fe2",
+            "kind": "route",
+            "source": "active-timer",
+            "plannedStepMs": [
+              180000,
+              180000,
+              240000
+            ],
+            "actualStepMs": [
+              5999,
+              0,
+              0
+            ],
+            "stepIndex": 0,
+            "totalPlannedMs": 600000,
+            "status": "finished",
+            "finishReason": "stopped",
+            "events": [
+              {
+                "type": "start",
+                "atMs": 0,
+                "reason": null
+              },
+              {
+                "type": "pause",
+                "atMs": 224,
+                "reason": "manual"
+              },
+              {
+                "type": "resume",
+                "atMs": 257,
+                "reason": null
+              },
+              {
+                "type": "stop",
+                "atMs": 6032,
+                "reason": null
+              }
+            ],
+            "asOfMs": 6032
+          }
+        }
+      }
+    },
+    {
+      "name": "native-hidden-tab-pauses-timed-route-and-return-requires-explicit-resume",
+      "scope": "native",
+      "status": "passed",
+      "durationMs": 2358,
+      "evidence": {
+        "actualDocumentHidden": true,
+        "pausedActiveMs": 370,
+        "automaticResumeClaimed": false,
+        "historyReadMethod": "Read-only native IndexedDB history in the runner-owned isolated Edge profile; no product test API or download plumbing.",
+        "databaseVersion": 4,
+        "entry": {
+          "id": "route-67ca264b-b6bb-4210-8d3e-fa43c8cae3a7",
+          "occurredAt": "2026-11-08T12:17:33.331Z",
+          "timeZone": "Europe/Moscow",
+          "localDate": "2026-11-08",
+          "result": {
+            "id": "c2ed743c-bfdc-4614-88d5-b22da7cb7d3e",
+            "kind": "route",
+            "source": "active-timer",
+            "plannedStepMs": [
+              180000,
+              180000,
+              240000
+            ],
+            "actualStepMs": [
+              609,
+              0,
+              0
+            ],
+            "stepIndex": 0,
+            "totalPlannedMs": 600000,
+            "status": "finished",
+            "finishReason": "stopped",
+            "events": [
+              {
+                "type": "start",
+                "atMs": 0,
+                "reason": null
+              },
+              {
+                "type": "pause",
+                "atMs": 370,
+                "reason": "hidden"
+              },
+              {
+                "type": "resume",
+                "atMs": 1024,
+                "reason": null
+              },
+              {
+                "type": "stop",
+                "atMs": 1263,
+                "reason": null
+              }
+            ],
+            "asOfMs": 1263
+          }
+        }
+      }
+    },
+    {
+      "name": "native-hidden-tab-cancels-cue-and-requires-new-complete-listen",
+      "scope": "native",
+      "status": "passed",
+      "durationMs": 3251,
+      "evidence": {
+        "oracle": {
+          "degree": "3",
+          "semitones": 4,
+          "frequencies": [
+            {
+              "frequency": 65.40639132514966,
+              "time": 0.31500000000000006,
+              "observedAt": 0.28,
+              "contextId": 1
+            },
+            {
+              "frequency": 82.4068892282175,
+              "time": 1.315,
+              "observedAt": 0.28,
+              "contextId": 1
+            }
+          ]
+        },
+        "actualDocumentHidden": true,
+        "newFullListenRequired": true,
+        "historyReadMethod": "Read-only native IndexedDB history in the runner-owned isolated Edge profile; no product test API or download plumbing.",
+        "databaseVersion": 4,
+        "question": {
+          "kind": "ear",
+          "source": "audio-choice",
+          "question": {
+            "id": "ear-e8512b9f-major-C",
+            "seed": 3897633695,
+            "root": "C",
+            "quality": "major",
+            "referenceMidi": 36,
+            "targetMidi": 40,
+            "targetDegree": "3",
+            "targetName": "E",
+            "choices": [
+              {
+                "id": "1",
+                "label": "1"
+              },
+              {
+                "id": "3",
+                "label": "3"
+              },
+              {
+                "id": "5",
+                "label": "5"
+              }
+            ]
+          },
+          "listensStarted": 2,
+          "listensCompleted": 1,
+          "listensCancelled": 1,
+          "replayCount": 0,
+          "listenEvents": [
+            {
+              "type": "start",
+              "listenId": "ear-e8512b9f-major-C:listen-1",
+              "atMs": 42.100000001490116,
+              "bpm": 120,
+              "order": 1
+            },
+            {
+              "type": "cancel",
+              "listenId": "ear-e8512b9f-major-C:listen-1",
+              "atMs": 97.20000000298023,
+              "order": 2
+            },
+            {
+              "type": "start",
+              "listenId": "ear-e8512b9f-major-C:listen-2",
+              "atMs": 359.20000000298023,
+              "bpm": 120,
+              "order": 3
+            },
+            {
+              "type": "complete",
+              "listenId": "ear-e8512b9f-major-C:listen-2",
+              "atMs": 1903.4000000022352,
+              "order": 4
+            }
+          ],
+          "answerEvents": [
+            {
+              "degree": "3",
+              "atMs": 1942.6000000014901,
+              "correct": true,
+              "order": 5
+            }
+          ],
+          "attempts": 1,
+          "errors": 0,
+          "firstAnswer": "3",
+          "firstResponseMs": 39.19999999925494,
+          "firstAttemptCorrect": true,
+          "independentCorrect": true,
+          "corrected": false,
+          "hintUsed": false,
+          "skipped": false,
+          "outcome": "correct",
+          "closedAtMs": 1942.6000000014901,
+          "completionAfterListenMs": 39.19999999925494
+        },
+        "method": "Separate Edge/CDP noDefaults:true, real tab activation; no synthetic visibility event"
+      }
+    }
+  ],
+  "externalRequests": [],
+  "pageErrors": [],
+  "cleanupErrors": [],
+  "passed": 20,
+  "failed": 0,
+  "status": "passed"
+}

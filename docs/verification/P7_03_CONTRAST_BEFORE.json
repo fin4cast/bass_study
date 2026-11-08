@@ -1,0 +1,2237 @@
+{
+  "phase": "before",
+  "generatedAt": "2026-11-08T12:05:16.088Z",
+  "fixture": "real controllers with synthetic history/metadata, no product navigation",
+  "viewports": [
+    {
+      "width": 1366,
+      "targets": [
+        {
+          "selector": ".intro-copy",
+          "text": "Пояснения, поля и результаты настоящих компонентов.",
+          "color": "rgb(118, 128, 120)",
+          "background": [
+            245,
+            243,
+            236
+          ],
+          "fontSize": 13,
+          "ratio": 3.687512087298056
+        },
+        {
+          "selector": ".field>span",
+          "text": "Тоника",
+          "color": "rgb(116, 128, 118)",
+          "background": [
+            245,
+            243,
+            236
+          ],
+          "fontSize": 11,
+          "ratio": 3.7145402631189772
+        },
+        {
+          "selector": ".history-help",
+          "text": "Темп и заметка — твоя оценка. Длительность берётся из проигрывате",
+          "color": "rgb(161, 174, 145)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 10,
+          "ratio": 2.2464275896916215
+        },
+        {
+          "selector": ".history-overview span",
+          "text": "Экранных занятий",
+          "color": "rgb(158, 175, 140)",
+          "background": [
+            242,
+            246,
+            233
+          ],
+          "fontSize": 9,
+          "ratio": 2.1344633460532116
+        },
+        {
+          "selector": ".history-question-details small",
+          "text": "1 ошибок · первый ответ 0.60 с",
+          "color": "rgb(177, 189, 160)",
+          "background": [
+            247,
+            249,
+            240
+          ],
+          "fontSize": 8,
+          "ratio": 1.8546566568680707
+        },
+        {
+          "selector": ".history-entry time",
+          "text": "8 нояб. 2026 г., 13:10",
+          "color": "rgb(176, 188, 157)",
+          "background": [
+            247,
+            249,
+            240
+          ],
+          "fontSize": 9,
+          "ratio": 1.8775444227191023
+        },
+        {
+          "selector": ".history-field>span",
+          "text": "Комфортный темп, BPM",
+          "color": "rgb(145, 161, 125)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 10,
+          "ratio": 2.654635747767854
+        },
+        {
+          "selector": ".history-save-status",
+          "text": "Локальные данные прочитаны",
+          "color": "rgb(138, 160, 121)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 9,
+          "ratio": 2.731185406598341
+        },
+        {
+          "selector": ".history-kind.manual",
+          "text": "Ручная отметка",
+          "color": "rgb(163, 140, 82)",
+          "background": [
+            242,
+            234,
+            215
+          ],
+          "fontSize": 9,
+          "ratio": 2.7254749207985594
+        },
+        {
+          "selector": ".history-backup-format",
+          "text": "JSON · версия 4",
+          "color": "rgb(145, 161, 124)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 9,
+          "ratio": 2.6564140715180833
+        },
+        {
+          "selector": ".route-heading>p",
+          "text": "10 АКТИВНЫХ МИНУТ",
+          "color": "rgb(137, 151, 125)",
+          "background": [
+            251,
+            252,
+            244
+          ],
+          "fontSize": 9,
+          "ratio": 2.996019644216948
+        },
+        {
+          "selector": ".route-steps p",
+          "text": "Найди знакомые ноты и ступени в выбранной области.",
+          "color": "rgb(137, 153, 124)",
+          "background": [
+            245,
+            248,
+            237
+          ],
+          "fontSize": 11,
+          "ratio": 2.826181167299621
+        },
+        {
+          "selector": ".route-step-time",
+          "text": "Фактически: 0:00",
+          "color": "rgb(135, 153, 118)",
+          "background": [
+            245,
+            248,
+            237
+          ],
+          "fontSize": 11,
+          "ratio": 2.852155472986198
+        },
+        {
+          "selector": ".route-bar-heading [role=status]",
+          "text": "Пауза — продолжи явно, когда будешь готов",
+          "color": "rgb(140, 155, 128)",
+          "background": [
+            246,
+            249,
+            237
+          ],
+          "fontSize": 10,
+          "ratio": 2.7675066295241155
+        },
+        {
+          "selector": ".route-bar-time>span",
+          "text": "Осталось в шаге",
+          "color": "rgb(133, 150, 115)",
+          "background": [
+            246,
+            249,
+            237
+          ],
+          "fontSize": 10,
+          "ratio": 2.980249140964214
+        },
+        {
+          "selector": ".route-bar-time small",
+          "text": "Всего 0:00 / 10:00",
+          "color": "rgb(154, 167, 142)",
+          "background": [
+            246,
+            249,
+            237
+          ],
+          "fontSize": 9,
+          "ratio": 2.374759904268821
+        },
+        {
+          "selector": ".training-intro>p",
+          "text": "Здесь проверяются ответы на экране.Точность игры на басу не измер",
+          "color": "rgb(148, 160, 138)",
+          "background": [
+            251,
+            250,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 2.6252020191298118
+        },
+        {
+          "selector": ".training-field>span",
+          "text": "Тип задания",
+          "color": "rgb(131, 145, 123)",
+          "background": [
+            251,
+            250,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 3.1889966548331423
+        },
+        {
+          "selector": ".training-scope-caption",
+          "text": "На грифе отмечена позиция. Выбери название её ноты. A · Минорная ",
+          "color": "rgb(146, 157, 135)",
+          "background": [
+            251,
+            250,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 2.717381475950168
+        },
+        {
+          "selector": ".summary-grid span",
+          "text": "Самостоятельно",
+          "color": "rgb(153, 165, 139)",
+          "background": [
+            243,
+            246,
+            235
+          ],
+          "fontSize": 9,
+          "ratio": 2.366764583809516
+        },
+        {
+          "selector": ".summary-context",
+          "text": "Материал занятия: A · Минорная пентатоника; ноты структуры; 52 по",
+          "color": "rgb(149, 160, 135)",
+          "background": [
+            251,
+            250,
+            245
+          ],
+          "fontSize": 11,
+          "ratio": 2.6246566160357787
+        },
+        {
+          "selector": ".primary-button",
+          "text": "Начать занятие→",
+          "color": "rgb(250, 251, 242)",
+          "background": [
+            78,
+            118,
+            80
+          ],
+          "fontSize": 11,
+          "ratio": 4.997538347840919
+        },
+        {
+          "selector": ".secondary-button",
+          "text": "Повторить ошибки",
+          "color": "rgb(65, 102, 60)",
+          "background": [
+            226,
+            236,
+            217
+          ],
+          "fontSize": 11,
+          "ratio": 5.401521250894958
+        },
+        {
+          "selector": ".text-button",
+          "text": "Обновить время",
+          "color": "rgb(132, 144, 120)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 11,
+          "ratio": 3.231531309423429
+        },
+        {
+          "selector": ".player-field>span",
+          "text": "Темп, BPM",
+          "color": "rgb(132, 148, 118)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 10,
+          "ratio": 3.077130072447526
+        },
+        {
+          "selector": ".player-scope",
+          "text": "24 нот в маршруте",
+          "color": "rgb(149, 162, 134)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 10,
+          "ratio": 2.5590456906462733
+        },
+        {
+          "selector": ".player-check",
+          "text": "Отсчёт: 4 доли",
+          "color": "rgb(109, 133, 90)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 11,
+          "ratio": 3.868840015628162
+        },
+        {
+          "selector": ".player-now p",
+          "text": "Готово к практике",
+          "color": "rgb(118, 141, 96)",
+          "background": [
+            237,
+            243,
+            227
+          ],
+          "fontSize": 11,
+          "ratio": 3.223137093649271
+        },
+        {
+          "selector": ".player-edit-help",
+          "text": "Маршрут и ритм настраиваются до старта. Во время воспроизведения ",
+          "color": "rgb(156, 171, 141)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 10,
+          "ratio": 2.3118247157039975
+        },
+        {
+          "selector": ".player-evaluation-note",
+          "text": "Звучит эталонная последовательность. Точность твоей игры на басу ",
+          "color": "rgb(175, 186, 159)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 9,
+          "ratio": 1.9267149084897535
+        },
+        {
+          "selector": ".player-shortcuts",
+          "text": "Пробел — старт / пауза · Esc — стоп",
+          "color": "rgb(158, 174, 143)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 9,
+          "ratio": 2.2387410796584
+        },
+        {
+          "selector": ".ear-heading>p",
+          "text": "Сравни два звука трезвучия.Ответь ступенью, а не названием ноты.",
+          "color": "rgb(136, 148, 125)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 11,
+          "ratio": 3.0980301122389
+        },
+        {
+          "selector": ".ear-field>span",
+          "text": "Тоника",
+          "color": "rgb(133, 144, 120)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 3.2570042476918006
+        },
+        {
+          "selector": ".ear-description",
+          "text": "C · мажорное трезвучие. Звуки звучат в фиксированном регистре; фи",
+          "color": "rgb(137, 148, 126)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 3.0877221612644217
+        },
+        {
+          "selector": ".ear-summary-grid span",
+          "text": "Самостоятельно",
+          "color": "rgb(145, 160, 127)",
+          "background": [
+            239,
+            244,
+            229
+          ],
+          "fontSize": 10,
+          "ratio": 2.486074127234001
+        },
+        {
+          "selector": ".harmony-heading>p",
+          "text": "C – F – G – C · 4/4Бас 1–3–5–3 · аккорды · клик",
+          "color": "rgb(135, 151, 122)",
+          "background": [
+            250,
+            252,
+            243
+          ],
+          "fontSize": 11,
+          "ratio": 3.0103327044566934
+        },
+        {
+          "selector": ".harmony-intro",
+          "text": "Играй вместе с эталоном или выключи его бас и займи своё место в ",
+          "color": "rgb(135, 151, 122)",
+          "background": [
+            250,
+            252,
+            243
+          ],
+          "fontSize": 11,
+          "ratio": 3.0103327044566934
+        },
+        {
+          "selector": ".harmony-chords small",
+          "text": "C · E · G",
+          "color": "rgb(141, 161, 125)",
+          "background": [
+            241,
+            246,
+            232
+          ],
+          "fontSize": 10,
+          "ratio": 2.536023699565512
+        },
+        {
+          "selector": ".harmony-check",
+          "text": "Отсчёт: 4 доли",
+          "color": "rgb(135, 153, 118)",
+          "background": [
+            250,
+            252,
+            243
+          ],
+          "fontSize": 11,
+          "ratio": 2.9617936163623804
+        },
+        {
+          "selector": ".harmony-volume>span",
+          "text": "Бас",
+          "color": "rgb(117, 141, 101)",
+          "background": [
+            244,
+            248,
+            236
+          ],
+          "fontSize": 11,
+          "ratio": 3.386159533422974
+        },
+        {
+          "selector": ".harmony-preview small",
+          "text": "E · 8 лад",
+          "color": "rgb(149, 164, 134)",
+          "background": [
+            242,
+            246,
+            233
+          ],
+          "fontSize": 9,
+          "ratio": 2.4121998519377543
+        },
+        {
+          "selector": ".harmony-preview li>span",
+          "text": "1",
+          "color": "rgb(160, 173, 146)",
+          "background": [
+            242,
+            246,
+            233
+          ],
+          "fontSize": 9,
+          "ratio": 2.1530262100547564
+        },
+        {
+          "selector": ".harmony-help",
+          "text": "Темп и повтор настраиваются до старта; громкость и выключение гол",
+          "color": "rgb(145, 160, 131)",
+          "background": [
+            250,
+            252,
+            243
+          ],
+          "fontSize": 10,
+          "ratio": 2.682956041464922
+        },
+        {
+          "selector": ".tracks-heading>p",
+          "text": "Один файл или до четырёх готовых дорожек.Общий старт, фрагмент и ",
+          "color": "rgb(136, 152, 124)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 11,
+          "ratio": 2.984507060991564
+        },
+        {
+          "selector": ".tracks-intro",
+          "text": "Выбери локальные WAV/MP3. Готовые stems должны начинаться в одной",
+          "color": "rgb(136, 152, 124)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 11,
+          "ratio": 2.984507060991564
+        },
+        {
+          "selector": ".tracks-file-state",
+          "text": "Нужен исходный файл",
+          "color": "rgb(178, 143, 96)",
+          "background": [
+            250,
+            247,
+            238
+          ],
+          "fontSize": 10,
+          "ratio": 2.8041818216993915
+        },
+        {
+          "selector": ".tracks-track-name p",
+          "text": "0:10 · 0,1 МиБ · 2 канала",
+          "color": "rgb(151, 165, 138)",
+          "background": [
+            250,
+            247,
+            238
+          ],
+          "fontSize": 9,
+          "ratio": 2.43074151798842
+        },
+        {
+          "selector": ".tracks-backup-note",
+          "text": "Резервная копия хранит названия, метки и параметры, без аудиофайл",
+          "color": "rgb(154, 167, 141)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 2.459751032115739
+        },
+        {
+          "selector": ".tracks-rate-warning",
+          "text": "Скорость ×0,75: высота тоже меняется. Это varispeed, без сохранен",
+          "color": "rgb(145, 161, 129)",
+          "background": [
+            242,
+            246,
+            233
+          ],
+          "fontSize": 11,
+          "ratio": 2.5114405840055016
+        },
+        {
+          "selector": ".tracks-field>span",
+          "text": "A · начало, с",
+          "color": "rgb(150, 166, 138)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 2.5105986476233753
+        },
+        {
+          "selector": ".tracks-position output",
+          "text": "0:01 / 0:10",
+          "color": "rgb(140, 161, 125)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 12,
+          "ratio": 2.714249661709382
+        },
+        {
+          "selector": ".tracks-file-button",
+          "text": "Открыть новый набор",
+          "color": "rgb(255, 255, 248)",
+          "background": [
+            93,
+            127,
+            79
+          ],
+          "fontSize": 12,
+          "ratio": 4.532095341815698
+        },
+        {
+          "selector": ".backup-preview h4",
+          "text": "Проверь копию перед заменой",
+          "color": "rgb(161, 138, 80)",
+          "background": [
+            247,
+            240,
+            222
+          ],
+          "fontSize": 14,
+          "ratio": 2.9479346035108747
+        },
+        {
+          "selector": ".backup-preview .restore-warning",
+          "text": "Текущие настройки, пресеты и история будут полностью заменены сод",
+          "color": "rgb(167, 140, 78)",
+          "background": [
+            247,
+            240,
+            222
+          ],
+          "fontSize": 10,
+          "ratio": 2.8402025867045726
+        },
+        {
+          "selector": ".restore-confirm>span",
+          "text": "Понимаю, что текущие данные будут заменены",
+          "color": "rgb(167, 143, 82)",
+          "background": [
+            247,
+            240,
+            222
+          ],
+          "fontSize": 10,
+          "ratio": 2.759765262299337
+        },
+        {
+          "selector": ".restore-button",
+          "text": "Заменить данные копией",
+          "color": "rgb(127, 103, 48)",
+          "background": [
+            223,
+            201,
+            143
+          ],
+          "fontSize": 11,
+          "ratio": 3.317445317836771
+        },
+        {
+          "selector": "#coordinate-probes .fret-number",
+          "text": "5",
+          "color": "rgb(133, 148, 127)",
+          "background": [
+            243,
+            244,
+            236
+          ],
+          "fontSize": 11,
+          "ratio": 2.899573892299435
+        },
+        {
+          "selector": "#coordinate-probes .string-name",
+          "text": "E",
+          "color": "rgb(95, 117, 93)",
+          "background": [
+            243,
+            244,
+            236
+          ],
+          "fontSize": 14,
+          "ratio": 4.526550993597838
+        },
+        {
+          "selector": "#coordinate-probes .string-caption",
+          "text": "4",
+          "color": "rgb(155, 170, 146)",
+          "background": [
+            243,
+            244,
+            236
+          ],
+          "fontSize": 9,
+          "ratio": 2.2155828760551066
+        },
+        {
+          "selector": ".answer-fret-number",
+          "text": "0",
+          "color": "rgb(129, 147, 117)",
+          "background": [
+            240,
+            242,
+            232
+          ],
+          "fontSize": 10,
+          "ratio": 2.9182551377662325
+        },
+        {
+          "selector": ".answer-string-name",
+          "text": "G",
+          "color": "rgb(129, 147, 117)",
+          "background": [
+            240,
+            242,
+            232
+          ],
+          "fontSize": 13,
+          "ratio": 2.9182551377662325
+        }
+      ],
+      "overflow": {
+        "document": 1366,
+        "viewport": 1366,
+        "offenders": []
+      }
+    },
+    {
+      "width": 800,
+      "targets": [
+        {
+          "selector": ".intro-copy",
+          "text": "Пояснения, поля и результаты настоящих компонентов.",
+          "color": "rgb(118, 128, 120)",
+          "background": [
+            245,
+            243,
+            236
+          ],
+          "fontSize": 13,
+          "ratio": 3.687512087298056
+        },
+        {
+          "selector": ".field>span",
+          "text": "Тоника",
+          "color": "rgb(116, 128, 118)",
+          "background": [
+            245,
+            243,
+            236
+          ],
+          "fontSize": 11,
+          "ratio": 3.7145402631189772
+        },
+        {
+          "selector": ".history-help",
+          "text": "Темп и заметка — твоя оценка. Длительность берётся из проигрывате",
+          "color": "rgb(161, 174, 145)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 10,
+          "ratio": 2.2464275896916215
+        },
+        {
+          "selector": ".history-overview span",
+          "text": "Экранных занятий",
+          "color": "rgb(158, 175, 140)",
+          "background": [
+            242,
+            246,
+            233
+          ],
+          "fontSize": 8,
+          "ratio": 2.1344633460532116
+        },
+        {
+          "selector": ".history-question-details small",
+          "text": "1 ошибок · первый ответ 0.60 с",
+          "color": "rgb(177, 189, 160)",
+          "background": [
+            247,
+            249,
+            240
+          ],
+          "fontSize": 8,
+          "ratio": 1.8546566568680707
+        },
+        {
+          "selector": ".history-entry time",
+          "text": "8 нояб. 2026 г., 13:10",
+          "color": "rgb(176, 188, 157)",
+          "background": [
+            247,
+            249,
+            240
+          ],
+          "fontSize": 9,
+          "ratio": 1.8775444227191023
+        },
+        {
+          "selector": ".history-field>span",
+          "text": "Комфортный темп, BPM",
+          "color": "rgb(145, 161, 125)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 10,
+          "ratio": 2.654635747767854
+        },
+        {
+          "selector": ".history-save-status",
+          "text": "Локальные данные прочитаны",
+          "color": "rgb(138, 160, 121)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 9,
+          "ratio": 2.731185406598341
+        },
+        {
+          "selector": ".history-kind.manual",
+          "text": "Ручная отметка",
+          "color": "rgb(163, 140, 82)",
+          "background": [
+            242,
+            234,
+            215
+          ],
+          "fontSize": 9,
+          "ratio": 2.7254749207985594
+        },
+        {
+          "selector": ".history-backup-format",
+          "text": "JSON · версия 4",
+          "color": "rgb(145, 161, 124)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 9,
+          "ratio": 2.6564140715180833
+        },
+        {
+          "selector": ".route-heading>p",
+          "text": "10 АКТИВНЫХ МИНУТ",
+          "color": "rgb(137, 151, 125)",
+          "background": [
+            251,
+            252,
+            244
+          ],
+          "fontSize": 9,
+          "ratio": 2.996019644216948
+        },
+        {
+          "selector": ".route-steps p",
+          "text": "Найди знакомые ноты и ступени в выбранной области.",
+          "color": "rgb(137, 153, 124)",
+          "background": [
+            245,
+            248,
+            237
+          ],
+          "fontSize": 11,
+          "ratio": 2.826181167299621
+        },
+        {
+          "selector": ".route-step-time",
+          "text": "Фактически: 0:00",
+          "color": "rgb(135, 153, 118)",
+          "background": [
+            245,
+            248,
+            237
+          ],
+          "fontSize": 11,
+          "ratio": 2.852155472986198
+        },
+        {
+          "selector": ".route-bar-heading [role=status]",
+          "text": "Пауза — продолжи явно, когда будешь готов",
+          "color": "rgb(140, 155, 128)",
+          "background": [
+            246,
+            249,
+            237
+          ],
+          "fontSize": 10,
+          "ratio": 2.7675066295241155
+        },
+        {
+          "selector": ".route-bar-time>span",
+          "text": "Осталось в шаге",
+          "color": "rgb(133, 150, 115)",
+          "background": [
+            246,
+            249,
+            237
+          ],
+          "fontSize": 10,
+          "ratio": 2.980249140964214
+        },
+        {
+          "selector": ".route-bar-time small",
+          "text": "Всего 0:00 / 10:00",
+          "color": "rgb(154, 167, 142)",
+          "background": [
+            246,
+            249,
+            237
+          ],
+          "fontSize": 9,
+          "ratio": 2.374759904268821
+        },
+        {
+          "selector": ".training-intro>p",
+          "text": "Здесь проверяются ответы на экране.Точность игры на басу не измер",
+          "color": "rgb(148, 160, 138)",
+          "background": [
+            251,
+            250,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 2.6252020191298118
+        },
+        {
+          "selector": ".training-field>span",
+          "text": "Тип задания",
+          "color": "rgb(131, 145, 123)",
+          "background": [
+            251,
+            250,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 3.1889966548331423
+        },
+        {
+          "selector": ".training-scope-caption",
+          "text": "На грифе отмечена позиция. Выбери название её ноты. A · Минорная ",
+          "color": "rgb(146, 157, 135)",
+          "background": [
+            251,
+            250,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 2.717381475950168
+        },
+        {
+          "selector": ".summary-grid span",
+          "text": "Самостоятельно",
+          "color": "rgb(153, 165, 139)",
+          "background": [
+            243,
+            246,
+            235
+          ],
+          "fontSize": 9,
+          "ratio": 2.366764583809516
+        },
+        {
+          "selector": ".summary-context",
+          "text": "Материал занятия: A · Минорная пентатоника; ноты структуры; 52 по",
+          "color": "rgb(149, 160, 135)",
+          "background": [
+            251,
+            250,
+            245
+          ],
+          "fontSize": 11,
+          "ratio": 2.6246566160357787
+        },
+        {
+          "selector": ".primary-button",
+          "text": "Начать занятие→",
+          "color": "rgb(250, 251, 242)",
+          "background": [
+            78,
+            118,
+            80
+          ],
+          "fontSize": 11,
+          "ratio": 4.997538347840919
+        },
+        {
+          "selector": ".secondary-button",
+          "text": "Повторить ошибки",
+          "color": "rgb(65, 102, 60)",
+          "background": [
+            226,
+            236,
+            217
+          ],
+          "fontSize": 11,
+          "ratio": 5.401521250894958
+        },
+        {
+          "selector": ".text-button",
+          "text": "Обновить время",
+          "color": "rgb(132, 144, 120)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 11,
+          "ratio": 3.231531309423429
+        },
+        {
+          "selector": ".player-field>span",
+          "text": "Темп, BPM",
+          "color": "rgb(132, 148, 118)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 10,
+          "ratio": 3.077130072447526
+        },
+        {
+          "selector": ".player-scope",
+          "text": "24 нот в маршруте",
+          "color": "rgb(149, 162, 134)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 10,
+          "ratio": 2.5590456906462733
+        },
+        {
+          "selector": ".player-check",
+          "text": "Отсчёт: 4 доли",
+          "color": "rgb(109, 133, 90)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 11,
+          "ratio": 3.868840015628162
+        },
+        {
+          "selector": ".player-now p",
+          "text": "Готово к практике",
+          "color": "rgb(118, 141, 96)",
+          "background": [
+            237,
+            243,
+            227
+          ],
+          "fontSize": 11,
+          "ratio": 3.223137093649271
+        },
+        {
+          "selector": ".player-edit-help",
+          "text": "Маршрут и ритм настраиваются до старта. Во время воспроизведения ",
+          "color": "rgb(156, 171, 141)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 10,
+          "ratio": 2.3118247157039975
+        },
+        {
+          "selector": ".player-evaluation-note",
+          "text": "Звучит эталонная последовательность. Точность твоей игры на басу ",
+          "color": "rgb(175, 186, 159)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 9,
+          "ratio": 1.9267149084897535
+        },
+        {
+          "selector": ".player-shortcuts",
+          "text": "Пробел — старт / пауза · Esc — стоп",
+          "color": "rgb(158, 174, 143)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 9,
+          "ratio": 2.2387410796584
+        },
+        {
+          "selector": ".ear-heading>p",
+          "text": "Сравни два звука трезвучия.Ответь ступенью, а не названием ноты.",
+          "color": "rgb(136, 148, 125)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 11,
+          "ratio": 3.0980301122389
+        },
+        {
+          "selector": ".ear-field>span",
+          "text": "Тоника",
+          "color": "rgb(133, 144, 120)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 3.2570042476918006
+        },
+        {
+          "selector": ".ear-description",
+          "text": "C · мажорное трезвучие. Звуки звучат в фиксированном регистре; фи",
+          "color": "rgb(137, 148, 126)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 3.0877221612644217
+        },
+        {
+          "selector": ".ear-summary-grid span",
+          "text": "Самостоятельно",
+          "color": "rgb(145, 160, 127)",
+          "background": [
+            239,
+            244,
+            229
+          ],
+          "fontSize": 10,
+          "ratio": 2.486074127234001
+        },
+        {
+          "selector": ".harmony-heading>p",
+          "text": "C – F – G – C · 4/4Бас 1–3–5–3 · аккорды · клик",
+          "color": "rgb(135, 151, 122)",
+          "background": [
+            250,
+            252,
+            243
+          ],
+          "fontSize": 11,
+          "ratio": 3.0103327044566934
+        },
+        {
+          "selector": ".harmony-intro",
+          "text": "Играй вместе с эталоном или выключи его бас и займи своё место в ",
+          "color": "rgb(135, 151, 122)",
+          "background": [
+            250,
+            252,
+            243
+          ],
+          "fontSize": 11,
+          "ratio": 3.0103327044566934
+        },
+        {
+          "selector": ".harmony-chords small",
+          "text": "C · E · G",
+          "color": "rgb(141, 161, 125)",
+          "background": [
+            241,
+            246,
+            232
+          ],
+          "fontSize": 10,
+          "ratio": 2.536023699565512
+        },
+        {
+          "selector": ".harmony-check",
+          "text": "Отсчёт: 4 доли",
+          "color": "rgb(135, 153, 118)",
+          "background": [
+            250,
+            252,
+            243
+          ],
+          "fontSize": 11,
+          "ratio": 2.9617936163623804
+        },
+        {
+          "selector": ".harmony-volume>span",
+          "text": "Бас",
+          "color": "rgb(117, 141, 101)",
+          "background": [
+            244,
+            248,
+            236
+          ],
+          "fontSize": 11,
+          "ratio": 3.386159533422974
+        },
+        {
+          "selector": ".harmony-preview small",
+          "text": "E · 8 лад",
+          "color": "rgb(149, 164, 134)",
+          "background": [
+            242,
+            246,
+            233
+          ],
+          "fontSize": 9,
+          "ratio": 2.4121998519377543
+        },
+        {
+          "selector": ".harmony-preview li>span",
+          "text": "1",
+          "color": "rgb(160, 173, 146)",
+          "background": [
+            242,
+            246,
+            233
+          ],
+          "fontSize": 9,
+          "ratio": 2.1530262100547564
+        },
+        {
+          "selector": ".harmony-help",
+          "text": "Темп и повтор настраиваются до старта; громкость и выключение гол",
+          "color": "rgb(145, 160, 131)",
+          "background": [
+            250,
+            252,
+            243
+          ],
+          "fontSize": 10,
+          "ratio": 2.682956041464922
+        },
+        {
+          "selector": ".tracks-heading>p",
+          "text": "Один файл или до четырёх готовых дорожек.Общий старт, фрагмент и ",
+          "color": "rgb(136, 152, 124)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 11,
+          "ratio": 2.984507060991564
+        },
+        {
+          "selector": ".tracks-intro",
+          "text": "Выбери локальные WAV/MP3. Готовые stems должны начинаться в одной",
+          "color": "rgb(136, 152, 124)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 11,
+          "ratio": 2.984507060991564
+        },
+        {
+          "selector": ".tracks-file-state",
+          "text": "Нужен исходный файл",
+          "color": "rgb(178, 143, 96)",
+          "background": [
+            250,
+            247,
+            238
+          ],
+          "fontSize": 10,
+          "ratio": 2.8041818216993915
+        },
+        {
+          "selector": ".tracks-track-name p",
+          "text": "0:10 · 0,1 МиБ · 2 канала",
+          "color": "rgb(151, 165, 138)",
+          "background": [
+            250,
+            247,
+            238
+          ],
+          "fontSize": 9,
+          "ratio": 2.43074151798842
+        },
+        {
+          "selector": ".tracks-backup-note",
+          "text": "Резервная копия хранит названия, метки и параметры, без аудиофайл",
+          "color": "rgb(154, 167, 141)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 2.459751032115739
+        },
+        {
+          "selector": ".tracks-rate-warning",
+          "text": "Скорость ×0,75: высота тоже меняется. Это varispeed, без сохранен",
+          "color": "rgb(145, 161, 129)",
+          "background": [
+            242,
+            246,
+            233
+          ],
+          "fontSize": 11,
+          "ratio": 2.5114405840055016
+        },
+        {
+          "selector": ".tracks-field>span",
+          "text": "A · начало, с",
+          "color": "rgb(150, 166, 138)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 2.5105986476233753
+        },
+        {
+          "selector": ".tracks-position output",
+          "text": "0:01 / 0:10",
+          "color": "rgb(140, 161, 125)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 12,
+          "ratio": 2.714249661709382
+        },
+        {
+          "selector": ".tracks-file-button",
+          "text": "Открыть новый набор",
+          "color": "rgb(255, 255, 248)",
+          "background": [
+            93,
+            127,
+            79
+          ],
+          "fontSize": 12,
+          "ratio": 4.532095341815698
+        },
+        {
+          "selector": ".backup-preview h4",
+          "text": "Проверь копию перед заменой",
+          "color": "rgb(161, 138, 80)",
+          "background": [
+            247,
+            240,
+            222
+          ],
+          "fontSize": 14,
+          "ratio": 2.9479346035108747
+        },
+        {
+          "selector": ".backup-preview .restore-warning",
+          "text": "Текущие настройки, пресеты и история будут полностью заменены сод",
+          "color": "rgb(167, 140, 78)",
+          "background": [
+            247,
+            240,
+            222
+          ],
+          "fontSize": 10,
+          "ratio": 2.8402025867045726
+        },
+        {
+          "selector": ".restore-confirm>span",
+          "text": "Понимаю, что текущие данные будут заменены",
+          "color": "rgb(167, 143, 82)",
+          "background": [
+            247,
+            240,
+            222
+          ],
+          "fontSize": 10,
+          "ratio": 2.759765262299337
+        },
+        {
+          "selector": ".restore-button",
+          "text": "Заменить данные копией",
+          "color": "rgb(127, 103, 48)",
+          "background": [
+            223,
+            201,
+            143
+          ],
+          "fontSize": 11,
+          "ratio": 3.317445317836771
+        },
+        {
+          "selector": "#coordinate-probes .fret-number",
+          "text": "5",
+          "color": "rgb(133, 148, 127)",
+          "background": [
+            243,
+            244,
+            236
+          ],
+          "fontSize": 11,
+          "ratio": 2.899573892299435
+        },
+        {
+          "selector": "#coordinate-probes .string-name",
+          "text": "E",
+          "color": "rgb(95, 117, 93)",
+          "background": [
+            243,
+            244,
+            236
+          ],
+          "fontSize": 14,
+          "ratio": 4.526550993597838
+        },
+        {
+          "selector": "#coordinate-probes .string-caption",
+          "text": "4",
+          "color": "rgb(155, 170, 146)",
+          "background": [
+            243,
+            244,
+            236
+          ],
+          "fontSize": 9,
+          "ratio": 2.2155828760551066
+        },
+        {
+          "selector": ".answer-fret-number",
+          "text": "0",
+          "color": "rgb(129, 147, 117)",
+          "background": [
+            240,
+            242,
+            232
+          ],
+          "fontSize": 10,
+          "ratio": 2.9182551377662325
+        },
+        {
+          "selector": ".answer-string-name",
+          "text": "G",
+          "color": "rgb(129, 147, 117)",
+          "background": [
+            240,
+            242,
+            232
+          ],
+          "fontSize": 13,
+          "ratio": 2.9182551377662325
+        }
+      ],
+      "overflow": {
+        "document": 800,
+        "viewport": 800,
+        "offenders": []
+      }
+    },
+    {
+      "width": 390,
+      "targets": [
+        {
+          "selector": ".intro-copy",
+          "text": "Пояснения, поля и результаты настоящих компонентов.",
+          "color": "rgb(118, 128, 120)",
+          "background": [
+            245,
+            243,
+            236
+          ],
+          "fontSize": 11,
+          "ratio": 3.687512087298056
+        },
+        {
+          "selector": ".field>span",
+          "text": "Тоника",
+          "color": "rgb(116, 128, 118)",
+          "background": [
+            245,
+            243,
+            236
+          ],
+          "fontSize": 11,
+          "ratio": 3.7145402631189772
+        },
+        {
+          "selector": ".history-help",
+          "text": "Темп и заметка — твоя оценка. Длительность берётся из проигрывате",
+          "color": "rgb(161, 174, 145)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 10,
+          "ratio": 2.2464275896916215
+        },
+        {
+          "selector": ".history-overview span",
+          "text": "Экранных занятий",
+          "color": "rgb(158, 175, 140)",
+          "background": [
+            242,
+            246,
+            233
+          ],
+          "fontSize": 8,
+          "ratio": 2.1344633460532116
+        },
+        {
+          "selector": ".history-question-details small",
+          "text": "1 ошибок · первый ответ 0.60 с",
+          "color": "rgb(177, 189, 160)",
+          "background": [
+            247,
+            249,
+            240
+          ],
+          "fontSize": 8,
+          "ratio": 1.8546566568680707
+        },
+        {
+          "selector": ".history-entry time",
+          "text": "8 нояб. 2026 г., 13:10",
+          "color": "rgb(176, 188, 157)",
+          "background": [
+            247,
+            249,
+            240
+          ],
+          "fontSize": 8,
+          "ratio": 1.8775444227191023
+        },
+        {
+          "selector": ".history-field>span",
+          "text": "Комфортный темп, BPM",
+          "color": "rgb(145, 161, 125)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 10,
+          "ratio": 2.654635747767854
+        },
+        {
+          "selector": ".history-save-status",
+          "text": "Локальные данные прочитаны",
+          "color": "rgb(138, 160, 121)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 9,
+          "ratio": 2.731185406598341
+        },
+        {
+          "selector": ".history-kind.manual",
+          "text": "Ручная отметка",
+          "color": "rgb(163, 140, 82)",
+          "background": [
+            242,
+            234,
+            215
+          ],
+          "fontSize": 9,
+          "ratio": 2.7254749207985594
+        },
+        {
+          "selector": ".history-backup-format",
+          "text": "JSON · версия 4",
+          "color": "rgb(145, 161, 124)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 9,
+          "ratio": 2.6564140715180833
+        },
+        {
+          "selector": ".route-heading>p",
+          "text": "10 АКТИВНЫХ МИНУТ",
+          "color": "rgb(137, 151, 125)",
+          "background": [
+            251,
+            252,
+            244
+          ],
+          "fontSize": 9,
+          "ratio": 2.996019644216948
+        },
+        {
+          "selector": ".route-steps p",
+          "text": "Найди знакомые ноты и ступени в выбранной области.",
+          "color": "rgb(137, 153, 124)",
+          "background": [
+            245,
+            248,
+            237
+          ],
+          "fontSize": 11,
+          "ratio": 2.826181167299621
+        },
+        {
+          "selector": ".route-step-time",
+          "text": "Фактически: 0:00",
+          "color": "rgb(135, 153, 118)",
+          "background": [
+            245,
+            248,
+            237
+          ],
+          "fontSize": 11,
+          "ratio": 2.852155472986198
+        },
+        {
+          "selector": ".route-bar-heading [role=status]",
+          "text": "Пауза — продолжи явно, когда будешь готов",
+          "color": "rgb(140, 155, 128)",
+          "background": [
+            246,
+            249,
+            237
+          ],
+          "fontSize": 10,
+          "ratio": 2.7675066295241155
+        },
+        {
+          "selector": ".route-bar-time>span",
+          "text": "Осталось в шаге",
+          "color": "rgb(133, 150, 115)",
+          "background": [
+            246,
+            249,
+            237
+          ],
+          "fontSize": 10,
+          "ratio": 2.980249140964214
+        },
+        {
+          "selector": ".route-bar-time small",
+          "text": "Всего 0:00 / 10:00",
+          "color": "rgb(154, 167, 142)",
+          "background": [
+            246,
+            249,
+            237
+          ],
+          "fontSize": 9,
+          "ratio": 2.374759904268821
+        },
+        {
+          "selector": ".training-intro>p",
+          "text": "Здесь проверяются ответы на экране.Точность игры на басу не измер",
+          "color": "rgb(148, 160, 138)",
+          "background": [
+            251,
+            250,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 2.6252020191298118
+        },
+        {
+          "selector": ".training-field>span",
+          "text": "Тип задания",
+          "color": "rgb(131, 145, 123)",
+          "background": [
+            251,
+            250,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 3.1889966548331423
+        },
+        {
+          "selector": ".training-scope-caption",
+          "text": "На грифе отмечена позиция. Выбери название её ноты. A · Минорная ",
+          "color": "rgb(146, 157, 135)",
+          "background": [
+            251,
+            250,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 2.717381475950168
+        },
+        {
+          "selector": ".summary-grid span",
+          "text": "Самостоятельно",
+          "color": "rgb(153, 165, 139)",
+          "background": [
+            243,
+            246,
+            235
+          ],
+          "fontSize": 9,
+          "ratio": 2.366764583809516
+        },
+        {
+          "selector": ".summary-context",
+          "text": "Материал занятия: A · Минорная пентатоника; ноты структуры; 52 по",
+          "color": "rgb(149, 160, 135)",
+          "background": [
+            251,
+            250,
+            245
+          ],
+          "fontSize": 11,
+          "ratio": 2.6246566160357787
+        },
+        {
+          "selector": ".primary-button",
+          "text": "Начать занятие→",
+          "color": "rgb(250, 251, 242)",
+          "background": [
+            78,
+            118,
+            80
+          ],
+          "fontSize": 11,
+          "ratio": 4.997538347840919
+        },
+        {
+          "selector": ".secondary-button",
+          "text": "Повторить ошибки",
+          "color": "rgb(65, 102, 60)",
+          "background": [
+            226,
+            236,
+            217
+          ],
+          "fontSize": 11,
+          "ratio": 5.401521250894958
+        },
+        {
+          "selector": ".text-button",
+          "text": "Обновить время",
+          "color": "rgb(132, 144, 120)",
+          "background": [
+            250,
+            251,
+            244
+          ],
+          "fontSize": 11,
+          "ratio": 3.231531309423429
+        },
+        {
+          "selector": ".player-field>span",
+          "text": "Темп, BPM",
+          "color": "rgb(132, 148, 118)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 10,
+          "ratio": 3.077130072447526
+        },
+        {
+          "selector": ".player-scope",
+          "text": "24 нот в маршруте",
+          "color": "rgb(149, 162, 134)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 10,
+          "ratio": 2.5590456906462733
+        },
+        {
+          "selector": ".player-check",
+          "text": "Отсчёт: 4 доли",
+          "color": "rgb(109, 133, 90)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 11,
+          "ratio": 3.868840015628162
+        },
+        {
+          "selector": ".player-now p",
+          "text": "Готово к практике",
+          "color": "rgb(118, 141, 96)",
+          "background": [
+            237,
+            243,
+            227
+          ],
+          "fontSize": 11,
+          "ratio": 3.223137093649271
+        },
+        {
+          "selector": ".player-edit-help",
+          "text": "Маршрут и ритм настраиваются до старта. Во время воспроизведения ",
+          "color": "rgb(156, 171, 141)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 10,
+          "ratio": 2.3118247157039975
+        },
+        {
+          "selector": ".player-evaluation-note",
+          "text": "Звучит эталонная последовательность. Точность твоей игры на басу ",
+          "color": "rgb(175, 186, 159)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 9,
+          "ratio": 1.9267149084897535
+        },
+        {
+          "selector": ".player-shortcuts",
+          "text": "Пробел — старт / пауза · Esc — стоп",
+          "color": "rgb(158, 174, 143)",
+          "background": [
+            248,
+            250,
+            241
+          ],
+          "fontSize": 9,
+          "ratio": 2.2387410796584
+        },
+        {
+          "selector": ".ear-heading>p",
+          "text": "Сравни два звука трезвучия.Ответь ступенью, а не названием ноты.",
+          "color": "rgb(136, 148, 125)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 11,
+          "ratio": 3.0980301122389
+        },
+        {
+          "selector": ".ear-field>span",
+          "text": "Тоника",
+          "color": "rgb(133, 144, 120)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 3.2570042476918006
+        },
+        {
+          "selector": ".ear-description",
+          "text": "C · мажорное трезвучие. Звуки звучат в фиксированном регистре; фи",
+          "color": "rgb(137, 148, 126)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 3.0877221612644217
+        },
+        {
+          "selector": ".ear-summary-grid span",
+          "text": "Самостоятельно",
+          "color": "rgb(145, 160, 127)",
+          "background": [
+            239,
+            244,
+            229
+          ],
+          "fontSize": 10,
+          "ratio": 2.486074127234001
+        },
+        {
+          "selector": ".harmony-heading>p",
+          "text": "C – F – G – C · 4/4Бас 1–3–5–3 · аккорды · клик",
+          "color": "rgb(135, 151, 122)",
+          "background": [
+            250,
+            252,
+            243
+          ],
+          "fontSize": 11,
+          "ratio": 3.0103327044566934
+        },
+        {
+          "selector": ".harmony-intro",
+          "text": "Играй вместе с эталоном или выключи его бас и займи своё место в ",
+          "color": "rgb(135, 151, 122)",
+          "background": [
+            250,
+            252,
+            243
+          ],
+          "fontSize": 11,
+          "ratio": 3.0103327044566934
+        },
+        {
+          "selector": ".harmony-chords small",
+          "text": "C · E · G",
+          "color": "rgb(141, 161, 125)",
+          "background": [
+            241,
+            246,
+            232
+          ],
+          "fontSize": 9,
+          "ratio": 2.536023699565512
+        },
+        {
+          "selector": ".harmony-check",
+          "text": "Отсчёт: 4 доли",
+          "color": "rgb(135, 153, 118)",
+          "background": [
+            250,
+            252,
+            243
+          ],
+          "fontSize": 11,
+          "ratio": 2.9617936163623804
+        },
+        {
+          "selector": ".harmony-volume>span",
+          "text": "Бас",
+          "color": "rgb(117, 141, 101)",
+          "background": [
+            244,
+            248,
+            236
+          ],
+          "fontSize": 11,
+          "ratio": 3.386159533422974
+        },
+        {
+          "selector": ".harmony-preview small",
+          "text": "E · 8 лад",
+          "color": "rgb(149, 164, 134)",
+          "background": [
+            242,
+            246,
+            233
+          ],
+          "fontSize": 9,
+          "ratio": 2.4121998519377543
+        },
+        {
+          "selector": ".harmony-preview li>span",
+          "text": "1",
+          "color": "rgb(160, 173, 146)",
+          "background": [
+            242,
+            246,
+            233
+          ],
+          "fontSize": 9,
+          "ratio": 2.1530262100547564
+        },
+        {
+          "selector": ".harmony-help",
+          "text": "Темп и повтор настраиваются до старта; громкость и выключение гол",
+          "color": "rgb(145, 160, 131)",
+          "background": [
+            250,
+            252,
+            243
+          ],
+          "fontSize": 10,
+          "ratio": 2.682956041464922
+        },
+        {
+          "selector": ".tracks-heading>p",
+          "text": "Один файл или до четырёх готовых дорожек.Общий старт, фрагмент и ",
+          "color": "rgb(136, 152, 124)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 11,
+          "ratio": 2.984507060991564
+        },
+        {
+          "selector": ".tracks-intro",
+          "text": "Выбери локальные WAV/MP3. Готовые stems должны начинаться в одной",
+          "color": "rgb(136, 152, 124)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 11,
+          "ratio": 2.984507060991564
+        },
+        {
+          "selector": ".tracks-file-state",
+          "text": "Нужен исходный файл",
+          "color": "rgb(178, 143, 96)",
+          "background": [
+            250,
+            247,
+            238
+          ],
+          "fontSize": 10,
+          "ratio": 2.8041818216993915
+        },
+        {
+          "selector": ".tracks-track-name p",
+          "text": "0:10 · 0,1 МиБ · 2 канала",
+          "color": "rgb(151, 165, 138)",
+          "background": [
+            250,
+            247,
+            238
+          ],
+          "fontSize": 9,
+          "ratio": 2.43074151798842
+        },
+        {
+          "selector": ".tracks-backup-note",
+          "text": "Резервная копия хранит названия, метки и параметры, без аудиофайл",
+          "color": "rgb(154, 167, 141)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 2.459751032115739
+        },
+        {
+          "selector": ".tracks-rate-warning",
+          "text": "Скорость ×0,75: высота тоже меняется. Это varispeed, без сохранен",
+          "color": "rgb(145, 161, 129)",
+          "background": [
+            242,
+            246,
+            233
+          ],
+          "fontSize": 11,
+          "ratio": 2.5114405840055016
+        },
+        {
+          "selector": ".tracks-field>span",
+          "text": "A · начало, с",
+          "color": "rgb(150, 166, 138)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 2.5105986476233753
+        },
+        {
+          "selector": ".tracks-position output",
+          "text": "0:01 / 0:10",
+          "color": "rgb(140, 161, 125)",
+          "background": [
+            252,
+            252,
+            245
+          ],
+          "fontSize": 10,
+          "ratio": 2.714249661709382
+        },
+        {
+          "selector": ".tracks-file-button",
+          "text": "Открыть новый набор",
+          "color": "rgb(255, 255, 248)",
+          "background": [
+            93,
+            127,
+            79
+          ],
+          "fontSize": 12,
+          "ratio": 4.532095341815698
+        },
+        {
+          "selector": ".backup-preview h4",
+          "text": "Проверь копию перед заменой",
+          "color": "rgb(161, 138, 80)",
+          "background": [
+            247,
+            240,
+            222
+          ],
+          "fontSize": 14,
+          "ratio": 2.9479346035108747
+        },
+        {
+          "selector": ".backup-preview .restore-warning",
+          "text": "Текущие настройки, пресеты и история будут полностью заменены сод",
+          "color": "rgb(167, 140, 78)",
+          "background": [
+            247,
+            240,
+            222
+          ],
+          "fontSize": 10,
+          "ratio": 2.8402025867045726
+        },
+        {
+          "selector": ".restore-confirm>span",
+          "text": "Понимаю, что текущие данные будут заменены",
+          "color": "rgb(167, 143, 82)",
+          "background": [
+            247,
+            240,
+            222
+          ],
+          "fontSize": 10,
+          "ratio": 2.759765262299337
+        },
+        {
+          "selector": ".restore-button",
+          "text": "Заменить данные копией",
+          "color": "rgb(127, 103, 48)",
+          "background": [
+            223,
+            201,
+            143
+          ],
+          "fontSize": 11,
+          "ratio": 3.317445317836771
+        },
+        {
+          "selector": "#coordinate-probes .fret-number",
+          "text": "5",
+          "color": "rgb(133, 148, 127)",
+          "background": [
+            243,
+            244,
+            236
+          ],
+          "fontSize": 11,
+          "ratio": 2.899573892299435
+        },
+        {
+          "selector": "#coordinate-probes .string-name",
+          "text": "E",
+          "color": "rgb(95, 117, 93)",
+          "background": [
+            243,
+            244,
+            236
+          ],
+          "fontSize": 14,
+          "ratio": 4.526550993597838
+        },
+        {
+          "selector": "#coordinate-probes .string-caption",
+          "text": "4",
+          "color": "rgb(155, 170, 146)",
+          "background": [
+            243,
+            244,
+            236
+          ],
+          "fontSize": 9,
+          "ratio": 2.2155828760551066
+        },
+        {
+          "selector": ".answer-fret-number",
+          "text": "0",
+          "color": "rgb(129, 147, 117)",
+          "background": [
+            240,
+            242,
+            232
+          ],
+          "fontSize": 10,
+          "ratio": 2.9182551377662325
+        },
+        {
+          "selector": ".answer-string-name",
+          "text": "G",
+          "color": "rgb(129, 147, 117)",
+          "background": [
+            240,
+            242,
+            232
+          ],
+          "fontSize": 13,
+          "ratio": 2.9182551377662325
+        }
+      ],
+      "overflow": {
+        "document": 390,
+        "viewport": 390,
+        "offenders": []
+      }
+    }
+  ],
+  "errors": [],
+  "browserVersion": "157.0.4341.42",
+  "platform": "win32",
+  "node": "v24.18.0"
+}

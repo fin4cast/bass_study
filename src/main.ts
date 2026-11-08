@@ -3,6 +3,7 @@ import { mountTraining } from './ui/training';
 import { mountPlayer } from './ui/player';
 import { mountHistory } from './ui/history';
 import { mountEar } from './ui/ear';
+import { mountHarmony } from './ui/harmony';
 import { mountRoute, type RouteStep } from './ui/route';
 import type { EarSession } from './ear';
 import type { RouteResult } from './route';
@@ -54,9 +55,10 @@ app.innerHTML = `
         <div class="intro-copy"><p>Выбери тональность и структуру.<br> Нажми на позицию, чтобы узнать ноту<br class="desktop-break"> и увидеть, где она повторяется.</p><div class="instrument-chips"><span>4 струны</span><span>E–A–D–G</span></div></div>
       </section>
 
-      <nav class="module-navigation" aria-label="Раздел тренажёра"><button type="button" data-app-module="foundation" aria-pressed="true">Гриф и практика</button><button type="button" data-app-module="ear" aria-pressed="false">Слух</button><button type="button" data-app-module="route" aria-pressed="false">Маршрут занятия</button></nav>
+      <nav class="module-navigation" aria-label="Раздел тренажёра"><button type="button" data-app-module="foundation" aria-pressed="true">Гриф и практика</button><button type="button" data-app-module="ear" aria-pressed="false">Слух</button><button type="button" data-app-module="harmony" aria-pressed="false">Аккомпанемент</button><button type="button" data-app-module="route" aria-pressed="false">Маршрут занятия</button></nav>
       <div id="route-session-mount"></div>
       <section id="ear-mount" aria-label="Слуховые задания" hidden></section>
+      <section id="harmony-mount" aria-label="Аккомпанемент" hidden></section>
       <section id="route-mount" aria-label="Маршрут занятия" hidden></section>
       <section class="workspace" aria-label="Изучение грифа">
         <div class="settings-panel">
@@ -110,6 +112,7 @@ let training: ReturnType<typeof mountTraining> | undefined;
 let sequencePlayer: ReturnType<typeof mountPlayer> | undefined;
 let history: ReturnType<typeof mountHistory> | undefined;
 let ear: ReturnType<typeof mountEar> | undefined;
+let accompaniment: ReturnType<typeof mountHarmony> | undefined;
 let route: ReturnType<typeof mountRoute> | undefined;
 let activeModule: AppPreferences['activeModule'] = 'foundation';
 let foundationMode: 'study' | 'quiz' | 'sequence' = 'study';
@@ -142,6 +145,7 @@ function getPreferences(): AppPreferences {
   const value = validatePreferences({
     activeModule,
     ear: activeModule === 'ear' ? ear?.getPreferences() ?? DEFAULT_PREFERENCES.ear : lastValidPreferences.ear,
+    harmony: activeModule === 'harmony' ? accompaniment?.getPreferences() ?? DEFAULT_PREFERENCES.harmony : lastValidPreferences.harmony,
     study: { root: state.root, structureId: state.structureId, labelMode: state.labelMode, strings: state.strings, fretMin: state.fretMin, fretMax: state.fretMax },
     training: activeModule === 'foundation' ? training?.getPreferences() ?? DEFAULT_PREFERENCES.training : lastValidPreferences.training,
     player: activeModule === 'foundation' ? sequencePlayer?.getPreferences() ?? DEFAULT_PREFERENCES.player : lastValidPreferences.player,
@@ -202,11 +206,13 @@ function updateModuleVisibility() {
   document.querySelector<HTMLElement>('.label-field')!.hidden = foundationMode === 'quiz';
   byId('player-mount').hidden = !foundation || foundationMode !== 'sequence';
   byId('ear-mount').hidden = activeModule !== 'ear';
+  byId('harmony-mount').hidden = activeModule !== 'harmony';
   byId('route-mount').hidden = activeModule !== 'route';
   ear?.setVisible(activeModule === 'ear');
+  accompaniment?.setVisible(activeModule === 'harmony');
   document.querySelectorAll<HTMLElement>('[data-app-module]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.appModule === activeModule)));
-  byId('page-title').innerHTML = activeModule === 'ear' ? 'Учись слышать.<br> <span>Найди ступень.</span>' : activeModule === 'route' ? 'Собери занятие.<br> <span>Пройди три шага.</span>' : 'Изучи гриф.<br> <span>Найди связи.</span>';
-  document.querySelector<HTMLElement>('.intro-copy > p')!.innerHTML = activeModule === 'ear' ? 'Послушай тонику и второй звук.<br> Вспомни, как звучит трезвучие,<br> и выбери ступень.' : activeModule === 'route' ? 'Соедини знание грифа,<br> узнавание звуков и ровный пульс<br> в одном небольшом занятии.' : 'Выбери тональность и структуру.<br> Нажми на позицию, чтобы узнать ноту<br class="desktop-break"> и увидеть, где она повторяется.';
+  byId('page-title').innerHTML = activeModule === 'ear' ? 'Учись слышать.<br> <span>Найди ступень.</span>' : activeModule === 'harmony' ? 'Сыграй с гармонией.<br> <span>Почувствуй пульс.</span>' : activeModule === 'route' ? 'Собери занятие.<br> <span>Пройди три шага.</span>' : 'Изучи гриф.<br> <span>Найди связи.</span>';
+  document.querySelector<HTMLElement>('.intro-copy > p')!.innerHTML = activeModule === 'ear' ? 'Послушай тонику и второй звук.<br> Вспомни, как звучит трезвучие,<br> и выбери ступень.' : activeModule === 'harmony' ? 'Четыре аккорда в C major.<br> Послушай рисунок баса<br> и сыграй своё сопровождение.' : activeModule === 'route' ? 'Соедини знание грифа,<br> узнавание звуков и ровный пульс<br> в одном небольшом занятии.' : 'Выбери тональность и структуру.<br> Нажми на позицию, чтобы узнать ноту<br class="desktop-break"> и увидеть, где она повторяется.';
 }
 
 function switchModule(next: AppPreferences['activeModule']) {
@@ -214,8 +220,10 @@ function switchModule(next: AppPreferences['activeModule']) {
   if (!routeNavigation) route?.pause();
   if (activeModule === 'foundation') { training?.finishCurrentSession('Занятие остановлено при смене раздела'); sequencePlayer?.stop(); }
   if (activeModule === 'ear') ear?.finishCurrentSession('Слуховое занятие остановлено при смене раздела');
+  if (activeModule === 'harmony') accompaniment?.stop();
   activeModule = next;
   updateModuleVisibility();
+  history?.updatePracticeContext();
   savePreferences();
 }
 
@@ -239,6 +247,7 @@ function applyPreferences(preferences: AppPreferences) {
   preferenceIssue = '';
   training?.finishCurrentSession('Занятие остановлено перед применением настроек');
   ear?.finishCurrentSession('Слуховое занятие остановлено перед применением настроек');
+  accompaniment?.stop();
   sequencePlayer?.stop();
   applyingPreferences = true;
   try {
@@ -256,6 +265,7 @@ function applyPreferences(preferences: AppPreferences) {
     sequencePlayer?.refreshContext();
     sequencePlayer?.applyPreferences(value.player);
     ear?.applyPreferences(value.ear);
+    accompaniment?.applyPreferences(value.harmony);
     updateModuleVisibility();
   } finally { applyingPreferences = false; }
 }
@@ -287,6 +297,7 @@ function updateView(announce = false) {
   renderSelection(announce);
   training?.refreshContext();
   sequencePlayer?.refreshContext();
+  history?.updatePracticeContext();
   savePreferences();
 }
 
@@ -456,7 +467,7 @@ training = mountTraining(byId('training-mount'), () => ({ positions: rangeIsVali
     updateModuleVisibility();
     if (mode === 'sequence') sequencePlayer?.refreshContext();
   },
-  onSequenceChange() { sequencePlayer?.refreshContext(); sequencePlayer?.refreshHighlight(); },
+  onSequenceChange() { sequencePlayer?.refreshContext(); sequencePlayer?.refreshHighlight(); history?.updatePracticeContext(); },
 });
 sequencePlayer = mountPlayer(byId('player-mount'), () => training?.getCurrentSequence()?.notes ?? [], {
   onPreferencesChange: savePreferences,
@@ -474,12 +485,17 @@ sequencePlayer = mountPlayer(byId('player-mount'), () => training?.getCurrentSeq
 ear = mountEar(byId('ear-mount'), {
   onPreferencesChange: savePreferences,
   onSessionChanged: persistEarSession,
-  onBeforeListen() { sequencePlayer?.stop(); },
+  onBeforeListen() { sequencePlayer?.stop(); accompaniment?.stop(); },
 });
 ear.setVisible(false);
+accompaniment = mountHarmony(byId('harmony-mount'), {
+  onPreferencesChange: savePreferences,
+  onBeforeStart() { sequencePlayer?.stop(); ear?.pauseListening('Открыто сопровождение.'); },
+});
+accompaniment.setVisible(false);
 route = mountRoute(byId('route-mount'), byId('route-session-mount'), {
   onGo: openRouteStep,
-  onPause() { sequencePlayer?.stop(); ear?.pauseListening('Активный таймер приостановлен.'); },
+  onPause() { sequencePlayer?.stop(); accompaniment?.stop(); ear?.pauseListening('Активный таймер приостановлен.'); },
   onSessionChanged: persistRouteSession,
 });
 document.querySelectorAll<HTMLElement>('[data-app-module]').forEach(button => button.addEventListener('click', () => switchModule(button.dataset.appModule as AppPreferences['activeModule'])));
@@ -498,11 +514,16 @@ history = mountHistory(byId('history-mount'), {
   runWrite: operation => retiring ? Promise.reject(new Error('Эта страница закрывается; дождись сохранения и открой занятие снова.')) : writes.run(operation),
   flush: () => writes.flush(),
   isPersistent: () => persistent,
-  getPracticeDraft: () => ({
+  getPracticeDraft: () => activeModule === 'harmony' ? ({
+    ...(accompaniment?.getPracticeDraft() ?? { durationMs: 0, comfortableBpm: 80 }),
+    context: { root: 'C', structureId: 'major', scope: 'structure', positionIds: getPositions({ strings: ['E', 'A', 'D', 'G'], fretMin: 0, fretMax: 12 }).map(position => position.id) },
+    label: 'Аккомпанемент C–F–G–C · бас 1–3–5–3',
+  }) : ({
     ...(sequencePlayer?.getPracticeDraft() ?? { durationMs: 0, comfortableBpm: 80 }),
     context: { root: structure.root, structureId: structure.id, scope: training?.getSequenceScope() ?? 'structure', positionIds: rangeIsValid() ? positions.map(position => position.id) : [] },
+    label: 'Последовательности на грифе',
   }),
-  onManualSaved: (durationMs, contextKey) => sequencePlayer?.consumePracticeDuration(durationMs, contextKey),
+  onManualSaved: (durationMs, contextKey) => { if (contextKey?.startsWith('harmony:')) accompaniment?.consumePracticeDuration(durationMs, contextKey); else sequencePlayer?.consumePracticeDuration(durationMs, contextKey); },
   onRepeatErrors(ids, context) {
     const frets = ids.map(id => Number(id.split(':')[1]));
     const root = context.root.replaceAll('♭', 'b').replaceAll('♯', '#');
@@ -519,6 +540,7 @@ history = mountHistory(byId('history-mount'), {
     main.setAttribute('aria-busy', 'true');
     try {
       sequencePlayer?.stop();
+      accompaniment?.stop();
       route?.stop();
       ear?.finishCurrentSession('Слуховое занятие остановлено перед восстановлением');
       training?.finishCurrentSession('Занятие остановлено перед восстановлением');
@@ -569,6 +591,7 @@ function retire() {
   if (retirement) return retirement;
   main.inert = true;
   sequencePlayer?.stop();
+  accompaniment?.stop();
   route?.stop();
   ear?.stop('Страница закрывается');
   retiring = true;
@@ -577,4 +600,4 @@ function retire() {
 }
 window.addEventListener('pagehide', () => { void retire(); });
 window.addEventListener('pageshow', event => { if (event.persisted) location.reload(); });
-if (import.meta.hot) import.meta.hot.dispose(() => { void retire(); sequencePlayer?.dispose(); training?.dispose(); ear?.dispose(); route?.dispose(); history?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { void retire(); sequencePlayer?.dispose(); training?.dispose(); ear?.dispose(); accompaniment?.dispose(); route?.dispose(); history?.dispose(); });

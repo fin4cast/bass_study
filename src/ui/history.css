@@ -36,13 +36,13 @@
 
 .history-summary-label strong {
   font-size: 13px;
-  color: #5a7950;
+  color: #496140;
   font-weight: 550;
 }
 
 .history-summary-label small {
-  font-size: 10px;
-  color: #a0ad91;
+  font-size: 12px;
+  color: #565d4e;
 }
 
 .history-icon {
@@ -53,17 +53,17 @@
 
 .history-save-status {
   margin-left: auto;
-  font-size: 9px;
-  color: #8aa079;
+  font-size: 12px;
+  color: #525f48;
   text-align: right;
 }
 
 .history-save-status[data-status="error"] {
-  color: #b5774e;
+  color: #7c5135;
 }
 
 .history-save-status[data-status="memory"] {
-  color: #a28d50;
+  color: #685a33;
 }
 
 .history-chevron {
@@ -82,8 +82,8 @@
 
 .history-loading,
 .history-empty {
-  font-size: 11px;
-  color: #9dab8e;
+  font-size: 12px;
+  color: #565d4e;
   padding: 15px 0;
 }
 
@@ -93,22 +93,22 @@
   border-radius: 6px;
   padding: 11px 13px;
   margin-top: 17px;
-  font-size: 11px;
+  font-size: 12px;
   border: 1px solid #e0d8b8;
   background: #f6f1dd;
-  color: #9c8850;
+  color: #675a35;
 }
 
 .history-error {
   background: #faeadd;
   border-color: #e8cfb7;
-  color: #a36b49;
+  color: #7c5138;
 }
 
 .history-notice {
   background: #edf3e3;
   border-color: #d7e4c8;
-  color: #7d9963;
+  color: #4f603e;
 }
 
 .history-overview {
@@ -130,12 +130,12 @@
 
 .history-overview strong {
   font: 27px "Consolas", monospace;
-  color: #708e57;
+  color: #4d613c;
 }
 
 .history-overview span {
-  font-size: 9px;
-  color: #9eaf8c;
+  font-size: 12px;
+  color: #555e4c;
 }
 
 .history-block {
@@ -152,20 +152,20 @@
 }
 
 .history-block .eyebrow {
-  font-size: 8px;
+  font-size: 12px;
   margin-bottom: 5px;
 }
 
 .history-block h3 {
   font-size: 17px;
   font-weight: 550;
-  color: #627e50;
+  color: #4c613e;
 }
 
 .history-help,
 .history-weak p:not(.eyebrow) {
-  font-size: 10px;
-  color: #a1ae91;
+  font-size: 12px;
+  color: #575d4e;
   margin-top: 8px;
   max-width: 790px;
   line-height: 1.7;
@@ -196,31 +196,31 @@
 .review-context-field select {
   max-width: 100%;
   height: 36px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .weak-position-chips > span {
   border: 1px solid #dbe5ce;
   background: #f3f7eb;
-  color: #7c9863;
+  color: #4f603f;
   border-radius: 5px;
-  font-size: 10px;
+  font-size: 12px;
   padding: 4px 7px;
 }
 
 .weak-position-chips small {
-  color: #adbc9a;
+  color: #565d4d;
   margin-left: 5px;
-  font-size: 8px;
+  font-size: 12px;
 }
 
 .history-kind,
 .history-small-count,
 .history-backup-format {
   padding: 3px 8px;
-  font-size: 9px;
+  font-size: 12px;
   white-space: nowrap;
-  color: #91a17c;
+  color: #555e49;
   border: 1px solid #dce6ce;
   border-radius: 5px;
 }
@@ -228,13 +228,13 @@
 .history-kind.manual {
   background: #f2ead7;
   border-color: #e4d9b7;
-  color: #a38c52;
+  color: #685934;
 }
 
 .history-kind.screen {
   background: #e8f0dd;
   border-color: #cfe0bc;
-  color: #809c5b;
+  color: #4f6138;
 }
 
 .manual-form {
@@ -252,8 +252,8 @@
 
 .history-field > span,
 .manual-duration > span {
-  font-size: 10px;
-  color: #91a17d;
+  font-size: 12px;
+  color: #555e49;
 }
 
 .history-field input,
@@ -261,7 +261,7 @@
   border: 1px solid #d4dfc9;
   border-radius: 6px;
   background: #fffffa;
-  color: #627b4d;
+  color: #4d613d;
   padding: 8px 10px;
   font: 12px "Segoe UI", Arial, sans-serif;
 }
@@ -286,13 +286,13 @@
 }
 
 .manual-duration strong {
-  color: #7a975f;
+  color: #4e603d;
   font: 14px "Consolas", monospace;
 }
 
 .manual-duration small {
-  font-size: 9px;
-  color: #a8b698;
+  font-size: 12px;
+  color: #565d4e;
 }
 
 .history-form-actions,
@@ -334,19 +334,19 @@
 
 .preset-card strong {
   font-size: 12px;
-  color: #6c8854;
+  color: #4d613c;
   font-weight: 550;
 }
 
 .preset-card p {
-  font-size: 10px;
-  color: #a0af8b;
+  font-size: 12px;
+  color: #565e4b;
   margin-top: 3px;
 }
 
 .preset-card small {
-  font-size: 8px;
-  color: #b2bfa0;
+  font-size: 12px;
+  color: #575d4e;
 }
 
 .preset-card > div:last-child {
@@ -357,7 +357,7 @@
 
 .history-filter select {
   height: 35px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .history-entry-list {
@@ -380,33 +380,33 @@
 }
 
 .history-entry time {
-  font-size: 9px;
-  color: #b0bc9d;
+  font-size: 12px;
+  color: #585d4e;
 }
 
 .history-entry header .text-button {
   margin-left: auto;
-  font-size: 9px;
+  font-size: 12px;
   padding: 3px 5px;
 }
 
 .history-entry h4 {
   font-size: 14px;
   font-weight: 550;
-  color: #6d8a53;
+  color: #4d613b;
   margin: 10px 0 0;
 }
 
 .entry-context,
 .entry-facts,
 .entry-note {
-  font-size: 10px;
-  color: #a0ae8c;
+  font-size: 12px;
+  color: #565e4b;
   margin-top: 5px;
 }
 
 .entry-facts {
-  color: #95a47f;
+  color: #565e49;
 }
 
 .entry-note {
@@ -414,7 +414,7 @@
   padding: 7px 10px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: #96a57e;
+  color: #565e48;
   background: #f0f4e7;
   border-radius: 0 5px 5px 0;
   margin-top: 10px;
@@ -426,8 +426,8 @@
 
 .history-question-details > summary,
 .history-context-groups > summary {
-  font-size: 10px;
-  color: #9eaf87;
+  font-size: 12px;
+  color: #555e49;
   cursor: pointer;
 }
 
@@ -438,20 +438,20 @@
 
 .history-question-details li {
   padding: 5px 0;
-  color: #adb99a;
-  font-size: 10px;
+  color: #575d4e;
+  font-size: 12px;
 }
 
 .history-question-details strong {
-  color: #78965a;
-  font-size: 10px;
+  color: #4e613a;
+  font-size: 12px;
   margin-right: 10px;
 }
 
 .history-question-details small {
   display: block;
-  color: #b1bda0;
-  font-size: 8px;
+  color: #585d4f;
+  font-size: 12px;
   margin-top: 3px;
 }
 
@@ -468,26 +468,26 @@
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .history-table-scroll th {
-  color: #8c9f75;
+  color: #535f46;
   font-weight: 500;
   padding: 8px 10px;
   border-bottom: 1px solid #dce6ce;
 }
 
 .history-table-scroll td {
-  color: #a1b08c;
+  color: #565e4b;
   padding: 10px;
   border-bottom: 1px solid #e8edde;
 }
 
 .history-table-scroll td small {
   display: block;
-  color: #afbd9c;
-  font-size: 8px;
+  color: #575d4d;
+  font-size: 12px;
   margin-top: 3px;
 }
 
@@ -496,8 +496,8 @@
   border: 1px dashed #cad8bb;
   border-radius: 6px;
   padding: 9px 13px;
-  color: #8fa576;
-  font-size: 11px;
+  color: #535f44;
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -525,17 +525,17 @@
   margin: 0;
   font-size: 14px;
   font-weight: 550;
-  color: #a18a50;
+  color: #685934;
 }
 
 .backup-preview > p {
-  font-size: 10px;
-  color: #b4a16e;
+  font-size: 12px;
+  color: #655a3e;
   margin-top: 6px;
 }
 
 .backup-preview .restore-warning {
-  color: #a78c4e;
+  color: #6a5932;
   margin-top: 11px;
   line-height: 1.7;
 }
@@ -545,8 +545,8 @@
   gap: 8px;
   align-items: center;
   margin-top: 13px;
-  font-size: 10px;
-  color: #a78f52;
+  font-size: 12px;
+  color: #695933;
 }
 
 .restore-confirm input {
@@ -556,8 +556,8 @@
 .restore-button {
   border: 1px solid #c9b275;
   background: #dfc98f;
-  color: #7f6730;
-  font-size: 11px;
+  color: #5c451f;
+  font-size: 12px;
   padding: 9px 12px;
 }
 
@@ -579,7 +579,7 @@
     padding: 10px;
   }
   .history-overview span {
-    font-size: 8px;
+    font-size: 12px;
   }
   .history-weak {
     align-items: start;
@@ -630,6 +630,6 @@
     margin-left: 0;
   }
   .history-entry time {
-    font-size: 8px;
+    font-size: 12px;
   }
 }

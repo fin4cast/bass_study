@@ -15,7 +15,7 @@
   gap: 8px;
   border: 1px solid transparent;
   background: transparent;
-  color: #84917d;
+  color: #555d51;
   padding: 10px 14px;
   font-size: 12px;
 }
@@ -23,7 +23,7 @@
 .training-switcher > button[aria-pressed="true"] {
   background: #e4ecdf;
   border-color: #cfddc6;
-  color: #3f6c45;
+  color: #3b6440;
   font-weight: 600;
 }
 
@@ -35,7 +35,7 @@
   height: 19px;
   border: 1px solid currentColor;
   border-radius: 5px;
-  font: 11px "Consolas", monospace;
+  font: 12px "Consolas", monospace;
 }
 
 .training-content {
@@ -59,7 +59,7 @@
 }
 
 .training-intro .eyebrow {
-  font-size: 9px;
+  font-size: 12px;
   margin-bottom: 5px;
 }
 
@@ -70,9 +70,9 @@
 }
 
 .training-intro > p {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.7;
-  color: #94a08a;
+  color: #565d51;
 }
 
 .quiz-settings,
@@ -90,8 +90,8 @@
 }
 
 .training-field > span {
-  font-size: 10px;
-  color: #83917b;
+  font-size: 12px;
+  color: #545e4f;
 }
 
 .training-field select,
@@ -119,9 +119,9 @@
   min-height: 39px;
   border: 1px solid #b7c9aa;
   background: #e2ecd9;
-  color: #41663c;
+  color: #3f643b;
   padding: 8px 13px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 550;
 }
 
@@ -147,13 +147,13 @@
 .text-button {
   border: 0;
   background: transparent;
-  font-size: 11px;
-  color: #849078;
+  font-size: 12px;
+  color: #565d4e;
   padding: 8px 10px;
 }
 
 .text-button:hover {
-  color: #3c6541;
+  color: #3c6441;
   background: #edf0e5;
 }
 
@@ -163,15 +163,15 @@
 }
 
 .training-scope-caption {
-  font-size: 10px;
-  color: #929d87;
+  font-size: 12px;
+  color: #575d50;
   margin: 12px 0 0;
   line-height: 1.8;
 }
 
 .training-scope-caption > span {
   display: block;
-  color: #a2ac97;
+  color: #575d52;
 }
 
 .training-notice,
@@ -179,10 +179,10 @@
   margin-top: 15px;
   border: 1px solid #e7d6be;
   background: #f7eddb;
-  color: #927344;
+  color: #6f5734;
   padding: 10px 13px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .quiz-review-banner {
@@ -195,12 +195,12 @@
   border-radius: 6px;
   margin-top: 13px;
   padding: 8px 12px;
-  color: #839d66;
-  font-size: 10px;
+  color: #51603f;
+  font-size: 12px;
 }
 
 .training-error {
-  color: #945c47;
+  color: #7f4f3d;
   background: #f8eae0;
   border-color: #ead1c1;
 }
@@ -222,7 +222,7 @@
   border-radius: 50%;
   align-items: center;
   justify-content: center;
-  color: #a1b08f;
+  color: #565d4c;
   font: 24px "Consolas", monospace;
   flex-shrink: 0;
 }
@@ -230,13 +230,13 @@
 .quiz-ready h3 {
   font-size: 15px;
   font-weight: 500;
-  color: #607a55;
+  color: #4c6143;
 }
 
 .quiz-ready p {
-  font-size: 11px;
+  font-size: 12px;
   max-width: 600px;
-  color: #98a08e;
+  color: #585c52;
   margin-top: 5px;
 }
 
@@ -250,12 +250,12 @@
   display: flex;
   align-items: center;
   gap: 17px;
-  font-size: 10px;
-  color: #94a086;
+  font-size: 12px;
+  color: #565d4e;
 }
 
 .quiz-progress strong {
-  color: #58764d;
+  color: #496140;
 }
 
 .quiz-progress-track {
@@ -275,7 +275,7 @@
 .quiz-progress .text-button {
   margin-left: auto;
   padding: 3px 7px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .quiz-question > h3 {
@@ -290,19 +290,19 @@
 }
 
 .quiz-rule {
-  font-size: 11px;
+  font-size: 12px;
   margin: 6px 0 16px;
-  color: #929f84;
+  color: #565d4e;
 }
 
 .quiz-target-caption {
-  font-size: 11px;
-  color: #89977c;
+  font-size: 12px;
+  color: #555e4d;
   margin-top: 6px;
 }
 
 .quiz-target-caption strong {
-  color: #577746;
+  color: #48623a;
 }
 
 .quiz-board-scroll {
@@ -321,8 +321,8 @@
 
 .answer-fret-number,
 .answer-string-name {
-  font: 10px "Consolas", monospace;
-  fill: #819375;
+  font: 12px "Consolas", monospace;
+  fill: #50624a;
 }
 
 .answer-string-name {
@@ -418,7 +418,7 @@
 .note-answer {
   border: 1px solid #cfdcc4;
   background: #f5f8ed;
-  color: #607b51;
+  color: #4c6140;
   padding: 10px 4px;
   font-size: 13px;
   font-weight: 550;
@@ -433,33 +433,33 @@
   border-color: #d5b397;
   background: #f2e5d8;
   text-decoration: line-through;
-  color: #a07b5b;
+  color: #705640;
 }
 
 .note-answer.is-answer {
   background: #d8e9c8;
   border-color: #9bb983;
-  color: #466c34;
+  color: #416430;
 }
 
 .quiz-feedback {
   min-height: 39px;
   display: flex;
   align-items: center;
-  font-size: 11px;
-  color: #859675;
+  font-size: 12px;
+  color: #545e4a;
   margin-top: 10px;
   padding: 5px 0;
 }
 
 .quiz-feedback.correct,
 .quiz-feedback.completed {
-  color: #567e42;
+  color: #446334;
 }
 
 .quiz-feedback.error,
 .quiz-feedback.incorrect {
-  color: #a2714e;
+  color: #78533a;
 }
 
 .quiz-actions {
@@ -475,8 +475,8 @@
 }
 
 .quiz-keyboard-hint {
-  color: #9ba78c;
-  font-size: 9px;
+  color: #575d4e;
+  font-size: 12px;
 }
 
 .quiz-summary {
@@ -487,7 +487,7 @@
 
 .quiz-summary h3 {
   font-size: 25px;
-  color: #4e7042;
+  color: #45633a;
   font-weight: 550;
   margin-top: 6px;
 }
@@ -495,8 +495,8 @@
 .summary-completed,
 .summary-footnote,
 .summary-context {
-  color: #95a087;
-  font-size: 11px;
+  color: #575d4f;
+  font-size: 12px;
   margin-top: 8px;
 }
 
@@ -517,13 +517,13 @@
 }
 
 .summary-grid strong {
-  color: #5d814d;
+  color: #47623b;
   font: 30px "Consolas", monospace;
 }
 
 .summary-grid span {
-  font-size: 9px;
-  color: #99a58b;
+  font-size: 12px;
+  color: #575d4f;
   margin-top: 4px;
 }
 
@@ -539,14 +539,14 @@
 }
 
 .sequence-heading h3 {
-  color: #5d7b50;
+  color: #4a613f;
   font-size: 15px;
   font-weight: 550;
 }
 
 .sequence-heading > span {
-  color: #9dac91;
-  font: 10px "Consolas", monospace;
+  color: #555d4f;
+  font: 12px "Consolas", monospace;
   border: 1px solid #dde5d1;
   padding: 3px 7px;
   border-radius: 4px;
@@ -580,32 +580,32 @@
   position: absolute;
   top: 4px;
   left: 6px;
-  font: 8px "Consolas", monospace;
-  color: #a9b79a;
+  font: 12px "Consolas", monospace;
+  color: #565d4f;
 }
 
 .sequence-route strong {
-  color: #62824f;
+  color: #49613b;
   font-size: 15px;
   font-weight: 550;
 }
 
 .sequence-route small {
-  font-size: 9px;
-  color: #9bab8e;
+  font-size: 12px;
+  color: #555e4e;
   margin-top: 4px;
 }
 
 .sequence-route em {
   font-style: normal;
-  font-size: 8px;
-  color: #a4b596;
+  font-size: 12px;
+  color: #555e4e;
   margin-top: 3px;
 }
 
 .sequence-caption {
-  color: #9aa78d;
-  font-size: 10px;
+  color: #565d4f;
+  font-size: 12px;
   margin-top: 13px;
 }
 
@@ -635,14 +635,14 @@
     gap: 2px;
   }
   .training-switcher > button {
-    font-size: 10px;
+    font-size: 12px;
     padding: 8px 7px;
     gap: 5px;
   }
   .mode-icon {
     width: 16px;
     height: 16px;
-    font-size: 9px;
+    font-size: 12px;
   }
   .training-content {
     padding: 17px;

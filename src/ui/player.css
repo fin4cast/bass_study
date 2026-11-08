@@ -21,18 +21,18 @@
 
 .player-heading .eyebrow {
   margin-bottom: 5px;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .player-heading h2 {
   font-size: 19px;
   font-weight: 550;
-  color: #4d6e43;
+  color: #45623c;
 }
 
 .player-scope {
-  font: 10px "Consolas", monospace;
-  color: #95a286;
+  font: 12px "Consolas", monospace;
+  color: #565d4d;
   text-align: right;
 }
 
@@ -54,8 +54,8 @@
 
 .player-field > span,
 .player-group-label {
-  font-size: 10px;
-  color: #849476;
+  font-size: 12px;
+  color: #545e4b;
 }
 
 .player-field input,
@@ -67,7 +67,7 @@
 .player-field input {
   width: 78px;
   padding: 0 8px 0 10px;
-  color: #47633d;
+  color: #47623d;
   background: #fffffa;
   border: 1px solid #d0dcc5;
   border-radius: 6px;
@@ -90,8 +90,8 @@
   gap: 7px;
   align-items: center;
   min-height: 38px;
-  font-size: 11px;
-  color: #6d855a;
+  font-size: 12px;
+  color: #4f6041;
 }
 
 .player-check input {
@@ -112,13 +112,13 @@
 
 .fragment-arrow {
   font-size: 14px;
-  color: #a3b294;
+  color: #565d4e;
   padding-bottom: 9px;
 }
 
 .player-caption {
-  color: #9bab8d;
-  font-size: 10px;
+  color: #555e4e;
+  font-size: 12px;
   max-width: 350px;
   align-self: center;
   line-height: 1.65;
@@ -168,8 +168,8 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 10px;
-  color: #879a76;
+  font-size: 12px;
+  color: #535f48;
 }
 
 .player-volumes input {
@@ -179,23 +179,23 @@
 
 .player-volumes output {
   width: 30px;
-  font: 10px "Consolas", monospace;
-  color: #9eaf8e;
+  font: 12px "Consolas", monospace;
+  color: #555e4d;
 }
 
 .player-error,
 .player-notice {
-  font-size: 11px;
+  font-size: 12px;
   border-radius: 6px;
   padding: 10px 12px;
   margin-top: 16px;
-  color: #956246;
+  color: #7c513a;
   border: 1px solid #e8cfb7;
   background: #f9eadb;
 }
 
 .player-notice {
-  color: #837344;
+  color: #675a36;
   border-color: #e0d8b9;
   background: #f5f1df;
 }
@@ -226,8 +226,8 @@
 }
 
 .player-shortcuts {
-  color: #9eae8f;
-  font-size: 9px;
+  color: #555e4d;
+  font-size: 12px;
   text-align: right;
 }
 
@@ -262,28 +262,28 @@
 }
 
 .player-now p {
-  font-size: 11px;
-  color: #768d60;
+  font-size: 12px;
+  color: #516041;
 }
 
 .player-now strong {
   margin-left: auto;
-  color: #5e7f48;
+  color: #496238;
   font: 12px "Consolas", monospace;
   white-space: nowrap;
 }
 
 .player-edit-help,
 .player-evaluation-note {
-  font-size: 10px;
-  color: #9cab8d;
+  font-size: 12px;
+  color: #555e4d;
   margin-top: 9px;
   line-height: 1.65;
 }
 
 .player-evaluation-note {
-  font-size: 9px;
-  color: #afba9f;
+  font-size: 12px;
+  color: #585d50;
   margin-top: 5px;
 }
 
@@ -294,7 +294,7 @@
 }
 
 .sequence-route li.is-playing strong {
-  color: #8f6937;
+  color: #74552d;
 }
 
 .sequence-route li.is-playing::after {
@@ -302,8 +302,8 @@
   position: absolute;
   top: 4px;
   right: 6px;
-  color: #ad8c4c;
-  font-size: 8px;
+  color: #6d5830;
+  font-size: 12px;
 }
 
 .position.is-playing .note-marker {
