@@ -13,10 +13,15 @@ const OPEN_MIDI = { E: 28, A: 33, D: 38, G: 43 };
 const midiForId = id => { const [string, fret] = id.split(':'); return OPEN_MIDI[string] + Number(fret); };
 
 function expectedMigration(literal) {
-  const expected = structuredClone(literal); expected.schemaVersion = 2;
-  expected.preferences.training.intervalDegree = '#4';
-  for (const preset of expected.presets) preset.preferences.training.intervalDegree = '#4';
-  for (const entry of expected.history) if (entry.result.kind === 'screen') for (const question of entry.result.questions) question.targetMidi = null;
+  const expected = structuredClone(literal); expected.schemaVersion = 3;
+  if (literal.schemaVersion === 1) {
+    expected.preferences.training.intervalDegree = '#4';
+    for (const preset of expected.presets) preset.preferences.training.intervalDegree = '#4';
+    for (const entry of expected.history) if (entry.result.kind === 'screen') for (const question of entry.result.questions) question.targetMidi = null;
+  }
+  for (const preferences of [expected.preferences, ...expected.presets.map(preset => preset.preferences)]) {
+    preferences.activeModule = 'foundation'; preferences.ear = { root: 'A', quality: 'minor', count: 10, bpm: 80 };
+  }
   for (const name of ['presets', 'history']) expected[name].sort((a, b) => a.id.localeCompare(b.id));
   return expected;
 }
@@ -66,11 +71,11 @@ function scientificMidi(text) {
   return 12 * (Number(match[3]) + 1) + naturals[match[1]] + alteration;
 }
 
-check('genuine-v1-indexeddb-upgrades-all-stores-preserving-events-and-original-dates', async ({ page }) => {
+check('genuine-v1-indexeddb-upgrades-all-stores-to-v3-preserving-events-and-original-dates', async ({ page }) => {
   const seeded = await page.evaluate(() => window.p6.seedV1()); assert.equal(seeded.raw.version, 1);
   const upgraded = await page.evaluate(async () => { const store = await window.p6.loadCurrent(); await store.open(); return store.readSnapshot(); });
   assert.deepEqual(upgraded, expectedMigration(seeded.literal));
-  const raw = await page.evaluate(() => window.p6.rawRead()); assert.equal(raw.version, 2);
+  const raw = await page.evaluate(() => window.p6.rawRead()); assert.equal(raw.version, 3);
   assert.equal(upgraded.history.find(entry => entry.id === 'legacy-screen').localDate, '2026-11-07');
   assert.equal(upgraded.history.find(entry => entry.id === 'legacy-manual').localDate, '2026-11-09');
   await page.reload(); await page.waitForFunction(() => window.p6?.ready);
@@ -90,7 +95,7 @@ check('bad-v1-record-aborts-entire-native-upgrade-and-preserves-version-one', as
   return { failure, originalVersion: seeded.raw.version, preserved: after };
 });
 
-check('legacy-json-preview-and-restore-migrate-to-version-two', async ({ page }) => {
+check('legacy-json-preview-and-restore-migrate-to-version-three', async ({ page }) => {
   const literal = await page.evaluate(() => window.p6.readV1Backup());
   const result = await page.evaluate(async literal => {
     const store = await window.p6.loadCurrent(); const preview = store.previewImport(JSON.stringify(literal));
@@ -98,9 +103,22 @@ check('legacy-json-preview-and-restore-migrate-to-version-two', async ({ page })
     const afterCancel = await store.readSnapshot(); await store.restore(JSON.stringify(literal), { confirmed: true });
     return { preview, before, cancel, afterCancel, restored: await store.readSnapshot() };
   }, literal);
-  assert.equal(result.preview.snapshot.schemaVersion, 2); assert.equal(result.preview.requiresConfirmation, true);
+  assert.equal(result.preview.snapshot.schemaVersion, 3); assert.equal(result.preview.requiresConfirmation, true);
   assert.deepEqual(result.cancel, { status: 'cancelled' }); assert.deepEqual(result.afterCancel, result.before);
   assert.deepEqual(result.restored, expectedMigration(literal)); return result;
+});
+
+check('genuine-v2-indexeddb-and-literal-json-migrate-to-v3-without-changing-old-results', async ({ page }) => {
+  const seeded = await page.evaluate(() => window.p6.seedLegacy(2)); assert.equal(seeded.raw.version, 2);
+  const result = await page.evaluate(async literal => {
+    const store = await window.p6.loadCurrent(); await store.open();
+    const native = await store.readSnapshot({ fresh: true }); const preview = store.previewImport(JSON.stringify(literal));
+    await store.restore(JSON.stringify(literal), { confirmed: true });
+    return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
+  }, seeded.literal);
+  const expected = expectedMigration(seeded.literal);
+  assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected); assert.equal(result.raw.version, 3);
+  assert.deepEqual(result.restored.history, seeded.literal.history); return { seededVersion: 2, ...result };
 });
 
 check('product-restores-real-v1-json-and-preserves-history-across-reload', async ({ page, fixtureUrl }) => {
@@ -202,7 +220,7 @@ async function keyboardExport(page) {
   return JSON.parse(await readFile(await download.path(), 'utf8'));
 }
 
-check('keyboard-only-full-practice-survives-whole-browser-and-server-restart', async ({ freshPage, closeContext, restartServer, origin, resultDir }) => {
+check('keyboard-only-full-practice-survives-browser-reopen-at-stable-origin', async ({ freshPage, closeContext, restartServer, origin, resultDir }) => {
   const first = await freshPage(origin, false, 'keyboard-release-profile'); let expected;
   try {
     const page = first.page; await ready(page);
@@ -235,11 +253,11 @@ check('keyboard-only-full-practice-survives-whole-browser-and-server-restart', a
     assert.deepEqual(expected.preferences.study.strings, ['E']); assert.equal(expected.preferences.study.fretMax, 0);
     await page.screenshot({ path: join(resultDir, 'p6-keyboard-practice.png'), fullPage: true });
   } finally { await closeContext(first.context); }
-  await restartServer(); const reopened = await freshPage(origin, false, 'keyboard-release-profile');
+  const staticServerRestart = await restartServer(); const reopened = await freshPage(origin, false, 'keyboard-release-profile');
   try {
     await ready(reopened.page); const restored = await exportUi(reopened.page); assert.deepEqual(restored, expected);
     assert.equal(await reopened.page.getByLabel('Последний лад', { exact: true }).inputValue(), '0');
-    return { allScenarioActionsByKeyboard: true, wholeBrowserRestart: true, staticServerRestart: true, stableOrigin: origin, restored, screenshot: 'test-results/p6-keyboard-practice.png' };
+    return { allScenarioActionsByKeyboard: true, wholeBrowserRestart: true, staticServerRestart, serverRestart: staticServerRestart, stableOrigin: origin, restored, screenshot: 'test-results/p6-keyboard-practice.png' };
   } finally { await closeContext(reopened.context); }
 }, { scope: 'persistent' });
 

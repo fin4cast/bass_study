@@ -1,6 +1,6 @@
 {
   "name": "bass-study",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "packageManager": "npm@11.16.0",
@@ -17,6 +17,7 @@
     "test:audio": "node tests/audio-browser.mjs",
     "test:storage": "node tests/storage-browser.mjs",
     "test:release": "node tests/release-browser.mjs",
+    "test:ear": "node tests/ear-browser.mjs",
     "docs:check": "node scripts/check-docs.mjs",
     "build": "npm run check && vite build",
     "start": "node scripts/serve.mjs"

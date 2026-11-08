@@ -6,8 +6,13 @@ import {
   INTERVAL_DEGREES, createIntervalTarget, type IntervalDegree,
 } from '../training';
 import { createManualPracticeResult, type ManualPracticeResult } from '../training/results';
+import { beginEarListen, cancelEarListen, collectEarResults, completeEarListen, createEarQuestion, revealEarAnswer, skipEarQuestion, startEarSession, submitEarAnswer,
+  type EarDegree, type EarQuality, type EarSession, type SavedEarResult } from '../ear';
+import { getRouteResult, replayRouteResult, type RouteEvent, type RouteResult } from '../route';
 
 export interface AppPreferences {
+  readonly activeModule: 'foundation' | 'ear' | 'route';
+  readonly ear: { readonly root: string; readonly quality: EarQuality; readonly count: number; readonly bpm: number };
   readonly study: { readonly root: string; readonly structureId: StructureId; readonly labelMode: LabelMode; readonly strings: readonly StringId[]; readonly fretMin: number; readonly fretMax: number };
   readonly training: { readonly mode: 'study' | 'quiz' | 'sequence'; readonly quizMode: QuizMode; readonly scope: TrainingScope; readonly intervalDegree: IntervalDegree; readonly count: number; readonly pattern: SequencePattern; readonly sequenceScope: TrainingScope; readonly reviewPositionIds: readonly string[] };
   readonly player: {
@@ -31,9 +36,15 @@ export interface ScreenHistoryResult {
 interface HistoryEnvelope { readonly id: string; readonly occurredAt: string; readonly timeZone: string; readonly localDate: string }
 export interface ScreenHistoryEntry extends HistoryEnvelope { readonly result: ScreenHistoryResult }
 export interface ManualHistoryEntry extends HistoryEnvelope { readonly result: ManualPracticeResult }
-export type HistoryEntry = ScreenHistoryEntry | ManualHistoryEntry;
+export interface EarHistoryResult {
+  readonly kind: 'ear'; readonly source: 'audio-choice'; readonly context: { readonly root: string; readonly quality: EarQuality };
+  readonly seed: number; readonly plannedCount: number; readonly questions: readonly SavedEarResult[];
+}
+export interface EarHistoryEntry extends HistoryEnvelope { readonly result: EarHistoryResult }
+export interface RouteHistoryEntry extends HistoryEnvelope { readonly result: RouteResult }
+export type HistoryEntry = ScreenHistoryEntry | ManualHistoryEntry | EarHistoryEntry | RouteHistoryEntry;
 export interface StudySnapshot {
-  readonly format: 'bass-study-backup'; readonly schemaVersion: 2; readonly preferences: AppPreferences;
+  readonly format: 'bass-study-backup'; readonly schemaVersion: 3; readonly preferences: AppPreferences;
   readonly presets: readonly Preset[]; readonly history: readonly HistoryEntry[];
 }
 
@@ -85,7 +96,13 @@ function array(value: unknown, max: number, label: string): readonly unknown[] {
   if (Object.getPrototypeOf(value) !== Array.prototype || keys.length !== value.length + 1 || keys.some(key => key !== 'length' && (typeof key !== 'string' || !/^(?:0|[1-9][0-9]*)$/.test(key) || Number(key) >= value.length || !Object.hasOwn(Object.getOwnPropertyDescriptor(value, key)!, 'value')))) invalid(`${label}: допускается только плотный JSON-массив без дополнительных полей.`);
   return value;
 }
-function same(a: unknown, b: unknown) { return JSON.stringify(a) === JSON.stringify(b); }
+function same(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== typeof b || !a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) || Array.isArray(b)) return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((item, i) => same(item, b[i]));
+  const left = a as Data; const right = b as Data;
+  return Object.keys(left).length === Object.keys(right).length && Object.keys(left).every(key => Object.hasOwn(right, key) && same(left[key], right[key]));
+}
 function utc(value: unknown, label: string): string {
   const result = text(value, label, 30);
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(result) || !Number.isFinite(Date.parse(result)) || new Date(result).toISOString() !== result) invalid(`${label}: требуется корректное UTC-время ISO с миллисекундами.`);
@@ -102,6 +119,7 @@ export function originalLocalDate(occurredAt: string, timeZone: string): string 
 }
 
 export const DEFAULT_PREFERENCES: AppPreferences = immutable({
+  activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 },
   study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12 },
   training: { mode: 'study', quizMode: 'name-note', scope: 'structure', intervalDegree: '#4', count: 10, pattern: 'ascending', sequenceScope: 'structure', reviewPositionIds: [] },
   player: { bpm: 80, duration: 'eighth', repeat: 'once', countIn: true, showPulse: true, from: null, to: null,
@@ -120,7 +138,8 @@ function positionIds(value: unknown, label: string, allowEmpty: boolean): string
 function position(id: string) { const [string, fret] = id.split(':'); return getPosition(string as StringId, Number(fret)); }
 
 export function validatePreferences(value: unknown): AppPreferences {
-  const data = object(value, ['study', 'training', 'player'], 'Настройки');
+  const data = object(value, ['activeModule', 'ear', 'study', 'training', 'player'], 'Настройки');
+  const ear = object(data.ear, ['root', 'quality', 'count', 'bpm'], 'Настройки слуха');
   const study = object(data.study, ['root', 'structureId', 'labelMode', 'strings', 'fretMin', 'fretMax'], 'Настройки грифа');
   const strings = array(study.strings, 4, 'Струны').map(item => oneOf(item, ['E', 'A', 'D', 'G'] as const, 'Струна'));
   if (new Set(strings).size !== strings.length) invalid('Струны не должны повторяться.');
@@ -140,6 +159,8 @@ export function validatePreferences(value: unknown): AppPreferences {
   const ladderEnd = number(player.ladderEnd, 40, 220, 'Конечный BPM');
   if (ladderStart > ladderEnd) invalid('Конечный темп лестницы ниже начального.');
   return immutable({
+    activeModule: oneOf(data.activeModule, ['foundation', 'ear', 'route'] as const, 'Раздел'),
+    ear: { root: oneOf(ear.root, ROOT_IDS, 'Тоника слухового задания'), quality: oneOf(ear.quality, ['major', 'minor'] as const, 'Трезвучие слухового задания'), count: number(ear.count, 1, 20, 'Число слуховых вопросов'), bpm: number(ear.bpm, 60, 120, 'Темп слухового задания') },
     study: { root: oneOf(study.root, ROOT_IDS, 'Тоника'), structureId: oneOf(study.structureId, STRUCTURE_IDS, 'Структура'), labelMode: oneOf(study.labelMode, ['notes', 'degrees', 'hidden'] as const, 'Подписи'), strings, fretMin, fretMax },
     training: { mode: oneOf(training.mode, ['study', 'quiz', 'sequence'] as const, 'Режим занятия'), quizMode, scope, intervalDegree: oneOf(training.intervalDegree, INTERVAL_DEGREES, 'Интервал'),
       count: number(training.count, 1, 30, 'Число вопросов'), pattern: oneOf(training.pattern, PATTERNS, 'Порядок нот'), sequenceScope: oneOf(training.sequenceScope, SCOPES, 'Материал последовательности'), reviewPositionIds: positionIds(training.reviewPositionIds, 'Позиции для повторения', true) },
@@ -241,6 +262,82 @@ function validateScreenQuestion(value: unknown, mode: QuizMode, originalContext:
   return immutable({ ...expected, targetPositionId });
 }
 
+const EAR_QUESTION_KEYS = ['id', 'seed', 'root', 'quality', 'referenceMidi', 'targetMidi', 'targetDegree', 'targetName', 'choices'];
+const EAR_RESULT_KEYS = ['kind', 'source', 'question', 'listensStarted', 'listensCompleted', 'listensCancelled', 'replayCount', 'listenEvents', 'answerEvents', 'attempts', 'errors', 'firstAnswer', 'firstResponseMs', 'firstAttemptCorrect', 'independentCorrect', 'corrected', 'hintUsed', 'skipped', 'outcome', 'closedAtMs', 'completionAfterListenMs'];
+
+function validateEarResult(value: unknown, root: string, quality: EarQuality): SavedEarResult {
+  const raw = object(value, EAR_RESULT_KEYS, 'Результат слухового вопроса');
+  if (raw.kind !== 'ear' || raw.source !== 'audio-choice') invalid('Неверное происхождение слухового результата.');
+  const questionData = object(raw.question, EAR_QUESTION_KEYS, 'Слуховой вопрос');
+  const question = createEarQuestion({ root, quality, seed: number(questionData.seed, 0, 0xffffffff, 'Seed слухового вопроса') });
+  array(questionData.choices, 3, 'Варианты слухового ответа').forEach(choice => object(choice, ['id', 'label'], 'Вариант слухового ответа'));
+  if (!same(questionData, question)) invalid('Слуховая цель, написание, октава или варианты не соответствуют исходному вопросу.');
+  let replay = startEarSession({ root, quality, count: 1, seed: 0 });
+  replay = { ...replay, currentQuestion: question, questions: [question] };
+  const listens = array(raw.listenEvents, Number.MAX_SAFE_INTEGER, 'Прослушивания').map(item => {
+    if (!item || typeof item !== 'object') invalid('Некорректное событие прослушивания.');
+    const descriptor = Object.getOwnPropertyDescriptor(item, 'type');
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) invalid('Тип события прослушивания должен быть обычным полем.');
+    const type = oneOf(descriptor.value, ['start', 'complete', 'cancel'] as const, 'Событие прослушивания');
+    const event = object(item, type === 'start' ? ['type', 'listenId', 'atMs', 'order', 'bpm'] : ['type', 'listenId', 'atMs', 'order'], 'Событие прослушивания');
+    return { category: 'listen' as const, type, listenId: text(event.listenId, 'ID прослушивания', 160), atMs: number(event.atMs, 0, Number.MAX_SAFE_INTEGER, 'Время прослушивания', false), order: number(event.order, 1, Number.MAX_SAFE_INTEGER, 'Порядок события'), bpm: type === 'start' ? number(event.bpm, 60, 120, 'Темп прослушивания') : undefined };
+  });
+  const answers = array(raw.answerEvents, Number.MAX_SAFE_INTEGER, 'Слуховые ответы').map(item => {
+    const event = object(item, ['degree', 'atMs', 'correct', 'order'], 'Слуховой ответ');
+    return { category: 'answer' as const, degree: oneOf(event.degree, question.choices.map(choice => choice.id), 'Ответ ступенью'),
+      atMs: number(event.atMs, 0, Number.MAX_SAFE_INTEGER, 'Время слухового ответа', false), correct: boolean(event.correct, 'Правильность слухового ответа'), order: number(event.order, 1, Number.MAX_SAFE_INTEGER, 'Порядок события') };
+  });
+  const timeline = [...listens, ...answers].sort((a, b) => a.order - b.order);
+  timeline.forEach((event, index) => {
+    if (event.order !== index + 1) invalid('Слуховые события должны иметь уникальный непрерывный порядок.');
+    if (event.category === 'answer') replay = submitEarAnswer(replay, event.degree, event.atMs);
+    else if (event.type === 'start') {
+      replay = beginEarListen(replay, event.atMs, event.bpm);
+      if (replay.answerState.activeListen?.id !== event.listenId) invalid('ID начатого прослушивания не соответствует вопросу.');
+    } else replay = event.type === 'complete' ? completeEarListen(replay, event.atMs, event.listenId) : cancelEarListen(replay, event.atMs, event.listenId);
+  });
+  const outcome = oneOf(raw.outcome, ['correct', 'corrected', 'revealed', 'skipped', 'interrupted'] as const, 'Итог слухового вопроса');
+  if (outcome === 'revealed' || outcome === 'skipped') {
+    const closedAtMs = number(raw.closedAtMs, 0, Number.MAX_SAFE_INTEGER, 'Закрытие слухового вопроса', false);
+    replay = outcome === 'revealed' ? revealEarAnswer(replay, closedAtMs) : skipEarQuestion(replay, closedAtMs);
+  }
+  const expected = collectEarResults(replay)[0];
+  if (!expected || !same(raw, expected)) invalid('Показатели слухового результата не соответствуют реальным прослушиваниям и ответам.');
+  return expected;
+}
+
+function validateEarHistory(value: unknown): EarHistoryResult {
+  const raw = object(value, ['kind', 'source', 'context', 'seed', 'plannedCount', 'questions'], 'Слуховое занятие');
+  if (raw.kind !== 'ear' || raw.source !== 'audio-choice') invalid('Неверное происхождение слухового занятия.');
+  const area = object(raw.context, ['root', 'quality'], 'Контекст слуха');
+  const quality = oneOf(area.quality, ['major', 'minor'] as const, 'Слуховое трезвучие');
+  const root = parseNote(text(area.root, 'Тоника слуха', 32)).name;
+  const seed = number(raw.seed, 0, 0xffffffff, 'Seed слухового занятия');
+  const plannedCount = number(raw.plannedCount, 1, 20, 'Число слуховых вопросов');
+  const questions = array(raw.questions, plannedCount, 'Результаты слуховых вопросов').map(item => validateEarResult(item, root, quality));
+  const generated = startEarSession({ root, quality, seed, count: plannedCount }).questions;
+  if (!questions.length || questions.some((item, index) => !same(item.question, generated[index]) || item.outcome === 'interrupted' && index !== questions.length - 1)) invalid('Порядок или состав слуховых вопросов не соответствует исходной серии.');
+  return immutable({ kind: 'ear', source: 'audio-choice', context: { root, quality }, seed, plannedCount, questions });
+}
+
+function validateRouteHistory(value: unknown): RouteResult {
+  const raw = object(value, ['id', 'kind', 'source', 'plannedStepMs', 'actualStepMs', 'stepIndex', 'totalPlannedMs', 'status', 'finishReason', 'events', 'asOfMs'], 'Учебный маршрут');
+  if (raw.kind !== 'route' || raw.source !== 'active-timer') invalid('Маршрут учитывает активное время, без оценки точности игры.');
+  array(raw.plannedStepMs, 3, 'Плановое время шагов');
+  const actual = array(raw.actualStepMs, 3, 'Активное время шагов').map(value => number(value, 0, 600000, 'Активное время шага'));
+  const id = text(raw.id, 'ID маршрута', 160);
+  const asOfMs = number(raw.asOfMs, 0, Number.MAX_SAFE_INTEGER, 'Время снимка маршрута');
+  const events = array(raw.events, Number.MAX_SAFE_INTEGER, 'События маршрута').map((item): RouteEvent => {
+    const event = object(item, ['type', 'atMs', 'reason'], 'Событие маршрута');
+    return { type: oneOf(event.type, ['start', 'pause', 'resume', 'next', 'stop', 'boundary'] as const, 'Тип события маршрута'),
+      atMs: number(event.atMs, 0, Number.MAX_SAFE_INTEGER, 'Время события маршрута'),
+      reason: event.reason === null ? null : oneOf(event.reason, ['manual', 'hidden'] as const, 'Причина паузы маршрута') };
+  });
+  const expected = replayRouteResult({ id, events, asOfMs });
+  if (actual.reduce((sum, value) => sum + value, 0) === 0 || !same(raw, expected)) invalid('Состояние маршрута не соответствует событиям или не содержит активного времени.');
+  return expected;
+}
+
 export function validateHistoryEntry(value: unknown): HistoryEntry {
   const raw = object(value, ['id', 'occurredAt', 'timeZone', 'localDate', 'result'], 'Запись истории');
   const id = text(raw.id, 'ID истории', 160);
@@ -253,6 +350,8 @@ export function validateHistoryEntry(value: unknown): HistoryEntry {
   if (!kindProperty || !Object.hasOwn(kindProperty, 'value')) invalid('Происхождение результата должно быть обычным JSON-полем.');
   const kind = kindProperty.value;
   const envelope = { id, occurredAt, timeZone, localDate };
+  if (kind === 'ear') return immutable({ ...envelope, result: validateEarHistory(raw.result) });
+  if (kind === 'route') return immutable({ ...envelope, result: validateRouteHistory(raw.result) });
   if (kind === 'manual') {
     const result = object(raw.result, ['kind', 'source', 'comfortableBpm', 'durationMs', 'note', 'context'], 'Ручная отметка');
     if (result.source !== 'self-report') invalid('Ручная отметка должна быть явно помечена как самооценка.');
@@ -279,14 +378,14 @@ export function validateHistoryEntry(value: unknown): HistoryEntry {
 export function validateSnapshot(value: unknown): StudySnapshot {
   const raw = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history'], 'Резервная копия');
   if (raw.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
-  if (raw.schemaVersion !== 2) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  if (raw.schemaVersion !== 3) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
   // Import bytes are bounded by parseBackup; ordinary native writes must never make
   // an otherwise valid database unreadable merely by exceeding an arbitrary count.
   const presets = array(raw.presets, Number.MAX_SAFE_INTEGER, 'Пресеты').map(validatePreset);
   const history = array(raw.history, Number.MAX_SAFE_INTEGER, 'История').map(validateHistoryEntry);
   if (new Set(presets.map(item => item.id)).size !== presets.length || new Set(history.map(item => item.id)).size !== history.length) invalid('ID пресетов или истории повторяются.');
   const byId = (a: { id: string }, b: { id: string }) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-  return immutable({ format: 'bass-study-backup', schemaVersion: 2, preferences: validatePreferences(raw.preferences), presets: presets.sort(byId), history: history.sort(byId) });
+  return immutable({ format: 'bass-study-backup', schemaVersion: 3, preferences: validatePreferences(raw.preferences), presets: presets.sort(byId), history: history.sort(byId) });
 }
 
 /** Exact schema-1 records are validated before adding schema-2 defaults. */
@@ -294,7 +393,21 @@ export function migrateV1Preferences(value: unknown): AppPreferences {
   const data = object(value, ['study', 'training', 'player'], 'Настройки версии 1');
   const training = object(data.training, ['mode', 'quizMode', 'scope', 'count', 'pattern', 'sequenceScope', 'reviewPositionIds'], 'Настройки заданий версии 1');
   oneOf(training.quizMode, LEGACY_MODES, 'Тип задания версии 1');
-  return validatePreferences({ ...data, training: { ...training, intervalDegree: '#4' } });
+  return migrateV2Preferences({ ...data, training: { ...training, intervalDegree: '#4' } });
+}
+
+export function migrateV2Preferences(value: unknown): AppPreferences {
+  const data = object(value, ['study', 'training', 'player'], 'Настройки версии 2');
+  return validatePreferences({ ...data, activeModule: 'foundation', ear: DEFAULT_PREFERENCES.ear });
+}
+export function migrateV2Preset(value: unknown): Preset {
+  const data = object(value, ['id', 'name', 'createdAt', 'preferences'], 'Пресет версии 2');
+  return validatePreset({ ...data, preferences: migrateV2Preferences(data.preferences) });
+}
+export function migrateV2HistoryEntry(value: unknown): HistoryEntry {
+  const entry = validateHistoryEntry(value);
+  if (entry.result.kind !== 'screen' && entry.result.kind !== 'manual') invalid('Версия 2 поддерживала только экранные результаты и ручные отметки.');
+  return entry;
 }
 
 export function migrateV1Preset(value: unknown): Preset {
@@ -307,21 +420,22 @@ export function migrateV1HistoryEntry(value: unknown): HistoryEntry {
   if (!data.result || typeof data.result !== 'object') invalid('Отсутствует результат версии 1.');
   const kind = Object.getOwnPropertyDescriptor(data.result, 'kind');
   if (!kind || !Object.hasOwn(kind, 'value')) invalid('Происхождение результата версии 1 должно быть обычным JSON-полем.');
-  if (kind.value === 'manual') return validateHistoryEntry(data);
+  if (kind.value === 'manual') return migrateV2HistoryEntry(data);
   const result = object(data.result, ['kind', 'source', 'seed', 'mode', 'context', 'plannedCount', 'questions'], 'Экранное занятие версии 1');
   oneOf(result.mode, LEGACY_MODES, 'Тип задания версии 1');
   const questions = array(result.questions, 100, 'Вопросы версии 1').map(question => ({ ...object(question, LEGACY_QUESTION_KEYS, 'Вопрос версии 1'), targetMidi: null }));
-  return validateHistoryEntry({ ...data, result: { ...result, questions } });
+  return migrateV2HistoryEntry({ ...data, result: { ...result, questions } });
 }
 
 export function migrateBackup(value: unknown): StudySnapshot {
   const data = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history'], 'Резервная копия');
   if (data.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
-  if (data.schemaVersion === 2) return validateSnapshot(data);
-  if (data.schemaVersion !== 1) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
-  return validateSnapshot({ ...data, schemaVersion: 2, preferences: migrateV1Preferences(data.preferences),
-    presets: array(data.presets, Number.MAX_SAFE_INTEGER, 'Пресеты версии 1').map(migrateV1Preset),
-    history: array(data.history, Number.MAX_SAFE_INTEGER, 'История версии 1').map(migrateV1HistoryEntry) });
+  if (data.schemaVersion === 3) return validateSnapshot(data);
+  if (data.schemaVersion !== 1 && data.schemaVersion !== 2) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  const legacy = data.schemaVersion === 1;
+  return validateSnapshot({ ...data, schemaVersion: 3, preferences: (legacy ? migrateV1Preferences : migrateV2Preferences)(data.preferences),
+    presets: array(data.presets, Number.MAX_SAFE_INTEGER, 'Старые пресеты').map(legacy ? migrateV1Preset : migrateV2Preset),
+    history: array(data.history, Number.MAX_SAFE_INTEGER, 'Старая история').map(legacy ? migrateV1HistoryEntry : migrateV2HistoryEntry) });
 }
 
 export function parseBackup(json: string): StudySnapshot {
@@ -331,7 +445,7 @@ export function parseBackup(json: string): StudySnapshot {
   return migrateBackup(value);
 }
 
-export function emptySnapshot(): StudySnapshot { return validateSnapshot({ format: 'bass-study-backup', schemaVersion: 2, preferences: DEFAULT_PREFERENCES, presets: [], history: [] }); }
+export function emptySnapshot(): StudySnapshot { return validateSnapshot({ format: 'bass-study-backup', schemaVersion: 3, preferences: DEFAULT_PREFERENCES, presets: [], history: [] }); }
 
 function envelope(metadata: HistoryMetadata) {
   return { id: metadata.id, occurredAt: metadata.occurredAt, timeZone: metadata.timeZone, localDate: originalLocalDate(metadata.occurredAt, metadata.timeZone) };
@@ -364,6 +478,19 @@ export function makeManualHistory(result: ManualPracticeResult, metadata: Histor
   return validateHistoryEntry({ ...envelope(metadata), result }) as ManualHistoryEntry;
 }
 
+export function makeEarHistory(session: EarSession, metadata: HistoryMetadata): EarHistoryEntry | null {
+  const questions = collectEarResults(session);
+  if (!questions.length) return null;
+  const first = session.questions[0];
+  return validateHistoryEntry({ ...envelope(metadata), result: { kind: 'ear', source: 'audio-choice', context: { root: first.root, quality: first.quality }, seed: session.seed, plannedCount: session.questions.length, questions } }) as EarHistoryEntry;
+}
+
+export function makeRouteHistory(session: RouteResult, metadata: HistoryMetadata): RouteHistoryEntry | null {
+  const result = getRouteResult(session);
+  if (result.actualStepMs.reduce((sum, value) => sum + value, 0) === 0) return null;
+  return validateHistoryEntry({ ...envelope(metadata), result }) as RouteHistoryEntry;
+}
+
 export interface HistoryGroupSummary {
   readonly key: string; readonly mode: QuizMode; readonly context: QuestionContext;
   readonly questions: number; readonly completedQuestions: number; readonly independentCorrect: number; readonly corrected: number;
@@ -375,8 +502,13 @@ export interface HistoryGroupSummary {
 export function getHistorySummary(history: readonly HistoryEntry[]) {
   const groups = new Map<string, { mode: QuizMode; context: QuestionContext; questions: StoredQuestion[] }>();
   let screenSessions = 0; let manualSessions = 0; let manualDurationMs = 0;
+  let earSessions = 0;
+  let routeSessions = 0; let routeActiveMs = 0;
+  const earQuestions: SavedEarResult[] = [];
   for (const entry of history) {
     if (entry.result.kind === 'manual') { manualSessions++; manualDurationMs += entry.result.durationMs; continue; }
+    if (entry.result.kind === 'ear') { earSessions++; earQuestions.push(...entry.result.questions); continue; }
+    if (entry.result.kind === 'route') { routeSessions++; routeActiveMs += entry.result.actualStepMs.reduce((sum, value) => sum + value, 0); continue; }
     screenSessions++;
     const { context: area, mode, questions } = entry.result;
     const key = JSON.stringify([mode, area.scope, area.root, area.structureId, [...area.positionIds].sort()]);
@@ -395,6 +527,12 @@ export function getHistorySummary(history: readonly HistoryEntry[]) {
   });
   const total = (key: 'questions' | 'completedQuestions' | 'independentCorrect' | 'corrected' | 'errors' | 'hints' | 'skipped' | 'interrupted') => summaries.reduce((sum, group) => sum + group[key], 0);
   return immutable({ entries: history.length, screenSessions, manualSessions, manualDurationMs,
+    routeSessions, routeActiveMs,
+    earSessions, earQuestions: earQuestions.length, earCompletedQuestions: earQuestions.filter(question => question.outcome !== 'interrupted').length,
+    earIndependentCorrect: earQuestions.filter(question => question.independentCorrect).length, earCorrected: earQuestions.filter(question => question.corrected).length,
+    earErrors: earQuestions.reduce((sum, question) => sum + question.errors, 0), earHints: earQuestions.filter(question => question.hintUsed).length,
+    earSkipped: earQuestions.filter(question => question.skipped).length, earInterrupted: earQuestions.filter(question => question.outcome === 'interrupted').length,
+    earCompletedListens: earQuestions.reduce((sum, question) => sum + question.listensCompleted, 0), earReplayCount: earQuestions.reduce((sum, question) => sum + question.replayCount, 0),
     questions: total('questions'), completedQuestions: total('completedQuestions'), independentCorrect: total('independentCorrect'),
     corrected: total('corrected'), errors: total('errors'), hints: total('hints'), skipped: total('skipped'), interrupted: total('interrupted'), groups: summaries });
 }

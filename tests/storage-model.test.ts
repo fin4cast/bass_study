@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import v1BackupJson from './fixtures/v1-backup.json?raw';
+import v2BackupJson from './fixtures/v2-backup.json?raw';
+import { beginEarListen, completeEarListen, revealEarAnswer, skipEarQuestion, startEarSession, submitEarAnswer } from '../src/ear';
+import { advanceRouteSession, nextRouteStep, pauseRouteSession, resumeRouteSession, startRouteSession, stopRouteSession } from '../src/route';
 import { createMemoryStudyStore } from '../src/storage/memory';
 import { annotatePositions, createStructure, getPosition } from '../src/music';
 import { createManualPracticeResult, nextQuestion, revealAnswer, skipQuestion, startQuiz, submitAnswer, type QuizMode } from '../src/training';
 import {
-  DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, emptySnapshot, getHistorySummary, getReviewPositionIds, makeManualHistory, makeScreenHistory,
+  DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, emptySnapshot, getHistorySummary, getReviewPositionIds, makeEarHistory, makeRouteHistory, makeManualHistory, makeScreenHistory,
   originalLocalDate, parseBackup, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
   type HistoryEntry, type ScreenHistoryEntry,
 } from '../src/storage/model';
@@ -19,6 +22,138 @@ function completed() { return makeScreenHistory(nextQuestion(submitAnswer(quiz()
 function manual() {
   return makeManualHistory(createManualPracticeResult({ context, comfortableBpm: 72, durationMs: 300000, note: 'Синтетическая самооценка.' }), { ...metadata, id: 'synthetic-manual' });
 }
+
+function earSession() { return startEarSession({ root: 'A', quality: 'minor', count: 2, seed: 10000 }); }
+function earHeard() { return completeEarListen(beginEarListen(earSession(), 0, 120), 1500); }
+
+describe('schema3: маршрут учитывает только активное время', () => {
+  it('не пишет нулевой снимок и отделяет время маршрута от точности', () => {
+    const initial = startRouteSession({ id: 'synthetic-route' });
+    expect(makeRouteHistory(initial, metadata)).toBeNull();
+    const entry = makeRouteHistory(advanceRouteSession(initial, 35000), { ...metadata, id: 'route-entry' })!;
+    expect(entry.result).toMatchObject({ kind: 'route', source: 'active-timer', actualStepMs: [35000, 0, 0], totalPlannedMs: 600000, status: 'running' });
+    expect(getHistorySummary([completed(), manual(), entry])).toMatchObject({ questions: 1, independentCorrect: 1, manualSessions: 1, routeSessions: 1, routeActiveMs: 35000 });
+    expect(getReviewPositionIds([entry])).toEqual([]);
+    expect(entry.result).not.toHaveProperty('accuracy');
+  });
+
+  it('паузы и ожидание следующего шага не увеличивают активные минуты', () => {
+    let route = advanceRouteSession(startRouteSession({ id: 'paused-route' }), 60000);
+    route = pauseRouteSession(route, 60000, 'hidden');
+    route = advanceRouteSession(route, 160000);
+    route = resumeRouteSession(route, 160000);
+    route = advanceRouteSession(route, 280000);
+    expect(route.status).toBe('between');
+    route = advanceRouteSession(route, 500000);
+    route = nextRouteStep(route, 500000);
+    route = advanceRouteSession(route, 520000);
+    const entry = makeRouteHistory(route, metadata)!;
+    expect(entry.result.actualStepMs).toEqual([180000, 20000, 0]);
+    expect(getHistorySummary([entry]).routeActiveMs).toBe(200000);
+    expect(validateHistoryEntry(JSON.parse(JSON.stringify(entry)))).toEqual(entry);
+  });
+
+  it('раннее завершение хранит фактическое время без выдуманного полного занятия', () => {
+    const stopped = stopRouteSession(startRouteSession({ id: 'early-route' }), 35000);
+    const entry = makeRouteHistory(stopped, metadata)!;
+    expect(entry.result).toMatchObject({ finishReason: 'stopped', status: 'finished', actualStepMs: [35000, 0, 0] });
+    expect(getHistorySummary([entry]).routeActiveMs).toBe(35000);
+  });
+
+  it('отвергает изменение времени, статуса, границ или происхождения маршрута', () => {
+    const good = makeRouteHistory(advanceRouteSession(startRouteSession({ id: 'forged-route' }), 200000), metadata)!;
+    for (const change of [
+      (value: any) => { value.result.actualStepMs[0] = 600000; },
+      (value: any) => { value.result.plannedStepMs[0] = 600000; },
+      (value: any) => { value.result.status = 'finished'; value.result.finishReason = 'completed'; },
+      (value: any) => { value.result.events.find((event: any) => event.type === 'boundary').atMs = 200000; },
+      (value: any) => { value.result.source = 'automatic-bass-score'; },
+      (value: any) => { value.result.asOfMs = -1; },
+    ]) { const invalid = clone(good); change(invalid); expect(() => validateHistoryEntry(invalid)).toThrow(); }
+  });
+});
+
+describe('schema3: слуховое происхождение и перенос настоящих v2 данных', () => {
+  it('добавляет настройки раздела/слуха ко всем v2 пресетам, сохраняя исходную историю точно', () => {
+    const original = JSON.parse(v2BackupJson);
+    const migrated = parseBackup(v2BackupJson);
+    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.preferences).toEqual({ ...original.preferences, activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 } });
+    expect(migrated.history).toEqual(original.history);
+    expect(migrated.presets).toEqual(original.presets.map((preset: any) => ({ ...preset, preferences: { ...preset.preferences, activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 } } })));
+    expect(parseBackup(JSON.stringify(migrated))).toEqual(migrated);
+    const bad = JSON.parse(v2BackupJson); bad.preferences.activeModule = 'ear';
+    expect(() => parseBackup(JSON.stringify(bad))).toThrow(/неизвестные/);
+    expect(() => parseBackup(JSON.stringify({ ...original, schemaVersion: 4 }))).toThrow(/версия/);
+  });
+
+  it('проверяет обязательные настройки слухового раздела', () => {
+    expect(DEFAULT_PREFERENCES).toMatchObject({ activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 } });
+    for (const change of [
+      (value: any) => { value.activeModule = 'other'; }, (value: any) => { value.ear.bpm = 121; },
+      (value: any) => { value.ear.count = 21; }, (value: any) => { value.ear.quality = 'diminished'; },
+      (value: any) => { value.ear.root = 'H'; },
+    ]) { const input = clone(DEFAULT_PREFERENCES); change(input); expect(() => validatePreferences(input)).toThrow(); }
+  });
+
+  it('пустая сессия не создаёт запись; реальное начатое слушание остаётся interrupted', () => {
+    expect(makeEarHistory(earSession(), metadata)).toBeNull();
+    const entry = makeEarHistory(beginEarListen(earSession(), 0, 120), metadata)!;
+    expect(entry.result).toMatchObject({ kind: 'ear', source: 'audio-choice', plannedCount: 2, context: { root: 'A', quality: 'minor' } });
+    expect(entry.result.questions[0]).toMatchObject({ outcome: 'interrupted', listensStarted: 1, listensCompleted: 0, attempts: 0, firstResponseMs: null, independentCorrect: false, corrected: false, skipped: false, closedAtMs: null });
+    expect(entry.result.questions[0]?.listenEvents[0]).toMatchObject({ type: 'start', bpm: 120, order: 1 });
+    expect(getHistorySummary([entry])).toMatchObject({ questions: 0, screenSessions: 0, earSessions: 1, earQuestions: 1, earCompletedQuestions: 0, earInterrupted: 1 });
+  });
+
+  it('не смешивает слух, экран и самооценку; повтор ошибок не выдумывает позиции слухового задания', () => {
+    const heard = earHeard();
+    const entry = makeEarHistory(submitEarAnswer(heard, heard.currentQuestion.targetDegree, 1750), { ...metadata, id: 'ear-history' })!;
+    expect(entry.result.questions[0]).toMatchObject({ firstResponseMs: 250, independentCorrect: true, listensCompleted: 1 });
+    expect(getHistorySummary([completed(), manual(), entry])).toMatchObject({ screenSessions: 1, questions: 1, independentCorrect: 1, manualSessions: 1, earSessions: 1, earQuestions: 1, earIndependentCorrect: 1 });
+    expect(getReviewPositionIds([entry])).toEqual([]);
+  });
+
+  it('восстанавливает порядок ответа и replay при одинаковых timestamps и фактический BPM120', () => {
+    let session = earHeard();
+    const target = session.currentQuestion.targetDegree;
+    const wrong = session.currentQuestion.choices.find(choice => choice.id !== target)!.id;
+    session = submitEarAnswer(session, wrong, 1500);
+    session = beginEarListen(session, 1500, 120);
+    session = completeEarListen(session, 3000);
+    session = submitEarAnswer(session, target, 3000);
+    const entry = makeEarHistory(session, metadata)!;
+    expect(entry.result.questions[0]).toMatchObject({ outcome: 'corrected', firstResponseMs: 0, errors: 1, listensCompleted: 2, replayCount: 1 });
+    expect(entry.result.questions[0]?.listenEvents.map(event => event.order)).toEqual([1, 2, 4, 5]);
+    expect(entry.result.questions[0]?.answerEvents.map(event => event.order)).toEqual([3, 6]);
+    expect(validateHistoryEntry(JSON.parse(JSON.stringify(entry)))).toEqual(entry);
+  });
+
+  it('показ и пропуск не повышают самостоятельность, незавершённая ошибка не получает fakecompletion', () => {
+    const initial = earHeard();
+    const wrong = initial.currentQuestion.choices.find(choice => choice.id !== initial.currentQuestion.targetDegree)!.id;
+    const interrupted = makeEarHistory(submitEarAnswer(initial, wrong, 1600), metadata)!;
+    expect(interrupted.result.questions[0]).toMatchObject({ outcome: 'interrupted', errors: 1, attempts: 1, independentCorrect: false, corrected: false });
+    const revealed = makeEarHistory(revealEarAnswer(initial, 1800), metadata)!;
+    const skipped = makeEarHistory(skipEarQuestion(earSession(), 20), metadata)!;
+    expect(revealed.result.questions[0]).toMatchObject({ outcome: 'revealed', hintUsed: true, independentCorrect: false });
+    expect(skipped.result.questions[0]).toMatchObject({ outcome: 'skipped', skipped: true, firstResponseMs: null });
+  });
+
+  it('отвергает forged counters, listening speed, event order и неправильную музыкальную цель', () => {
+    const initial = earHeard();
+    const good = makeEarHistory(submitEarAnswer(initial, initial.currentQuestion.targetDegree, 1700), metadata)!;
+    for (const change of [
+      (value: any) => { value.result.questions[0].listensCompleted = 2; },
+      (value: any) => { value.result.questions[0].firstResponseMs = NaN; },
+      (value: any) => { value.result.questions[0].listenEvents[0].bpm = 60; },
+      (value: any) => { value.result.questions[0].answerEvents[0].order = 2; },
+      (value: any) => { value.result.questions[0].question.targetMidi += 12; },
+      (value: any) => { value.result.questions[0].question.targetName = 'wrong'; },
+      (value: any) => { value.result.source = 'microphone'; },
+      (value: any) => { value.result.seed += 1; },
+    ]) { const invalid = clone(good); change(invalid); expect(() => validateHistoryEntry(invalid)).toThrow(); }
+  });
+});
 
 describe('явное временное хранилище', () => {
   it('возвращает immutable снимок без повторной проверки всей истории; смена настроек сохраняет историю по ссылке', async () => {
@@ -57,7 +192,7 @@ describe('явное временное хранилище', () => {
 
   it('сериализует соседние записи без потери истории и не раскрывает изменяемые ссылки', async () => {
     const store = createMemoryStudyStore();
-    expect(await store.open()).toEqual({ name: 'bass-study-memory', version: 2 });
+    expect(await store.open()).toEqual({ name: 'bass-study-memory', version: 3 });
     const preferences = { ...DEFAULT_PREFERENCES, player: { ...DEFAULT_PREFERENCES.player, bpm: 99 } };
     await Promise.all([store.addHistory(completed()), store.savePreferences(preferences), store.addHistory(manual())]);
     const snapshot = await store.readSnapshot();
@@ -292,7 +427,7 @@ describe('достоверность и переносимость копии', 
   it('отвергает лишние, повреждённые и дублированные записи до записи в базу', () => {
     expect(() => parseBackup('{broken')).toThrow();
     expect(() => validateSnapshot({ ...emptySnapshot(), format: 'other' })).toThrow();
-    expect(() => validateSnapshot({ ...emptySnapshot(), schemaVersion: 3 })).toThrow();
+    expect(() => validateSnapshot({ ...emptySnapshot(), schemaVersion: 4 })).toThrow();
     const entry: HistoryEntry = completed();
     expect(() => validateSnapshot({ ...emptySnapshot(), history: [entry, entry] })).toThrow(/повторяются/);
     const wrong: any = clone(manual()); wrong.result.accuracy = 100;
@@ -306,7 +441,7 @@ describe('schema2: точная высота, интервалы и миграц
     const old = JSON.parse(v1BackupJson);
     const inputBefore = JSON.stringify(old);
     const migrated = parseBackup(v1BackupJson);
-    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.schemaVersion).toBe(3);
     expect(migrated.preferences.training.intervalDegree).toBe('#4');
     expect(migrated.presets[0]?.preferences.training.intervalDegree).toBe('#4');
     const legacyScreen = old.history.find((entry: any) => entry.id === 'legacy-screen');
@@ -325,7 +460,7 @@ describe('schema2: точная высота, интервалы и миграц
       (value: any) => { value.history[0].result.questions[0].targetMidi = null; },
       (value: any) => { value.history[0].result.questions[0].errors = 0; },
       (value: any) => { value.preferences.training.quizMode = 'find-pitch'; },
-      (value: any) => { value.schemaVersion = 3; },
+      (value: any) => { value.schemaVersion = 4; },
     ]) {
       const malformed = JSON.parse(v1BackupJson); change(malformed);
       expect(() => parseBackup(JSON.stringify(malformed))).toThrow();

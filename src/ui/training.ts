@@ -275,20 +275,23 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     options.onSessionFinished?.(lastSession);
   }
 
+  function setMode(nextMode: TrainingMode) {
+    if (mode !== nextMode && session) {
+      finish('Занятие остановлено при смене режима');
+      notice = 'Занятие прервано при смене режима. Начни новое занятие.';
+    }
+    mode = nextMode;
+    countDraft = null;
+    options.onModeChange?.(mode);
+    render();
+    options.onPreferencesChange?.();
+  }
+
   container.addEventListener('click', event => {
     const target = event.target instanceof Element ? event.target : null;
     const tab = target?.closest<HTMLButtonElement>('[data-training-mode]');
     if (tab) {
-      const nextMode = tab.dataset.trainingMode as TrainingMode;
-      if (mode !== nextMode && session) {
-        finish('Занятие остановлено при смене режима');
-        notice = 'Занятие прервано при смене режима. Начни новое занятие.';
-      }
-      mode = nextMode;
-      countDraft = null;
-      options.onModeChange?.(mode);
-      render();
-      options.onPreferencesChange?.();
+      setMode(tab.dataset.trainingMode as TrainingMode);
       return;
     }
     const choice = target?.closest<HTMLButtonElement>('[data-choice]');
@@ -386,6 +389,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
 
   render();
   return {
+    setMode,
     getPreferences(): AppPreferences['training'] {
       const input = content.querySelector<HTMLInputElement>('[data-quiz-setting="count"]');
       if (input && (!input.value || !Number.isInteger(Number(input.value)) || Number(input.value) < 1 || Number(input.value) > 30)) throw new RangeError('Количество вопросов — целое число от 1 до 30.');

@@ -2,10 +2,14 @@ import './styles.css';
 import { mountTraining } from './ui/training';
 import { mountPlayer } from './ui/player';
 import { mountHistory } from './ui/history';
+import { mountEar } from './ui/ear';
+import { mountRoute, type RouteStep } from './ui/route';
+import type { EarSession } from './ear';
+import type { RouteResult } from './route';
 import { createWriteQueue } from './app/write-queue';
 import { acquireWriterLease } from './app/writer-lock';
 import type { QuizSession } from './training';
-import { createStudyStore, createMemoryStudyStore, DEFAULT_PREFERENCES, makeScreenHistory, validatePreferences, type AppPreferences, type HistoryMetadata } from './storage';
+import { createStudyStore, createMemoryStudyStore, DEFAULT_PREFERENCES, makeScreenHistory, makeEarHistory, makeRouteHistory, validatePreferences, type AppPreferences, type HistoryMetadata } from './storage';
 import {
   STRUCTURES,
   annotatePositions,
@@ -46,10 +50,14 @@ app.innerHTML = `
     <div id="persistence-banner" class="persistence-banner" role="status"><span id="persistence-message">Читаем локальные настройки…</span><button type="button" id="retry-save" hidden>Повторить сохранение</button><button type="button" id="retry-tab" hidden>Проверить снова</button></div>
     <main inert aria-busy="true">
       <section class="intro" aria-labelledby="page-title">
-        <div><p class="eyebrow">ГРИФ · НОТЫ · СТУПЕНИ</p><h1 id="page-title">Изучи гриф.<br><span>Найди связи.</span></h1></div>
-        <div class="intro-copy"><p>Выбери тональность и структуру.<br>Нажми на позицию, чтобы узнать ноту<br class="desktop-break"> и увидеть, где она повторяется.</p><div class="instrument-chips"><span>4 струны</span><span>E–A–D–G</span></div></div>
+        <div><p class="eyebrow">ГРИФ · НОТЫ · СТУПЕНИ</p><h1 id="page-title">Изучи гриф.<br> <span>Найди связи.</span></h1></div>
+        <div class="intro-copy"><p>Выбери тональность и структуру.<br> Нажми на позицию, чтобы узнать ноту<br class="desktop-break"> и увидеть, где она повторяется.</p><div class="instrument-chips"><span>4 струны</span><span>E–A–D–G</span></div></div>
       </section>
 
+      <nav class="module-navigation" aria-label="Раздел тренажёра"><button type="button" data-app-module="foundation" aria-pressed="true">Гриф и практика</button><button type="button" data-app-module="ear" aria-pressed="false">Слух</button><button type="button" data-app-module="route" aria-pressed="false">Маршрут занятия</button></nav>
+      <div id="route-session-mount"></div>
+      <section id="ear-mount" aria-label="Слуховые задания" hidden></section>
+      <section id="route-mount" aria-label="Маршрут занятия" hidden></section>
       <section class="workspace" aria-label="Изучение грифа">
         <div class="settings-panel">
           <div class="section-title"><span class="section-number">01</span><h2>Что изучаем</h2></div>
@@ -62,7 +70,7 @@ app.innerHTML = `
             <fieldset class="string-field"><legend>Струны</legend><div class="string-switches">${STRING_ORDER.map(string => `<label class="string-switch"><input type="checkbox" value="${string}" aria-label="Струна ${string}" checked><span>${string}</span></label>`).join('')}</div></fieldset>
             <fieldset class="range-field"><legend>Лады <span class="range-hint">включая границы</span></legend><div class="range-inputs"><label><span class="sr-only">Первый лад</span><input id="fret-min" aria-label="Первый лад" type="number" min="0" max="24" step="1" value="0"></label><span class="range-dash" aria-hidden="true">—</span><label><span class="sr-only">Последний лад</span><input id="fret-max" aria-label="Последний лад" type="number" min="0" max="24" step="1" value="12"></label></div></fieldset>
             <div class="range-presets" aria-label="Быстрый диапазон"><button type="button" data-range="0,5">0–5</button><button type="button" data-range="0,12" aria-pressed="true">0–12</button><button type="button" data-range="12,24">12–24</button></div>
-            <p class="range-description">Лад 0 — открытая струна.<br>Модель грифа: 0–24 лада.</p>
+            <p class="range-description">Лад 0 — открытая струна.<br> Модель грифа: 0–24 лада.</p>
           </div>
           <p id="range-error" class="range-error" data-testid="range-error" role="alert" hidden></p>
         </div>
@@ -101,6 +109,12 @@ let structure = createStructure(state.root, state.structureId);
 let training: ReturnType<typeof mountTraining> | undefined;
 let sequencePlayer: ReturnType<typeof mountPlayer> | undefined;
 let history: ReturnType<typeof mountHistory> | undefined;
+let ear: ReturnType<typeof mountEar> | undefined;
+let route: ReturnType<typeof mountRoute> | undefined;
+let activeModule: AppPreferences['activeModule'] = 'foundation';
+let foundationMode: 'study' | 'quiz' | 'sequence' = 'study';
+let routeNavigation = false;
+let lastValidPreferences = DEFAULT_PREFERENCES;
 let store: ReturnType<typeof createStudyStore> | ReturnType<typeof createMemoryStudyStore> = createStudyStore();
 let persistent = true;
 let applyingPreferences = true;
@@ -108,6 +122,7 @@ let retiring = false;
 let retirement: Promise<void> | undefined;
 let writerLease: Awaited<ReturnType<typeof acquireWriterLease>> | undefined;
 const sessionMetadata = new WeakMap<object, HistoryMetadata>();
+const routeMetadata = new Map<string, HistoryMetadata>();
 let startupIssue = '';
 let preferenceIssue = '';
 let writeState: { pending: number; failures: readonly string[] } = { pending: 0, failures: [] };
@@ -124,15 +139,19 @@ function showPersistenceStatus() {
 const writes = createWriteQueue(value => { writeState = value; showPersistenceStatus(); });
 
 function getPreferences(): AppPreferences {
-  return validatePreferences({
+  const value = validatePreferences({
+    activeModule,
+    ear: activeModule === 'ear' ? ear?.getPreferences() ?? DEFAULT_PREFERENCES.ear : lastValidPreferences.ear,
     study: { root: state.root, structureId: state.structureId, labelMode: state.labelMode, strings: state.strings, fretMin: state.fretMin, fretMax: state.fretMax },
-    training: training?.getPreferences() ?? DEFAULT_PREFERENCES.training,
-    player: sequencePlayer?.getPreferences() ?? DEFAULT_PREFERENCES.player,
+    training: activeModule === 'foundation' ? training?.getPreferences() ?? DEFAULT_PREFERENCES.training : lastValidPreferences.training,
+    player: activeModule === 'foundation' ? sequencePlayer?.getPreferences() ?? DEFAULT_PREFERENCES.player : lastValidPreferences.player,
   });
+  lastValidPreferences = value;
+  return value;
 }
 
 function savePreferences() {
-  if (retiring || applyingPreferences || !training || !sequencePlayer || !rangeIsValid()) return;
+  if (retiring || applyingPreferences || !training || !sequencePlayer || (activeModule === 'foundation' && !rangeIsValid())) return;
   try {
     const preferences = getPreferences();
     preferenceIssue = '';
@@ -154,14 +173,77 @@ function persistSession(session: QuizSession) {
   } catch (failure) { history?.setSaveStatus(`Результат не сохранён: ${failure instanceof Error ? failure.message : String(failure)}`, 'error'); }
 }
 
+function persistEarSession(session: EarSession) {
+  if (retiring) return;
+  try {
+    let metadata = sessionMetadata.get(session.questions);
+    if (!metadata) { metadata = { id: `ear-${crypto.randomUUID()}`, occurredAt: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }; sessionMetadata.set(session.questions, metadata); }
+    const entry = makeEarHistory(session, metadata);
+    if (entry) void writes.run(() => store.addHistory(entry), metadata.id).then(() => history?.commitEntry(entry)).catch(() => {});
+  } catch (failure) { history?.setSaveStatus(`Слуховой результат не сохранён: ${failure instanceof Error ? failure.message : String(failure)}`, 'error'); }
+}
+
+function persistRouteSession(result: RouteResult) {
+  if (retiring) return;
+  try {
+    let metadata = routeMetadata.get(result.id);
+    if (!metadata) { metadata = { id: `route-${crypto.randomUUID()}`, occurredAt: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }; routeMetadata.set(result.id, metadata); }
+    const entry = makeRouteHistory(result, metadata);
+    if (entry) void writes.run(() => store.addHistory(entry), metadata.id).then(() => history?.commitEntry(entry)).catch(() => {});
+  } catch (failure) { history?.setSaveStatus(`Маршрут не сохранён: ${failure instanceof Error ? failure.message : String(failure)}`, 'error'); }
+}
+
+function updateModuleVisibility() {
+  const foundation = activeModule === 'foundation';
+  document.querySelector<HTMLElement>('.workspace')!.hidden = !foundation;
+  document.querySelector<HTMLElement>('.selection-section')!.hidden = !foundation || foundationMode === 'quiz';
+  document.querySelector<HTMLElement>('.fretboard-section')!.hidden = foundationMode === 'quiz';
+  document.querySelector<HTMLElement>('.structure-summary')!.hidden = foundationMode === 'quiz';
+  document.querySelector<HTMLElement>('.label-field')!.hidden = foundationMode === 'quiz';
+  byId('player-mount').hidden = !foundation || foundationMode !== 'sequence';
+  byId('ear-mount').hidden = activeModule !== 'ear';
+  byId('route-mount').hidden = activeModule !== 'route';
+  ear?.setVisible(activeModule === 'ear');
+  document.querySelectorAll<HTMLElement>('[data-app-module]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.appModule === activeModule)));
+  byId('page-title').innerHTML = activeModule === 'ear' ? 'Учись слышать.<br> <span>Найди ступень.</span>' : activeModule === 'route' ? 'Собери занятие.<br> <span>Пройди три шага.</span>' : 'Изучи гриф.<br> <span>Найди связи.</span>';
+  document.querySelector<HTMLElement>('.intro-copy > p')!.innerHTML = activeModule === 'ear' ? 'Послушай тонику и второй звук.<br> Вспомни, как звучит трезвучие,<br> и выбери ступень.' : activeModule === 'route' ? 'Соедини знание грифа,<br> узнавание звуков и ровный пульс<br> в одном небольшом занятии.' : 'Выбери тональность и структуру.<br> Нажми на позицию, чтобы узнать ноту<br class="desktop-break"> и увидеть, где она повторяется.';
+}
+
+function switchModule(next: AppPreferences['activeModule']) {
+  if (next === activeModule) return;
+  if (!routeNavigation) route?.pause();
+  if (activeModule === 'foundation') { training?.finishCurrentSession('Занятие остановлено при смене раздела'); sequencePlayer?.stop(); }
+  if (activeModule === 'ear') ear?.finishCurrentSession('Слуховое занятие остановлено при смене раздела');
+  activeModule = next;
+  updateModuleVisibility();
+  savePreferences();
+}
+
+function openRouteStep(step: RouteStep) {
+  routeNavigation = true;
+  try { switchModule(step === 'ear' ? 'ear' : 'foundation'); }
+  finally { routeNavigation = false; }
+  if (step !== 'ear' && training) {
+    training.setMode(step === 'fretboard' ? 'study' : 'sequence');
+    updateModuleVisibility();
+    savePreferences();
+  }
+  const heading = document.querySelector<HTMLElement>(step === 'ear' ? '#ear-mount h2' : step === 'fretboard' ? '.workspace h2' : '#training-mount h2');
+  if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); heading.scrollIntoView({ block: 'start' }); }
+}
+
 function applyPreferences(preferences: AppPreferences) {
   const value = validatePreferences(preferences);
+  lastValidPreferences = value;
+  route?.stop();
   preferenceIssue = '';
   training?.finishCurrentSession('Занятие остановлено перед применением настроек');
+  ear?.finishCurrentSession('Слуховое занятие остановлено перед применением настроек');
   sequencePlayer?.stop();
   applyingPreferences = true;
   try {
     Object.assign(state, value.study, { strings: [...value.study.strings] });
+    activeModule = value.activeModule;
     rootSelect.value = value.study.root;
     structureSelect.value = value.study.structureId;
     minInput.value = String(value.study.fretMin);
@@ -173,6 +255,8 @@ function applyPreferences(preferences: AppPreferences) {
     training?.applyPreferences(value.training);
     sequencePlayer?.refreshContext();
     sequencePlayer?.applyPreferences(value.player);
+    ear?.applyPreferences(value.ear);
+    updateModuleVisibility();
   } finally { applyingPreferences = false; }
 }
 
@@ -367,13 +451,9 @@ training = mountTraining(byId('training-mount'), () => ({ positions: rangeIsVali
   onSessionFinished: persistSession,
   onSessionChanged: persistSession,
   onModeChange(mode) {
-    const quiz = mode === 'quiz';
-    document.querySelector<HTMLElement>('.fretboard-section')!.hidden = quiz;
-    document.querySelector<HTMLElement>('.selection-section')!.hidden = quiz;
-    document.querySelector<HTMLElement>('.structure-summary')!.hidden = quiz;
-    document.querySelector<HTMLElement>('.label-field')!.hidden = quiz;
+    foundationMode = mode;
     if (mode !== 'sequence') sequencePlayer?.stop();
-    byId('player-mount').hidden = mode !== 'sequence';
+    updateModuleVisibility();
     if (mode === 'sequence') sequencePlayer?.refreshContext();
   },
   onSequenceChange() { sequencePlayer?.refreshContext(); sequencePlayer?.refreshHighlight(); },
@@ -391,6 +471,18 @@ sequencePlayer = mountPlayer(byId('player-mount'), () => training?.getCurrentSeq
     });
   },
 });
+ear = mountEar(byId('ear-mount'), {
+  onPreferencesChange: savePreferences,
+  onSessionChanged: persistEarSession,
+  onBeforeListen() { sequencePlayer?.stop(); },
+});
+ear.setVisible(false);
+route = mountRoute(byId('route-mount'), byId('route-session-mount'), {
+  onGo: openRouteStep,
+  onPause() { sequencePlayer?.stop(); ear?.pauseListening('Активный таймер приостановлен.'); },
+  onSessionChanged: persistRouteSession,
+});
+document.querySelectorAll<HTMLElement>('[data-app-module]').forEach(button => button.addEventListener('click', () => switchModule(button.dataset.appModule as AppPreferences['activeModule'])));
 history = mountHistory(byId('history-mount'), {
   store: {
     readSnapshot: options => store.readSnapshot(options),
@@ -414,8 +506,8 @@ history = mountHistory(byId('history-mount'), {
   onRepeatErrors(ids, context) {
     const frets = ids.map(id => Number(id.split(':')[1]));
     const root = context.root.replaceAll('♭', 'b').replaceAll('♯', '#');
-    const preferences = getPreferences();
-    applyPreferences({ ...preferences, study: { ...preferences.study, root, structureId: context.structureId, strings: STRING_ORDER.filter(string => ids.some(id => id.startsWith(`${string}:`))), fretMin: Math.min(...frets), fretMax: Math.max(...frets) }, training: { ...preferences.training, mode: 'quiz', quizMode: 'name-note', scope: context.scope, reviewPositionIds: [] } });
+    const preferences = lastValidPreferences;
+    applyPreferences({ ...preferences, activeModule: 'foundation', study: { ...preferences.study, root, structureId: context.structureId, strings: STRING_ORDER.filter(string => ids.some(id => id.startsWith(`${string}:`))), fretMin: Math.min(...frets), fretMax: Math.max(...frets) }, training: { ...preferences.training, mode: 'quiz', quizMode: 'name-note', scope: context.scope, reviewPositionIds: [] } });
     training?.setReviewPositions(ids, context);
     savePreferences();
     byId('training-mount').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -427,6 +519,8 @@ history = mountHistory(byId('history-mount'), {
     main.setAttribute('aria-busy', 'true');
     try {
       sequencePlayer?.stop();
+      route?.stop();
+      ear?.finishCurrentSession('Слуховое занятие остановлено перед восстановлением');
       training?.finishCurrentSession('Занятие остановлено перед восстановлением');
       await writes.flush();
       await store.restore(json, { confirmed: true });
@@ -473,12 +567,14 @@ void initialize().catch(failure => {
 });
 function retire() {
   if (retirement) return retirement;
-  retiring = true;
   main.inert = true;
   sequencePlayer?.stop();
+  route?.stop();
+  ear?.stop('Страница закрывается');
+  retiring = true;
   retirement = (async () => { try { await writes.flush(); await store.close(); } finally { writerLease?.release(); } })();
   return retirement;
 }
 window.addEventListener('pagehide', () => { void retire(); });
 window.addEventListener('pageshow', event => { if (event.persisted) location.reload(); });
-if (import.meta.hot) import.meta.hot.dispose(() => { void retire(); sequencePlayer?.dispose(); training?.dispose(); history?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { void retire(); sequencePlayer?.dispose(); training?.dispose(); ear?.dispose(); route?.dispose(); history?.dispose(); });

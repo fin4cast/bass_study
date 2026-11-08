@@ -23,6 +23,11 @@
 .persistence-banner.has-error { color:#963e29; }
 .persistence-banner button { flex-shrink:0; border:1px solid currentColor; border-radius:6px; padding:6px 10px; color:inherit; background:transparent; cursor:pointer; }
 .persistence-banner button:focus-visible { outline:3px solid #dc9d45; outline-offset:3px; }
+.module-navigation { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 22px; }
+.module-navigation button { border:1px solid #d3ddd0; border-radius:7px; padding:12px 18px; background:transparent; color:#4d6c61; font:inherit; font-size:14px; cursor:pointer; }
+.module-navigation button[aria-pressed="true"] { background:#e4eddc; border-color:#9db88b; color:#365d36; font-weight:600; }
+.module-navigation button:focus-visible { outline:3px solid #dfa85a; outline-offset:3px; }
+.workspace[hidden], #ear-mount[hidden], #route-mount[hidden] { display:none !important; }
 :root {
   font-family:"Segoe UI",Arial,sans-serif;
   color:#233532;

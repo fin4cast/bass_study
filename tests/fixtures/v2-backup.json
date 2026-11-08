@@ -1,0 +1,222 @@
+{
+  "format": "bass-study-backup",
+  "schemaVersion": 2,
+  "preferences": {
+    "study": {
+      "root": "C",
+      "structureId": "major",
+      "labelMode": "degrees",
+      "strings": [
+        "E"
+      ],
+      "fretMin": 0,
+      "fretMax": 3
+    },
+    "training": {
+      "mode": "sequence",
+      "quizMode": "name-note",
+      "scope": "structure",
+      "intervalDegree": "#4",
+      "count": 10,
+      "pattern": "ascending",
+      "sequenceScope": "chromatic",
+      "reviewPositionIds": []
+    },
+    "player": {
+      "bpm": 96,
+      "duration": "eighth",
+      "repeat": "once",
+      "countIn": false,
+      "showPulse": true,
+      "from": null,
+      "to": null,
+      "ladderStart": 60,
+      "ladderEnd": 100,
+      "ladderStep": 5,
+      "ladderRepeats": 2,
+      "metronome": true,
+      "metronomeMode": "all",
+      "subdivision": "quarter",
+      "bassVolume": 70,
+      "clickVolume": 50
+    }
+  },
+  "presets": [
+    {
+      "id": "fixture-preset-a",
+      "name": "Нижняя струна",
+      "createdAt": "2026-11-08T22:30:00.000Z",
+      "preferences": {
+        "study": {
+          "root": "C",
+          "structureId": "major",
+          "labelMode": "degrees",
+          "strings": [
+            "E"
+          ],
+          "fretMin": 0,
+          "fretMax": 3
+        },
+        "training": {
+          "mode": "sequence",
+          "quizMode": "name-note",
+          "scope": "structure",
+          "intervalDegree": "#4",
+          "count": 10,
+          "pattern": "ascending",
+          "sequenceScope": "chromatic",
+          "reviewPositionIds": []
+        },
+        "player": {
+          "bpm": 96,
+          "duration": "eighth",
+          "repeat": "once",
+          "countIn": false,
+          "showPulse": true,
+          "from": null,
+          "to": null,
+          "ladderStart": 60,
+          "ladderEnd": 100,
+          "ladderStep": 5,
+          "ladderRepeats": 2,
+          "metronome": true,
+          "metronomeMode": "all",
+          "subdivision": "quarter",
+          "bassVolume": 70,
+          "clickVolume": 50
+        }
+      }
+    },
+    {
+      "id": "fixture-preset-b",
+      "name": "Исходная область",
+      "createdAt": "2026-11-08T22:30:00.000Z",
+      "preferences": {
+        "study": {
+          "root": "A",
+          "structureId": "minor-pentatonic",
+          "labelMode": "notes",
+          "strings": [
+            "G",
+            "D",
+            "A",
+            "E"
+          ],
+          "fretMin": 0,
+          "fretMax": 12
+        },
+        "training": {
+          "mode": "study",
+          "quizMode": "name-note",
+          "scope": "structure",
+          "intervalDegree": "#4",
+          "count": 10,
+          "pattern": "ascending",
+          "sequenceScope": "structure",
+          "reviewPositionIds": []
+        },
+        "player": {
+          "bpm": 80,
+          "duration": "eighth",
+          "repeat": "once",
+          "countIn": true,
+          "showPulse": true,
+          "from": null,
+          "to": null,
+          "ladderStart": 60,
+          "ladderEnd": 100,
+          "ladderStep": 5,
+          "ladderRepeats": 2,
+          "metronome": true,
+          "metronomeMode": "all",
+          "subdivision": "quarter",
+          "bassVolume": 70,
+          "clickVolume": 50
+        }
+      }
+    }
+  ],
+  "history": [
+    {
+      "id": "fixture-manual",
+      "occurredAt": "2026-11-08T22:30:00.000Z",
+      "timeZone": "Europe/Moscow",
+      "localDate": "2026-11-09",
+      "result": {
+        "kind": "manual",
+        "source": "self-report",
+        "comfortableBpm": 72,
+        "durationMs": 300000,
+        "note": "Ручная отметка; не измеренная точность.",
+        "context": {
+          "scope": "structure",
+          "root": "A",
+          "structureId": "minor-pentatonic",
+          "positionIds": [
+            "E:0",
+            "E:12"
+          ]
+        }
+      }
+    },
+    {
+      "id": "fixture-screen",
+      "occurredAt": "2026-11-08T22:30:00.000Z",
+      "timeZone": "Europe/Moscow",
+      "localDate": "2026-11-09",
+      "result": {
+        "kind": "screen",
+        "source": "screen-input",
+        "seed": 100,
+        "mode": "name-note",
+        "context": {
+          "scope": "structure",
+          "root": "A",
+          "structureId": "minor-pentatonic",
+          "positionIds": [
+            "E:0",
+            "E:12"
+          ]
+        },
+        "plannedCount": 1,
+        "questions": [
+          {
+            "questionId": "q-19c8c22-name-note-E:12",
+            "answerRule": "pitch-class",
+            "target": {
+              "pitchClass": 4,
+              "name": "E",
+              "degree": "5"
+            },
+            "targetMidi": null,
+            "selectedPositionIds": [],
+            "attempts": 2,
+            "errors": 1,
+            "firstAnswer": "F",
+            "firstResponseMs": 350,
+            "completionMs": 600,
+            "firstAttemptCorrect": false,
+            "hintUsed": false,
+            "skipped": false,
+            "independentCorrect": false,
+            "corrected": true,
+            "outcome": "corrected",
+            "answerEvents": [
+              {
+                "answer": "F",
+                "elapsedMs": 350,
+                "correct": false
+              },
+              {
+                "answer": "E",
+                "elapsedMs": 600,
+                "correct": true
+              }
+            ],
+            "targetPositionId": "E:12"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>Слух: реальный аудиофрагмент</title>
+<body>
+<h1>Независимая проверка слухового cue</h1>
+<button id="play">Прослушать</button><button id="stop">Остановить</button>
+<script type="module">
+  import { createAudioCue, renderCueOffline } from '/src/audio/cue.ts';
+  import { createEarQuestion, getEarAudioEvents } from '/src/ear/index.ts';
+  const completions = [];
+  const cue = createAudioCue({ onComplete(runId) { completions.push({ runId, snapshot: cue.getSnapshot() }); } });
+  function config(root = 'C', quality = 'major', bpm = 120) {
+    const question = createEarQuestion({ root, quality, seed: 10000 }); const plan = getEarAudioEvents(question, bpm);
+    return { question, cue: { bpm, totalBeats: plan.totalBeats, notes: plan.events.filter(event => event.midi !== null).map(event => ({ midi: event.midi, beat: event.atBeat, durationBeats: event.durationBeats })) } };
+  }
+  function rms(samples, sampleRate, from, to) {
+    const start = Math.ceil(from * sampleRate), end = Math.min(samples.length, Math.floor(to * sampleRate)); let squares = 0;
+    for (let index = start; index < end; index++) squares += samples[index] ** 2;
+    return Math.sqrt(squares / Math.max(1, end - start));
+  }
+  function frequency(samples, sampleRate, from, to) {
+    const crossings = []; const start = Math.ceil(from * sampleRate), end = Math.min(samples.length - 1, Math.floor(to * sampleRate));
+    for (let index = start; index < end; index++) if (samples[index] <= 0 && samples[index + 1] > 0) crossings.push(index + -samples[index] / (samples[index + 1] - samples[index]));
+    if (crossings.length < 3) throw new Error('Insufficient positive PCM crossings');
+    return sampleRate * (crossings.length - 1) / (crossings.at(-1) - crossings[0]);
+  }
+  async function render(root, quality) {
+    const configuration = config(root, quality); const buffer = await renderCueOffline(configuration.cue); const samples = buffer.getChannelData(0);
+    const window = Math.round(buffer.sampleRate * .005); const onsets = []; let active = false;
+    for (let index = 0; index < samples.length; index += window) {
+      let squares = 0; const end = Math.min(index + window, samples.length); for (let sample = index; sample < end; sample++) squares += samples[sample] ** 2;
+      const next = Math.sqrt(squares / (end - index)) > .003; if (next && !active) onsets.push(index / buffer.sampleRate); active = next;
+    }
+    return { question: configuration.question, duration: buffer.duration, sampleRate: buffer.sampleRate, channels: buffer.numberOfChannels, onsets,
+      referenceHz: frequency(samples, buffer.sampleRate, .1, .4), targetHz: frequency(samples, buffer.sampleRate, 1.1, 1.4),
+      referenceRms: rms(samples, buffer.sampleRate, .1, .4), targetRms: rms(samples, buffer.sampleRate, 1.1, 1.4), restRms: rms(samples, buffer.sampleRate, .55, .95), tailRms: rms(samples, buffer.sampleRate, 1.52, 1.6) };
+  }
+  window.p7ear = { ready: true, cue, config, render, completions, current: config().cue, action: null };
+  for (const name of ['play', 'stop']) document.getElementById(name).addEventListener('click', async () => {
+    window.p7ear.action = { name, done: false, error: null };
+    try { await cue[name](...(name === 'play' ? [window.p7ear.current] : [])); }
+    catch (error) { window.p7ear.action.error = error.message; }
+    finally { window.p7ear.action.done = true; }
+  });
+  window.addEventListener('pagehide', () => { void cue.dispose(); }, { once: true });
+</script>
+</body>
+</html>

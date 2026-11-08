@@ -14,14 +14,16 @@ export async function runReleaseBrowserChecks(checks) {
   const fixtureOrigin = 'http://127.0.0.1:4183';
   const fixtureUrl = `${fixtureOrigin}/tests/fixtures/migration.html`;
   const resultDir = join(root, 'test-results');
+  const reuseRequested = process.argv.includes('--reuse-server');
   const report = {
     generatedAt: new Date().toISOString(), platform: process.platform, architecture: process.arch,
     node: process.version, browserChannel: 'msedge', browserVersion: null, origin, fixtureOrigin,
     scope: 'P6 actual v1 IndexedDB upgrade/rollback, v1 JSON migration, exact-pitch/interval UI, keyboard-only practice, partial history, whole browser/server restart and writer lease.',
     networkIsolation: 'Clean Edge contexts/profiles, cache disabled, non-loopback page HTTP requests blocked. No user profile, physical disk filling or Windows NIC changes.',
+    staticServer: { reuseRequested, owned: false, mode: 'not-started' },
     checks: [], externalRequests: [], pageErrors: [], cleanupErrors: [],
   };
-  let browser, server, fixtureServer, temporary;
+  let browser, server, fixtureServer, temporary; let externalServer = false;
   const contexts = new Set();
   async function cleanup(name, operation) {
     try { await operation(); }
@@ -55,31 +57,44 @@ export async function runReleaseBrowserChecks(checks) {
   }
   async function closeContext(context) { await context.close(); contexts.delete(context); }
   async function startStaticServer() {
+    assert.equal(externalServer, false, 'The runner cannot start or replace an external server');
     server = spawn(process.execPath, [join(root, 'scripts', 'serve.mjs')], { cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let startup = '', launchError;
     server.on('error', error => { launchError = error; }); server.stdout.on('data', data => { startup += data; }); server.stderr.on('data', data => { startup += data; });
     for (let attempt = 0; attempt < 100; attempt++) {
       if (launchError) throw launchError;
       if (server.exitCode !== null) throw new Error(`Static server exited: ${startup}`);
-      try { if ((await fetch(origin, { signal: AbortSignal.timeout(300) })).ok) return; } catch { /* starting */ }
+      try { if ((await fetch(origin, { signal: AbortSignal.timeout(300) })).ok) { report.staticServer = { reuseRequested, owned: true, mode: 'runner-owned', restartAllowed: true, shutdownAllowed: true }; return; } } catch { /* starting */ }
       await delay(50);
     }
     throw new Error(`Server did not become ready: ${startup}`);
   }
   async function restartServer() {
+    if (externalServer) return false;
     if (server?.pid && server.exitCode === null) { const done = new Promise(resolve => server.once('exit', resolve)); server.kill(); await done; }
     await startStaticServer();
+    return true;
   }
   try {
-    for (const url of [origin, fixtureOrigin]) {
+    const expectedIndex = await readFile(join(root, 'dist', 'index.html'));
+    let existing;
+    try { existing = await fetch(origin, { signal: AbortSignal.timeout(500), redirect: 'error' }); } catch { /* no usable HTTP listener */ }
+    if (existing) {
+      assert.ok(reuseRequested, `Port already occupied: ${origin}; explicit --reuse-server is required`);
+      assert.equal(existing.status, 200, 'Existing server must return the built index directly');
+      assert.ok(Buffer.from(await existing.arrayBuffer()).equals(expectedIndex), 'Existing server index differs from root/dist/index.html; refusing reuse');
+      externalServer = true;
+      report.staticServer = { reuseRequested, owned: false, mode: 'external-reused', indexVerifiedByteForByte: true, restartAllowed: false, shutdownAllowed: false };
+    }
+    for (const url of [fixtureOrigin]) {
       try { await fetch(url, { signal: AbortSignal.timeout(500) }); throw new Error(`Port already occupied: ${url}`); }
       catch (error) { if (error.message.startsWith('Port already occupied:')) throw error; }
     }
-    await readFile(join(root, 'dist', 'index.html')); await mkdir(resultDir, { recursive: true });
+    await mkdir(resultDir, { recursive: true });
     temporary = await mkdtemp(join(tmpdir(), 'bass-study-p6-'));
     fixtureServer = await createServer({ configFile: false, root, server: { host: '127.0.0.1', port: 4183, strictPort: true }, clearScreen: false, logLevel: 'warn' });
     await fixtureServer.listen();
-    await startStaticServer();
+    if (!externalServer) await startStaticServer();
     browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--mute-audio'] }); report.browserVersion = browser.version();
     for (const { name, scope = 'api', memory = false, run } of checks) {
       const started = performance.now(); let context;
@@ -102,7 +117,7 @@ export async function runReleaseBrowserChecks(checks) {
     await cleanup('browser', async () => { await browser?.close(); });
     await cleanup('fixture-server', async () => { await fixtureServer?.close(); });
     await cleanup('static-server', async () => {
-      if (server?.pid && server.exitCode === null) { const done = new Promise(resolve => server.once('exit', resolve)); server.kill(); await done; }
+      if (!externalServer && server?.pid && server.exitCode === null) { const done = new Promise(resolve => server.once('exit', resolve)); server.kill(); await done; }
     });
     await cleanup('isolated-profiles', async () => {
       if (!temporary) return;
