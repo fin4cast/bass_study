@@ -381,7 +381,7 @@ function updateModuleVisibility() {
   ear?.setVisible(activeModule === 'ear');
   rhythm?.setVisible(activeModule === 'harmony');
   document.querySelectorAll<HTMLElement>('[data-app-module]').forEach(button => { const selected = button.dataset.appModule === activeModule; button.setAttribute('aria-pressed', String(selected)); if (selected) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current'); });
-  document.querySelector<HTMLElement>('.intro')!.hidden = foundation || (activeModule === 'tracks' && bankView === 'scores');
+  document.querySelector<HTMLElement>('.intro')!.hidden = foundation || activeModule === 'harmony' || (activeModule === 'tracks' && bankView === 'scores');
   byId('study-context').hidden = foundationMode === 'quiz';
   byId('structure-heading').textContent = foundationMode === 'quiz' ? 'Задания на грифе' : `${structure.root} · ${structure.name}`;
   byId('page-title').textContent = ({ foundation: 'Гриф и практика', ear: 'Слух', harmony: 'Метроном и ритм', tracks: 'Табулатура и ноты', input: 'Аудиовход', route: 'Маршрут занятия' })[activeModule];

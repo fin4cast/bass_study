@@ -1667,12 +1667,13 @@ body { background: var(--surface-canvas); }
 #toggle-study-settings { flex-shrink: 0; min-height: 34px; padding: 6px 10px; font-size: 13px; border-radius: 7px; background: var(--surface-input); }
 #toggle-study-settings[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
 .workspace-main #mode-nav-mount { margin-top: 10px; padding: 0; background: transparent; }
-.workspace-main #mode-nav-mount .training-switcher { gap: 21px; padding: 0; flex-wrap: wrap; }
-.workspace-main #mode-nav-mount .training-switcher > button {
+.rhythm-header > .training-switcher { margin-top: 10px; }
+:is(.workspace-main #mode-nav-mount, .rhythm-header) .training-switcher { gap: 21px; padding: 0; flex-wrap: wrap; }
+:is(.workspace-main #mode-nav-mount, .rhythm-header) .training-switcher > button {
   min-height: 34px; padding: 0 0 7px; border: 0; border-bottom: 2px solid transparent;
   border-radius: 0; background: transparent; color: var(--text-secondary); font-size: 13px;
 }
-.workspace-main #mode-nav-mount .training-switcher > button[aria-pressed="true"] { color: var(--accent-text); border-bottom-color: var(--accent); font-weight: 650; }
+:is(.workspace-main #mode-nav-mount, .rhythm-header) .training-switcher > button:is([aria-pressed="true"], [aria-selected="true"]) { color: var(--accent-text); border-bottom-color: var(--accent); font-weight: 650; }
 .workspace-main #mode-nav-mount .mode-icon { display: none; }
 .board-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 9px 0 8px; }
 .board-caption { color: var(--text-secondary); font-size: 12px; }
@@ -1814,8 +1815,8 @@ body { background: var(--surface-canvas); }
   .site-header .brand-dot { margin-inline: -5px; }
   .workspace { grid-template-columns: minmax(0, 1fr); min-height: calc(100dvh - 26px); }
   .settings-panel { border-left: 0; border-top: 1px solid var(--border); }
-  .workspace-main #mode-nav-mount .training-switcher { gap: 14px; }
-  .workspace-main #mode-nav-mount .training-switcher > button { font-size: 12px; }
+  :is(.workspace-main #mode-nav-mount, .rhythm-header) .training-switcher { gap: 14px; }
+  :is(.workspace-main #mode-nav-mount, .rhythm-header) .training-switcher > button { font-size: 12px; }
   .workspace-main .selection-section { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
 .workspace-main > .study-more { margin: 6px 0 0; padding-top: 8px; }

@@ -60,7 +60,7 @@ export interface EarHistoryEntry extends HistoryEnvelope { readonly result: EarH
 export interface RouteHistoryEntry extends HistoryEnvelope { readonly result: RouteResult }
 export type HistoryEntry = ScreenHistoryEntry | ManualHistoryEntry | EarHistoryEntry | RouteHistoryEntry;
 export interface StudySnapshot {
-  readonly format: 'bass-study-backup'; readonly schemaVersion: 8; readonly preferences: AppPreferences;
+  readonly format: 'bass-study-backup'; readonly schemaVersion: typeof STUDY_SCHEMA_VERSION; readonly preferences: AppPreferences;
   readonly profile: GlobalProfile; readonly practiceDrafts: readonly PracticeDraft[];
   readonly presets: readonly Preset[]; readonly history: readonly HistoryEntry[];
   readonly rhythmProjects: readonly RhythmProject[]; readonly activeRhythmProjectId: string | null;
@@ -70,7 +70,7 @@ export class StudyStorageError extends Error {
   constructor(public readonly code: string, message: string) { super(message); this.name = 'StudyStorageError'; }
 }
 export const MAX_BACKUP_BYTES = 67_108_864;
-export const STUDY_SCHEMA_VERSION = 8;
+export const STUDY_SCHEMA_VERSION = 9;
 
 const ROOT_IDS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const LEGACY_MODES = ['name-note', 'find-note', 'find-all', 'find-degree'] as const;
@@ -573,9 +573,13 @@ export function validateHistoryEntry(value: unknown, legacy = false): HistoryEnt
 }
 
 export function validateSnapshot(value: unknown): StudySnapshot {
+  return validateSnapshotVersion(value, STUDY_SCHEMA_VERSION);
+}
+
+function validateSnapshotVersion(value: unknown, sourceVersion: 8 | typeof STUDY_SCHEMA_VERSION): StudySnapshot {
   const raw = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history', 'profile', 'practiceDrafts', 'rhythmProjects', 'activeRhythmProjectId'], 'Резервная копия');
   if (raw.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
-  if (raw.schemaVersion !== STUDY_SCHEMA_VERSION) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  if (raw.schemaVersion !== sourceVersion) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
   // Import bytes are bounded by parseBackup; ordinary native writes must never make
   // an otherwise valid database unreadable merely by exceeding an arbitrary count.
   const presets = array(raw.presets, Number.MAX_SAFE_INTEGER, 'Пресеты').map((value, index) => recordContext(`Пресет №${index + 1}`, () => validatePreset(value)));
@@ -588,6 +592,17 @@ export function validateSnapshot(value: unknown): StudySnapshot {
   if (new Set(practiceDrafts.map(item => item.id)).size !== practiceDrafts.length) invalid('ID черновиков повторяются.');
   if (new Set(rhythmProjects.map(item => item.id)).size !== rhythmProjects.length) invalid('ID проектов ритма повторяются.');
   if (activeRhythmProjectId !== null && !rhythmProjects.some(item => item.id === activeRhythmProjectId)) invalid('Выбранный проект ритма отсутствует в библиотеке.');
+  if (sourceVersion === 8) {
+    const checkProject = (project: RhythmProject | undefined) => {
+      if (project?.patterns.some(pattern => pattern.bars === 3)) invalid('Трёхтактовые паттерны поддерживаются с версии 9.');
+    };
+    const checkMaterial = (material: StoredPracticeMaterial) => {
+      if (material.kind === 'rhythm') checkProject(material.playback.project);
+    };
+    rhythmProjects.forEach(checkProject);
+    for (const draft of practiceDrafts) checkMaterial(draft.material);
+    for (const entry of history) if (entry.result.kind === 'manual') checkMaterial(entry.result.material);
+  }
   return immutable({ format: 'bass-study-backup', schemaVersion: STUDY_SCHEMA_VERSION, preferences: recordContext('Текущие настройки (preferences/current)', () => validatePreferences(raw.preferences)), profile: validateProfile(raw.profile), practiceDrafts: practiceDrafts.sort(byId), presets: presets.sort(byId), history: history.sort(byId), rhythmProjects: rhythmProjects.sort(byId), activeRhythmProjectId });
 }
 
@@ -690,8 +705,9 @@ export function migrateV1HistoryEntry(value: unknown): HistoryEntry {
 
 export function migrateBackup(value: unknown): StudySnapshot {
   const version = value && typeof value === 'object' ? Object.getOwnPropertyDescriptor(value, 'schemaVersion')?.value : undefined;
-  if (version !== undefined && ![1, 2, 3, 4, 5, 6, 7, STUDY_SCHEMA_VERSION].includes(version)) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  if (version !== undefined && ![1, 2, 3, 4, 5, 6, 7, 8, STUDY_SCHEMA_VERSION].includes(version)) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
   if (version === STUDY_SCHEMA_VERSION) return validateSnapshot(value);
+  if (version === 8) return validateSnapshotVersion(value, version);
   if (version === 6 || version === 7) {
     const previous = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history', 'profile', 'practiceDrafts'], `Резервная копия версии ${version}`);
     const migratePreferences = version === 6 ? migrateV6Preferences : migrateV7Preferences;

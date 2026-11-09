@@ -48,7 +48,7 @@ check('native-v6-draft-drain-aborts-after-real-history-put-and-retries-once', as
 });
 
 check('native-indexeddb-schema-preferences-presets-and-distinct-results', async ({ page }) => {
-  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 8); assert.deepEqual(empty.presets, []); assert.deepEqual(empty.history, []);
+  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 9); assert.deepEqual(empty.presets, []); assert.deepEqual(empty.history, []);
   assert.deepEqual(empty.rhythmProjects, []); assert.equal(empty.activeRhythmProjectId, null);
   const state = await seed(page);
   assert.equal(state.format, 'bass-study-backup'); assert.equal(state.preferences.player.bpm, 96);
@@ -64,7 +64,7 @@ check('native-indexeddb-schema-preferences-presets-and-distinct-results', async 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => { const db = request.result; const result = { name: db.name, version: db.version, stores: [...db.objectStoreNames] }; db.close(); resolve(result); };
   }));
-  assert.deepEqual(schema, { name: 'bass-study', version: 8, stores: ['history', 'practiceDrafts', 'preferences', 'presets', 'profile', 'rhythmProjects'] });
+  assert.deepEqual(schema, { name: 'bass-study', version: 9, stores: ['history', 'practiceDrafts', 'preferences', 'presets', 'profile', 'rhythmProjects'] });
   return { schema, state };
 });
 
@@ -121,7 +121,7 @@ check('native-cancel-and-validation-refusals-never-change-existing-data', async 
     const mutations = [
       ['broken-json', '{broken', 'INVALID_BACKUP'],
       ['unknown-format', JSON.stringify({ ...clone(), format: 'another-app' }), 'UNSUPPORTED_FORMAT'],
-      ['future-version', JSON.stringify({ ...clone(), schemaVersion: 9 }), 'UNSUPPORTED_VERSION'],
+      ['future-version', JSON.stringify({ ...clone(), schemaVersion: 10 }), 'UNSUPPORTED_VERSION'],
       ['wrong-bpm-type', (() => { const value = clone(); value.preferences.player.bpm = '96'; return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['duplicate-presets', (() => { const value = clone(); value.presets.push(value.presets[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['duplicate-history', (() => { const value = clone(); value.history.push(value.history[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
@@ -408,16 +408,17 @@ check('ui-settings-reload-presets-apply-delete-and-download-export', async ({ pa
   await page.getByRole('button', { name: 'Ступени', exact: true }).click();
   await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
   await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  await page.getByLabel('Темп, BPM', { exact: true }).fill('96'); await page.getByLabel('Темп, BPM', { exact: true }).press('Tab');
+  const bpm = page.locator('#player-mount').getByLabel('Темп, BPM', { exact: true });
+  await bpm.fill('96'); await bpm.press('Tab');
   await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
   await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill('Мой нижний участок'); await historyAction(page, 'save-preset').click();
   await page.getByTestId('preset-list').getByText('Мой нижний участок', { exact: true }).waitFor();
-  const exported = await uiBackup(page); assert.equal(exported.schemaVersion, 8); assert.equal(exported.presets.length, 1);
+  const exported = await uiBackup(page); assert.equal(exported.schemaVersion, 9); assert.equal(exported.presets.length, 1);
   assert.deepEqual(exported.preferences.study, { root: 'C', structureId: 'major', labelMode: 'degrees', strings: ['E'], fretMin: 0, fretMax: 3, box: null, showFingers: false });
   assert.equal(exported.preferences.player.bpm, 96); assert.equal(exported.preferences.player.countIn, false);
   await page.reload(); await openHistory(page);
   assert.equal(await page.getByLabel('Тоника', { exact: true }).inputValue(), 'C'); assert.equal(await page.getByLabel('Последний лад', { exact: true }).inputValue(), '3');
-  assert.equal(await page.getByLabel('Темп, BPM', { exact: true }).inputValue(), '96');
+  assert.equal(await bpm.inputValue(), '96');
   assert.deepEqual((await uiBackup(page)).presets, exported.presets);
   await page.getByLabel('Тоника', { exact: true }).selectOption('G'); await uiSaved(page);
   await page.getByTestId('preset-list').getByRole('button', { name: 'Применить', exact: true }).click();
@@ -486,7 +487,7 @@ check('ui-invalid-import-shows-error-and-preserves-valid-data', async ({ page, f
   const incoming = await fixtureBackup(page, fixtureUrl); await confirmImport(page, incoming); const before = await uiBackup(page);
   const mutations = [
     ['broken.json', '{broken'],
-    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 9 })],
+    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 10 })],
     ['corrupt.json', (() => { const value = structuredClone(incoming); value.history[1].result.questions[0].errors = 0; return JSON.stringify(value); })()],
   ];
   const errors = [];

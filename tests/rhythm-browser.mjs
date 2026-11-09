@@ -8,10 +8,66 @@ const literalV7 = JSON.parse(await readFile(new URL('./fixtures/v7-backup.json',
 const checks = [];
 const check = (name, scope, run) => checks.push({ name, scope, run });
 const root = page => page.getByTestId('rhythm-view');
+const playingField = page => root(page).locator('.rhythm-playing-field:visible');
+const settingsToggle = page => root(page).locator('button[data-rhythm-settings-toggle]');
+const settingsAside = page => root(page).locator('[data-rhythm-panel]:visible .rhythm-side-scroll');
 const action = (page, name) => root(page).locator(`[data-rhythm-action="${name}"]`);
 const setting = (page, name) => root(page).locator(`[data-rhythm-setting="${name}"]:visible`);
 const output = (page, name) => root(page).locator(`[data-rhythm-output="${name}"]`);
+const choice = (page, name, value) => root(page).locator(`[data-rhythm-choice="${name}"][data-rhythm-value="${value}"]`);
 const near = (actual, expected, tolerance) => assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} differs from ${expected} by more than ${tolerance}`);
+
+async function assertSettings(page, open) {
+  const toggle = settingsToggle(page), aside = settingsAside(page);
+  const id = await aside.getAttribute('id');
+  assert.ok(id);
+  assert.equal(await toggle.getAttribute('aria-controls'), id);
+  assert.equal(await toggle.getAttribute('aria-expanded'), String(open));
+  assert.equal(await aside.isVisible(), open);
+  return id;
+}
+
+async function setSettings(page, open) {
+  const toggle = settingsToggle(page);
+  if (await toggle.getAttribute('aria-expanded') !== String(open)) await toggle.press('Enter');
+  return assertSettings(page, open);
+}
+
+async function openGroup(page, selector) {
+  const group = root(page).locator(selector);
+  assert.equal(await group.evaluate(node => node.open), false);
+  await group.locator(':scope > summary').press('Enter');
+  assert.equal(await group.evaluate(node => node.open), true);
+}
+
+async function meterFieldCoverage(page, count) {
+  const coverage = await playingField(page).evaluate(field => {
+    const rows = [];
+    const groupBounds = [];
+    const keyWidths = [];
+    for (const group of field.querySelectorAll('.rhythm-beat-group')) {
+      const bounds = group.getBoundingClientRect();
+      const key = group.querySelector('.rhythm-beat').getBoundingClientRect();
+      groupBounds.push(bounds);
+      keyWidths.push(key.width / bounds.width);
+      let row = rows.find(item => Math.abs(item.top - bounds.top) < 1);
+      if (!row) { row = { top: bounds.top, left: bounds.left, right: bounds.right }; rows.push(row); }
+      row.left = Math.min(row.left, bounds.left);
+      row.right = Math.max(row.right, bounds.right);
+    }
+    const height = Math.max(...groupBounds.map(bounds => bounds.bottom)) - Math.min(...groupBounds.map(bounds => bounds.top));
+    return {
+      count: groupBounds.length,
+      rows: rows.length,
+      width: Math.min(...rows.map(row => (row.right - row.left) / field.clientWidth)),
+      height: height / field.clientHeight,
+      keyWidth: Math.min(...keyWidths),
+    };
+  });
+  assert.equal(coverage.count, count);
+  assert.ok(coverage.width >= .90 && coverage.height >= .80 && coverage.keyWidth >= .80, `Meter groups fill the field: ${JSON.stringify(coverage)}`);
+  return coverage;
+}
 
 async function ready(page) {
   await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert);
@@ -23,11 +79,8 @@ async function enter(page) {
 }
 async function edit(page, name, value) {
   const field = setting(page, name);
-  if (await field.evaluate(node => node.tagName === 'SELECT')) await field.selectOption(String(value));
-  else {
-    await field.fill(String(value));
-    await field.press('Tab');
-  }
+  await field.fill(String(value));
+  await field.press('Tab');
 }
 async function state(page, expected) {
   await page.waitForFunction(value => document.querySelector('.rhythm-view')?.dataset.rhythmState === value, expected);
@@ -80,7 +133,7 @@ async function raw(page) {
     } finally { db.close(); }
   });
 }
-async function seedV7(page, origin) {
+async function seedDatabase(page, origin, snapshot) {
   const response = await page.goto(`${origin}/vendor/music-bank/patch-manifest.json`);
   assert.equal(response.status(), 200);
   assert.equal(await page.locator('#history-mount').count(), 0);
@@ -93,12 +146,16 @@ async function seedV7(page, origin) {
       request.onblocked = () => reject(new Error('Isolated test database is still open'));
     });
     const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('bass-study', 7);
+      const request = indexedDB.open('bass-study', snapshot.schemaVersion);
       request.onupgradeneeded = () => {
         const db = request.result;
-        db.createObjectStore('preferences').put(snapshot.preferences, 'current');
+        const preferences = db.createObjectStore('preferences');
+        preferences.put(snapshot.preferences, 'current');
+        if (snapshot.activeRhythmProjectId) preferences.put(snapshot.activeRhythmProjectId, 'rhythm-selection');
         db.createObjectStore('profile').put(snapshot.profile, 'current');
-        for (const name of ['presets', 'history', 'practiceDrafts']) {
+        const stores = ['presets', 'history', 'practiceDrafts'];
+        if (snapshot.schemaVersion >= 8) stores.push('rhythmProjects');
+        for (const name of stores) {
           const store = db.createObjectStore(name, { keyPath: 'id' });
           for (const value of snapshot[name]) store.put(value);
         }
@@ -107,7 +164,7 @@ async function seedV7(page, origin) {
       request.onsuccess = () => resolve(request.result);
     });
     db.close();
-  }, literalV7);
+  }, snapshot);
 }
 
 async function observe(context) {
@@ -402,24 +459,53 @@ check('live-step-edit-and-tempo-edit-use-different-boundaries-and-seal-practice'
 });
 
 check('product-meter-group-tempo-unit-offbeats-and-invalid-range', 'ui', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
   await enter(page);
+  const defaultField = await playingField(page).boundingBox();
+  assert.ok(defaultField);
   assert.equal(await page.locator('[data-app-module="harmony"]').textContent(), 'Метроном и ритм');
-  await edit(page, 'denominator', 8);
+  const pulses = output(page, 'beats');
+  const beats = pulses.locator('[data-rhythm-beat]');
+  const subdivisions = pulses.locator('[data-rhythm-substep]');
+  const groupStarts = () => pulses.locator('.rhythm-beat-group').evaluateAll(groups => groups.flatMap((group, index) => group.classList.contains('is-group-start') ? [index + 1] : []));
+  assert.deepEqual(await beats.evaluateAll(keys => keys.map(key => Number(key.dataset.rhythmBeat) + 1)), [1, 2, 3, 4]);
+  assert.deepEqual(await groupStarts(), [1]);
+  assert.equal(await subdivisions.count(), 0);
+  const defaultCoverage = await meterFieldCoverage(page, 4);
+  await assertSettings(page, false);
+  assert.equal(await output(page, 'meter-label').innerText(), '4/4');
+  assert.equal(await output(page, 'division-label').isVisible(), true);
+  assert.equal(await output(page, 'division-label').innerText(), 'Четверти');
+  await setSettings(page, true);
+  assert.equal(await root(page).locator('.rhythm-metro-parameters').isVisible(), true);
+  assert.equal(await choice(page, 'bpmUnit', 'dotted-quarter').isDisabled(), true);
+  await choice(page, 'denominator', 4).press('ArrowRight');
+  assert.equal(await choice(page, 'denominator', 8).evaluate(node => document.activeElement === node), true);
+  await page.keyboard.press('Space');
+  assert.equal(await choice(page, 'denominator', 8).getAttribute('aria-pressed'), 'true');
   await edit(page, 'beats', 6);
-  assert.equal(await setting(page, 'bpmUnit').inputValue(), 'dotted-quarter');
+  assert.equal(await choice(page, 'bpmUnit', 'dotted-quarter').getAttribute('aria-pressed'), 'true');
+  assert.equal(await choice(page, 'bpmUnit', 'dotted-quarter').isEnabled(), true);
   await edit(page, 'bpm', 60);
-  await edit(page, 'bpmUnit', 'eighth');
+  await choice(page, 'bpmUnit', 'eighth').press('Enter');
   assert.equal(await setting(page, 'bpm').inputValue(), '60');
   await edit(page, 'beats', 7);
   await edit(page, 'groups', '3+2+2');
-  assert.equal(await setting(page, 'metronomeSwing').isDisabled(), true);
+  assert.equal(await beats.count(), 7);
+  assert.deepEqual(await groupStarts(), [1, 4, 6]);
+  assert.equal(await output(page, 'meter-label').innerText(), '7/8');
+  const swingDial = root(page).locator('[data-rhythm-setting="metronomeSwing"]');
+  assert.equal(await swingDial.isDisabled(), true);
   await root(page).locator('[data-rhythm-division="4"]').click();
-  await edit(page, 'metro-swing-mode', 'sixteenth');
+  await choice(page, 'metro-swing-mode', 'sixteenth').press('Enter');
   await root(page).locator('[data-rhythm-division="2"]').click();
+  assert.equal(await output(page, 'division-label').innerText(), 'Шестнадцатые');
   assert.equal(await setting(page, 'metronomeSwing').isEnabled(), true);
-  assert.equal(await setting(page, 'metro-swing-mode').isDisabled(), true);
-  assert.equal(await setting(page, 'metro-swing-mode').inputValue(), 'eighth');
-  await root(page).locator('[data-rhythm-substep]').first().click();
+  assert.equal(await choice(page, 'metro-swing-mode', 'sixteenth').isDisabled(), true);
+  assert.equal(await choice(page, 'metro-swing-mode', 'eighth').isDisabled(), true);
+  assert.equal(await choice(page, 'metro-swing-mode', 'eighth').getAttribute('aria-pressed'), 'true');
+  assert.equal(await subdivisions.count(), 7);
+  await subdivisions.first().click();
   const copy = await exported(page);
   assert.deepEqual(copy.preferences.rhythm.metronome.meter, { beats: 7, denominator: 8, groups: [3, 2, 2] });
   assert.deepEqual(copy.preferences.rhythm.metronome.accents, [2, 1, 1, 2, 1, 2, 1]);
@@ -432,11 +518,48 @@ check('product-meter-group-tempo-unit-offbeats-and-invalid-range', 'ui', async (
   await groupedAccent.click();
   assert.notEqual(await groupedAccent.getAttribute('data-level'), '2');
   await start(page);
+  await pulses.locator('.rhythm-beat-group.is-playing .rhythm-beat-lamp').waitFor();
   await edit(page, 'bpm', 300);
   await state(page, 'stopped');
   assert.equal(await action(page, 'start').isDisabled(), true);
   await output(page, 'error').waitFor();
-  return { meter: copy.preferences.rhythm.metronome.meter, independentlySavedSubsteps: 7, invalidContextStops: true };
+  await edit(page, 'bpm', 60);
+  await edit(page, 'beats', 12);
+  await edit(page, 'groups', '3+3+3+3');
+  await root(page).locator('[data-rhythm-division="4"]').click();
+  await settingsAside(page).getByRole('button', { name: 'Свернуть', exact: true }).press('Enter');
+  await assertSettings(page, false);
+  assert.equal(await output(page, 'meter-label').innerText(), '12/8');
+  assert.equal(await output(page, 'division-label').isVisible(), true);
+  assert.equal(await output(page, 'division-label').innerText(), 'Тридцать вторые');
+  const denseField = await playingField(page).boundingBox();
+  assert.ok(denseField);
+  near(denseField.width, defaultField.width, 1);
+  near(denseField.height, defaultField.height, 1);
+  assert.equal(await beats.count(), 12);
+  assert.equal(await subdivisions.count(), 36);
+  assert.deepEqual(await groupStarts(), [1, 4, 7, 10]);
+  assert.equal(await pulses.evaluate(node => {
+    const bounds = node.getBoundingClientRect();
+    return [...node.children].every(group => {
+      const rect = group.getBoundingClientRect();
+      return rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1 && rect.bottom <= bounds.bottom + 1;
+    });
+  }), true);
+  const lastSubdivision = subdivisions.last();
+  const enabled = await lastSubdivision.getAttribute('aria-pressed');
+  await lastSubdivision.press('Space');
+  assert.notEqual(await lastSubdivision.getAttribute('aria-pressed'), enabled);
+  assert.equal(await lastSubdivision.evaluate(node => node.matches(':focus-visible') && getComputedStyle(node).outlineStyle !== 'none'), true);
+  const meterCoverage = [await meterFieldCoverage(page, 12)];
+  await setSettings(page, true);
+  for (let count = 2; count < 12; count++) {
+    await edit(page, 'beats', count);
+    assert.equal(await subdivisions.count(), 3 * count);
+    meterCoverage.push(await meterFieldCoverage(page, count));
+  }
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+  return { defaultFourBeats: true, defaultCoverage, meter: copy.preferences.rhythm.metronome.meter, independentlySavedSubsteps: 7, invalidContextStops: true, denseMeter: { beats: 12, subdivisions: 36, groupStarts: [1, 4, 7, 10], fieldSizeStable: true }, meterCoverage, keyboardFocusVisible: true };
 });
 
 check('product-linked-bpm-edits-in-both-tabs-and-survives-reload', 'ui', async ({ page }) => {
@@ -446,11 +569,17 @@ check('product-linked-bpm-edits-in-both-tabs-and-survives-reload', 'ui', async (
   await edit(page, 'bpm', 111);
   await select('rhythm');
   await edit(page, 'bpm', 125);
+  await setSettings(page, true);
+  const master = root(page).locator('.rhythm-master .rhythm-fader');
+  const beforeLink = await master.boundingBox();
   await setting(page, 'rhythmClick').check();
+  await output(page, 'linked-tempo').waitFor();
+  near((await master.boundingBox()).y, beforeLink.y, 1);
   assert.equal(await bpm(), '111');
   await edit(page, 'bpm', 121);
   await select('metronome');
   assert.equal(await bpm(), '121');
+  near((await master.boundingBox()).y, beforeLink.y, 1);
   await edit(page, 'bpm', 135);
   await select('rhythm');
   assert.equal(await bpm(), '135');
@@ -462,6 +591,7 @@ check('product-linked-bpm-edits-in-both-tabs-and-survives-reload', 'ui', async (
   await ready(page);
   await state(page, 'stopped');
   assert.equal(await bpm(), '135');
+  await setSettings(page, true);
   await setting(page, 'rhythmClick').uncheck();
   await edit(page, 'bpm', 100);
   await select('metronome');
@@ -499,6 +629,20 @@ check('leaving-section-cancels-audition-waiting-for-audio-context', 'ui', async 
   await observe(context);
   await page.reload();
   await enter(page);
+  await setSettings(page, true);
+  const sounds = root(page).locator('.rhythm-sounds details');
+  const soundToggle = sounds.locator(':scope > summary');
+  assert.equal(await sounds.evaluate(node => node.open), false);
+  await soundToggle.press('Enter');
+  const kits = output(page, 'kits').getByRole('button');
+  assert.equal(await kits.count(), 6);
+  await kits.nth(1).press('Enter');
+  assert.equal(await kits.nth(1).getAttribute('aria-pressed'), 'true');
+  const selectedSound = await output(page, 'kit-name').innerText();
+  await soundToggle.press('Enter');
+  assert.equal(await sounds.evaluate(node => node.open), false);
+  assert.ok(selectedSound);
+  assert.equal(await output(page, 'kit-name').innerText(), selectedSound);
   await page.evaluate(() => {
     const resume = AudioContext.prototype.resume;
     const gate = new Promise(resolve => { window.__releaseRhythmPreview = resolve; });
@@ -516,7 +660,7 @@ check('leaving-section-cancels-audition-waiting-for-audio-context', 'ui', async 
   assert.ok(signal.peak < 1e-6);
   await enter(page);
   await state(page, 'stopped');
-  return { latePreviewSilent: true };
+  return { latePreviewSilent: true, selectedSound, previewFromCollapsedSounds: true };
 });
 
 check('project-steps-and-full-chain-survive-reload-and-export', 'ui', async ({ page }) => {
@@ -526,33 +670,141 @@ check('project-steps-and-full-chain-survive-reload-and-export', 'ui', async ({ p
   const before = await first.getAttribute('aria-pressed');
   await first.click();
   assert.notEqual(await first.getAttribute('aria-pressed'), before);
-  await edit(page, 'bars', 2);
+  const bars = output(page, 'bars');
+  const bar = number => bars.getByRole('button', { name: `Такт ${number}`, exact: true });
+  const addBar = bars.locator('[data-rhythm-action="add-bar"]');
+  const lengths = settingsAside(page).locator('.rhythm-editor-pattern [data-rhythm-choice="bars"]');
+  const length = value => lengths.and(choice(page, 'bars', value));
   const rack = output(page, 'rack').locator('[data-rhythm-step]');
-  const firstBar = await rack.evaluateAll(steps => steps.map(step => step.dataset.level));
+  const stepLevels = () => rack.evaluateAll(steps => steps.map(step => step.dataset.level));
+  const velocity = output(page, 'velocity').locator('[data-rhythm-velocity="8"]');
+  await assertSettings(page, false);
+  assert.equal(await length(1).isHidden(), true);
+  assert.equal(await bar(1).getAttribute('aria-pressed'), 'true');
+  assert.equal(await bar(2).count(), 0);
+  await openGroup(page, '.rhythm-velocity');
+  const originalVelocity = await velocity.inputValue();
+  await velocity.press('ArrowUp');
+  const customVelocity = await velocity.inputValue();
+  assert.notEqual(customVelocity, originalVelocity);
+  const firstBar = await stepLevels();
+  for (const number of [2, 3, 4]) {
+    const addNextBar = addBar.and(bars.getByRole('button', { name: `Добавить такт ${number}`, exact: true }));
+    assert.equal(await addNextBar.textContent(), '+ Такт');
+    await addNextBar.press('Enter');
+    await assertSettings(page, false);
+    assert.equal(await bar(number).getAttribute('aria-pressed'), 'true');
+    assert.equal(await bar(number).evaluate(node => node === document.activeElement), true);
+    assert.ok((await stepLevels()).every(level => level === '0'));
+    assert.ok(await output(page, 'velocity').locator('[data-rhythm-velocity]').evaluateAll(inputs => inputs.every(input => input.valueAsNumber === 0)));
+  }
+  assert.equal(await addBar.count(), 0);
+  await bar(1).click();
+  assert.deepEqual(await stepLevels(), firstBar);
+  assert.equal(await velocity.inputValue(), customVelocity);
+  await root(page).locator('.rhythm-velocity > summary').press('Enter');
+  await setSettings(page, true);
+  assert.deepEqual(await lengths.evaluateAll(buttons => buttons.map(button => button.dataset.rhythmValue)), ['1', '2', '3', '4']);
+  assert.equal(await length(4).isVisible(), true);
+  assert.equal(await length(4).getAttribute('aria-pressed'), 'true');
+  await length(3).click();
+  assert.equal(await bar(4).count(), 0);
+  assert.equal(await addBar.isVisible(), true);
+
+  const pattern = id => output(page, 'patterns').locator(`[data-rhythm-pattern="${id}"]`);
+  await pattern('B').click();
+  assert.equal(await addBar.isVisible(), true);
+  assert.equal(await length(1).getAttribute('aria-pressed'), 'true');
+  await length(4).click();
+  await bar(4).click();
+  assert.equal(await bar(4).getAttribute('aria-pressed'), 'true');
+  assert.equal(await addBar.count(), 0);
+  await length(1).click();
+  assert.equal(await bar(4).count(), 0);
+  assert.equal(await bar(1).getAttribute('aria-pressed'), 'true');
+  assert.equal(await addBar.isVisible(), true);
+  await pattern('A').click();
+  assert.equal(await length(3).getAttribute('aria-pressed'), 'true');
+
+  const longName = 'Основной грув с открытым хэтом и вариациями';
+  await edit(page, 'pattern-name', longName);
+  await openGroup(page, '.rhythm-editor-bar');
   await action(page, 'copy-bar').click();
-  await output(page, 'bars').locator('[data-rhythm-bar="1"]').click();
+  await bar(2).click();
   await action(page, 'clear-bar').click();
-  assert.ok((await rack.evaluateAll(steps => steps.map(step => step.dataset.level))).every(level => level === '0'));
+  assert.ok((await stepLevels()).every(level => level === '0'));
   await action(page, 'copy-bar').click();
-  assert.deepEqual(await rack.evaluateAll(steps => steps.map(step => step.dataset.level)), firstBar);
-  await output(page, 'bars').locator('[data-rhythm-bar="0"]').click();
+  assert.deepEqual(await stepLevels(), firstBar);
+  await bar(3).click();
+  assert.ok((await stepLevels()).every(level => level === '0'));
+  const thirdBarStep = output(page, 'rack').locator('[data-rhythm-channel="kick"][data-rhythm-step="5"]');
+  await thirdBarStep.click();
+  assert.equal(await thirdBarStep.getAttribute('aria-pressed'), 'true');
+  await openGroup(page, '.rhythm-editor-sounds');
+  const soundKeys = output(page, 'sounds').locator('[data-rhythm-choice="new-sound"]');
+  const sound = await soundKeys.nth(1).getAttribute('data-rhythm-value');
+  assert.ok(sound);
+  await soundKeys.first().press('ArrowRight');
+  assert.equal(await choice(page, 'new-sound', sound).evaluate(node => document.activeElement === node), true);
+  await page.keyboard.press('Enter');
+  await bar(1).click();
+  assert.equal(await choice(page, 'new-sound', sound).getAttribute('aria-pressed'), 'true');
+  await action(page, 'add-lane').press('Enter');
+  assert.equal(await choice(page, 'new-sound', sound).count(), 0);
   const clips = root(page).locator('[data-rhythm-clip]');
   const initialIds = await clips.evaluateAll(items => items.map(item => item.dataset.rhythmClip));
-  await clips.nth(1).locator('[data-rhythm-clip-action="remove"]').click();
-  await clips.first().locator('[data-rhythm-clip-action="right"]').click();
+  const editor = output(page, 'clip-editor');
+  assert.equal(await editor.isHidden(), true);
+  await clips.nth(1).press('Enter');
+  await editor.locator('[data-rhythm-clip-action="remove"]').press('Enter');
+  assert.equal(await editor.isHidden(), true);
+  assert.equal(await clips.nth(1).evaluate(node => document.activeElement === node), true);
+  await clips.first().press('Enter');
+  assert.equal(await clips.first().getAttribute('title'), longName);
+  assert.ok((await editor.locator('.rhythm-clip-editor-title').innerText()).includes(longName));
+  const clipPattern = value => editor.locator(`[data-rhythm-clip-select][data-rhythm-value="${value}"]`);
+  await clipPattern('A').press('ArrowRight');
+  assert.equal(await clipPattern('B').evaluate(node => document.activeElement === node), true);
+  await page.keyboard.press('Space');
+  assert.equal(await clipPattern('B').getAttribute('aria-pressed'), 'true');
+  assert.equal(await clipPattern('B').evaluate(node => document.activeElement === node), true);
+  await editor.locator('[data-rhythm-clip-action="right"]').press('Enter');
+  await clips.nth(1).press('Enter');
+  assert.equal(await editor.isHidden(), true);
   const expectedOrder = [initialIds[2], initialIds[0], ...initialIds.slice(3)];
   assert.deepEqual(await clips.evaluateAll(items => items.map(item => item.dataset.rhythmClip)), expectedOrder);
+  await setSettings(page, false);
+  await root(page).locator('.rhythm-chain-card [data-rhythm-scope="chain"]').click();
+  await start(page);
+  await clips.first().and(output(page, 'chain').locator('[aria-current="true"].is-playing')).waitFor();
+  assert.equal(await clips.first().getAttribute('aria-pressed'), 'false');
+  await action(page, 'stop').click();
+  assert.equal(await output(page, 'chain').locator('[aria-current="true"]').count(), 0);
   const copy = await exported(page);
-  assert.equal(copy.schemaVersion, 8);
+  assert.equal(copy.schemaVersion, 9);
   assert.equal(copy.rhythmProjects.length, 1);
   const [project] = copy.rhythmProjects;
   assert.equal(copy.activeRhythmProjectId, project.id);
   assert.ok(project.patterns.length >= 3);
   assert.deepEqual(project.chain.map(clip => clip.id), expectedOrder);
+  assert.equal(project.chain[1].patternId, 'B');
+  assert.ok(project.channels.some(channel => channel.sound === sound));
+  const primaryPattern = project.patterns.find(item => item.id === 'A');
+  assert.equal(primaryPattern.bars, 3);
+  for (const lane of primaryPattern.lanes) {
+    assert.deepEqual(lane.steps.slice(16, 32), lane.steps.slice(0, 16));
+    assert.deepEqual(lane.velocities.slice(16, 32), lane.velocities.slice(0, 16));
+    assert.deepEqual(lane.steps.slice(32), Array.from({ length: 16 }, (_, step) => lane.channelId === 'kick' && step === 5 ? 1 : 0));
+  }
+  assert.equal(primaryPattern.lanes.find(lane => lane.channelId === 'kick').velocities[8], Number(customVelocity));
   await page.reload();
   await ready(page);
   await state(page, 'stopped');
   assert.notEqual(await first.getAttribute('aria-pressed'), before);
+  assert.equal(await addBar.isVisible(), true);
+  await bar(3).click();
+  assert.equal(await thirdBarStep.getAttribute('aria-pressed'), 'true');
+  await bar(1).click();
   const restored = await exported(page);
   assert.deepEqual(restored.rhythmProjects, copy.rhythmProjects);
   assert.equal(restored.activeRhythmProjectId, project.id);
@@ -565,6 +817,7 @@ check('project-steps-and-full-chain-survive-reload-and-export', 'ui', async ({ p
   assert.deepEqual((await raw(page)).rhythmProjects, copy.rhythmProjects);
   await page.locator('[data-history-action="cancel-restore"]').click();
   await page.locator('#open-history').click();
+  await root(page).locator('.rhythm-library > summary').click();
   await edit(page, 'project-name', 'Переименованный проект');
   await action(page, 'save-project').click();
   const renamed = await exported(page);
@@ -575,7 +828,17 @@ check('project-steps-and-full-chain-survive-reload-and-export', 'ui', async ({ p
   await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
   assert.deepEqual((await raw(page)).rhythmProjects, copy.rhythmProjects);
   await state(page, 'stopped');
-  return { project: project.id, patterns: project.patterns.length, clips: project.chain.length, copiedAndClearedBar: true, exactReload: true, legacyPreviewReadOnly: true, exactUiRestore: true };
+  await page.locator('#open-history').click();
+  await bar(3).click();
+  assert.equal(await thirdBarStep.getAttribute('aria-pressed'), 'true');
+  const library = root(page).locator('.rhythm-groove-detail-scroll .rhythm-library');
+  if (!await library.evaluate(node => node.open)) await library.locator(':scope > summary').click();
+  const preset = library.locator('[data-rhythm-preset="funk"]');
+  await preset.click();
+  assert.equal(await preset.getAttribute('aria-pressed'), 'true');
+  assert.equal(await output(page, 'pattern-title').innerText(), 'Фанк');
+  assert.equal(await setting(page, 'bpm').inputValue(), '102');
+  return { project: project.id, patterns: project.patterns.length, clips: project.chain.length, emptyBarsAddedWithSettingsClosed: [2, 3, 4], copiedVelocity: Number(customVelocity), barClampedAfterResize: true, copiedAndClearedBar: true, persistedPatternBars: 3, keyboardChoices: true, singleClipEditor: true, exactReload: true, legacyPreviewReadOnly: true, exactUiRestore: true, lowerLibraryPreset: 'funk' };
 });
 
 check('manual-note-keeps-rhythm-material-and-time-after-changing-project', 'ui', async ({ page }) => {
@@ -596,6 +859,7 @@ check('manual-note-keeps-rhythm-material-and-time-after-changing-project', 'ui',
   assert.equal(original.context, null);
   assert.ok(original.totalReferenceMs > 150);
   await page.locator('#open-history').click();
+  await root(page).locator('.rhythm-library > summary').click();
   await action(page, 'duplicate-project').click();
   await page.waitForFunction(async () => (await new Promise((resolve, reject) => {
     const request = indexedDB.open('bass-study');
@@ -626,34 +890,484 @@ check('manual-note-keeps-rhythm-material-and-time-after-changing-project', 'ui',
 });
 
 check('product-layout-keeps-transport-and-local-grid-in-two-themes', 'ui', async ({ page, resultDir }) => {
-  await enter(page);
   const samples = [];
+  const settingsChecks = [];
+  const headingTypography = locator => locator.evaluate(heading => {
+    const { fontFamily, fontSize, fontWeight, letterSpacing, lineHeight } = getComputedStyle(heading);
+    return { fontFamily, fontSize, fontWeight, letterSpacing, lineHeight };
+  });
+  const frame = () => page.locator('.app-shell').evaluate(shell => {
+    const measure = element => {
+      const { x, y, width, height } = element.getBoundingClientRect();
+      return { x, y, width, height };
+    };
+    return { shell: measure(shell), content: measure(shell.querySelector(':scope > .app-content')) };
+  });
   for (const theme of ['light', 'dark']) {
-    await page.locator(`[data-theme-choice="${theme}"]`).click();
-    for (const width of [1366, 1280]) {
-      await page.setViewportSize({ width, height: width === 1366 ? 768 : 720 });
+    let compactDock;
+    for (const [width, height] of [[1366, 768], [1280, 720], [1440, 900], [2048, 1000], [1782, 1220]]) {
+      await page.setViewportSize({ width, height });
+      await page.reload(); await ready(page);
+      await page.locator(`[data-theme-choice="${theme}"]`).click();
+      await page.locator('[data-app-module="foundation"]').click();
+      await page.locator('#fretboard-container').waitFor();
+      await page.evaluate(() => { window.scrollTo(0, 0); });
+      const fretboardFrame = await frame();
+      const fretboardTypography = await headingTypography(page.locator('#structure-heading'));
+      await enter(page);
+      const startsOpen = width >= 1440 && height >= 700;
+      const selectors = ['.rhythm-transport', '.rhythm-tempo', '.rhythm-swing-dock:visible', '.rhythm-play-module', '.rhythm-mix-board', '.rhythm-master .rhythm-fader'];
+      let metronomeLayout, metronomeField;
       for (const mode of ['metronome', 'rhythm']) {
-        await root(page).locator(`[data-rhythm-mode="${mode}"]`).click();
+        const tablist = root(page).getByRole('tablist');
+        await tablist.locator(`[data-rhythm-mode="${mode}"]`).press('Enter');
+        await assertSettings(page, startsOpen);
+        const viewport = `${width}×${height} ${theme} ${mode}`;
         const bounds = await action(page, 'start').boundingBox();
-        assert.ok(bounds && bounds.y >= 0 && bounds.y + bounds.height <= (width === 1366 ? 768 : 720));
+        assert.ok(bounds && bounds.y >= 0 && bounds.y + bounds.height <= height);
+        const contentArea = root(page).locator('.rhythm-content');
+        await contentArea.evaluate(node => { node.scrollTop = 0; });
+        const content = await contentArea.boundingBox();
+        const panelLocator = root(page).locator(`[data-rhythm-panel="${mode}"]`);
+        const panel = await panelLocator.boundingBox();
+        const dockBox = () => root(page).locator('.rhythm-transport').boundingBox();
+        const dock = await dockBox();
+        const mount = await root(page).boundingBox();
+        const rhythmFrame = await frame();
+        const sharedDimensions = height >= 1000 ? ['x', 'y', 'width', 'height'] : ['x', 'y', 'width'];
+        for (const section of ['shell', 'content']) {
+          for (const dimension of sharedDimensions) {
+            assert.ok(Math.abs(rhythmFrame[section][dimension] - fretboardFrame[section][dimension]) <= 2, `Shared ${section} ${dimension} at ${viewport}: ${rhythmFrame[section][dimension]} vs fretboard ${fretboardFrame[section][dimension]}`);
+          }
+        }
+        const shellBottomGap = height - rhythmFrame.shell.y - rhythmFrame.shell.height;
+        assert.ok(shellBottomGap >= -1 && shellBottomGap <= 20, `Shell bottom gap ${shellBottomGap}px at ${viewport}`);
+        assert.ok(content && panel && dock && content.y + content.height <= dock.y + 1, viewport);
+        assert.ok(dock.y + dock.height <= height, viewport);
+        if (height <= 800) assert.ok(dock.height >= 150 && dock.height <= 168, `Compact dock height ${dock.height}px at ${viewport}`);
+        const side = settingsAside(page);
+        const settingsControls = mode === 'metronome'
+          ? ['[data-rhythm-setting="beats"]', '[data-rhythm-choice="denominator"][data-rhythm-value="4"]', '[data-rhythm-division="1"]']
+          : ['.rhythm-playback-settings [data-rhythm-repeat="once"]', '.rhythm-playback-settings [data-rhythm-setting="rhythmClick"]', '.rhythm-editor-pattern [data-rhythm-choice="bars"][data-rhythm-value="1"]'];
+        for (const selector of settingsControls) {
+          const control = side.locator(selector);
+          assert.equal(await panelLocator.locator(selector).count(), 1, `Only one control ${selector} at ${viewport}`);
+          assert.equal(await control.count(), 1, `Control ${selector} is in settings at ${viewport}`);
+          assert.equal(await control.isVisible(), startsOpen, `Control ${selector} follows settings visibility at ${viewport}`);
+        }
+        const sideBox = startsOpen ? await side.boundingBox() : null;
+        const previousBlock = await root(page).locator(mode === 'metronome' ? '.rhythm-pulse' : '.rhythm-constructor').boundingBox();
+        const hasSide = Boolean(sideBox && sideBox.x >= previousBlock.x + previousBlock.width - 1);
+        assert.equal(hasSide, startsOpen, `Settings initially sit to the right only in wide windows at ${viewport}`);
+        const lastBlock = mode === 'metronome' ? sideBox ?? previousBlock : await root(page).locator('.rhythm-chain-card').boundingBox();
+        assert.ok(lastBlock, viewport);
+        const gap = dock.y - Math.max(lastBlock.y + lastBlock.height, previousBlock.y + previousBlock.height);
+        assert.ok(gap >= -1, `Default content must end before the dock at ${viewport}`);
+        const nextBlock = mode === 'metronome'
+          ? sideBox
+          : await root(page).locator(hasSide ? '.rhythm-groove-tools' : '.rhythm-groove-detail-scroll').boundingBox();
+        const contentSeparation = nextBlock && (mode === 'metronome'
+          ? nextBlock.x - (previousBlock.x + previousBlock.width)
+          : nextBlock.y - (previousBlock.y + previousBlock.height));
+        if (contentSeparation !== null) assert.ok(contentSeparation >= -1 && contentSeparation <= 32, `Related blocks are ${contentSeparation}px apart at ${viewport}`);
+        near(dock.x, mount.x, 1);
+        near(dock.width, mount.width, 1);
+        near(mount.x - rhythmFrame.content.x, 25, 1);
+        near(rhythmFrame.content.x + rhythmFrame.content.width - mount.x - mount.width, 24, 1);
+        const bottomInset = rhythmFrame.content.y + rhythmFrame.content.height - dock.y - dock.height;
+        assert.ok(bottomInset >= -1 && bottomInset <= 16, `Dock bottom inset ${bottomInset}px at ${viewport}`);
+        const verifyFixedDock = async editor => {
+          const openedDock = await dockBox();
+          const openedFrame = await frame();
+          const openedMaster = await root(page).locator('.rhythm-master .rhythm-fader').boundingBox();
+          const openedInset = openedFrame.content.y + openedFrame.content.height - openedDock.y - openedDock.height;
+          assert.ok(Math.abs(openedDock.y - dock.y) <= 1 && Math.abs(openedDock.height - dock.height) <= 1,
+            `Dock moved or resized after opening ${editor} at ${viewport}`);
+          assert.ok(Math.abs(openedInset - bottomInset) <= 1, `Dock bottom inset changed after opening ${editor} at ${viewport}`);
+          assert.ok(Math.abs(openedMaster.y - layout.at(-1).y) <= 1, `Master fader moved after opening ${editor} at ${viewport}`);
+        };
+        const header = root(page).locator('.rhythm-header');
+        const heading = header.getByRole('heading', { level: 1, name: 'Метроном и ритм', exact: true });
+        assert.deepEqual(await headingTypography(heading), fretboardTypography, `Heading typography matches the fretboard at ${viewport}`);
+        const [headerBox, headingBox, toggleBox, tablistBox] = await Promise.all([
+          header.boundingBox(), heading.boundingBox(), settingsToggle(page).boundingBox(), tablist.boundingBox(),
+        ]);
+        assert.ok(headingBox && toggleBox && tablistBox, viewport);
+        assert.ok(toggleBox.x >= headingBox.x + headingBox.width - 1 && toggleBox.y < headingBox.y + headingBox.height && headingBox.y < toggleBox.y + toggleBox.height,
+          `Heading and settings share the first row at ${viewport}`);
+        assert.ok(tablistBox.y >= Math.max(headingBox.y + headingBox.height, toggleBox.y + toggleBox.height) - 1,
+          `Tabs sit below the heading row at ${viewport}`);
+        const tabStyles = await tablist.getByRole('tab').evaluateAll(tabs => tabs.map(tab => {
+          const { backgroundColor, borderBottomWidth, borderBottomStyle, borderBottomColor } = getComputedStyle(tab);
+          return { mode: tab.dataset.rhythmMode, selected: tab.getAttribute('aria-selected') === 'true', backgroundColor, borderBottomWidth, borderBottomStyle, borderBottomColor };
+        }));
+        assert.equal(tabStyles.length, 2);
+        assert.deepEqual(tabStyles.filter(tab => tab.selected).map(tab => tab.mode), [mode]);
+        const activeTab = tabStyles.find(tab => tab.selected), inactiveTab = tabStyles.find(tab => !tab.selected);
+        assert.equal(activeTab.borderBottomStyle, 'solid');
+        assert.ok(parseFloat(activeTab.borderBottomWidth) >= 2);
+        assert.equal(inactiveTab.borderBottomColor, 'rgba(0, 0, 0, 0)');
+        assert.notEqual(activeTab.borderBottomColor, inactiveTab.borderBottomColor);
+        assert.equal(activeTab.backgroundColor, 'rgba(0, 0, 0, 0)');
+        near(content.x, dock.x, 1);
+        near(content.width, dock.width, 1);
+        near(panel.x, content.x, 1);
+        near(panel.width, await contentArea.evaluate(node => node.clientWidth), 1);
+        near(headerBox.x, dock.x, 1);
+        near(headerBox.width, dock.width, 1);
+        const layout = await Promise.all(selectors.map(selector => root(page).locator(selector).boundingBox()));
+        assert.ok(layout.every(Boolean));
+        const faderHeight = layout.at(-1).height;
+        if (width === 1366 && mode === 'metronome') compactDock = { height: dock.height, faderHeight };
+        if (height >= 1000) {
+          assert.ok(dock.height > compactDock.height && dock.height < height / 4, `Responsive dock height ${dock.height}px at ${viewport}`);
+          assert.ok(faderHeight > compactDock.faderHeight, `Larger window provides longer fader travel at ${viewport}`);
+        }
+        if (mode === 'metronome') metronomeLayout = layout;
+        else layout.forEach((box, index) => {
+          for (const dimension of ['x', 'y', 'width', 'height']) assert.ok(Math.abs(box[dimension] - metronomeLayout[index][dimension]) < 1, `${width} ${theme} ${selectors[index]} ${dimension}`);
+        });
+        const field = await playingField(page).boundingBox();
+        assert.ok(field && field.width > 0 && field.height > 0, viewport);
+        if (mode === 'metronome') metronomeField = field;
+        else {
+          for (const dimension of ['width', 'height']) {
+            assert.ok(Math.abs(field[dimension] - metronomeField[dimension]) <= 1,
+              `Contrast field ${dimension} at ${viewport}: ${field[dimension]} vs metronome ${metronomeField[dimension]}`);
+          }
+        }
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
-        samples.push({ theme, width, mode, startTop: bounds.y });
+        const sample = { theme, width, height, mode, shell: rhythmFrame.shell, dock, gap, contentSeparation, bottomInset, faderHeight, settingsInitiallyOpen: startsOpen, contrastField: { width: field.width, height: field.height } };
+        samples.push(sample);
         if (width === 1366) await page.screenshot({ path: join(resultDir, `p10-rhythm-${mode}-${theme}.png`) });
-        if (mode === 'rhythm') {
+        if (width === 2048) await page.screenshot({ path: join(resultDir, `p10-rhythm-${mode}-${theme}-2048x1000.png`) });
+        if (mode === 'metronome') {
+          const beatKeys = output(page, 'beats').locator('.rhythm-beat');
+          const beats = await beatKeys.evaluateAll(keys => keys.map(key => key.getBoundingClientRect().toJSON()));
+          assert.equal(beats.length, 4);
+          assert.ok(beats[0].height > 0, `Visible accent keys at ${viewport}`);
+          for (const [index, beat] of beats.entries()) {
+            near(beat.y, beats[0].y, 1);
+            near(beat.height, beats[0].height, 1);
+            assert.ok(beat.left >= field.x - 1 && beat.right <= field.x + field.width + 1);
+            if (index) assert.ok(beat.left >= beats[index - 1].right - 1);
+          }
+          sample.accentKeyHeight = beats[0].height;
+          sample.meterCoverage = await meterFieldCoverage(page, 4);
+          if (width === 1366 || width === 2048) {
+            await setSettings(page, true);
+            await verifyFixedDock('the settings pane');
+            for (const selector of ['.rhythm-sounds > details', '.rhythm-training']) {
+              await openGroup(page, selector);
+              await verifyFixedDock(selector);
+              await root(page).locator(selector).locator(':scope > summary').click();
+            }
+            await setSettings(page, startsOpen);
+            sample.editorsKeepDock = true;
+          }
+        } else {
+          const grid = output(page, 'rack');
+          const patternHeader = root(page).locator('.rhythm-constructor .rhythm-deck-header');
+          assert.equal(await patternHeader.locator('[data-rhythm-choice="bars"]').count(), 0);
+          const headerBars = patternHeader.locator('[data-rhythm-output="bars"]');
+          assert.equal(await headerBars.locator('[data-rhythm-bar="0"]').isVisible(), true);
+          assert.equal(await headerBars.getByRole('button', { name: 'Добавить такт 2', exact: true }).isVisible(), true);
+          const chainScope = root(page).locator('.rhythm-chain-heading [data-rhythm-scope="chain"]');
+          assert.equal(await chainScope.isVisible(), true);
+          assert.equal(await chainScope.evaluate(button => {
+            const tape = button.closest('.rhythm-chain-card').querySelector('[data-rhythm-output="chain"]');
+            return Boolean(button.compareDocumentPosition(tape) & Node.DOCUMENT_POSITION_FOLLOWING);
+          }), true);
+          const measureGrid = () => grid.locator('.rhythm-rack-row').evaluateAll(rows => rows.map(row => ({
+            row: row.getBoundingClientRect().toJSON(),
+            pads: [...row.querySelectorAll('[data-rhythm-step]')].map(key => key.getBoundingClientRect().toJSON()),
+          })));
+          const closedGrid = await measureGrid();
+          assert.equal(closedGrid.length, 4);
+          const firstPad = closedGrid[0].pads[0];
+          assert.ok(firstPad.height > 0 && firstPad.height <= 36, `Compact step pads at ${viewport}`);
+          if (width >= 1782) assert.ok(firstPad.width > firstPad.height, `Rectangular step pads at ${viewport}`);
+          for (const { row, pads } of closedGrid) {
+            assert.equal(pads.length, 16);
+            for (const [index, pad] of pads.entries()) {
+              near(pad.y, pads[0].y, 1);
+              near(pad.x, closedGrid[0].pads[index].x, 1);
+              near(pad.width, firstPad.width, 1);
+              near(pad.height, firstPad.height, 1);
+              assert.ok(pad.top >= row.top - 1 && pad.bottom <= row.bottom + 1);
+              if (index) assert.ok(pad.left >= pads[index - 1].right - 1);
+            }
+          }
+          sample.stepPad = { width: firstPad.width, height: firstPad.height };
+          assert.equal(await root(page).locator('.rhythm-rack-ruler .rhythm-rack-beat').count(), 4);
+          const rack = await grid.boundingBox();
+          const chain = await output(page, 'chain').boundingBox();
+          assert.ok(rack && rack.y >= content.y - 1 && rack.y + rack.height <= content.y + content.height + 1, `All default grid rows fit at ${viewport}`);
+          assert.ok(chain && chain.y >= rack.y + rack.height - 1 && chain.y + chain.height <= content.y + content.height + 1, `The default chain fits below the grid at ${viewport}`);
+          const lower = root(page).locator('.rhythm-groove-detail-scroll');
+          const library = lower.locator('.rhythm-library');
+          const libraryBox = await library.locator(':scope > summary').boundingBox();
+          assert.ok(libraryBox && libraryBox.y >= field.y + field.height - 1, `The library belongs below the playing field at ${viewport}`);
+          const chainClips = output(page, 'chain').locator('[data-rhythm-clip]');
+          assert.equal(await chainClips.count(), 8);
+          assert.ok(await chainClips.evaluateAll(clips => clips.every(clip => {
+            const bounds = clip.getBoundingClientRect(), chainBounds = clip.parentElement.getBoundingClientRect();
+            return bounds.left >= chainBounds.left - 1 && bounds.right <= chainBounds.right + 1;
+          })), `Every default clip fits horizontally at ${viewport}`);
+          const names = root(page).locator('.rhythm-clip-name, .rhythm-lane-name span, [data-rhythm-output="mixer"] .rhythm-channel-name');
+          const clipped = await names.evaluateAll(elements => elements.flatMap(element => (
+            element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1 ? [element.textContent] : []
+          )));
+          assert.deepEqual(clipped, [], `Standard instrument and clip labels must fit at ${viewport}`);
           await output(page, 'chain').scrollIntoViewIfNeeded();
           const sticky = await action(page, 'start').boundingBox();
-          assert.ok(sticky && sticky.y >= 0 && sticky.y + sticky.height <= (width === 1366 ? 768 : 720));
+          assert.ok(sticky && sticky.y >= 0 && sticky.y + sticky.height <= height);
+          assert.ok(Math.abs(sticky.y - bounds.y) <= 1);
+          if (width === 1366 || width === 2048) {
+            const verifyGrid = async () => {
+              const measuredField = await playingField(page).boundingBox();
+              for (const key of ['x', 'y', 'width', 'height']) near(measuredField[key], field[key], 1);
+              const measuredGrid = await measureGrid();
+              assert.equal(measuredGrid.length, closedGrid.length);
+              for (const [index, { row, pads }] of measuredGrid.entries()) {
+                const previous = closedGrid[index];
+                for (const key of ['x', 'y', 'width', 'height']) near(row[key], previous.row[key], 1);
+                assert.equal(pads.length, previous.pads.length);
+                for (const [step, pad] of pads.entries()) {
+                  for (const key of ['x', 'y', 'width', 'height']) near(pad[key], previous.pads[step][key], 1);
+                }
+              }
+            };
+            await setSettings(page, true);
+            await verifyGrid();
+            await verifyFixedDock('the settings pane');
+            const editors = ['.rhythm-velocity', '.rhythm-editor-bar', '.rhythm-editor-sounds', '.rhythm-library'];
+            for (const selector of editors) {
+              await openGroup(page, selector);
+              await verifyGrid();
+              if (selector === '.rhythm-velocity') {
+                const velocityCenters = await output(page, 'velocity').locator('[data-rhythm-velocity]').evaluateAll(inputs => inputs.map(input => {
+                  const { x, width } = input.getBoundingClientRect();
+                  return x + width / 2;
+                }));
+                assert.equal(velocityCenters.length, 16);
+                for (const [index, center] of velocityCenters.entries()) {
+                  const pad = closedGrid[0].pads[index];
+                  near(center, pad.x + pad.width / 2, 1);
+                }
+              }
+              await verifyFixedDock(selector);
+            }
+            const panes = hasSide ? [lower.locator('.rhythm-groove-tools'), side] : [lower];
+            const scrollDistances = [];
+            for (const pane of panes) {
+              const scrollLimit = await pane.evaluate(node => node.scrollHeight - node.clientHeight);
+              if (scrollLimit <= 1) continue;
+              await pane.hover();
+              const before = await pane.evaluate(node => node.scrollTop);
+              await page.mouse.wheel(0, before > scrollLimit / 2 ? -600 : 600);
+              const element = await pane.elementHandle();
+              await page.waitForFunction(({ element, before }) => Math.abs(element.scrollTop - before) > 1, { element, before }, { timeout: 3000 });
+              const after = await pane.evaluate(node => node.scrollTop);
+              scrollDistances.push(Math.abs(after - before));
+              await verifyGrid();
+              await verifyFixedDock('scrolling the open editors');
+            }
+            if (width === 1366) assert.ok(scrollDistances.length, 'The expanded settings genuinely scroll at 1366×768');
+            for (const selector of editors.reverse()) await root(page).locator(selector).locator(':scope > summary').click();
+            await setSettings(page, startsOpen);
+            sample.editorsKeepGrid = true;
+            sample.editorsKeepDock = true;
+            sample.editorScrollDistances = scrollDistances;
+          }
         }
+      }
+      if (width === 1366 || width === 2048) {
+        const toggle = settingsToggle(page);
+        assert.equal(await toggle.and(root(page).getByRole('button', { name: 'Параметры', exact: true })).count(), 1);
+        const grooveTab = root(page).getByRole('tab', { name: 'Ритм-секция', exact: true });
+        const metroTab = root(page).getByRole('tab', { name: 'Метроном', exact: true });
+        const grooveAside = await assertSettings(page, startsOpen);
+        const initialField = await playingField(page).boundingBox();
+        const initialDock = await root(page).locator('.rhythm-transport').boundingBox();
+        await toggle.press('Space');
+        await assertSettings(page, !startsOpen);
+        const resizedField = await playingField(page).boundingBox();
+        const resizedDock = await root(page).locator('.rhythm-transport').boundingBox();
+        near(resizedDock.y, initialDock.y, 1);
+        near(resizedDock.height, initialDock.height, 1);
+        near(resizedField.height, initialField.height, 1);
+        if (startsOpen) {
+          assert.ok(resizedField.width > initialField.width + 1, 'Closing the right pane returns its width to the playing field');
+          assert.equal(await toggle.evaluate(node => document.activeElement === node), true);
+        } else {
+          near(resizedField.width, initialField.width, 1);
+          assert.equal(await settingsAside(page).evaluate(node => document.activeElement === node), true);
+          const inlineAside = await settingsAside(page).boundingBox();
+          assert.ok(inlineAside && inlineAside.y >= resizedField.y + resizedField.height - 1, 'Opened settings stay below the playing field in a smaller window');
+        }
+        await grooveTab.press('ArrowLeft');
+        const metroAside = await assertSettings(page, !startsOpen);
+        assert.notEqual(metroAside, grooveAside);
+        await setSettings(page, true);
+        const metroOpenField = await playingField(page).boundingBox();
+        await settingsAside(page).getByRole('button', { name: 'Свернуть', exact: true }).press('Enter');
+        await assertSettings(page, false);
+        assert.equal(await toggle.evaluate(node => document.activeElement === node), true);
+        const metroClosedField = await playingField(page).boundingBox();
+        if (startsOpen) {
+          assert.ok(metroClosedField.width > metroOpenField.width + 1);
+          near(metroClosedField.width, resizedField.width, 1);
+        } else near(metroClosedField.width, metroOpenField.width, 1);
+        await metroTab.press('ArrowRight');
+        assert.equal(await assertSettings(page, false), grooveAside);
+        await setSettings(page, startsOpen);
+        settingsChecks.push({ theme, width, startsOpen, fieldWidthBefore: initialField.width, fieldWidthAfter: resizedField.width, sharedState: true, focusRestored: true });
       }
     }
   }
   await page.setViewportSize({ width: 500, height: 720 });
+  await page.reload(); await enter(page);
+  await root(page).getByRole('tab', { name: 'Ритм-секция', exact: true }).click();
+  await assertSettings(page, false);
   const narrow = await root(page).locator('.rhythm-rack-scroll').evaluate(node => {
-    node.scrollLeft = 80;
-    return { rack: node.clientWidth, content: node.scrollWidth, offset: node.scrollLeft, page: document.documentElement.scrollWidth, viewport: innerWidth };
+    const field = node.querySelector('.rhythm-playing-field');
+    const scrollArea = field.scrollWidth > field.clientWidth + 1 ? field : node;
+    scrollArea.scrollLeft = 80;
+    return { rack: scrollArea.clientWidth, content: scrollArea.scrollWidth, offset: scrollArea.scrollLeft, page: document.documentElement.scrollWidth, viewport: innerWidth };
   });
   assert.ok(narrow.content > narrow.rack && narrow.offset > 0 && narrow.page <= narrow.viewport + 1, JSON.stringify(narrow));
-  return { samples, narrow };
+  const tape = await output(page, 'chain').evaluate(node => {
+    node.scrollLeft = 80;
+    return node.scrollLeft;
+  });
+  assert.ok(tape > 0, 'The clip tape scrolls locally');
+  const startKey = action(page, 'start');
+  await startKey.scrollIntoViewIfNeeded();
+  await startKey.focus();
+  const startBox = await startKey.boundingBox();
+  const mix = await root(page).locator('.rhythm-mix-module').boundingBox();
+  assert.ok(startBox && startBox.y >= 0 && startBox.y + startBox.height <= 720 && mix.y >= startBox.y + startBox.height);
+  return { samples, settingsChecks, shellMatchesFretboard: true, sharedHeadingTypography: true, underlinedTabs: true, playbackControlsGrouped: true, fillsSharedWorkspace: true, dockMatchesAcrossTabs: true, contrastFieldsMatch: true, dockPinnedWhenEditorsOpen: true, defaultGridAndChainFit: true, standardNamesFit: true, narrow };
+});
+
+check('product-amplifier-dials-faders-and-playhead-use-real-rhythm-state', 'ui', async ({ page }) => {
+  await page.setViewportSize({ width: 2048, height: 1000 });
+  await enter(page);
+  await root(page).getByRole('tab', { name: 'Ритм-секция' }).click();
+  const tempo = setting(page, 'bpm-slider');
+  await tempo.press('ArrowUp');
+  assert.equal(await setting(page, 'bpm').inputValue(), '93');
+  assert.equal(await tempo.getAttribute('aria-valuetext'), '93 BPM');
+  const dial = await tempo.boundingBox();
+  assert.ok(dial);
+  const x = dial.x + dial.width / 2, y = dial.y + dial.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y - 34);
+  const dragged = Number(await tempo.inputValue());
+  assert.ok(dragged > 93);
+  assert.equal(await setting(page, 'bpm').inputValue(), String(dragged));
+  assert.equal(await root(page).getAttribute('data-rhythm-bpm'), '93');
+  await page.mouse.up();
+  assert.equal(await root(page).getAttribute('data-rhythm-bpm'), String(dragged));
+  await setting(page, 'rhythm-swing').press('ArrowUp');
+  assert.equal(await output(page, 'rhythm-swing').textContent(), '51%');
+
+  const fader = root(page).getByRole('slider', { name: 'Громкость Бочка', exact: true });
+  await fader.press('ArrowUp');
+  assert.equal(await fader.getAttribute('aria-valuetext'), '75%');
+  assert.equal(await fader.evaluate(node => getComputedStyle(node).writingMode), 'vertical-lr');
+  const mute = root(page).getByRole('button', { name: 'Бочка. Заглушить', exact: true });
+  const solo = root(page).getByRole('button', { name: 'Малый. Соло', exact: true });
+  await mute.click();
+  await solo.click();
+  assert.equal(await mute.getAttribute('aria-pressed'), 'true');
+  assert.equal(await solo.getAttribute('aria-pressed'), 'true');
+  await setSettings(page, true);
+  await root(page).getByRole('button', { name: 'Один проход', exact: true }).click();
+  await setSettings(page, false);
+  const copy = await exported(page);
+  const project = copy.rhythmProjects.find(item => item.id === copy.activeRhythmProjectId);
+  assert.ok(project);
+  assert.equal(project.bpm, dragged);
+  assert.equal(project.swing, 51);
+  assert.equal(project.repeat, 'once');
+  assert.equal(project.channels.find(channel => channel.sound === 'kick').volume, .75);
+  assert.equal(project.channels.find(channel => channel.sound === 'kick').muted, true);
+  assert.equal(project.channels.find(channel => channel.sound === 'snare').solo, true);
+  await page.locator('#open-history').click();
+  assert.equal(await root(page).locator('.rhythm-lane-name .rhythm-instrument-art').count(), 4);
+  await root(page).locator('.rhythm-velocity > summary').click();
+  const velocity = root(page).locator('[data-rhythm-velocity="8"]');
+  await velocity.press('ArrowUp');
+  assert.equal(await velocity.getAttribute('aria-valuetext'), '73%');
+  assert.equal(await velocity.evaluate(input => input.parentElement.style.getPropertyValue('--velocity')), '73%');
+  assert.equal(await root(page).locator('.rhythm-velocity-value').textContent(), 'Шаг 9 · 73%');
+  const velocityBox = await velocity.boundingBox();
+  const stepBox = await output(page, 'rack').locator('.rhythm-rack-row').first().locator('[data-rhythm-step="8"]').boundingBox();
+  assert.ok(stepBox.width > stepBox.height, 'Velocity stays aligned to a rectangular pad at 2048×1000');
+  near(velocityBox.x + velocityBox.width / 2, stepBox.x + stepBox.width / 2, 1);
+  await velocity.click({ position: { x: velocityBox.width / 2, y: velocityBox.height * 0.78 } });
+  const mouseVelocity = await velocity.getAttribute('aria-valuetext');
+  assert.notEqual(mouseVelocity, '73%');
+  assert.equal(await root(page).locator('.rhythm-velocity-value').textContent(), `Шаг 9 · ${mouseVelocity}`);
+  await root(page).locator('.rhythm-velocity > summary').click();
+  await start(page);
+  await page.waitForFunction(() => {
+    const grid = document.querySelector('[data-rhythm-output="rack"]');
+    const column = grid?.style.getPropertyValue('--playhead-step');
+    const current = grid?.querySelectorAll('.rhythm-step.is-playing');
+    return column !== '' && current?.length === 4 && [...current].every(step => step.dataset.rhythmStep === column);
+  });
+  await action(page, 'pause').click();
+  await state(page, 'paused');
+  const pausedColumn = await output(page, 'rack').evaluate(node => node.style.getPropertyValue('--playhead-step'));
+  const cursorOffset = await output(page, 'rack').evaluate(node => {
+    const pad = node.querySelector('.rhythm-step.is-playing').getBoundingClientRect();
+    const cursor = parseFloat(getComputedStyle(node, '::after').left);
+    return Math.abs(node.getBoundingClientRect().left + cursor - pad.left - pad.width / 2);
+  });
+  assert.ok(cursorOffset < 1.5, `Cursor offset ${cursorOffset}px`);
+  await delay(200);
+  assert.equal(await output(page, 'rack').evaluate(node => node.style.getPropertyValue('--playhead-step')), pausedColumn);
+  await action(page, 'stop').click();
+  assert.equal(await root(page).locator('.rhythm-step.is-playing').count(), 0);
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const fourLaneField = await playingField(page).boundingBox();
+  await setSettings(page, true);
+  await openGroup(page, '.rhythm-editor-sounds');
+  const addLane = action(page, 'add-lane');
+  for (let index = 0; index < 4; index++) await addLane.click();
+  assert.equal(await addLane.isDisabled(), true);
+  await setSettings(page, false);
+  assert.equal(await output(page, 'rack').locator('.rhythm-rack-row').count(), 8);
+  assert.equal(await output(page, 'rack').locator('[data-rhythm-step]').count(), 128);
+  const mixer = output(page, 'mixer');
+  assert.equal(await mixer.getByRole('slider').count(), 8);
+  assert.equal(await mixer.locator('[data-rhythm-mute]').count(), 8);
+  assert.equal(await mixer.locator('[data-rhythm-solo]').count(), 8);
+  const contentArea = root(page).locator('.rhythm-content');
+  await contentArea.evaluate(node => { node.scrollTop = 0; });
+  const startBefore = await action(page, 'start').boundingBox();
+  assert.ok(startBefore && startBefore.y + startBefore.height <= 720);
+  const eightLaneField = await playingField(page).boundingBox();
+  assert.ok(fourLaneField && eightLaneField);
+  near(eightLaneField.width, fourLaneField.width, 1);
+  near(eightLaneField.height, fourLaneField.height, 1);
+  const fieldScroll = await playingField(page).evaluate(node => {
+    node.scrollTop = node.scrollHeight;
+    return node.scrollTop;
+  });
+  assert.ok(fieldScroll > 0, 'Eight rows scroll inside the fixed-size playing field');
+  const startAfter = await action(page, 'start').boundingBox();
+  assert.ok(startAfter && Math.abs(startBefore.y - startAfter.y) <= 1);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+  await start(page);
+  await page.waitForFunction(() => document.querySelectorAll('[data-rhythm-output="rack"] .rhythm-step.is-playing').length === 8);
+  await action(page, 'stop').click();
+  return { exactTempo: dragged, swing: 51, verticalFader: true, savedMix: true, keyboardVelocity: '73%', mouseVelocity, audioPositionColumn: true, pausedColumn, cursorOffset, eightLanes: { mixerChannels: 8, steps: 128, fieldScroll, fieldSizeStable: true, pinnedTransport: true } };
 });
 
 check('product-keyboard-tabs-and-grid-do-not-intercept-transport-shortcuts', 'ui', async ({ page }) => {
@@ -672,7 +1386,7 @@ check('product-keyboard-tabs-and-grid-do-not-intercept-transport-shortcuts', 'ui
   assert.notEqual(await step.getAttribute('aria-pressed'), previous);
   assert.equal(await step.evaluate(node => document.activeElement === node), true);
   await state(page, 'stopped');
-  await output(page, 'status').click();
+  await output(page, 'position').click();
   await page.keyboard.press('Space');
   await state(page, 'running');
   await page.keyboard.press('Space');
@@ -691,6 +1405,122 @@ check('product-keyboard-tabs-and-grid-do-not-intercept-transport-shortcuts', 'ui
   return { arrowTab: true, stepToggle: true, inputGuard: true, transportShortcuts: true };
 });
 
+check('product-step-accents-use-the-browser-local-default-hit-velocity', 'ui', async ({ page }) => {
+  await enter(page);
+  await root(page).getByRole('tab', { name: 'Ритм-секция', exact: true }).click();
+  const velocityEditor = root(page).locator('details.rhythm-velocity');
+  const velocitySummary = velocityEditor.locator(':scope > summary');
+  const defaultHit = velocityEditor.locator('input[data-rhythm-default-velocity][type="number"]');
+  const defaultAccent = velocityEditor.locator('input[data-rhythm-default-accent][type="number"]');
+  const rack = output(page, 'rack');
+  const track = channel => rack.locator(`[data-rhythm-select-lane="${channel}"]`);
+  const step = (channel, index) => rack.locator(`[data-rhythm-channel="${channel}"][data-rhythm-step="${index}"]`);
+  const velocities = output(page, 'velocity').locator('[data-rhythm-velocity]');
+  const trackVelocities = () => velocities.evaluateAll(inputs => inputs.map(input => input.valueAsNumber));
+  const hit = async (channel, index, level, percent) => {
+    assert.equal(await track(channel).getAttribute('aria-pressed'), 'true');
+    assert.equal(await step(channel, index).getAttribute('data-level'), String(level));
+    assert.equal(await velocities.nth(index).getAttribute('aria-valuetext'), `${percent}%`);
+  };
+  const defaults = async (ordinary, accent) => {
+    assert.equal(await defaultHit.inputValue(), String(ordinary));
+    assert.equal(await defaultAccent.inputValue(), String(accent));
+  };
+  const closeVelocity = async () => {
+    await velocitySummary.press('Enter');
+    assert.equal(await defaultHit.isHidden(), true);
+    assert.equal(await defaultAccent.isHidden(), true);
+  };
+  const setDefaults = async (ordinary, accent) => {
+    const before = await trackVelocities();
+    await defaultHit.fill(String(ordinary));
+    await defaultHit.press('Tab');
+    await defaultAccent.fill(String(accent));
+    await defaultAccent.press('Tab');
+    await defaults(ordinary, accent);
+    assert.deepEqual(await trackVelocities(), before);
+  };
+  const controls = [[defaultHit, 'Сила нового удара'], [defaultAccent, 'Сила нового акцента']];
+  for (const [control] of controls) {
+    assert.equal(await control.count(), 1);
+    assert.equal(await control.isHidden(), true);
+  }
+  await openGroup(page, '.rhythm-velocity');
+  for (const [control, name] of controls) {
+    assert.equal(await control.and(velocityEditor.getByRole('spinbutton', { name, exact: true })).count(), 1);
+    assert.equal(await control.getAttribute('min'), '1');
+    assert.equal(await control.getAttribute('max'), '100');
+  }
+  await defaults(72, 100);
+
+  await page.evaluate(() => localStorage.setItem('bass-study.rhythm.new-hit-velocity', '68'));
+  await page.reload();
+  await ready(page);
+  await state(page, 'stopped');
+  await openGroup(page, '.rhythm-velocity');
+  await defaults(68, 100);
+  await hit('kick', 0, 2, 100);
+  await hit('kick', 8, 1, 72);
+  await setDefaults(61, 82);
+  await track('snare').click();
+  await defaults(68, 100);
+  await hit('snare', 4, 2, 100);
+  await setDefaults(74, 89);
+  await track('kick').click();
+  await defaults(61, 82);
+  await closeVelocity();
+
+  await step('snare', 5).click({ button: 'right' });
+  await hit('snare', 5, 2, 89);
+  await openGroup(page, '.rhythm-velocity');
+  await defaults(74, 89);
+  await velocities.nth(5).press('ArrowDown');
+  await hit('snare', 5, 2, 88);
+  await closeVelocity();
+
+  await step('kick', 8).click({ button: 'right' });
+  await hit('kick', 8, 2, 82);
+  await defaults(61, 82);
+  await step('kick', 8).click({ button: 'right' });
+  await hit('kick', 8, 1, 61);
+
+  await hit('kick', 5, 0, 0);
+  await step('kick', 5).press('Shift+Enter');
+  await hit('kick', 5, 2, 82);
+  await step('kick', 5).press('Shift+Enter');
+  await hit('kick', 5, 1, 61);
+  await step('kick', 5).click();
+  await hit('kick', 5, 0, 0);
+  await step('kick', 5).click();
+  await hit('kick', 5, 1, 61);
+  assert.equal(await rack.evaluate(node => node.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 }))), true);
+  await state(page, 'stopped');
+
+  const copy = await exported(page);
+  const project = copy.rhythmProjects.find(item => item.id === copy.activeRhythmProjectId);
+  const lanes = project.patterns.find(pattern => pattern.id === project.activePatternId).lanes;
+  const exportedHits = (channel, indices) => {
+    const lane = lanes.find(item => item.channelId === channel);
+    return indices.map(index => [lane.steps[index], lane.velocities[index]]);
+  };
+  assert.deepEqual(exportedHits('kick', [0, 5, 8, 10]), [[2, 1], [1, .61], [1, .61], [1, .72]]);
+  assert.deepEqual(exportedHits('snare', [4, 5]), [[2, 1], [2, .88]]);
+  await page.reload();
+  await ready(page);
+  await state(page, 'stopped');
+  await openGroup(page, '.rhythm-velocity');
+  await defaults(61, 82);
+  await track('snare').click();
+  await defaults(74, 89);
+  await hit('snare', 5, 2, 88);
+  await track('closedHat').click();
+  await defaults(68, 100);
+  await closeVelocity();
+  await step('kick', 6).click();
+  await hit('kick', 6, 1, 61);
+  return { cleanDefaults: [72, 100], legacyOrdinaryFallback: 68, trackDefaults: { kick: [61, 82], snare: [74, 89] }, editedAccentVelocity: 88, existingHitsUnchanged: true, gesturesWithEditorClosed: true, keyboardAccent: true, rackContextMenuAllowed: true, survivesReload: true };
+});
+
 check('native-real-hidden-tab-pauses-until-explicit-resume', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
   await enter(page);
   await start(page);
@@ -707,15 +1537,15 @@ check('native-real-hidden-tab-pauses-until-explicit-resume', 'native', async ({ 
   return { actualDocumentHidden: true, noAutomaticResume: true };
 }));
 
-check('native-upgrade-seven-to-eight-keeps-legacy-history-and-drafts', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
-  await seedV7(page, origin);
+check('native-upgrade-seven-to-nine-keeps-legacy-history-and-drafts', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
+  await seedDatabase(page, origin, literalV7);
   const before = await raw(page);
   assert.equal(before.version, 7);
   await page.goto(origin);
   await ready(page);
   const after = await raw(page);
   assert.deepEqual(after, {
-    ...before, version: 8, stores: [...before.stores, 'rhythmProjects'].sort(),
+    ...before, version: 9, stores: [...before.stores, 'rhythmProjects'].sort(),
     preferences: { ...before.preferences, rhythm: null },
     presets: before.presets.map(preset => ({ ...preset, preferences: { ...preset.preferences, rhythm: null } })),
   });
@@ -748,8 +1578,52 @@ check('native-upgrade-seven-to-eight-keeps-legacy-history-and-drafts', 'native',
   return { version: after.version, historyPreserved: before.history.length, draftsPreserved: before.practiceDrafts.length, savedLegacyDuration: saved.result.durationMs, legacyPresetPreservesRhythm: true };
 }));
 
+check('native-upgrade-eight-to-nine-keeps-project-selection-and-rhythm-practice', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
+  const project = (id, name, bars) => {
+    const steps = Array.from({ length: bars * 16 }, (_, index) => index % 16 === Math.floor(index / 16) ? 1 : 0);
+    return {
+      id, name, createdAt: '2026-11-08T22:30:00.000Z', updatedAt: '2026-11-08T22:30:01.000Z',
+      bpm: 107, swing: 53, swingMode: 'eighth',
+      channels: [{ id: 'kick', name: 'Бочка', sound: 'kick', volume: .8, muted: false, solo: false }],
+      patterns: [{ id: 'A', name, bars, lanes: [{ channelId: 'kick', steps, velocities: steps.map(step => step * .63) }] }],
+      chain: [{ id: 'clip-1', patternId: 'A' }], activePatternId: 'A', scope: 'pattern', repeat: 'once', countIn: true, overlay: false,
+    };
+  };
+  const selected = project('v8-rhythm-selected', 'Четыре такта из версии 8', 4);
+  const rhythm = {
+    view: 'rhythm', master: .76, metronome: {
+      bpm: 117, bpmUnit: 'quarter', meter: { beats: 4, denominator: 4, groups: [4] }, accents: [2, 1, 1, 1],
+      division: 1, substeps: [], swing: 50, swingMode: 'eighth', kit: 'wood', accentVolume: .8, clickVolume: .8, subdivisionVolume: .35,
+      countIn: false, training: { silentEnabled: false, soundBars: 3, silentBars: 1, rampEnabled: false, stepBpm: 2, everyBars: 8, targetBpm: 120 },
+    },
+  };
+  const material = { kind: 'rhythm', playback: { preferences: rhythm, project: selected } };
+  const oldDraft = literalV7.practiceDrafts.find(item => item.material.kind === 'harmony');
+  const oldHistory = literalV7.history.find(item => item.result.kind === 'manual');
+  const snapshot = {
+    ...literalV7, schemaVersion: 8, preferences: { ...literalV7.preferences, rhythm },
+    presets: literalV7.presets.map(preset => ({ ...preset, preferences: { ...preset.preferences, rhythm: null } })),
+    practiceDrafts: [...literalV7.practiceDrafts, { ...oldDraft, id: 'v8-rhythm-draft', context: null, material }],
+    history: [...literalV7.history, { ...oldHistory, id: 'v8-rhythm-history', result: { ...oldHistory.result, context: null, material } }],
+    rhythmProjects: [project('v8-rhythm-first', 'Один такт из версии 8', 1), selected], activeRhythmProjectId: selected.id,
+  };
+  await seedDatabase(page, origin, snapshot);
+  const before = await raw(page);
+  assert.equal(before.version, 8);
+  assert.equal(before.activeRhythmProjectId, selected.id);
+  assert.deepEqual(before.rhythmProjects, snapshot.rhythmProjects);
+  await page.goto(origin);
+  await ready(page);
+  const after = await raw(page);
+  assert.deepEqual(after, { ...before, version: 9 });
+  await root(page).waitFor();
+  assert.equal(await output(page, 'pattern-title').innerText(), selected.name);
+  assert.equal(await output(page, 'bars').getByRole('button', { name: 'Такт 4', exact: true }).isVisible(), true);
+  return { fromVersion: 8, version: after.version, activeRhythmProjectId: selected.id, projectsPreserved: after.rhythmProjects.length, rhythmDraftAndHistoryPreserved: true };
+}));
+
 check('native-upgrade-abort-after-successful-cursor-update-retains-version-seven', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
-  await seedV7(page, origin);
+  await seedDatabase(page, origin, literalV7);
   const before = await raw(page);
   await context.addInitScript(() => {
     const update = IDBCursorWithValue.prototype.update;
@@ -757,7 +1631,7 @@ check('native-upgrade-abort-after-successful-cursor-update-retains-version-seven
     IDBCursorWithValue.prototype.update = function (...args) {
       const request = update.apply(this, args);
       const transaction = this.source.transaction;
-      if (transaction?.db.name === 'bass-study' && transaction.db.version === 8) request.addEventListener('success', () => {
+      if (transaction?.db.name === 'bass-study' && transaction.db.version === 9) request.addEventListener('success', () => {
         window.__rhythmUpgradeWrites++;
         transaction.abort();
       });
@@ -812,6 +1686,6 @@ check('native-project-restore-validates-chain-and-rolls-back-after-project-and-s
 
 const selected = process.argv.find(argument => argument.startsWith('--case='))?.slice(7);
 await runTracksBrowserChecks(checks.filter(check => !selected || check.name.includes(selected)), {
-  scope: 'P10-02 product rhythm in Edge: isolated offline PCM, live signal, UI, native visibility, real schema 8 migration and restore.',
+  scope: 'Product rhythm in Edge: VIS-05 r2 controls and layout, isolated offline PCM, live signal, native visibility, real schema 8 migration and restore.',
   reportFile: selected ? 'p10-rhythm-case-edge.json' : 'p10-rhythm-edge.json',
 });

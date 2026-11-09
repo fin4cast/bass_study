@@ -104,21 +104,25 @@ describe('паттерны ритм-секции', () => {
   it('сохраняет повторённые клипы как отдельные вхождения и завершается после всей цепочки', () => {
     const seed = makeProject();
     const first = seed.patterns[0];
-    const extended = { ...first, bars: 2, lanes: first.lanes.map(lane => ({
-      ...lane, steps: [...lane.steps, ...lane.steps], velocities: [...lane.velocities, ...lane.velocities],
+    const extended = { ...first, bars: 3, lanes: first.lanes.map(lane => ({
+      ...lane, steps: [...lane.steps, ...lane.steps, ...Array<0>(16).fill(0)], velocities: [...lane.velocities, ...lane.velocities, ...Array<number>(16).fill(0)],
     })) } as const;
     const plan = createRhythmPlan({ preferences, project: {
       ...seed, bpm: 120, patterns: [extended, ...seed.patterns.slice(1)], countIn: true, repeat: 'once', scope: 'chain',
       chain: [{ id: 'intro', patternId: 'A' }, { id: 'fill', patternId: 'C' }, { id: 'return', patternId: 'A' }],
     } });
-    expect(plan.totalSteps).toBe(84);
-    expect([4, 20, 36, 52, 68].map(index => {
+    expect(plan.totalSteps).toBe(116);
+    expect([4, 20, 36, 52, 68, 84, 100].map(index => {
       const { clipId, patternId, patternBar, step, bar } = rhythmFrameAt(plan, index)!.position;
       return [clipId, patternId, patternBar, step, bar];
-    })).toEqual([['intro', 'A', 1, 0, 1], ['intro', 'A', 2, 0, 2], ['fill', 'C', 1, 0, 3], ['return', 'A', 1, 0, 4], ['return', 'A', 2, 0, 5]]);
-    expect(rhythmFrameAt(plan, 83)?.position).toMatchObject({ clipId: 'return', patternBar: 2, step: 15 });
-    expect(rhythmFrameAt(plan, 84)).toBeNull();
-    expect(boundaries(plan, 84).at(-1)).toBeCloseTo(12, 9);
+    })).toEqual([
+      ['intro', 'A', 1, 0, 1], ['intro', 'A', 2, 0, 2], ['intro', 'A', 3, 0, 3], ['fill', 'C', 1, 0, 4],
+      ['return', 'A', 1, 0, 5], ['return', 'A', 2, 0, 6], ['return', 'A', 3, 0, 7],
+    ]);
+    expect(frames(plan, 36, 16).every(frame => frame.hits.length === 0)).toBe(true);
+    expect(rhythmFrameAt(plan, 115)?.position).toMatchObject({ clipId: 'return', patternBar: 3, step: 15 });
+    expect(rhythmFrameAt(plan, 116)).toBeNull();
+    expect(boundaries(plan, 116).at(-1)).toBeCloseTo(16, 9);
   });
 
   it('берёт выбранный паттерн, ставит velocity без повторного масштабирования и оставляет выключенный шаг тихим', () => {
@@ -177,10 +181,10 @@ describe('паттерны ритм-секции', () => {
   });
 
   it('даёт независимые копии пресета и 16 шагов на каждый такт', () => {
-    const [kick] = createLanes('rock', 2);
+    const [kick] = createLanes('rock', 3);
     expect(RHYTHM_PRESETS.map(preset => preset.id)).toEqual(['rock', 'funk', 'shuffle', 'blues', 'latin', 'disco', 'blank']);
-    expect(kick.steps).toHaveLength(32);
-    expect(kick.steps.slice(0, 16)).toEqual(kick.steps.slice(16));
+    expect(kick.steps).toHaveLength(48);
+    expect(kick.steps.slice(16)).toEqual([...kick.steps.slice(0, 16), ...kick.steps.slice(0, 16)]);
     expect(kick.steps[0]).toBe(2);
     kick.steps[0] = 0;
     expect(createLanes('rock')[0].steps[0]).toBe(2);

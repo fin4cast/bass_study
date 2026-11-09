@@ -104,7 +104,7 @@ describe('каталог только в памяти страницы', () => {
 describe('schema7: музбанк отдельно от legacy-аудиофайлов и неизменённая история', () => {
   it.each([[1, v1], [2, v2], [3, v3], [4, v4], [5, v5], [6, v6]] as const)('мигрирует буквальную версию %i с пустым musicBank', (_version, json) => {
     const before = JSON.parse(json), bytes = JSON.stringify(before), next = parseBackup(json);
-    expect(next.schemaVersion).toBe(8); expect(next.preferences.musicBank).toBeNull();
+    expect(next.schemaVersion).toBe(9); expect(next.preferences.musicBank).toBeNull();
     expect(next.presets.every(p => p.preferences.musicBank === null)).toBe(true);
     expect(JSON.stringify(before)).toBe(bytes); expect(parseBackup(JSON.stringify(next))).toEqual(next);
   });
@@ -120,7 +120,7 @@ describe('schema7: музбанк отдельно от legacy-аудиофай�
   it('не допускает подмену версии и скрытые новые поля в старой копии', () => {
     const previous = JSON.parse(v6); previous.preferences.musicBank = null;
     expect(() => parseBackup(JSON.stringify(previous))).toThrow(/неизвестные/);
-    expect(() => parseBackup(JSON.stringify({ ...emptySnapshot(), schemaVersion: 9 }))).toThrow(/версия/);
+    expect(() => parseBackup(JSON.stringify({ ...emptySnapshot(), schemaVersion: 10 }))).toThrow(/версия/);
     for (const mutate of [(p: any) => { p.profile.theme = 'auto'; }, (p: any) => { p.practiceDrafts[0].recordedThroughMs = 999999; }, (p: any) => { p.practiceDrafts[0].localDate = '2026-11-08'; }]) {
       const old = JSON.parse(v6); mutate(old); expect(() => parseBackup(JSON.stringify(old))).toThrow();
     }
@@ -130,7 +130,7 @@ describe('schema7: музбанк отдельно от legacy-аудиофай�
     const tracks = createTracksManifest({ id: 'legacy-audio', tracks: [{ id: 'stem-1', name: 'bass.wav', size: 40044, lastModified: 1234, sha256: 'b'.repeat(64), decoded: { duration: 1, frames: 20000, sampleRate: 20000, channels: 1 }, volume: .65, muted: true }] });
     const store = createMemoryStudyStore(); await store.savePreferences({ ...DEFAULT_PREFERENCES, activeModule: 'tracks', tracks, musicBank: preferences() });
     const json = await store.exportBackup(), snapshot = parseBackup(json);
-    expect(snapshot.preferences.tracks).toEqual(tracks); expect(snapshot.preferences.musicBank).toEqual(preferences()); expect(snapshot.schemaVersion).toBe(8);
+    expect(snapshot.preferences.tracks).toEqual(tracks); expect(snapshot.preferences.musicBank).toEqual(preferences()); expect(snapshot.schemaVersion).toBe(9);
     expect(json).not.toMatch(/arrayBuffer|fileHandle|rawFile|"pcm"|catalog|playbackTime/);
     const fresh = createMemoryStudyStore(); await fresh.restore(json, { confirmed: true }); expect(await fresh.readSnapshot()).toEqual(snapshot);
   });

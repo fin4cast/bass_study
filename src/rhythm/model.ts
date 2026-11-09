@@ -4,11 +4,12 @@ export const SOUND_LABELS = Object.freeze({
 });
 export const RHYTHM_KITS = ['wood', 'classic', 'electronic', 'bell', 'clave', 'drum'] as const;
 export const RHYTHM_PATTERN_IDS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
+export const RHYTHM_PATTERN_LENGTHS = [1, 2, 3, 4] as const;
 export const RHYTHM_STEPS_PER_BAR = 16;
 export type RhythmSound = keyof typeof SOUND_LABELS;
 export type RhythmKit = typeof RHYTHM_KITS[number];
 export type RhythmPatternId = typeof RHYTHM_PATTERN_IDS[number];
-export type RhythmPatternBars = 1 | 2 | 4;
+export type RhythmPatternBars = typeof RHYTHM_PATTERN_LENGTHS[number];
 export type RhythmStep = 0 | 1 | 2;
 export type RhythmDivision = 1 | 2 | 3 | 4;
 export type RhythmBpmUnit = 'quarter' | 'eighth' | 'dotted-quarter';
@@ -167,7 +168,7 @@ export function validateRhythmChannel(value: unknown): RhythmChannel {
 }
 function validatePattern(value: unknown, channels: readonly RhythmChannel[]): RhythmPattern {
   const data = record(value, ['id', 'name', 'bars', 'lanes'], 'Паттерн');
-  const bars = choice(data.bars, [1, 2, 4] as const, 'Длина паттерна');
+  const bars = choice(data.bars, RHYTHM_PATTERN_LENGTHS, 'Длина паттерна');
   const length = bars * RHYTHM_STEPS_PER_BAR;
   const lanes = list(data.lanes, channels.length, channels.length, 'Строки паттерна').map(value => {
     const lane = record(value, ['channelId', 'steps', 'velocities'], 'Строка паттерна');
@@ -237,7 +238,7 @@ export type RhythmPresetId = keyof typeof presets;
 export const RHYTHM_PRESETS = freeze(Object.entries(presets).map(([id, { sounds, ...descriptor }]) => ({ id: id as RhythmPresetId, ...descriptor })));
 export function createLanes(presetId: RhythmPresetId = 'rock', bars: RhythmPatternBars = 1) {
   if (!Object.hasOwn(presets, presetId)) invalid('Неизвестный ритмический рисунок.');
-  choice(bars, [1, 2, 4], 'Длина паттерна');
+  choice(bars, RHYTHM_PATTERN_LENGTHS, 'Длина паттерна');
   return (Object.entries(presets[presetId].sounds) as [RhythmSound, RhythmStep[]][]).map(([sound, source]) => {
     const steps = Array.from({ length: bars * RHYTHM_STEPS_PER_BAR }, (_, index) => source[index % 16]);
     return { id: sound, name: SOUND_LABELS[sound], sound, volume: sound === 'closedHat' || sound === 'shaker' ? .5 : .7,

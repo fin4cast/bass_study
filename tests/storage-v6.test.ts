@@ -19,7 +19,7 @@ describe('schema6: truthful material, global profile and durable drafts', () => 
   it('adds metadata to literal v5 without changing any old events, IDs or timestamps', () => {
     const old = JSON.parse(v5Json), before = JSON.stringify(old);
     const next = parseBackup(v5Json);
-    expect(next.schemaVersion).toBe(8); expect(next.profile).toEqual(DEFAULT_PROFILE); expect(next.practiceDrafts).toEqual([]);
+    expect(next.schemaVersion).toBe(9); expect(next.profile).toEqual(DEFAULT_PROFILE); expect(next.practiceDrafts).toEqual([]);
     for (const entry of next.history) {
       const original = old.history.find((item: any) => item.id === entry.id);
       expect({ id: entry.id, occurredAt: entry.occurredAt, timeZone: entry.timeZone, localDate: entry.localDate }).toEqual({ id: original.id, occurredAt: original.occurredAt, timeZone: original.timeZone, localDate: original.localDate });

@@ -1,5 +1,5 @@
 import {
-  DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError, previewImport, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
+  DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError, migrateBackup, previewImport, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
   migrateV1Preferences, migrateV1Preset, migrateV1HistoryEntry,
   migrateV2Preferences, migrateV2Preset, migrateV2HistoryEntry,
   migrateV3Preferences, migrateV3Preset, migrateV3HistoryEntry,
@@ -34,6 +34,27 @@ function requestValue<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
 }
 
+function snapshotRequests(transaction: IDBTransaction) {
+  const preferences = transaction.objectStore('preferences');
+  return {
+    preferences: preferences.get('current'),
+    presets: transaction.objectStore('presets').getAll(),
+    history: transaction.objectStore('history').getAll(),
+    profile: transaction.objectStore('profile').get('current'),
+    practiceDrafts: transaction.objectStore('practiceDrafts').getAll(),
+    rhythmProjects: transaction.objectStore('rhythmProjects').getAll(),
+    activeRhythmProjectId: preferences.get(RHYTHM_SELECTION_KEY),
+  };
+}
+
+function snapshotFromRequests(requests: ReturnType<typeof snapshotRequests>, schemaVersion: 8 | typeof STUDY_DB_VERSION): StudySnapshot {
+  const validate = schemaVersion === 8 ? migrateBackup : validateSnapshot;
+  return validate({ format: 'bass-study-backup', schemaVersion,
+    preferences: requests.preferences.result ?? DEFAULT_PREFERENCES, presets: requests.presets.result, history: requests.history.result,
+    profile: requests.profile.result ?? DEFAULT_PROFILE, practiceDrafts: requests.practiceDrafts.result, rhythmProjects: requests.rhythmProjects.result,
+    activeRhythmProjectId: requests.activeRhythmProjectId.result ?? null });
+}
+
 /** Native IndexedDB adapter. Each ordinary write only touches its own store. */
 export function createStudyStore() {
   let database: IDBDatabase | null = null;
@@ -65,7 +86,15 @@ export function createStudyStore() {
         if (!db.objectStoreNames.contains('practiceDrafts')) db.createObjectStore('practiceDrafts', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('rhythmProjects')) db.createObjectStore('rhythmProjects', { keyPath: 'id' });
         if (event.oldVersion < 6) request.transaction!.objectStore('profile').put(DEFAULT_PROFILE, 'current');
-        if (event.oldVersion >= 1 && event.oldVersion < STUDY_DB_VERSION) {
+        if (event.oldVersion === 8) {
+          const transaction = request.transaction!;
+          const requests = snapshotRequests(transaction);
+          // The last request resolves after the other reads in this transaction.
+          requests.activeRhythmProjectId.onsuccess = () => {
+            try { snapshotFromRequests(requests, 8); }
+            catch (error) { migrationFailure = error; transaction.abort(); }
+          };
+        } else if (event.oldVersion >= 1 && event.oldVersion < STUDY_DB_VERSION) {
           const transaction = request.transaction!;
           const migrations = event.oldVersion === 1
             ? { preferences: migrateV1Preferences, presets: migrateV1Preset, history: migrateV1HistoryEntry }
@@ -151,17 +180,9 @@ export function createStudyStore() {
     if (fresh) cachedSnapshot = null;
     const transaction = db.transaction([...STORES], 'readonly');
     const done = completion(transaction);
-    const [preferences, presets, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId] = await Promise.all([
-      requestValue<unknown>(transaction.objectStore('preferences').get('current')),
-      requestValue<unknown[]>(transaction.objectStore('presets').getAll()),
-      requestValue<unknown[]>(transaction.objectStore('history').getAll()),
-      requestValue<unknown>(transaction.objectStore('profile').get('current')),
-      requestValue<unknown[]>(transaction.objectStore('practiceDrafts').getAll()),
-      requestValue<unknown[]>(transaction.objectStore('rhythmProjects').getAll()),
-      requestValue<unknown>(transaction.objectStore('preferences').get(RHYTHM_SELECTION_KEY)), done,
-    ]);
-    const snapshot = validateSnapshot({ format: 'bass-study-backup', schemaVersion: STUDY_DB_VERSION, preferences: preferences ?? DEFAULT_PREFERENCES, presets, history, profile: profile ?? DEFAULT_PROFILE, practiceDrafts,
-      rhythmProjects, activeRhythmProjectId: activeRhythmProjectId ?? null });
+    const requests = snapshotRequests(transaction);
+    await Promise.all([requestValue(requests.activeRhythmProjectId), done]);
+    const snapshot = snapshotFromRequests(requests, STUDY_DB_VERSION);
     if (database === db) cachedSnapshot = snapshot;
     return snapshot;
   }

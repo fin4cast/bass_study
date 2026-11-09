@@ -104,7 +104,7 @@ check('product-directory-search-pages-read-only-selected-file-and-no-full-catalo
   await field(page, 'file-list').locator('button').first().click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount')?.dataset.musicBankReady === 'true');
   assert.equal(await page.evaluate(() => window.__bankReads), 1);
-  const copy = await exported(page); assert.equal(copy.schemaVersion, 8); assert.ok(copy.preferences.musicBank.file.relativePath);
+  const copy = await exported(page); assert.equal(copy.schemaVersion, 9); assert.ok(copy.preferences.musicBank.file.relativePath);
   const serialized = JSON.stringify(copy); assert.ok(!serialized.includes('music-bank-file-') && serialized.length < 100000);
   return { count, matching: matches, sourceReads: 1, backupBytes: Buffer.byteLength(serialized), onlySelectedDescriptor: true };
 });
@@ -247,4 +247,4 @@ check('product-switching-away-cancels-pending-module-load-with-no-late-audio-own
 });
 
 const selectedCase = process.argv.find(arg => arg.startsWith('--case='))?.slice(7);
-await runTracksBrowserChecks(selectedCase ? checks.filter(test => test.name.includes(selectedCase)) : checks, { reportFile: selectedCase ? 'p10-music-bank-case-edge.json' : 'p10-music-bank-edge.json', scope: 'Product music-bank Studio A, local files/folder, native schema7 persistence, independent real audio and UI; no physical latency claim.' });
+await runTracksBrowserChecks(selectedCase ? checks.filter(test => test.name.includes(selectedCase)) : checks, { reportFile: selectedCase ? 'p10-music-bank-case-edge.json' : 'p10-music-bank-edge.json', scope: 'Product music-bank Studio A, local files/folder, native schema9 persistence, independent real audio and UI; no physical latency claim.' });
