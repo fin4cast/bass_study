@@ -781,7 +781,7 @@ check('project-steps-and-full-chain-survive-reload-and-export', 'ui', async ({ p
   await action(page, 'stop').click();
   assert.equal(await output(page, 'chain').locator('[aria-current="true"]').count(), 0);
   const copy = await exported(page);
-  assert.equal(copy.schemaVersion, 9);
+  assert.equal(copy.schemaVersion, 10);
   assert.equal(copy.rhythmProjects.length, 1);
   const [project] = copy.rhythmProjects;
   assert.equal(copy.activeRhythmProjectId, project.id);
@@ -1405,7 +1405,7 @@ check('product-keyboard-tabs-and-grid-do-not-intercept-transport-shortcuts', 'ui
   return { arrowTab: true, stepToggle: true, inputGuard: true, transportShortcuts: true };
 });
 
-check('product-step-accents-use-the-browser-local-default-hit-velocity', 'ui', async ({ page }) => {
+check('product-step-accents-use-project-owned-channel-defaults', 'ui', async ({ page }) => {
   await enter(page);
   await root(page).getByRole('tab', { name: 'Ритм-секция', exact: true }).click();
   const velocityEditor = root(page).locator('details.rhythm-velocity');
@@ -1452,18 +1452,11 @@ check('product-step-accents-use-the-browser-local-default-hit-velocity', 'ui', a
     assert.equal(await control.getAttribute('max'), '100');
   }
   await defaults(72, 100);
-
-  await page.evaluate(() => localStorage.setItem('bass-study.rhythm.new-hit-velocity', '68'));
-  await page.reload();
-  await ready(page);
-  await state(page, 'stopped');
-  await openGroup(page, '.rhythm-velocity');
-  await defaults(68, 100);
   await hit('kick', 0, 2, 100);
   await hit('kick', 8, 1, 72);
   await setDefaults(61, 82);
   await track('snare').click();
-  await defaults(68, 100);
+  await defaults(72, 100);
   await hit('snare', 4, 2, 100);
   await setDefaults(74, 89);
   await track('kick').click();
@@ -1497,7 +1490,11 @@ check('product-step-accents-use-the-browser-local-default-hit-velocity', 'ui', a
   await state(page, 'stopped');
 
   const copy = await exported(page);
+  assert.equal(copy.schemaVersion, 10);
   const project = copy.rhythmProjects.find(item => item.id === copy.activeRhythmProjectId);
+  const exportedDefaults = (source, channel) => source.channels.find(item => item.id === channel).velocityDefaults;
+  assert.deepEqual(exportedDefaults(project, 'kick'), { hit: 61, accent: 82 });
+  assert.deepEqual(exportedDefaults(project, 'snare'), { hit: 74, accent: 89 });
   const lanes = project.patterns.find(pattern => pattern.id === project.activePatternId).lanes;
   const exportedHits = (channel, indices) => {
     const lane = lanes.find(item => item.channelId === channel);
@@ -1505,20 +1502,59 @@ check('product-step-accents-use-the-browser-local-default-hit-velocity', 'ui', a
   };
   assert.deepEqual(exportedHits('kick', [0, 5, 8, 10]), [[2, 1], [1, .61], [1, .61], [1, .72]]);
   assert.deepEqual(exportedHits('snare', [4, 5]), [[2, 1], [2, .88]]);
+
+  const library = root(page).locator('.rhythm-library');
+  const projectRows = output(page, 'projects');
+  const activeProjectRow = projectRows.locator('[data-rhythm-open-project][aria-pressed="true"]');
+  const selectProject = async id => {
+    const row = projectRows.locator(`[data-rhythm-open-project="${id}"]`);
+    await row.click();
+    await row.and(activeProjectRow).waitFor();
+  };
+  await page.locator('#open-history').click();
+  await openGroup(page, '.rhythm-velocity');
+  await openGroup(page, '.rhythm-library');
+  await action(page, 'new-project').click();
+  await activeProjectRow.and(library.getByRole('button', { name: 'Новый проект', exact: true })).waitFor();
+  const secondId = await activeProjectRow.getAttribute('data-rhythm-open-project');
+  assert.notEqual(secondId, project.id);
+  await defaults(72, 100);
+  await setDefaults(67, 93);
+  await selectProject(project.id);
+  await defaults(61, 82);
+  await selectProject(secondId);
+  await defaults(67, 93);
+  await action(page, 'duplicate-project').click();
+  await page.waitForFunction(() => document.querySelector('[data-rhythm-output="status"]')?.textContent === 'Копия проекта сохранена.');
+  const cloned = await exported(page);
+  assert.equal(cloned.rhythmProjects.length, 3);
+  assert.notEqual(cloned.activeRhythmProjectId, secondId);
+  const clonedProject = cloned.rhythmProjects.find(item => item.id === cloned.activeRhythmProjectId);
+  assert.deepEqual(exportedDefaults(clonedProject, 'kick'), { hit: 67, accent: 93 });
   await page.reload();
   await ready(page);
   await state(page, 'stopped');
   await openGroup(page, '.rhythm-velocity');
+  await defaults(67, 93);
+  await openGroup(page, '.rhythm-library');
+  await selectProject(project.id);
   await defaults(61, 82);
   await track('snare').click();
   await defaults(74, 89);
   await hit('snare', 5, 2, 88);
   await track('closedHat').click();
-  await defaults(68, 100);
+  await defaults(72, 100);
   await closeVelocity();
   await step('kick', 6).click();
   await hit('kick', 6, 1, 61);
-  return { cleanDefaults: [72, 100], legacyOrdinaryFallback: 68, trackDefaults: { kick: [61, 82], snare: [74, 89] }, editedAccentVelocity: 88, existingHitsUnchanged: true, gesturesWithEditorClosed: true, keyboardAccent: true, rackContextMenuAllowed: true, survivesReload: true };
+  await openHistory(page);
+  await page.locator('[data-history-file]').setInputFiles({ name: 'rhythm-defaults-v10.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(copy)) });
+  await page.getByTestId('backup-preview').waitFor();
+  await page.getByLabel('Понимаю, что текущие данные будут заменены', { exact: true }).check();
+  await page.locator('[data-history-action="confirm-restore"]').click();
+  await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
+  assert.deepEqual((await raw(page)).rhythmProjects, copy.rhythmProjects);
+  return { cleanDefaults: [72, 100], trackDefaults: { kick: [61, 82], snare: [74, 89] }, otherProjectKickDefaults: [67, 93], cloneCopiesDefaults: true, editedAccentVelocity: 88, existingHitsUnchanged: true, gesturesWithEditorClosed: true, keyboardAccent: true, rackContextMenuAllowed: true, survivesReload: true, exactUiRestore: true };
 });
 
 check('native-real-hidden-tab-pauses-until-explicit-resume', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
@@ -1537,7 +1573,7 @@ check('native-real-hidden-tab-pauses-until-explicit-resume', 'native', async ({ 
   return { actualDocumentHidden: true, noAutomaticResume: true };
 }));
 
-check('native-upgrade-seven-to-nine-keeps-legacy-history-and-drafts', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
+check('native-upgrade-seven-to-ten-keeps-legacy-history-and-drafts', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
   await seedDatabase(page, origin, literalV7);
   const before = await raw(page);
   assert.equal(before.version, 7);
@@ -1545,7 +1581,7 @@ check('native-upgrade-seven-to-nine-keeps-legacy-history-and-drafts', 'native', 
   await ready(page);
   const after = await raw(page);
   assert.deepEqual(after, {
-    ...before, version: 9, stores: [...before.stores, 'rhythmProjects'].sort(),
+    ...before, version: 10, stores: [...before.stores, 'rhythmProjects'].sort(),
     preferences: { ...before.preferences, rhythm: null },
     presets: before.presets.map(preset => ({ ...preset, preferences: { ...preset.preferences, rhythm: null } })),
   });
@@ -1578,18 +1614,22 @@ check('native-upgrade-seven-to-nine-keeps-legacy-history-and-drafts', 'native', 
   return { version: after.version, historyPreserved: before.history.length, draftsPreserved: before.practiceDrafts.length, savedLegacyDuration: saved.result.durationMs, legacyPresetPreservesRhythm: true };
 }));
 
-check('native-upgrade-eight-to-nine-keeps-project-selection-and-rhythm-practice', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
+function legacyRhythmSnapshot(version) {
   const project = (id, name, bars) => {
     const steps = Array.from({ length: bars * 16 }, (_, index) => index % 16 === Math.floor(index / 16) ? 1 : 0);
+    const channels = [
+      { id: 'kick', name: 'Бочка', sound: 'kick', volume: .8, muted: false, solo: false },
+      { id: 'snare', name: 'Малый', sound: 'snare', volume: .65, muted: false, solo: false },
+    ];
     return {
       id, name, createdAt: '2026-11-08T22:30:00.000Z', updatedAt: '2026-11-08T22:30:01.000Z',
       bpm: 107, swing: 53, swingMode: 'eighth',
-      channels: [{ id: 'kick', name: 'Бочка', sound: 'kick', volume: .8, muted: false, solo: false }],
-      patterns: [{ id: 'A', name, bars, lanes: [{ channelId: 'kick', steps, velocities: steps.map(step => step * .63) }] }],
+      channels,
+      patterns: [{ id: 'A', name, bars, lanes: channels.map(channel => ({ channelId: channel.id, steps, velocities: steps.map(step => step * .63) })) }],
       chain: [{ id: 'clip-1', patternId: 'A' }], activePatternId: 'A', scope: 'pattern', repeat: 'once', countIn: true, overlay: false,
     };
   };
-  const selected = project('v8-rhythm-selected', 'Четыре такта из версии 8', 4);
+  const selected = project(`v${version}-rhythm-selected`, `Выбранный проект из версии ${version}`, version === 8 ? 4 : 3);
   const rhythm = {
     view: 'rhythm', master: .76, metronome: {
       bpm: 117, bpmUnit: 'quarter', meter: { beats: 4, denominator: 4, groups: [4] }, accents: [2, 1, 1, 1],
@@ -1600,27 +1640,102 @@ check('native-upgrade-eight-to-nine-keeps-project-selection-and-rhythm-practice'
   const material = { kind: 'rhythm', playback: { preferences: rhythm, project: selected } };
   const oldDraft = literalV7.practiceDrafts.find(item => item.material.kind === 'harmony');
   const oldHistory = literalV7.history.find(item => item.result.kind === 'manual');
-  const snapshot = {
-    ...literalV7, schemaVersion: 8, preferences: { ...literalV7.preferences, rhythm },
+  return {
+    ...literalV7, schemaVersion: version, preferences: { ...literalV7.preferences, rhythm },
     presets: literalV7.presets.map(preset => ({ ...preset, preferences: { ...preset.preferences, rhythm: null } })),
-    practiceDrafts: [...literalV7.practiceDrafts, { ...oldDraft, id: 'v8-rhythm-draft', context: null, material }],
-    history: [...literalV7.history, { ...oldHistory, id: 'v8-rhythm-history', result: { ...oldHistory.result, context: null, material } }],
-    rhythmProjects: [project('v8-rhythm-first', 'Один такт из версии 8', 1), selected], activeRhythmProjectId: selected.id,
+    practiceDrafts: [...literalV7.practiceDrafts, { ...oldDraft, id: `v${version}-rhythm-draft`, context: null, material }],
+    history: [...literalV7.history, { ...oldHistory, id: `v${version}-rhythm-history`, result: { ...oldHistory.result, context: null, material } }],
+    rhythmProjects: [project(`v${version}-rhythm-first`, `Один такт из версии ${version}`, 1), selected], activeRhythmProjectId: selected.id,
   };
-  await seedDatabase(page, origin, snapshot);
-  const before = await raw(page);
-  assert.equal(before.version, 8);
-  assert.equal(before.activeRhythmProjectId, selected.id);
-  assert.deepEqual(before.rhythmProjects, snapshot.rhythmProjects);
-  await page.goto(origin);
-  await ready(page);
-  const after = await raw(page);
-  assert.deepEqual(after, { ...before, version: 9 });
-  await root(page).waitFor();
-  assert.equal(await output(page, 'pattern-title').innerText(), selected.name);
-  assert.equal(await output(page, 'bars').getByRole('button', { name: 'Такт 4', exact: true }).isVisible(), true);
-  return { fromVersion: 8, version: after.version, activeRhythmProjectId: selected.id, projectsPreserved: after.rhythmProjects.length, rhythmDraftAndHistoryPreserved: true };
-}));
+}
+
+for (const version of [8, 9]) {
+  check(`native-upgrade-v${version}-to-v10-keeps-rhythm-projects-and-practice`, 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
+    const snapshot = legacyRhythmSnapshot(version);
+    const selected = snapshot.rhythmProjects.find(project => project.id === snapshot.activeRhythmProjectId);
+    const factory = { hit: 72, accent: 100 };
+    const migrateProject = (project, defaultsFor = () => factory) => ({
+      ...project, channels: project.channels.map(channel => ({ ...channel, velocityDefaults: defaultsFor(channel) })),
+    });
+    const migrateMaterial = material => material?.kind === 'rhythm'
+      ? { ...material, playback: { ...material.playback, project: migrateProject(material.playback.project) } }
+      : material;
+    await seedDatabase(page, origin, snapshot);
+    const before = await raw(page);
+    assert.equal(before.version, version);
+    assert.equal(before.activeRhythmProjectId, selected.id);
+    assert.deepEqual(before.rhythmProjects, snapshot.rhythmProjects);
+
+    if (version === 9) {
+      await page.evaluate(() => {
+        localStorage.setItem('bass-study.rhythm.new-hit-velocity', '68');
+        localStorage.setItem('bass-study.rhythm.track-velocity:["kick","kick"]', '{"hit":59,"accent":81}');
+        sessionStorage.setItem('p10-rhythm-upgrade-fault', 'pending');
+      });
+      await context.addInitScript(() => {
+        if (location.origin !== 'http://localhost:4173' || sessionStorage.getItem('p10-rhythm-upgrade-fault') !== 'pending') return;
+        const put = IDBObjectStore.prototype.put;
+        IDBObjectStore.prototype.put = function (...args) {
+          const request = put.apply(this, args);
+          const transaction = this.transaction;
+          if (this.name === 'rhythmProjects' && transaction.mode === 'versionchange' && transaction.db.name === 'bass-study' && transaction.db.version === 10) {
+            request.addEventListener('success', () => {
+              sessionStorage.setItem('p10-rhythm-upgrade-fault', 'aborted');
+              transaction.abort();
+            }, { once: true });
+          }
+          return request;
+        };
+      });
+      await page.goto(origin);
+      await ready(page);
+      assert.equal(await page.evaluate(() => sessionStorage.getItem('p10-rhythm-upgrade-fault')), 'aborted');
+      assert.deepEqual(await raw(page), before);
+    }
+
+    await page.goto(origin);
+    await ready(page);
+    const after = await raw(page);
+    const expectedProjects = before.rhythmProjects.map(project => migrateProject(project, channel => {
+      if (version === 8) return factory;
+      return channel.id === 'kick' && channel.sound === 'kick' ? { hit: 59, accent: 81 } : { hit: 68, accent: 100 };
+    }));
+    assert.deepEqual(after, {
+      ...before, version: 10, rhythmProjects: expectedProjects,
+      practiceDrafts: before.practiceDrafts.map(draft => ({ ...draft, material: migrateMaterial(draft.material) })),
+      history: before.history.map(entry => entry.result.material?.kind === 'rhythm'
+        ? { ...entry, result: { ...entry.result, material: migrateMaterial(entry.result.material) } }
+        : entry),
+    });
+    await root(page).waitFor();
+    assert.equal(await output(page, 'pattern-title').innerText(), selected.name);
+    assert.equal(await output(page, 'bars').getByRole('button', { name: `Такт ${selected.patterns[0].bars}`, exact: true }).isVisible(), true);
+
+    if (version === 9) {
+      await page.evaluate(() => {
+        localStorage.setItem('bass-study.rhythm.new-hit-velocity', '31');
+        localStorage.removeItem('bass-study.rhythm.track-velocity:["kick","kick"]');
+      });
+      await page.reload();
+      await ready(page);
+      assert.deepEqual(await raw(page), after);
+      await openHistory(page);
+      await page.locator('[data-history-file]').setInputFiles({ name: 'legacy-v9-rhythm.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(snapshot)) });
+      await page.getByTestId('backup-preview').waitFor();
+      await page.getByLabel('Понимаю, что текущие данные будут заменены', { exact: true }).check();
+      await page.locator('[data-history-action="confirm-restore"]').click();
+      await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
+      const imported = await raw(page);
+      assert.equal(imported.activeRhythmProjectId, selected.id);
+      assert.deepEqual(imported.rhythmProjects, before.rhythmProjects.map(project => migrateProject(project)));
+      assert.deepEqual(imported.practiceDrafts, after.practiceDrafts);
+      assert.deepEqual(imported.history, after.history);
+    }
+
+    return { fromVersion: version, version: after.version, activeRhythmProjectId: selected.id, projectsPreserved: after.rhythmProjects.length, historyAndDraftDefaults: factory,
+      ...(version === 9 && { abortAfterPutRolledBack: true, nativeBrowserDefaultsSeededOnce: true, legacyJsonUsesFactoryDefaults: true }) };
+  }));
+}
 
 check('native-upgrade-abort-after-successful-cursor-update-retains-version-seven', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
   await seedDatabase(page, origin, literalV7);
@@ -1631,7 +1746,7 @@ check('native-upgrade-abort-after-successful-cursor-update-retains-version-seven
     IDBCursorWithValue.prototype.update = function (...args) {
       const request = update.apply(this, args);
       const transaction = this.source.transaction;
-      if (transaction?.db.name === 'bass-study' && transaction.db.version === 9) request.addEventListener('success', () => {
+      if (transaction?.db.name === 'bass-study' && transaction.db.version === 10) request.addEventListener('success', () => {
         window.__rhythmUpgradeWrites++;
         transaction.abort();
       });
@@ -1686,6 +1801,6 @@ check('native-project-restore-validates-chain-and-rolls-back-after-project-and-s
 
 const selected = process.argv.find(argument => argument.startsWith('--case='))?.slice(7);
 await runTracksBrowserChecks(checks.filter(check => !selected || check.name.includes(selected)), {
-  scope: 'Product rhythm in Edge: VIS-05 r2 controls and layout, isolated offline PCM, live signal, native visibility, real schema 8 migration and restore.',
+  scope: 'Product rhythm in Edge: VIS-05 r2 controls and layout, isolated offline PCM, live signal, native visibility, schema 10 migration and restore.',
   reportFile: selected ? 'p10-rhythm-case-edge.json' : 'p10-rhythm-edge.json',
 });

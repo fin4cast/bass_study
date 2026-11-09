@@ -7,8 +7,8 @@ const literalV6 = JSON.parse(await readFile(fileURLToPath(new URL('./fixtures/v6
 const checks = [];
 const check = (name, run) => checks.push({ name, scope: 'native', run });
 const storeNames = ['preferences', 'presets', 'history', 'profile', 'practiceDrafts'];
-const expectedV9 = {
-  ...literalV6, schemaVersion: 9, rhythmProjects: [], activeRhythmProjectId: null,
+const expectedV10 = {
+  ...literalV6, schemaVersion: 10, rhythmProjects: [], activeRhythmProjectId: null,
   preferences: { ...literalV6.preferences, musicBank: null, rhythm: null },
   presets: literalV6.presets.map(preset => ({ ...preset, preferences: { ...preset.preferences, musicBank: null, rhythm: null } })),
 };
@@ -45,7 +45,7 @@ async function raw(page) {
     } finally { db.close(); }
   }, storeNames);
 }
-function rawSnapshot(snapshot, version = 9) {
+function rawSnapshot(snapshot, version = 10) {
   const hasRhythm = version >= 8;
   return { version, stores: [...storeNames, ...(hasRhythm ? ['rhythmProjects'] : [])].sort(), preferences: snapshot.preferences, presets: snapshot.presets, history: snapshot.history, profile: snapshot.profile, practiceDrafts: snapshot.practiceDrafts,
     ...(hasRhythm ? { rhythmProjects: snapshot.rhythmProjects, activeRhythmProjectId: snapshot.activeRhythmProjectId } : {}) };
@@ -89,19 +89,19 @@ async function fixture(page, fixtureOrigin) {
   await page.waitForFunction(() => window.p5?.ready);
 }
 
-check('native-literal-v6-to-v9-preserves-dark-profile-drafts-and-all-history', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
+check('native-literal-v6-to-v10-preserves-dark-profile-drafts-and-all-history', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
   const seeded = await seedNativeV6(page, origin);
   assert.deepEqual(await raw(page), rawSnapshot(literalV6, 6));
   await readyProduct(page, origin);
   const upgraded = await raw(page);
-  assert.deepEqual(upgraded, rawSnapshot(expectedV9));
+  assert.deepEqual(upgraded, rawSnapshot(expectedV10));
   const surface = await page.evaluate(() => ({ theme: document.documentElement.dataset.theme,
     persistence: document.querySelector('#persistence-message')?.textContent, testApi: ['p5', 'p6', 'p7tracks', 'bankProbe'].filter(name => name in window) }));
   assert.equal(surface.theme, 'dark'); assert.match(surface.persistence, /Сохранено локально/); assert.deepEqual(surface.testApi, []);
   await page.reload();
   await page.waitForFunction(() => /Сохранено локально/.test(document.querySelector('#persistence-message')?.textContent ?? ''));
   assert.deepEqual(await raw(page), upgraded);
-  return { seeded, upgraded, surface, reloadPreserved: true, nativeMigration: '6→9', reader: 'separate readonly IDB' };
+  return { seeded, upgraded, surface, reloadPreserved: true, nativeMigration: '6→10', reader: 'separate readonly IDB' };
 }));
 
 check('native-v6-upgrade-abort-after-successful-cursor-update-rolls-back-version-and-records', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
@@ -112,7 +112,7 @@ check('native-v6-upgrade-abort-after-successful-cursor-update-rolls-back-version
     IDBCursorWithValue.prototype.update = function (...args) {
       const request = nativeUpdate.apply(this, args);
       const transaction = this.source.transaction ?? this.source.objectStore?.transaction;
-      if (transaction?.db.name === 'bass-study' && transaction.db.version === 9) request.addEventListener('success', () => {
+      if (transaction?.db.name === 'bass-study' && transaction.db.version === 10) request.addEventListener('success', () => {
         observation.successfulCursorUpdates++;
         if (!observation.abortIssued) {
           observation.databaseVersion = transaction.db.version; observation.store = this.source.name;
@@ -124,7 +124,7 @@ check('native-v6-upgrade-abort-after-successful-cursor-update-rolls-back-version
   });
   await readyProduct(page, origin);
   const observation = await page.evaluate(() => window.__musicBankUpgradeAbort);
-  assert.equal(observation.successfulCursorUpdates, 1); assert.equal(observation.abortIssued, true); assert.equal(observation.databaseVersion, 9);
+  assert.equal(observation.successfulCursorUpdates, 1); assert.equal(observation.abortIssued, true); assert.equal(observation.databaseVersion, 10);
   const after = await raw(page);
   assert.deepEqual(after, before); assert.deepEqual(after, rawSnapshot(literalV6, 6));
   const persistence = await page.locator('#persistence-message').innerText(); assert.match(persistence, /Только в памяти/);
@@ -132,7 +132,7 @@ check('native-v6-upgrade-abort-after-successful-cursor-update-rolls-back-version
   return { observation, before, after, persistence, nativeVersionStayed: 6, successfulPutBeforeAbort: true };
 }));
 
-check('native-v9-cache-fresh-and-independent-raw-distinguish-external-commit-and-invalid-snapshot', async ({ fixtureOrigin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
+check('native-v10-cache-fresh-and-independent-raw-distinguish-external-commit-and-invalid-snapshot', async ({ fixtureOrigin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
   await fixture(page, fixtureOrigin);
   const evidence = await page.evaluate(async ({ snapshot, bank }) => {
     const store = window.p5.store;
@@ -155,7 +155,7 @@ check('native-v9-cache-fresh-and-independent-raw-distinguish-external-commit-and
     await store.restore(JSON.stringify(before), { confirmed: true }); const recovered = await store.readSnapshot({ fresh: true });
     return { before, cached, sameCachedReference: before === cached, cachedFrozen: Object.isFrozen(cached.preferences.musicBank.tracks[0]), rawExternal, fresh,
       knownBeforeInvalidFresh, sameKnownReference: fresh === knownBeforeInvalidFresh, freshFailure, ordinaryAfterFailure, rawInvalid, recovered };
-  }, { snapshot: expectedV9, bank: metadataBank });
+  }, { snapshot: expectedV10, bank: metadataBank });
   assert.equal(evidence.sameCachedReference, true); assert.equal(evidence.cachedFrozen, true); assert.equal(evidence.cached.preferences.musicBank.speed, .75);
   assert.equal(evidence.rawExternal.preferences.musicBank.speed, 1.5); assert.equal(evidence.fresh.preferences.musicBank.speed, 1.5);
   assert.equal(evidence.sameKnownReference, true); assert.equal(evidence.freshFailure?.code, 'INVALID_DATA'); assert.equal(evidence.ordinaryAfterFailure?.code, 'INVALID_DATA');
@@ -164,7 +164,7 @@ check('native-v9-cache-fresh-and-independent-raw-distinguish-external-commit-and
   return { ...evidence, observationScope: 'isolated storage fixture; real IndexedDB, external writer is deliberate test-only mutation' };
 }));
 
-check('native-v9-invalid-copy-preview-cancel-and-abort-after-successful-put-preserve-confirmed-snapshot', async ({ fixtureOrigin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
+check('native-v10-invalid-copy-preview-cancel-and-abort-after-successful-put-preserve-confirmed-snapshot', async ({ fixtureOrigin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
   await fixture(page, fixtureOrigin);
   const evidence = await page.evaluate(async ({ snapshot, bank }) => {
     const store = window.p5.store; await store.restore(JSON.stringify(snapshot), { confirmed: true });
@@ -193,7 +193,7 @@ check('native-v9-invalid-copy-preview-cancel-and-abort-after-successful-put-pres
     return { before, rawBefore, preview: { requiresConfirmation: preview.requiresConfirmation, profile: preview.snapshot.profile }, afterPreview, afterCancel,
       unchangedAfterPreview: before === afterPreview, unchangedAfterCancel: before === afterCancel, cancellation, failures, afterInvalid, rawAfterInvalid,
       abortFailure, transaction, unchangedCachedAfterAbort: before === cached, cached, rawAfterAbort, exportedAfterAbort, freshAfterAbort, recovered };
-  }, { snapshot: expectedV9, bank: metadataBank });
+  }, { snapshot: expectedV10, bank: metadataBank });
   assert.equal(evidence.preview.requiresConfirmation, true); assert.equal(evidence.preview.profile.theme, 'light'); assert.equal(evidence.before.profile.theme, 'dark');
   assert.equal(evidence.unchangedAfterPreview, true); assert.equal(evidence.unchangedAfterCancel, true); assert.equal(evidence.cancellation.status, 'cancelled');
   assert.ok(evidence.failures.every(failure => failure?.code === 'INVALID_DATA'));
@@ -208,6 +208,6 @@ check('native-v9-invalid-copy-preview-cancel-and-abort-after-successful-put-pres
 }));
 
 await runTracksBrowserChecks(checks, {
-  scope: 'P10 schema9: true native v6→9 migration/rollback, profile and draft preservation, cached/fresh/independent raw IDB, metadata-only music bank strict restore. No memory substitute, no product test API, no audio/hardware claims.',
+  scope: 'P10 schema10: true native v6→10 migration/rollback, profile and draft preservation, cached/fresh/independent raw IDB, metadata-only music bank strict restore. No memory substitute, no product test API, no audio/hardware claims.',
   reportFile: 'p10-music-bank-storage-edge.json',
 });

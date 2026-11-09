@@ -1,4 +1,4 @@
-import { RHYTHM_PATTERN_LENGTHS } from '../../rhythm/model';
+import { DEFAULT_RHYTHM_VELOCITY, RHYTHM_PATTERN_LENGTHS } from '../../rhythm/model';
 
 function dial(setting: string, label: string, min: number, max: number, description?: string) {
   const describedBy = description ? ` aria-describedby="${description}"` : '';
@@ -180,12 +180,12 @@ export function rhythmMarkup(id: string) {
                   <strong id="${id}-velocity-default-track" data-rhythm-output="velocity-default-track"></strong>
                   <label class="rhythm-new-velocity" title="Сила обычного удара при добавлении и снятии акцента">
                     <span>Сила нового удара</span>
-                    <input type="number" min="1" max="100" step="1" value="72" required data-rhythm-default-velocity>
+                    <input type="number" min="1" max="100" step="1" value="${DEFAULT_RHYTHM_VELOCITY.hit}" required data-rhythm-default-velocity>
                     <span aria-hidden="true">%</span>
                   </label>
                   <label class="rhythm-new-velocity">
                     <span>Сила нового акцента</span>
-                    <input type="number" min="1" max="100" step="1" value="100" required data-rhythm-default-accent>
+                    <input type="number" min="1" max="100" step="1" value="${DEFAULT_RHYTHM_VELOCITY.accent}" required data-rhythm-default-accent>
                     <span aria-hidden="true">%</span>
                   </label>
                 </div>

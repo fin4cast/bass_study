@@ -1,10 +1,10 @@
 import './rhythm.css';
 import { createRhythmPlayer, type RhythmPracticeClock, type RhythmSnapshot } from '../audio/rhythm';
 import {
-  DEFAULT_RHYTHM_PREFERENCES, RHYTHM_PATTERN_LENGTHS, RHYTHM_PRESETS, RHYTHM_STEPS_PER_BAR, SOUND_LABELS,
+  DEFAULT_RHYTHM_PREFERENCES, DEFAULT_RHYTHM_VELOCITY, RHYTHM_PATTERN_LENGTHS, RHYTHM_PRESETS, RHYTHM_STEPS_PER_BAR, SOUND_LABELS,
   createDefaultRhythmProject, createLanes, defaultRhythmAccents, defaultRhythmMeter,
   validateRhythmPreferences, validateRhythmProject, type RhythmBpmUnit, type RhythmDivision, type RhythmKit,
-  type RhythmChannel, type RhythmPatternBars, type RhythmPatternId, type RhythmPlaybackConfig, type RhythmPreferences,
+  type RhythmPatternBars, type RhythmPatternId, type RhythmPlaybackConfig, type RhythmPreferences,
   type RhythmProject, type RhythmSound, type RhythmStep, type RhythmSwingMode,
 } from '../rhythm/model';
 import { confirmAction } from './confirm';
@@ -35,11 +35,6 @@ const KITS: ReadonlyArray<readonly [RhythmKit, string, string]> = [
 const TRAINING_NUMBERS = ['soundBars', 'silentBars', 'stepBpm', 'everyBars', 'targetBpm'] as const;
 const TRAINING_FLAGS = ['silentEnabled', 'rampEnabled'] as const;
 const STARTED = new Set(['starting', 'running', 'finishing']);
-const LEGACY_HIT_VELOCITY_KEY = 'bass-study.rhythm.new-hit-velocity';
-type StepVelocityDefaults = { hit: number; accent: number };
-const trackVelocityKey = (channel: RhythmChannel) => `bass-study.rhythm.track-velocity:${JSON.stringify([channel.sound, channel.id])}`;
-const velocityPercent = (value: unknown, fallback: number) =>
-  typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 100 ? value : fallback;
 const TRANSPORT_LABELS = { starting: 'Подготовка звука…', running: 'Играет', paused: 'Пауза', finishing: 'Завершение', finished: 'Проход завершён', stopped: 'Остановлено' };
 const failureText = (error: unknown) => error instanceof Error ? error.message : String(error);
 let instance = 0;
@@ -84,24 +79,6 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   const action = (key: string) => container.querySelector<HTMLButtonElement>(`[data-rhythm-action="${key}"]`)!;
   const newHitVelocity = container.querySelector<HTMLInputElement>('[data-rhythm-default-velocity]')!;
   const newAccentVelocity = container.querySelector<HTMLInputElement>('[data-rhythm-default-accent]')!;
-  let initialHitPercent = Number(newHitVelocity.defaultValue);
-  try { initialHitPercent = velocityPercent(Number(localStorage.getItem(LEGACY_HIT_VELOCITY_KEY)), initialHitPercent); }
-  catch { /* Use the initial value when browser storage is unavailable. */ }
-  const initialAccentPercent = Number(newAccentVelocity.defaultValue);
-  const trackVelocities = new Map<string, StepVelocityDefaults>();
-  function trackVelocityDefaults(channel: RhythmChannel): StepVelocityDefaults {
-    const key = trackVelocityKey(channel);
-    const cached = trackVelocities.get(key);
-    if (cached) return cached;
-    const defaults = { hit: initialHitPercent, accent: initialAccentPercent };
-    try {
-      const saved = JSON.parse(localStorage.getItem(key) ?? 'null') as Partial<StepVelocityDefaults> | null;
-      defaults.hit = velocityPercent(saved?.hit, defaults.hit);
-      defaults.accent = velocityPercent(saved?.accent, defaults.accent);
-    } catch { /* Invalid or unavailable browser settings use the initial values. */ }
-    trackVelocities.set(key, defaults);
-    return defaults;
-  }
   const rack = output('rack');
   const rackScroll = rack.closest<HTMLElement>('.rhythm-rack-scroll')!;
   const velocityScroll = output('velocity').parentElement!;
@@ -387,7 +364,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   function renderVelocity() {
     const channel = project.channels.find(item => item.id === selectedLane)!;
     const lane = activePattern().lanes.find(item => item.channelId === selectedLane)!;
-    const defaults = trackVelocityDefaults(channel);
+    const defaults = channel.velocityDefaults;
     output('velocity-default-track').textContent = `По умолчанию · ${channel.name}`;
     newHitVelocity.valueAsNumber = defaults.hit;
     newAccentVelocity.valueAsNumber = defaults.accent;
@@ -579,7 +556,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   }
   function setLibraryBusy(next: boolean, command: boolean) {
     saving = next; libraryCommand = command;
-    for (const section of container.querySelectorAll<HTMLElement>('.rhythm-constructor, .rhythm-chain-card, .rhythm-project-tools, .rhythm-mix-module')) section.inert = command;
+    for (const section of container.querySelectorAll<HTMLElement>('.rhythm-constructor, .rhythm-chain-card, .rhythm-project-tools, .rhythm-mix-module, .rhythm-velocity-defaults')) section.inert = command;
     renderLibrary();
   }
   async function write(operation: RhythmLibraryOperation, replace = false, notice?: string) {
@@ -721,7 +698,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   }
   function defaultStepVelocity(laneId: string, level: RhythmStep) {
     if (level === 0) return 0;
-    const defaults = trackVelocityDefaults(project.channels.find(channel => channel.id === laneId)!);
+    const defaults = project.channels.find(channel => channel.id === laneId)!.velocityDefaults;
     return (level === 2 ? defaults.accent : defaults.hit) / 100;
   }
   function editStep(laneId: string, step: number, level: RhythmStep, velocity = defaultStepVelocity(laneId, level), keepSlider = false) {
@@ -816,7 +793,10 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     const id = project.channels.some(channel => channel.id === sound) ? crypto.randomUUID() : sound;
     selectedLane = id;
     changeProject(draft => {
-      draft.channels.push({ id, name: SOUND_LABELS[sound], sound, volume: .65, muted: false, solo: false });
+      draft.channels.push({
+        id, name: SOUND_LABELS[sound], sound, volume: .65, muted: false, solo: false,
+        velocityDefaults: { ...DEFAULT_RHYTHM_VELOCITY },
+      });
       for (const pattern of draft.patterns) pattern.lanes.push({ channelId: id, steps: Array<RhythmStep>(pattern.bars * 16).fill(0), velocities: Array<number>(pattern.bars * 16).fill(0) });
     });
   }
@@ -945,15 +925,15 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   }, listen);
   for (const [input, kind] of [[newHitVelocity, 'hit'], [newAccentVelocity, 'accent']] as const) {
     input.addEventListener('change', () => {
+      if (disposed || libraryCommand) return;
       const channel = project.channels.find(item => item.id === selectedLane)!;
-      const defaults = trackVelocityDefaults(channel);
+      const previous = channel.velocityDefaults[kind];
       if (!input.validity.valid) {
-        input.valueAsNumber = defaults[kind];
+        input.valueAsNumber = previous;
         return;
       }
-      defaults[kind] = input.valueAsNumber;
-      try { localStorage.setItem(trackVelocityKey(channel), JSON.stringify(defaults)); }
-      catch { /* The current editor can still use the chosen value. */ }
+      const value = input.valueAsNumber;
+      if (value !== previous) editLane(channel.id, draft => { draft.velocityDefaults[kind] = value; });
     }, listen);
   }
   container.addEventListener('input', event => {

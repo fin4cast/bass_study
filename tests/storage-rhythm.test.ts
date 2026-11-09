@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import v7 from './fixtures/v7-backup.json?raw';
 import { createDefaultRhythmProject, DEFAULT_RHYTHM_PREFERENCES, validateRhythmProject, type RhythmPatternBars, type RhythmProject } from '../src/rhythm/model';
-import { createMemoryStudyStore, emptySnapshot, parseBackup, validateHistoryEntry, validatePracticeDraft, validateSnapshot, type PracticeDraft } from '../src/storage';
+import { createMemoryStudyStore, emptySnapshot, parseBackup, validateHistoryEntry, validatePracticeDraft, validateSnapshot } from '../src/storage';
 
 const createdAt = '2026-11-08T22:31:00.000Z';
 
@@ -25,15 +25,19 @@ function project(id = 'fixture-rhythm', secondBars: RhythmPatternBars = 1) {
   ], channels: base.channels.map((channel, index) => index === 0 ? { ...channel, muted: true, volume: .25 } : channel) });
 }
 
-function rhythmDraft(value: RhythmProject): PracticeDraft {
+function legacyProject({ channels, ...value }: RhythmProject) {
+  return { ...value, channels: channels.map(({ velocityDefaults, ...channel }) => channel) };
+}
+
+function rhythmDraft<Project>(value: Project) {
   return {
     id: 'rhythm-draft', createdAt, updatedAt: createdAt, timeZone: 'Europe/Moscow', localDate: '2026-11-09',
-    context: null, material: { kind: 'rhythm', playback: { preferences: { ...DEFAULT_RHYTHM_PREFERENCES, view: 'rhythm' }, project: value } }, routeRef: null,
+    context: null, material: { kind: 'rhythm' as const, playback: { preferences: { ...DEFAULT_RHYTHM_PREFERENCES, view: 'rhythm' as const }, project: value } }, routeRef: null,
     totalReferenceMs: 3500, recordedThroughMs: 500, suggestedBpm: 30, comfortableBpm: 240, note: 'Цепочка, две сбивки', editRevision: 2,
   };
 }
 
-function rhythmHistory(draft: PracticeDraft) {
+function rhythmHistory(draft: ReturnType<typeof rhythmDraft>) {
   return {
     id: 'saved-rhythm-entry', occurredAt: createdAt, timeZone: draft.timeZone, localDate: draft.localDate, routeRef: null,
     result: { kind: 'manual', source: 'self-report', context: null, material: draft.material,
@@ -41,11 +45,11 @@ function rhythmHistory(draft: PracticeDraft) {
   };
 }
 
-describe('схема 9 и целые проекты ритма', () => {
+describe('схема 10 и целые проекты ритма', () => {
   it('переносит буквальную v7 с прежним материалом, профилем и медиа', () => {
     const previous = JSON.parse(v7);
     const snapshot = parseBackup(v7);
-    expect(snapshot).toMatchObject({ schemaVersion: 9, rhythmProjects: [], activeRhythmProjectId: null });
+    expect(snapshot).toMatchObject({ schemaVersion: 10, rhythmProjects: [], activeRhythmProjectId: null });
     expect(snapshot.preferences).toEqual({ ...previous.preferences, rhythm: null });
     expect(snapshot.presets).toEqual(previous.presets.map((preset: any) => ({ ...preset, preferences: { ...preset.preferences, rhythm: null } })));
     expect(snapshot.history).toEqual(previous.history);
@@ -55,30 +59,33 @@ describe('схема 9 и целые проекты ритма', () => {
     expect(() => parseBackup(JSON.stringify({ ...previous, preferences: { ...previous.preferences, rhythm: null } }))).toThrow();
   });
 
-  it('переносит v8 с паттернами 1/2/4, выбранным проектом и снимками ручной практики', () => {
+  it.each([8, 9] as const)('переносит v%s, добавляя силу 72/100 в проекты и снимки практики', version => {
     const previous = parseBackup(v7);
-    const two = project('rhythm-a', 2);
+    const first = project('rhythm-a', version === 8 ? 2 : 3);
     const four = project('rhythm-b', 4);
     const rhythm = { ...DEFAULT_RHYTHM_PREFERENCES, view: 'rhythm' };
-    const legacy = {
-      ...previous, schemaVersion: 8,
+    const content = <Project extends { id: string }>(left: Project, right: Project) => ({
+      ...previous,
       preferences: { ...previous.preferences, activeModule: 'harmony', rhythm },
       presets: previous.presets.map(preset => ({ ...preset, preferences: { ...preset.preferences, rhythm } })),
-      history: [...previous.history, rhythmHistory(rhythmDraft(four))],
-      practiceDrafts: [...previous.practiceDrafts, rhythmDraft(two)],
-      rhythmProjects: [two, four], activeRhythmProjectId: four.id,
-    };
-    const expected = {
-      ...legacy, schemaVersion: 9,
-      history: [...legacy.history].sort((left, right) => left.id.localeCompare(right.id, 'en')),
-    };
+      history: [...previous.history, rhythmHistory(rhythmDraft(right))].sort((a, b) => a.id.localeCompare(b.id, 'en')),
+      practiceDrafts: [...previous.practiceDrafts, rhythmDraft(left)],
+      rhythmProjects: [left, right], activeRhythmProjectId: right.id,
+    });
+    const addDefaults = (value: ReturnType<typeof legacyProject>) => ({
+      ...value, channels: value.channels.map(channel => ({ ...channel, velocityDefaults: { hit: 72, accent: 100 } })),
+    });
+    const legacyFirst = legacyProject(first), legacyFour = legacyProject(four);
+    const legacy = { ...content(legacyFirst, legacyFour), schemaVersion: version };
+    const expected = { ...content(addDefaults(legacyFirst), addDefaults(legacyFour)), schemaVersion: 10 };
     const json = JSON.stringify(legacy);
     expect(parseBackup(json)).toEqual(expected);
-    expect(createMemoryStudyStore().previewImport(json)).toMatchObject({ sourceSchemaVersion: 8, rhythmProjects: 2, snapshot: expected });
+    expect(createMemoryStudyStore().previewImport(json)).toMatchObject({ sourceSchemaVersion: version, rhythmProjects: 2, snapshot: expected });
+    expect(() => parseBackup(JSON.stringify({ ...legacy, rhythmProjects: [addDefaults(legacyFirst), legacyFour] }))).toThrow();
   });
 
   it('отклоняет трёхтактовый паттерн в библиотеке, истории или черновике копии v8', () => {
-    const three = project('rhythm-three', 3);
+    const three = legacyProject(project('rhythm-three', 3));
     const draft = rhythmDraft(three);
     const legacy = { ...emptySnapshot(), schemaVersion: 8 };
     for (const extra of [
@@ -90,9 +97,15 @@ describe('схема 9 и целые проекты ритма', () => {
     }
   });
 
-  it('сохраняет трёхтактовый паттерн, порядок клипов и активный ID при полной замене копией', async () => {
+  it('сохраняет силу для каждой дорожки, трёхтактовый паттерн и порядок клипов при полной замене копией', async () => {
     const store = createMemoryStudyStore();
-    const first = project('rhythm-z', 3);
+    const seed = project('rhythm-z', 3);
+    const [kick, snare, ...rest] = seed.channels;
+    const first = { ...seed, channels: [
+      { ...kick, velocityDefaults: { hit: 19, accent: 78 } },
+      { ...snare, velocityDefaults: { hit: 100, accent: 1 } },
+      ...rest,
+    ] };
     const second = project('rhythm-a');
     await store.saveRhythmProject(first);
     await store.saveRhythmProject(second);
@@ -104,7 +117,7 @@ describe('схема 9 и целые проекты ритма', () => {
     const saved = await store.readSnapshot();
     const json = await store.exportBackup();
     const exported = parseBackup(json);
-    expect(JSON.parse(json).schemaVersion).toBe(9);
+    expect(JSON.parse(json).schemaVersion).toBe(10);
     expect(exported).toEqual(saved);
     const pattern = exported.rhythmProjects[1].patterns[1];
     expect(pattern.bars).toBe(3);
@@ -112,6 +125,8 @@ describe('схема 9 и целые проекты ритма', () => {
     expect(pattern.lanes[0].steps[47]).toBe(2);
     expect(pattern.lanes[0].velocities).toHaveLength(48);
     expect(pattern.lanes[0].velocities[47]).toBe(.37);
+    expect(exported.rhythmProjects[1].channels.slice(0, 2).map(channel => channel.velocityDefaults)).toEqual([{ hit: 19, accent: 78 }, { hit: 100, accent: 1 }]);
+    expect(Object.isFrozen(saved.rhythmProjects[1].channels[0].velocityDefaults)).toBe(true);
     expect(Object.isFrozen(saved.rhythmProjects[1].patterns[1].lanes[0].velocities)).toBe(true);
     const target = createMemoryStudyStore();
     await target.restore(json, { confirmed: true });
@@ -126,6 +141,23 @@ describe('схема 9 и целые проекты ритма', () => {
     expect(await store.readSnapshot()).toBe(saved);
     await store.restore(v7, { confirmed: true });
     expect(await store.readSnapshot()).toEqual(parseBackup(v7));
+  });
+
+  it('отклоняет неполные и недопустимые значения силы без замены текущей копии', async () => {
+    const value = project();
+    const [first, ...rest] = value.channels;
+    const store = createMemoryStudyStore();
+    await store.saveRhythmProject(value);
+    const before = await store.readSnapshot();
+    const malformed = [undefined, null, { hit: 72 }, { accent: 100 }, { hit: 0, accent: 100 },
+      { hit: 72, accent: 101 }, { hit: 72.5, accent: 100 }, { hit: '72', accent: 100 }, { hit: 72, accent: 100, unknown: 1 }];
+    for (const velocityDefaults of malformed) {
+      const broken = { ...value, channels: [{ ...first, velocityDefaults }, ...rest] };
+      const json = JSON.stringify({ ...before, rhythmProjects: [broken] });
+      expect(() => parseBackup(json)).toThrow();
+      await expect(store.restore(json, { confirmed: true })).rejects.toMatchObject({ code: 'INVALID_DATA' });
+      expect(await store.readSnapshot()).toBe(before);
+    }
   });
 
   it('отклоняет целый снимок и сохраняет подтверждённое состояние при повреждении библиотеки', async () => {
@@ -148,7 +180,9 @@ describe('схема 9 и целые проекты ритма', () => {
   });
 
   it('сохраняет ручную отметку с неизменяемым снимком трёхтактового ритма независимо от библиотеки', async () => {
-    const value = project('fixture-rhythm', 3);
+    const seed = project('fixture-rhythm', 3);
+    const [kick, ...rest] = seed.channels;
+    const value = { ...seed, channels: [{ ...kick, velocityDefaults: { hit: 56, accent: 99 } }, ...rest] };
     const draft = rhythmDraft(value);
     const store = createMemoryStudyStore();
     await store.saveRhythmProject(value);
@@ -161,6 +195,7 @@ describe('схема 9 и целые проекты ритма', () => {
     const snapshot = parseBackup(await store.exportBackup());
     expect(snapshot.rhythmProjects).toEqual([]);
     expect(snapshot.history).toEqual([result.entry]);
+    expect(snapshot.practiceDrafts).toEqual([result.draft]);
     const legacy = parseBackup(v7).practiceDrafts[0];
     expect(() => validatePracticeDraft({ ...legacy, context: null })).toThrow();
     expect(() => validatePracticeDraft({ ...draft, context: legacy.context })).toThrow();

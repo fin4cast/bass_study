@@ -1,5 +1,5 @@
 import {
-  DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError, migrateBackup, previewImport, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
+  DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError, migrateRhythmSnapshot, previewImport, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
   migrateV1Preferences, migrateV1Preset, migrateV1HistoryEntry,
   migrateV2Preferences, migrateV2Preset, migrateV2HistoryEntry,
   migrateV3Preferences, migrateV3Preset, migrateV3HistoryEntry,
@@ -11,7 +11,7 @@ import {
   validateRhythmProjectId, validateStoredRhythmProject,
   type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
 } from './model';
-import type { RhythmProject } from '../rhythm/model';
+import type { LegacyRhythmVelocityDefaults, RhythmProject } from '../rhythm/model';
 
 export * from './model';
 export { createMemoryStudyStore } from './memory';
@@ -47,16 +47,16 @@ function snapshotRequests(transaction: IDBTransaction) {
   };
 }
 
-function snapshotFromRequests(requests: ReturnType<typeof snapshotRequests>, schemaVersion: 8 | typeof STUDY_DB_VERSION): StudySnapshot {
-  const validate = schemaVersion === 8 ? migrateBackup : validateSnapshot;
-  return validate({ format: 'bass-study-backup', schemaVersion,
+function snapshotFromRequests(requests: ReturnType<typeof snapshotRequests>, schemaVersion: 8 | 9 | typeof STUDY_DB_VERSION, legacyRhythmDefaults?: LegacyRhythmVelocityDefaults): StudySnapshot {
+  const snapshot = { format: 'bass-study-backup', schemaVersion,
     preferences: requests.preferences.result ?? DEFAULT_PREFERENCES, presets: requests.presets.result, history: requests.history.result,
     profile: requests.profile.result ?? DEFAULT_PROFILE, practiceDrafts: requests.practiceDrafts.result, rhythmProjects: requests.rhythmProjects.result,
-    activeRhythmProjectId: requests.activeRhythmProjectId.result ?? null });
+    activeRhythmProjectId: requests.activeRhythmProjectId.result ?? null };
+  return schemaVersion === STUDY_DB_VERSION ? validateSnapshot(snapshot) : migrateRhythmSnapshot(snapshot, schemaVersion, legacyRhythmDefaults);
 }
 
 /** Native IndexedDB adapter. Each ordinary write only touches its own store. */
-export function createStudyStore() {
+export function createStudyStore(legacyRhythmDefaults?: LegacyRhythmVelocityDefaults) {
   let database: IDBDatabase | null = null;
   let opening: Promise<IDBDatabase> | null = null;
   let queue: Promise<void> = Promise.resolve();
@@ -86,12 +86,25 @@ export function createStudyStore() {
         if (!db.objectStoreNames.contains('practiceDrafts')) db.createObjectStore('practiceDrafts', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('rhythmProjects')) db.createObjectStore('rhythmProjects', { keyPath: 'id' });
         if (event.oldVersion < 6) request.transaction!.objectStore('profile').put(DEFAULT_PROFILE, 'current');
-        if (event.oldVersion === 8) {
+        if (event.oldVersion === 8 || event.oldVersion === 9) {
+          const sourceVersion = event.oldVersion;
           const transaction = request.transaction!;
           const requests = snapshotRequests(transaction);
           // The last request resolves after the other reads in this transaction.
           requests.activeRhythmProjectId.onsuccess = () => {
-            try { snapshotFromRequests(requests, 8); }
+            try {
+              const migrated = snapshotFromRequests(requests, sourceVersion, legacyRhythmDefaults);
+              const projects = transaction.objectStore('rhythmProjects');
+              const drafts = transaction.objectStore('practiceDrafts');
+              const history = transaction.objectStore('history');
+              for (const project of migrated.rhythmProjects) projects.put(project);
+              for (const draft of migrated.practiceDrafts) {
+                if (draft.material.kind === 'rhythm') drafts.put(draft);
+              }
+              for (const entry of migrated.history) {
+                if (entry.result.kind === 'manual' && entry.result.material.kind === 'rhythm') history.put(entry);
+              }
+            }
             catch (error) { migrationFailure = error; transaction.abort(); }
           };
         } else if (event.oldVersion >= 1 && event.oldVersion < STUDY_DB_VERSION) {

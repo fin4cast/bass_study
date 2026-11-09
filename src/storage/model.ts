@@ -12,7 +12,8 @@ import { getRouteResult, replayRouteResult, type RouteEvent, type RouteResult } 
 import { DEFAULT_HARMONY_PREFERENCES, type HarmonyPreferences } from '../harmony';
 import { validateTracksManifest, type TracksManifest } from '../tracks';
 import { validateMusicBankPreferences, type MusicBankPreferences } from '../music-bank/model';
-import { validateRhythmPlaybackConfig, validateRhythmPreferences, validateRhythmProject, type RhythmPreferences, type RhythmProject } from '../rhythm/model';
+import { DEFAULT_RHYTHM_VELOCITY, migrateRhythmProject, validateRhythmPlaybackConfig, validateRhythmPreferences, validateRhythmProject,
+  type LegacyRhythmVelocityDefaults, type RhythmPreferences, type RhythmProject } from '../rhythm/model';
 import { createBoxSelection, getBoxInstance, validateBoxSelection as validateDomainBoxSelection, type BoxSelection } from '../music/boxes';
 import type { StoredPracticeMaterial, PracticeMaterial } from '../training/results';
 import { DEFAULT_PROFILE, type GlobalProfile, type PracticeDraft, type DrainDraftRequest } from './contracts';
@@ -70,7 +71,7 @@ export class StudyStorageError extends Error {
   constructor(public readonly code: string, message: string) { super(message); this.name = 'StudyStorageError'; }
 }
 export const MAX_BACKUP_BYTES = 67_108_864;
-export const STUDY_SCHEMA_VERSION = 9;
+export const STUDY_SCHEMA_VERSION = 10;
 
 const ROOT_IDS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const LEGACY_MODES = ['name-note', 'find-note', 'find-all', 'find-degree'] as const;
@@ -80,6 +81,7 @@ const SCOPES: readonly TrainingScope[] = ['structure', 'chromatic'];
 const DURATIONS = ['quarter', 'eighth', 'sixteenth'];
 const STRUCTURE_IDS = STRUCTURES.map(item => item.id);
 type Data = Record<string, unknown>;
+type LegacyRhythmVersion = 8 | 9;
 
 function immutable<T>(value: T): T {
   if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -288,7 +290,11 @@ export function validateRouteRef(value: unknown): import('../route').RouteRef | 
   return immutable({ routeId: text(data.routeId, 'ID маршрута', 160), step: oneOf(data.step, ['fretboard', 'ear', 'sequence'] as const, 'Блок маршрута') });
 }
 
-export function validatePracticeMaterial(value: unknown, area?: QuestionContext | null, allowLegacy = false): StoredPracticeMaterial {
+function validateV8PatternLengths(project: Pick<RhythmProject, 'patterns'> | undefined) {
+  if (project?.patterns.some(pattern => pattern.bars === 3)) invalid('Трёхтактовые паттерны поддерживаются с версии 9.');
+}
+
+export function validatePracticeMaterial(value: unknown, area?: QuestionContext | null, allowLegacy = false, legacyRhythmVersion?: LegacyRhythmVersion): StoredPracticeMaterial {
   if (!value || typeof value !== 'object' || Array.isArray(value)) invalid('Отсутствует материал практики.');
   const descriptor = Object.getOwnPropertyDescriptor(value, 'kind');
   if (!descriptor || !Object.hasOwn(descriptor, 'value')) invalid('Вид материала должен быть обычным полем.');
@@ -296,7 +302,14 @@ export function validatePracticeMaterial(value: unknown, area?: QuestionContext 
   if (kind === 'rhythm') {
     const data = object(value, ['kind', 'playback'], 'Материал метронома и ритма');
     if (area) invalid('Материал метронома и ритма не имеет контекста грифа.');
-    return immutable({ kind, playback: rhythmData('Конфигурация проигрывания', () => validateRhythmPlaybackConfig(data.playback)) });
+    const playback = rhythmData('Конфигурация проигрывания', () =>
+      validateRhythmPlaybackConfig(data.playback, legacyRhythmVersion ? () => DEFAULT_RHYTHM_VELOCITY : undefined));
+    if (legacyRhythmVersion === 8) {
+      // Validation also checks any project supplied with metronome settings before dropping it.
+      const sourceProject = Object.getOwnPropertyDescriptor(data.playback, 'project')?.value;
+      validateV8PatternLengths(sourceProject);
+    }
+    return immutable({ kind, playback });
   }
   if (area === null) invalid('Для этого материала нужен исходный контекст грифа.');
   if (kind === 'legacy-unknown') { object(value, ['kind'], 'Старый материал'); if (!allowLegacy) invalid('Новый черновик требует известного материала.'); return immutable({ kind }); }
@@ -327,7 +340,7 @@ function manualBpm(value: unknown, material: StoredPracticeMaterial, label: stri
   return number(value, min, max, label);
 }
 
-export function validatePracticeDraft(value: unknown): PracticeDraft {
+export function validatePracticeDraft(value: unknown, legacyRhythmVersion?: LegacyRhythmVersion): PracticeDraft {
   const data = object(value, ['id', 'createdAt', 'updatedAt', 'timeZone', 'localDate', 'context', 'material', 'routeRef', 'totalReferenceMs', 'recordedThroughMs', 'suggestedBpm', 'comfortableBpm', 'note', 'editRevision'], 'Черновик практики');
   const createdAt = utc(data.createdAt, 'Начало черновика');
   const timeZone = text(data.timeZone, 'Часовой пояс черновика', 100);
@@ -336,7 +349,7 @@ export function validatePracticeDraft(value: unknown): PracticeDraft {
   const area = data.context === null ? null : context(data.context);
   const totalReferenceMs = number(data.totalReferenceMs, 0, Number.MAX_SAFE_INTEGER, 'Накопленное время', false);
   const recordedThroughMs = number(data.recordedThroughMs, 0, totalReferenceMs, 'Сохранённое время', false);
-  const material = validatePracticeMaterial(data.material, area) as PracticeMaterial;
+  const material = validatePracticeMaterial(data.material, area, false, legacyRhythmVersion) as PracticeMaterial;
   const routeRef = validateRouteRef(data.routeRef);
   if (material.kind === 'rhythm' && routeRef !== null) invalid('Практика метронома и ритма не относится к маршруту.');
   if (material.kind === 'fretboard' && totalReferenceMs !== 0) invalid('Изучение грифа не измеряет время проигрывания эталона.');
@@ -523,7 +536,7 @@ function validateRouteHistory(value: unknown, legacy = false): RouteResult {
   return expected;
 }
 
-export function validateHistoryEntry(value: unknown, legacy = false): HistoryEntry {
+export function validateHistoryEntry(value: unknown, legacy = false, legacyRhythmVersion?: LegacyRhythmVersion): HistoryEntry {
   const raw = object(value, ['id', 'occurredAt', 'timeZone', 'localDate', 'result', ...(legacy ? [] : ['routeRef'])], 'Запись истории');
   const id = text(raw.id, 'ID истории', 160);
   const occurredAt = utc(raw.occurredAt, 'Время занятия');
@@ -542,7 +555,7 @@ export function validateHistoryEntry(value: unknown, legacy = false): HistoryEnt
     const result = object(raw.result, ['kind', 'source', 'comfortableBpm', 'durationMs', 'note', 'context', ...(legacy ? [] : ['material'])], 'Ручная отметка');
     if (result.source !== 'self-report') invalid('Ручная отметка должна быть явно помечена как самооценка.');
     const area = legacy ? legacyContext(result.context) : result.context === null ? null : context(result.context);
-    const material = legacy ? { kind: 'legacy-unknown' as const } : validatePracticeMaterial(result.material, area, true);
+    const material = legacy ? { kind: 'legacy-unknown' as const } : validatePracticeMaterial(result.material, area, true, legacyRhythmVersion);
     if (material.kind === 'rhythm' && routeRef !== null) invalid('Практика метронома и ритма не относится к маршруту.');
     const manual = createManualPracticeResult({
       context: area, comfortableBpm: manualBpm(result.comfortableBpm, material, 'Комфортный темп'),
@@ -576,33 +589,33 @@ export function validateSnapshot(value: unknown): StudySnapshot {
   return validateSnapshotVersion(value, STUDY_SCHEMA_VERSION);
 }
 
-function validateSnapshotVersion(value: unknown, sourceVersion: 8 | typeof STUDY_SCHEMA_VERSION): StudySnapshot {
+export function migrateRhythmSnapshot(value: unknown, sourceVersion: LegacyRhythmVersion, legacyRhythmDefaults?: LegacyRhythmVelocityDefaults): StudySnapshot {
+  return validateSnapshotVersion(value, sourceVersion, legacyRhythmDefaults);
+}
+
+function validateSnapshotVersion(value: unknown, sourceVersion: LegacyRhythmVersion | typeof STUDY_SCHEMA_VERSION, legacyRhythmDefaults?: LegacyRhythmVelocityDefaults): StudySnapshot {
   const raw = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history', 'profile', 'practiceDrafts', 'rhythmProjects', 'activeRhythmProjectId'], 'Резервная копия');
   if (raw.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
   if (raw.schemaVersion !== sourceVersion) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
   // Import bytes are bounded by parseBackup; ordinary native writes must never make
   // an otherwise valid database unreadable merely by exceeding an arbitrary count.
   const presets = array(raw.presets, Number.MAX_SAFE_INTEGER, 'Пресеты').map((value, index) => recordContext(`Пресет №${index + 1}`, () => validatePreset(value)));
-  const history = array(raw.history, Number.MAX_SAFE_INTEGER, 'История').map(item => validateHistoryEntry(item));
-  const practiceDrafts = array(raw.practiceDrafts, Number.MAX_SAFE_INTEGER, 'Черновики').map(validatePracticeDraft);
-  const rhythmProjects = array(raw.rhythmProjects, Number.MAX_SAFE_INTEGER, 'Проекты ритма').map((item, index) => recordContext(`Проект ритма №${index + 1}`, () => validateStoredRhythmProject(item)));
+  const legacyRhythmVersion = sourceVersion === STUDY_SCHEMA_VERSION ? undefined : sourceVersion;
+  const history = array(raw.history, Number.MAX_SAFE_INTEGER, 'История').map(item => validateHistoryEntry(item, false, legacyRhythmVersion));
+  const practiceDrafts = array(raw.practiceDrafts, Number.MAX_SAFE_INTEGER, 'Черновики').map(item => validatePracticeDraft(item, legacyRhythmVersion));
+  const rhythmProjects = array(raw.rhythmProjects, Number.MAX_SAFE_INTEGER, 'Проекты ритма').map((item, index) =>
+    recordContext(`Проект ритма №${index + 1}`, () => {
+      if (!legacyRhythmVersion) return validateStoredRhythmProject(item);
+      const project = rhythmData('Проект ритма', () => migrateRhythmProject(item, legacyRhythmDefaults));
+      if (legacyRhythmVersion === 8) validateV8PatternLengths(project);
+      return project;
+    }));
   const activeRhythmProjectId = raw.activeRhythmProjectId === null ? null : validateRhythmProjectId(raw.activeRhythmProjectId);
   if (new Set(presets.map(item => item.id)).size !== presets.length || new Set(history.map(item => item.id)).size !== history.length) invalid('ID пресетов или истории повторяются.');
   const byId = (a: { id: string }, b: { id: string }) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   if (new Set(practiceDrafts.map(item => item.id)).size !== practiceDrafts.length) invalid('ID черновиков повторяются.');
   if (new Set(rhythmProjects.map(item => item.id)).size !== rhythmProjects.length) invalid('ID проектов ритма повторяются.');
   if (activeRhythmProjectId !== null && !rhythmProjects.some(item => item.id === activeRhythmProjectId)) invalid('Выбранный проект ритма отсутствует в библиотеке.');
-  if (sourceVersion === 8) {
-    const checkProject = (project: RhythmProject | undefined) => {
-      if (project?.patterns.some(pattern => pattern.bars === 3)) invalid('Трёхтактовые паттерны поддерживаются с версии 9.');
-    };
-    const checkMaterial = (material: StoredPracticeMaterial) => {
-      if (material.kind === 'rhythm') checkProject(material.playback.project);
-    };
-    rhythmProjects.forEach(checkProject);
-    for (const draft of practiceDrafts) checkMaterial(draft.material);
-    for (const entry of history) if (entry.result.kind === 'manual') checkMaterial(entry.result.material);
-  }
   return immutable({ format: 'bass-study-backup', schemaVersion: STUDY_SCHEMA_VERSION, preferences: recordContext('Текущие настройки (preferences/current)', () => validatePreferences(raw.preferences)), profile: validateProfile(raw.profile), practiceDrafts: practiceDrafts.sort(byId), presets: presets.sort(byId), history: history.sort(byId), rhythmProjects: rhythmProjects.sort(byId), activeRhythmProjectId });
 }
 
@@ -705,9 +718,9 @@ export function migrateV1HistoryEntry(value: unknown): HistoryEntry {
 
 export function migrateBackup(value: unknown): StudySnapshot {
   const version = value && typeof value === 'object' ? Object.getOwnPropertyDescriptor(value, 'schemaVersion')?.value : undefined;
-  if (version !== undefined && ![1, 2, 3, 4, 5, 6, 7, 8, STUDY_SCHEMA_VERSION].includes(version)) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  if (version !== undefined && ![1, 2, 3, 4, 5, 6, 7, 8, 9, STUDY_SCHEMA_VERSION].includes(version)) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
   if (version === STUDY_SCHEMA_VERSION) return validateSnapshot(value);
-  if (version === 8) return validateSnapshotVersion(value, version);
+  if (version === 8 || version === 9) return migrateRhythmSnapshot(value, version);
   if (version === 6 || version === 7) {
     const previous = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history', 'profile', 'practiceDrafts'], `Резервная копия версии ${version}`);
     const migratePreferences = version === 6 ? migrateV6Preferences : migrateV7Preferences;

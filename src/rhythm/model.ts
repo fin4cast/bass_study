@@ -27,10 +27,14 @@ export interface RhythmMetronome {
   readonly countIn: boolean; readonly training: RhythmTraining;
 }
 export interface RhythmPreferences { readonly view: 'metronome' | 'rhythm'; readonly master: number; readonly metronome: RhythmMetronome }
+export interface RhythmVelocityDefaults { readonly hit: number; readonly accent: number }
+export const DEFAULT_RHYTHM_VELOCITY: RhythmVelocityDefaults = Object.freeze({ hit: 72, accent: 100 });
 export interface RhythmChannel {
   readonly id: string; readonly name: string; readonly sound: RhythmSound;
   readonly volume: number; readonly muted: boolean; readonly solo: boolean;
+  readonly velocityDefaults: RhythmVelocityDefaults;
 }
+export type LegacyRhythmVelocityDefaults = (channel: Omit<RhythmChannel, 'velocityDefaults'>) => RhythmVelocityDefaults;
 export interface RhythmPatternLane { readonly channelId: string; readonly steps: readonly RhythmStep[]; readonly velocities: readonly number[] }
 export interface RhythmPattern { readonly id: RhythmPatternId; readonly name: string; readonly bars: RhythmPatternBars; readonly lanes: readonly RhythmPatternLane[] }
 export interface RhythmClip { readonly id: string; readonly patternId: RhythmPatternId }
@@ -160,10 +164,23 @@ export const DEFAULT_RHYTHM_PREFERENCES = validateRhythmPreferences({
 });
 
 export function validateRhythmChannel(value: unknown): RhythmChannel {
-  const data = record(value, ['id', 'name', 'sound', 'volume', 'muted', 'solo'], 'Инструмент');
-  return freeze({ id: id(data.id, 'Инструмент'), name: name(data.name, 'Инструмент'),
+  return parseRhythmChannel(value);
+}
+function parseRhythmChannel(value: unknown, legacyDefaults?: LegacyRhythmVelocityDefaults): RhythmChannel {
+  const keys = ['id', 'name', 'sound', 'volume', 'muted', 'solo'];
+  if (!legacyDefaults) keys.push('velocityDefaults');
+  const data = record(value, keys, 'Инструмент');
+  const channel = { id: id(data.id, 'Инструмент'), name: name(data.name, 'Инструмент'),
     sound: choice(data.sound, Object.keys(SOUND_LABELS) as RhythmSound[], 'Звук инструмента'),
     volume: number(data.volume, 0, 1.5, 'Громкость инструмента', false), muted: flag(data.muted, 'Mute'), solo: flag(data.solo, 'Solo'),
+  };
+  const defaults = record(legacyDefaults ? legacyDefaults(channel) : data.velocityDefaults, ['hit', 'accent'], 'Сила новых ударов');
+  return freeze({
+    ...channel,
+    velocityDefaults: {
+      hit: number(defaults.hit, 1, 100, 'Сила нового удара'),
+      accent: number(defaults.accent, 1, 100, 'Сила нового акцента'),
+    },
   });
 }
 function validatePattern(value: unknown, channels: readonly RhythmChannel[]): RhythmPattern {
@@ -182,8 +199,14 @@ function validatePattern(value: unknown, channels: readonly RhythmChannel[]): Rh
   return { id: choice(data.id, RHYTHM_PATTERN_IDS, 'Номер паттерна'), name: name(data.name, 'Паттерн'), bars, lanes };
 }
 export function validateRhythmProject(value: unknown): RhythmProject {
+  return parseRhythmProject(value);
+}
+export function migrateRhythmProject(value: unknown, defaults: LegacyRhythmVelocityDefaults = () => DEFAULT_RHYTHM_VELOCITY): RhythmProject {
+  return parseRhythmProject(value, defaults);
+}
+function parseRhythmProject(value: unknown, legacyDefaults?: LegacyRhythmVelocityDefaults): RhythmProject {
   const data = record(value, ['id', 'name', 'createdAt', 'updatedAt', 'bpm', 'swing', 'swingMode', 'channels', 'patterns', 'chain', 'activePatternId', 'scope', 'repeat', 'countIn', 'overlay'], 'Проект ритма');
-  const channels = list(data.channels, 1, 8, 'Инструменты').map(validateRhythmChannel);
+  const channels = list(data.channels, 1, 8, 'Инструменты').map(channel => parseRhythmChannel(channel, legacyDefaults));
   unique(channels.map(channel => channel.id), 'Инструменты');
   const patterns = list(data.patterns, 1, 8, 'Паттерны').map(value => validatePattern(value, channels));
   unique(patterns.map(pattern => pattern.id), 'Паттерны');
@@ -205,11 +228,11 @@ export function validateRhythmProject(value: unknown): RhythmProject {
     countIn: flag(data.countIn, 'Отсчёт'), overlay: flag(data.overlay, 'Клик поверх ритма'),
   });
 }
-export function validateRhythmPlaybackConfig(value: unknown): RhythmPlaybackConfig {
+export function validateRhythmPlaybackConfig(value: unknown, legacyDefaults?: LegacyRhythmVelocityDefaults): RhythmPlaybackConfig {
   const hasProject = value !== null && typeof value === 'object' && Object.hasOwn(value, 'project');
   const data = record(value, hasProject ? ['preferences', 'project'] : ['preferences'], 'Материал ритмической практики');
   const preferences = validateRhythmPreferences(data.preferences);
-  const project = hasProject ? validateRhythmProject(data.project) : undefined;
+  const project = hasProject ? parseRhythmProject(data.project, legacyDefaults) : undefined;
   if (preferences.view === 'rhythm' && !project) invalid('Для ритм-секции нужен проект.');
   return freeze(preferences.view === 'rhythm' ? { preferences, project: project! } : { preferences });
 }
@@ -242,7 +265,8 @@ export function createLanes(presetId: RhythmPresetId = 'rock', bars: RhythmPatte
   return (Object.entries(presets[presetId].sounds) as [RhythmSound, RhythmStep[]][]).map(([sound, source]) => {
     const steps = Array.from({ length: bars * RHYTHM_STEPS_PER_BAR }, (_, index) => source[index % 16]);
     return { id: sound, name: SOUND_LABELS[sound], sound, volume: sound === 'closedHat' || sound === 'shaker' ? .5 : .7,
-      muted: false, solo: false, steps, velocities: steps.map<number>(step => step === 2 ? 1 : step === 1 ? .72 : 0) };
+      muted: false, solo: false, velocityDefaults: { ...DEFAULT_RHYTHM_VELOCITY }, steps,
+      velocities: steps.map<number>(step => step === 2 ? 1 : step === 1 ? .72 : 0) };
   });
 }
 export function createDefaultRhythmProject(projectId = 'rhythm-default', projectName = 'Мой ритм', nowISO = new Date().toISOString()): RhythmProject {
