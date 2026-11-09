@@ -1,9 +1,10 @@
 import {
-  BASS_STRINGS, annotatePositions, formatMidi, parseNote,
+  BASS_STRINGS, formatMidi,
   type AnnotatedPosition, type MusicalStructure, type StructureId,
 } from '../music';
-import { createIntervalTarget, createPitchTarget, type IntervalDegree } from './constraints';
-import { getBoxInstance, type BoxSelection } from '../music/boxes';
+import type { IntervalDegree } from './constraints';
+import type { BoxSelection } from '../music/boxes';
+import { checkQuizElapsedV1, createQuestionV1, createQuizQuestionsV1, eligiblePositionsV1, namedPitchClassV1 } from './quiz-rules-v1';
 import type { RouteRef } from '../route';
 export { INTERVAL_DEGREES, createIntervalTarget, createPitchTarget, spellInterval } from './constraints';
 export type { IntervalDegree } from './constraints';
@@ -114,12 +115,9 @@ export interface QuizSession {
   readonly results: readonly QuizResult[];
 }
 
-const QUIZ_MODES: readonly QuizMode[] = ['name-note', 'find-note', 'find-all', 'find-degree', 'find-pitch', 'find-interval'];
 const PATTERN_NAMES: Readonly<Record<SequencePattern, string>> = {
   ascending: 'Вверх', descending: 'Вниз', 'round-trip': 'Вверх-вниз', 'groups-of-three': 'Группы по три',
 };
-const CHROMATIC_NAMES = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'] as const;
-
 /** All objects passed here are constructed by this module, not caller-owned inputs. */
 function immutable<T>(value: T): T {
   if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -129,87 +127,8 @@ function immutable<T>(value: T): T {
   return value;
 }
 
-function validateSeed(seed: number): void {
-  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) throw new RangeError('Seed должен быть целым числом от 0 до 4294967295.');
-}
-
-function randomUint32(seed: number): () => number {
-  let state = seed || 0x9e3779b9;
-  return () => {
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
-    return state >>> 0;
-  };
-}
-
-function eligiblePositions(config: TrainingConfig): readonly AnnotatedPosition[] {
-  const scope = config.scope ?? 'structure';
-  if (scope !== 'structure' && scope !== 'chromatic') throw new RangeError('Неизвестная область: выберите ноты структуры или все ноты.');
-  let supplied = config.positions;
-  if (config.box) {
-    const box = getBoxInstance(config.box);
-    if (box.selection.root !== config.structure.root || box.selection.structureId !== config.structure.id) throw new RangeError('Форма не соответствует выбранной тонике и структуре.');
-    const allowed = new Set(config.positions.map(position => position.id));
-    if (box.referencePositionIds.some(id => !allowed.has(id))) throw new RangeError('Учебная форма не помещается в доступную область. Покажи её целиком.');
-    supplied = box.positions;
-  }
-  const annotated = annotatePositions(supplied, config.structure);
-  const unique = [...new Map(annotated.map(position => [position.id, position])).values()];
-  return unique.filter(position => scope === 'chromatic' || position.inStructure);
-}
-
-export function createQuestion(config: QuizConfig, forcedPitchClass?: number): Question {
-  validateSeed(config.seed);
-  if (!QUIZ_MODES.includes(config.mode)) throw new RangeError('Неизвестный режим задания.');
-  const scope = config.mode === 'find-interval' ? 'chromatic' : config.scope ?? 'structure';
-  if (config.mode === 'find-degree' && scope === 'chromatic') {
-    throw new RangeError('Поиск ступеней работает по выбранной гамме или трезвучию. Выберите «Ноты структуры».');
-  }
-  const choices = CHROMATIC_NAMES.map((fallback, pitchClass) => ({
-    id: `pc:${pitchClass}`,
-    label: config.structure.notes.find(note => note.pitchClass === pitchClass)?.name ?? fallback,
-    pitchClass,
-  }));
-  const effectiveIds = config.box && config.mode !== 'find-interval' ? eligiblePositions(config).map(position => position.id) : config.positions.map(position => position.id);
-  const context: QuestionContext = { scope, root: config.structure.root, structureId: config.structure.id, positionIds: [...new Set(effectiveIds)], ...(config.box && config.mode !== 'find-interval' ? { box: getBoxInstance(config.box).selection } : {}) };
-  if (config.mode === 'find-pitch' || config.mode === 'find-interval') {
-    const generated = config.mode === 'find-pitch' ? createPitchTarget({ ...config, positions: eligiblePositions(config) })
-      : createIntervalTarget(config.structure.root, config.intervalDegree ?? '#4', config.positions);
-    return immutable({
-      id: `q-${config.seed.toString(16)}-${config.mode}-${generated.targetMidi ?? generated.target.degree}`,
-      mode: config.mode, seed: config.seed, context, ...generated, choices,
-      answerRule: config.mode === 'find-pitch' ? 'exact-pitch' : 'any-position',
-    });
-  }
-  const positions = eligiblePositions(config);
-  if (positions.length === 0) throw new RangeError('В выбранной области нет подходящих нот. Измените струны, лады или структуру.');
-  const next = randomUint32(config.seed);
-  const targets = config.mode === 'name-note'
-    ? positions
-    : [...new Map(positions.map(position => [position.pitchClass, position])).values()];
-  const selected = forcedPitchClass === undefined ? targets[Math.floor((next() / 0x100000000) * targets.length)] : targets.find(position => position.pitchClass === forcedPitchClass);
-  if (!selected) throw new RangeError('Запрошенная нота отсутствует в учебной форме.');
-  const expectedPositionIds = positions.filter(position => position.pitchClass === selected.pitchClass).map(position => position.id);
-  const target = { pitchClass: selected.pitchClass, name: selected.noteName, degree: selected.degree };
-  const prompts = {
-    'name-note': `Назовите ноту: струна ${selected.string}, лад ${selected.fret}. Октава не влияет на выбор имени.`,
-    'find-note': `Найдите ноту ${target.name} в выбранной области. Подходит любая её октава.`,
-    'find-all': `Найдите все позиции ноты ${target.name} в выбранной области: ${expectedPositionIds.length}.`,
-    'find-degree': `Найдите ступень ${(target.degree ?? '').replaceAll('b', '♭').replaceAll('#', '♯')} от ${config.structure.root} в выбранной структуре.`,
-  };
-  return immutable({
-    id: `q-${config.seed.toString(16)}-${config.mode}-${config.mode === 'name-note' ? selected.id : selected.pitchClass}`,
-    mode: config.mode,
-    prompt: prompts[config.mode],
-    seed: config.seed,
-    context, target, targetMidi: null,
-    ...(config.mode === 'name-note' ? { targetPositionId: selected.id } : {}),
-    expectedPositionIds,
-    choices,
-    answerRule: config.mode === 'name-note' ? 'pitch-class' : config.mode === 'find-all' ? 'all-positions' : 'any-position',
-  });
-}
+export const createQuestion = createQuestionV1;
+export { createQuizQuestionsV1 } from './quiz-rules-v1';
 
 function initialAnswer(): AnswerState {
   return {
@@ -220,48 +139,18 @@ function initialAnswer(): AnswerState {
 }
 
 export function startQuiz(config: QuizConfig, count = 10): QuizSession {
-  validateSeed(config.seed);
-  if (!Number.isInteger(count) || count < 1 || count > 100) throw new RangeError('Число заданий должно быть целым от 1 до 100.');
-  const next = randomUint32(config.seed);
+  const questions = createQuizQuestionsV1(config, count);
   const questionPolicy = config.questionPolicy ?? 'random-v1';
-  if (!['random-v1', 'triad-6-v1', 'shape-6-v1'].includes(questionPolicy)) throw new RangeError('Неизвестное правило набора вопросов.');
-  let targetClasses: number[] | null = null;
-  if (questionPolicy === 'triad-6-v1') {
-    if (count !== 6 || config.mode !== 'find-note' || !['major-triad', 'minor-triad'].includes(config.structure.id)) throw new RangeError('Учебная серия трезвучия — шесть вопросов «Найди ноту».');
-    targetClasses = config.structure.notes.flatMap(note => [note.pitchClass, note.pitchClass]);
-    for (let index = targetClasses.length - 1; index > 0; index--) { const swap = next() % (index + 1); [targetClasses[index], targetClasses[swap]] = [targetClasses[swap], targetClasses[index]]; }
-  }
-  if (questionPolicy === 'shape-6-v1') {
-    if (count !== 6 || config.mode !== 'find-note') throw new RangeError('Серия формы — шесть вопросов «Найди ноту».');
-    const classes = [...new Set(eligiblePositions(config).map(position => position.pitchClass))];
-    if (!classes.length) throw new RangeError('В выбранном материале нет доступных нот.');
-    for (let index = classes.length - 1; index > 0; index--) { const swap = next() % (index + 1); [classes[index], classes[swap]] = [classes[swap], classes[index]]; }
-    targetClasses = Array.from({ length: 6 }, (_, index) => classes[index % classes.length]);
-  }
-  const questions = Array.from({ length: count }, (_, index) => createQuestion({ ...config, seed: next() }, targetClasses?.[index]));
   return immutable({
     kind: 'screen', questionPolicy, ...(config.routeRef ? { routeRef: { ...config.routeRef } } : {}), seed: config.seed, questions, questionIndex: 0, currentQuestion: questions[0],
     status: 'active', answerState: initialAnswer(), results: [],
   });
 }
 
-function checkElapsed(state: AnswerState, elapsedMs: number): void {
-  if (!Number.isFinite(elapsedMs) || elapsedMs < state.lastElapsedMs) {
-    throw new RangeError('Время ответа должно быть неотрицательным и отсчитываться от начала текущего задания.');
-  }
-}
-
-function namedPitchClass(question: Question, answer: QuizAnswer): number | null {
-  if (typeof answer === 'number') return Number.isInteger(answer) && answer >= 0 && answer <= 11 ? answer : null;
-  const choice = question.choices.find(candidate => candidate.id === answer);
-  if (choice) return choice.pitchClass;
-  try { return parseNote(answer).pitchClass; } catch { return null; }
-}
-
 export function submitAnswer(session: QuizSession, answer: QuizAnswer, elapsedMs: number): QuizSession {
   if (session.status !== 'active') return session;
   const previous = session.answerState;
-  checkElapsed(previous, elapsedMs);
+  checkQuizElapsedV1(previous.lastElapsedMs, elapsedMs);
   const question = session.currentQuestion;
   const positionId = typeof answer === 'string' ? answer : null;
   if (question.mode === 'find-all' && positionId !== null && previous.selectedPositionIds.includes(positionId)) {
@@ -269,7 +158,7 @@ export function submitAnswer(session: QuizSession, answer: QuizAnswer, elapsedMs
       feedback: { kind: 'duplicate', message: 'Эта позиция уже найдена. Повторный выбор не меняет результат.' } } });
   }
   const correct = question.mode === 'name-note'
-    ? namedPitchClass(question, answer) === question.target.pitchClass
+    ? namedPitchClassV1(answer, question.choices) === question.target.pitchClass
     : positionId !== null && question.expectedPositionIds.includes(positionId);
   const selectedPositionIds = correct && question.mode !== 'name-note'
     ? [...previous.selectedPositionIds, positionId!]
@@ -298,7 +187,7 @@ export function submitAnswer(session: QuizSession, answer: QuizAnswer, elapsedMs
 
 export function revealAnswer(session: QuizSession, elapsedMs: number): QuizSession {
   if (session.status !== 'active') return session;
-  checkElapsed(session.answerState, elapsedMs);
+  checkQuizElapsedV1(session.answerState.lastElapsedMs, elapsedMs);
   return immutable({ ...session, status: 'review', answerState: { ...session.answerState,
     status: 'revealed', hintUsed: true, completionMs: elapsedMs, lastElapsedMs: elapsedMs,
     feedback: { kind: 'revealed', message: `Ответ: ${session.currentQuestion.targetMidi === null ? session.currentQuestion.target.name : formatMidi(session.currentQuestion.targetMidi, session.currentQuestion.target.name)}. Показанный ответ не считается самостоятельным.` },
@@ -307,7 +196,7 @@ export function revealAnswer(session: QuizSession, elapsedMs: number): QuizSessi
 
 export function skipQuestion(session: QuizSession, elapsedMs: number): QuizSession {
   if (session.status !== 'active') return session;
-  checkElapsed(session.answerState, elapsedMs);
+  checkQuizElapsedV1(session.answerState.lastElapsedMs, elapsedMs);
   return immutable({ ...session, status: 'review', answerState: { ...session.answerState,
     status: 'skipped', completionMs: elapsedMs, lastElapsedMs: elapsedMs,
     feedback: { kind: 'skipped', message: 'Задание пропущено. Оно не считается правильным ответом.' },
@@ -356,7 +245,7 @@ export function getQuizSummary(session: QuizSession) {
 
 export function createSequence(config: TrainingConfig & { readonly pattern: SequencePattern }) {
   if (!Object.hasOwn(PATTERN_NAMES, config.pattern)) throw new RangeError('Неизвестный порядок нот.');
-  const positions = [...eligiblePositions(config)].sort((a, b) =>
+  const positions = [...eligiblePositionsV1(config)].sort((a, b) =>
     a.midi - b.midi
     || BASS_STRINGS.findIndex(string => string.id === a.string) - BASS_STRINGS.findIndex(string => string.id === b.string)
     || a.fret - b.fret,

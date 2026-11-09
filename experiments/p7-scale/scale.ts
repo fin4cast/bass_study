@@ -85,12 +85,15 @@ async function run() {
     await measure('addHistory-single-session-upsert', () => store.addHistory(read.history[0]));
     await measure('readSnapshot-after-single-answer-write', () => store.readSnapshot());
     const container = document.getElementById('history')!;
-    const options = { store, getPreferences: () => read.preferences, applyPreferences: () => undefined,
-      runWrite: <T>(operation: () => Promise<T>) => operation(), flush: async () => undefined,
-      restoreBackup: async (json: string) => { await store.restore(json, { confirmed: true }); return store.readSnapshot(); },
-      getPracticeDraft: () => ({ context: { scope: 'structure' as const, root: 'A', structureId: 'minor-pentatonic' as const, positionIds: positions.map(position => position.id) }, durationMs: 0, comfortableBpm: 80 }),
+    const practiceDraft = () => ({ context: { scope: 'structure' as const, root: 'A', structureId: 'minor-pentatonic' as const, positionIds: positions.map(position => position.id) }, durationMs: 0, comfortableBpm: 80 });
+    const options: Parameters<typeof mountHistory>[1] = { getPreferences: () => read.preferences, applyPreferences: () => undefined,
+      readConfirmed: store.readSnapshot, prepareImport: store.prepareImport, savePreset: store.savePreset, deletePreset: store.deletePreset, deleteHistory: store.deleteHistory,
+      saveManual: async entry => { await store.addHistory(entry); }, waitForWrites: async () => undefined,
+      exportConfirmed: async () => ({ json: await store.exportBackup(), incomplete: false }),
+      restoreBackup: async (candidate, onCommitted) => { const { snapshot } = await store.restorePrepared(candidate); onCommitted(); return snapshot; },
+      peekPracticeDraft: practiceDraft, capturePracticeDraft: practiceDraft,
       onRepeatErrors: () => undefined, isPersistent: () => true };
-    const history = mountHistory(container, { ...options, store: { ...store, readSnapshot: async () => read } });
+    const history = mountHistory(container, { ...options, readConfirmed: async () => read });
     await measure('actual-history-UI-refresh-from-already-validated-cache', () => history.refresh());
     checks.renderedEntries = container.querySelectorAll('[data-history-entry]').length;
     checks.renderedElementCount = container.querySelectorAll('*').length;

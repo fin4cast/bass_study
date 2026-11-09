@@ -115,4 +115,3 @@ button:disabled, input:disabled, select:disabled, textarea:disabled {
 .confirm-dialog h2 { margin: 0 0 13px; font-size: 21px; }
 .confirm-dialog p { margin: 0 0 22px; line-height: 1.7; }
 .confirm-actions, .confirmation-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
-.confirm-dialog .restore-button { border: 1px solid var(--danger-border); background: var(--danger-surface); color: var(--danger-text); border-radius: 6px; padding: 9px 12px; font: inherit; cursor: pointer; }

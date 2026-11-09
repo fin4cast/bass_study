@@ -2,10 +2,11 @@ import './input.css';
 import { createInputMonitor, type InputDevice, type InputMonitorSnapshot } from '../audio/input';
 import { PITCH_DIAGNOSTIC } from '../input/pitch';
 import { formatMidi } from '../music';
+import { createActiveFrame } from './active-frame';
 
 export interface InputPreferences { readonly deviceId: string }
 export interface InputOptions {
-  readonly onBeforeStart?: () => void;
+  readonly onBeforeStart?: () => boolean | void;
   readonly onPrefsChange?: () => void;
 }
 
@@ -30,17 +31,18 @@ export function mountInput(container: HTMLElement, options: InputOptions = {}) {
   let request = 0, enumeration = 0;
   let listing = false;
   let notice = '', actionError = '', lastStatus = '', detailsKey = '';
-  let frame = 0, lastFrame = 0;
-  container.classList.add('input-section');
-  container.innerHTML = `<div class="input-heading"><div><h2>Подключи бас. Посмотри сигнал.</h2></div><p>Аудиоинтерфейс или USB.<br>Подключение только по твоей кнопке.</p></div>
+  const frame = createActiveFrame(tick);
+  let lastFrame = 0;
+  container.classList.add('input-section', 'content-panel');
+  container.innerHTML = `<div class="panel-heading"><div><h2>Подключи бас. Посмотри сигнал.</h2></div><p>Аудиоинтерфейс или USB.<br>Подключение только по твоей кнопке.</p></div>
     <p class="input-intro">Выбери вход инструмента и сыграй одну протяжную ноту. Здесь можно посмотреть уровень и приблизительную звучащую высоту. Это исследовательская диагностика: она не оценивает игру и не определяет струну или лад.</p>
-    <div class="input-connect"><label class="input-device-field"><span>Аудиовход</span><select aria-label="Аудиовход" data-input-setting="deviceId"></select></label><button class="text-button" type="button" data-input-action="refresh">Обновить устройства</button><button class="primary-button" type="button" data-input-action="connect">Подключить</button><button class="text-button" type="button" data-input-action="stop" disabled>Отключить</button></div>
-    <p class="input-device-help" data-testid="input-device-help"></p><p class="input-error" role="alert" data-testid="input-error" hidden></p><p class="input-notice" role="status" data-testid="input-notice" hidden></p>
+    <div class="input-connect"><label class="input-device-field"><span class="form-label">Аудиовход</span><select class="form-control" aria-label="Аудиовход" data-input-setting="deviceId"></select></label><button class="secondary-button" type="button" data-input-action="refresh">Обновить устройства</button><button class="primary-button" type="button" data-input-action="connect">Подключить</button><button class="secondary-button" type="button" data-input-action="stop" disabled>Отключить</button></div>
+    <p class="input-device-help" data-testid="input-device-help"></p><p class="status-error" role="alert" data-testid="input-error" hidden></p><p class="input-notice status-notice" role="status" data-testid="input-notice" hidden></p>
     <p class="input-status" role="status" data-testid="input-status">Вход не подключён. Доступ к аудио запрашивается после «Подключить».</p>
-    <div class="input-readouts"><section class="input-level-card" aria-labelledby="input-level-heading"><h3 id="input-level-heading">Уровень входа</h3><label class="input-meter-label"><span>Пиковый уровень</span><meter min="0" max="1" low="0.015" high="0.9" optimum="0.25" value="0" aria-label="Пиковый уровень аудиовхода" data-testid="input-level-meter">0</meter></label><div class="input-level-values"><span>RMS <output data-testid="input-rms">−∞ dBFS</output></span><span>Пик <output data-testid="input-peak">−∞ dBFS</output></span></div><p class="input-clipping" data-testid="input-clipping">Перегрузка не обнаружена</p><details class="input-card-explainer"><summary>RMS, пик и dBFS</summary><p class="input-card-help">RMS — среднеквадратичный уровень сигнала за окно; пик — его кратковременный максимум. dBFS отсчитывает уровень от цифрового предела 0 dBFS: отрицательные значения ниже предела. Если появляется перегрузка, уменьши усиление на аудиоинтерфейсе. Изменение уровня здесь не управляет усилением устройства.</p></details></section>
-    <section class="input-pitch-card" aria-labelledby="input-pitch-heading"><h3 id="input-pitch-heading">Звучащая высота</h3><div class="input-pitch-main"><output data-testid="input-note">—</output><span><output data-testid="input-hz">—</output> Гц</span></div><p class="input-cents" data-testid="input-cents">Нет устойчивой высоты</p><p class="input-confidence">Эвристика периодичности: <output data-testid="input-confidence">—</output></p><p class="input-uncertainty" data-testid="input-uncertainty">Подключи вход, чтобы начать диагностику.</p><details class="input-card-explainer"><summary>Оценка высоты и ограничения</summary><p class="input-card-help">Показатель не является вероятностью правильного распознавания. Атака, шум и сильные обертоны могут сделать высоту неопределённой или дать ошибку октавы.</p></details></section></div>
+    <div class="input-readouts"><section class="input-level-card content-panel-raised" aria-labelledby="input-level-heading"><h3 id="input-level-heading">Уровень входа</h3><label class="input-meter-label"><span>Пиковый уровень</span><meter min="0" max="1" low="0.015" high="0.9" optimum="0.25" value="0" aria-label="Пиковый уровень аудиовхода" data-testid="input-level-meter">0</meter></label><div class="input-level-values"><span>RMS <output data-testid="input-rms">−∞ dBFS</output></span><span>Пик <output data-testid="input-peak">−∞ dBFS</output></span></div><p class="input-clipping" data-testid="input-clipping">Перегрузка не обнаружена</p><details class="input-card-explainer"><summary class="section-disclosure">RMS, пик и dBFS</summary><p class="input-card-help">RMS — среднеквадратичный уровень сигнала за окно; пик — его кратковременный максимум. dBFS отсчитывает уровень от цифрового предела 0 dBFS: отрицательные значения ниже предела. Если появляется перегрузка, уменьши усиление на аудиоинтерфейсе. Изменение уровня здесь не управляет усилением устройства.</p></details></section>
+    <section class="input-pitch-card content-panel-raised" aria-labelledby="input-pitch-heading"><h3 id="input-pitch-heading">Звучащая высота</h3><div class="input-pitch-main"><output data-testid="input-note">—</output><span><output data-testid="input-hz">—</output> Гц</span></div><p class="input-cents" data-testid="input-cents">Нет устойчивой высоты</p><p class="input-confidence">Эвристика периодичности: <output data-testid="input-confidence">—</output></p><p class="input-uncertainty" data-testid="input-uncertainty">Подключи вход, чтобы начать диагностику.</p><details class="input-card-explainer"><summary class="section-disclosure">Оценка высоты и ограничения</summary><p class="input-card-help">Показатель не является вероятностью правильного распознавания. Атака, шум и сильные обертоны могут сделать высоту неопределённой или дать ошибку октавы.</p></details></section></div>
     <p class="input-silent-help">Вход не выводится на динамики. Для прослушивания используй прямой мониторинг своего аудиоинтерфейса. При уходе из раздела или скрытии вкладки подключение останавливается; вернуться можно по кнопке.</p>
-    <details class="input-diagnostics"><summary>Запрошенные и фактические параметры</summary><p class="input-diagnostics-help">Браузер может применить другие параметры. Столбец «Фактически» показывает ответ аудиодорожки, а не обещание устройства. После отключения здесь остаются последние полученные параметры дорожки.</p><div class="input-settings-scroll"><table><caption>Параметры аудиодорожки</caption><thead><tr><th scope="col">Параметр</th><th scope="col">Запрошено</th><th scope="col">Фактически</th></tr></thead><tbody data-testid="input-settings"></tbody></table></div><dl class="input-context" data-testid="input-context"></dl><p class="input-window-help" data-testid="input-window"></p><p class="input-diagnostics-help">Длительность окна анализа и выходной baseLatency AudioContext не измеряют сквозную задержку аудиовхода. Качество реального баса, USB и конкретного интерфейса требует отдельной проверки.</p></details>`;
+    <details class="input-diagnostics"><summary class="section-disclosure">Запрошенные и фактические параметры</summary><p class="input-diagnostics-help">Браузер может применить другие параметры. Столбец «Фактически» показывает ответ аудиодорожки, а не обещание устройства. После отключения здесь остаются последние полученные параметры дорожки.</p><div class="input-settings-scroll"><table><caption>Параметры аудиодорожки</caption><thead><tr><th scope="col">Параметр</th><th scope="col">Запрошено</th><th scope="col">Фактически</th></tr></thead><tbody data-testid="input-settings"></tbody></table></div><dl class="input-context" data-testid="input-context"></dl><p class="input-window-help" data-testid="input-window"></p><p class="input-diagnostics-help">Длительность окна анализа и выходной baseLatency AudioContext не измеряют сквозную задержку аудиовхода. Качество реального баса, USB и конкретного интерфейса требует отдельной проверки.</p></details>`;
 
   const query = <T extends HTMLElement = HTMLElement>(selector: string) => container.querySelector<T>(selector)!;
   const output = (name: string, text: string) => { const element = query(`[data-testid="input-${name}"]`); if (element.textContent !== text) element.textContent = text; };
@@ -49,9 +51,11 @@ export function mountInput(container: HTMLElement, options: InputOptions = {}) {
   function messages() {
     const failure = monitor.getSnapshot().error?.message || actionError;
     const errorElement = query('[data-testid="input-error"]');
-    errorElement.textContent = failure; errorElement.hidden = !failure;
+    if (errorElement.textContent !== failure) errorElement.textContent = failure;
+    if (errorElement.hidden !== !failure) errorElement.hidden = !failure;
     const noticeElement = query('[data-testid="input-notice"]');
-    noticeElement.textContent = notice; noticeElement.hidden = !notice;
+    if (noticeElement.textContent !== notice) noticeElement.textContent = notice;
+    if (noticeElement.hidden !== !notice) noticeElement.hidden = !notice;
   }
   function renderDevices() {
     const selected = preferences.deviceId;
@@ -94,15 +98,19 @@ export function mountInput(container: HTMLElement, options: InputOptions = {}) {
     if (disposed) return;
     const snapshot = monitor.getSnapshot();
     const active = snapshot.state === 'running', pending = snapshot.state === 'starting';
-    container.dataset.inputState = snapshot.state;
+    frame.setActive(visible && !document.hidden && active);
+    if (container.dataset.inputState !== snapshot.state) container.dataset.inputState = snapshot.state;
     query<HTMLButtonElement>('[data-input-action="connect"]').disabled = pending || active || !visible;
-    query<HTMLButtonElement>('[data-input-action="stop"]').disabled = !active && !pending;
-    query<HTMLButtonElement>('[data-input-action="stop"]').textContent = pending ? 'Отменить подключение' : 'Отключить';
+    const stopButton = query<HTMLButtonElement>('[data-input-action="stop"]');
+    stopButton.disabled = !active && !pending;
+    const stopLabel = pending ? 'Отменить подключение' : 'Отключить';
+    if (stopButton.textContent !== stopLabel) stopButton.textContent = stopLabel;
     const status = pending ? 'Ожидаем разрешение браузера и подключаем выбранный аудиовход…' : active ? 'Вход подключён. Анализ идёт без вывода на динамики.' : snapshot.state === 'error' ? 'Подключение остановлено из-за ошибки. Повтор — только по кнопке «Подключить».' : 'Вход не подключён. Доступ к аудио запрашивается после «Подключить».';
     if (status !== lastStatus) { output('status', status); lastStatus = status; }
     const meter = query<HTMLMeterElement>('[data-testid="input-level-meter"]');
-    meter.value = Math.min(1, snapshot.level.peak);
-    meter.textContent = `${fixed(snapshot.level.peak * 100, 0)}%`;
+    const peak = Math.min(1, snapshot.level.peak), peakText = `${fixed(snapshot.level.peak * 100, 0)}%`;
+    if (meter.value !== peak) meter.value = peak;
+    if (meter.textContent !== peakText) meter.textContent = peakText;
     output('rms', db(snapshot.level.rms)); output('peak', db(snapshot.level.peak));
     const clipping = query('[data-testid="input-clipping"]');
     clipping.classList.toggle('is-clipping', snapshot.level.clipping);
@@ -125,7 +133,7 @@ export function mountInput(container: HTMLElement, options: InputOptions = {}) {
     const current = ++request;
     actionError = ''; notice = '';
     try {
-      options.onBeforeStart?.();
+      if (options.onBeforeStart?.() === false) return;
       if (disposed || !visible || current !== request) return;
       const pending = monitor.start(preferences.deviceId ? { deviceId: preferences.deviceId } : {});
       refresh();
@@ -157,18 +165,24 @@ export function mountInput(container: HTMLElement, options: InputOptions = {}) {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && ['running', 'starting'].includes(monitor.getSnapshot().state)) stop('При скрытии вкладки аудиовход был отключён. Для нового подключения нажми «Подключить».');
   }, { signal: controller.signal });
-  function tick(time: number) { if (disposed) return; if (visible && time - lastFrame >= 100) { lastFrame = time; refresh(); } frame = requestAnimationFrame(tick); }
-  renderDevices(); refresh(); void refreshDevices(); frame = requestAnimationFrame(tick);
+  function tick(time: number) {
+    if (time - lastFrame >= 100) { lastFrame = time; refresh(); }
+  }
+  renderDevices(); refresh();
+  if (visible) void refreshDevices();
   return {
     getPreferences, applyPreferences, getSnapshot: monitor.getSnapshot,
     setVisible(value: boolean) {
-      if (disposed) return;
-      const leaving = visible && !value;
+      if (disposed || visible === value) return;
       visible = value; container.hidden = !value;
-      if (leaving && ['running', 'starting'].includes(monitor.getSnapshot().state)) stop('При выходе из раздела аудиовход был отключён. Для нового подключения нажми «Подключить».');
-      else if (value) { notice = ''; refresh(); }
+      if (value) { notice = ''; refresh(); void refreshDevices(); }
+      else {
+        enumeration++; listing = false;
+        if (['running', 'starting'].includes(monitor.getSnapshot().state)) stop('При выходе из раздела аудиовход был отключён. Для нового подключения нажми «Подключить».');
+        else refresh();
+      }
     },
     stop,
-    async dispose() { if (disposed) return; request++; enumeration++; disposed = true; controller.abort(); cancelAnimationFrame(frame); await monitor.dispose(); },
+    async dispose() { if (disposed) return; request++; enumeration++; disposed = true; controller.abort(); frame.setActive(false); await monitor.dispose(); },
   };
 }

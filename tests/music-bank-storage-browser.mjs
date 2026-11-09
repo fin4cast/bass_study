@@ -63,8 +63,8 @@ async function seedNativeV6(page, origin) {
   assert.equal(response.status(), 200, 'Нужна текущая product build с локальным vendor manifest');
   assert.match(response.headers()['content-type'], /application\/json/);
   assert.equal(await page.locator('#history-mount').count(), 0);
-  return page.evaluate(async snapshot => {
-    if (location.origin !== 'http://localhost:4173') throw new Error('Очистка допустима только на изолированном тестовом origin');
+  return page.evaluate(async ({ snapshot, origin }) => {
+    if (location.origin !== origin) throw new Error('Очистка допустима только на изолированном тестовом origin');
     await new Promise((resolve, reject) => {
       const request = indexedDB.deleteDatabase('bass-study'); request.onsuccess = resolve;
       request.onerror = () => reject(request.error); request.onblocked = () => reject(new Error('Test origin DB deletion blocked'));
@@ -82,7 +82,7 @@ async function seedNativeV6(page, origin) {
       request.onerror = () => reject(request.error); request.onsuccess = () => resolve(request.result);
     });
     const evidence = { version: db.version, stores: [...db.objectStoreNames] }; db.close(); return evidence;
-  }, literalV6);
+  }, { snapshot: literalV6, origin });
 }
 async function fixture(page, fixtureOrigin) {
   await page.goto(`${fixtureOrigin}/tests/fixtures/storage.html`);

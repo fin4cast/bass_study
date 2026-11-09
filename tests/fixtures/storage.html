@@ -5,9 +5,10 @@
 <body>
   <h1>Изолированная проверка IndexedDB</h1>
   <script type="module">
-    import { createStudyStore, DEFAULT_PREFERENCES, emptySnapshot, makeManualHistory, makeScreenHistory, validateSnapshot } from '/src/storage/index.ts';
+    import { createStudyStore, DEFAULT_PREFERENCES, emptySnapshot, makeManualHistory, makeRouteHistory, makeScreenHistory, validateSnapshot } from '/src/storage/index.ts';
     import { annotatePositions, createStructure, getPosition } from '/src/music/index.ts';
     import { createManualPracticeResult, nextQuestion, startQuiz, submitAnswer } from '/src/training/index.ts';
+    import { advanceRouteSession, createRouteMaterial, startRouteSession } from '/src/route/index.ts';
     const structure = createStructure('A', 'minor-pentatonic');
     const positions = annotatePositions([getPosition('E', 0), getPosition('E', 12)], structure);
     const context = { scope: 'structure', root: 'A', structureId: 'minor-pentatonic', positionIds: ['E:0', 'E:12'] };
@@ -20,6 +21,10 @@
     }
     function manual(id = 'fixture-manual', note = 'Ручная отметка; не измеренная точность.') {
       return makeManualHistory(createManualPracticeResult({ context, comfortableBpm: 72, durationMs: 300000, note }), { ...metadata, id });
+    }
+    function route(id, atMs = 2500) {
+      const session = startRouteSession({ id: `session-${id}`, material: createRouteMaterial() });
+      return makeRouteHistory(advanceRouteSession(session, atMs), { ...metadata, id });
     }
     function seedSnapshot() {
       const preferences = structuredClone(DEFAULT_PREFERENCES);
@@ -62,7 +67,7 @@
         await complete; return { version: db.version, preferences: preferences ?? null, presets, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId: activeRhythmProjectId ?? null };
       } finally { db.close(); }
     }
-    window.p5 = { store, seed, seedSnapshot, screen, manual, draft, emptySnapshot, readRaw, createStore: createStudyStore, defaults: DEFAULT_PREFERENCES, ready: true };
+    window.p5 = { store, seed, seedSnapshot, screen, manual, route, draft, emptySnapshot, readRaw, createStore: createStudyStore, defaults: DEFAULT_PREFERENCES, ready: true };
   </script>
 </body>
 </html>

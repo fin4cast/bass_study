@@ -87,19 +87,21 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
   const controller = new AbortController();
   let disposed = false;
   let fingerprint = contextFingerprint(getContext());
+  let sequenceCache: { key: string; value: ReturnType<typeof createSequence> | null; error: string } | undefined;
+  let publishedSequence: string | undefined;
 
   container.classList.add('training-section');
   container.innerHTML = `
-    <div class="training-switcher" role="group" aria-label="Режим занятия">
-      <button type="button" data-training-mode="study" aria-pressed="true"><span class="mode-icon" aria-hidden="true">○</span>Изучение</button>
-      <button type="button" data-training-mode="quiz" aria-pressed="false"><span class="mode-icon" aria-hidden="true">?</span>Задания</button>
-      <button type="button" data-training-mode="sequence" aria-pressed="false"><span class="mode-icon" aria-hidden="true">↗</span>Последовательности</button>
+    <div class="workspace-tabs" role="group" aria-label="Режим занятия">
+      <button type="button" data-training-mode="study" aria-pressed="true">Изучение</button>
+      <button type="button" data-training-mode="quiz" aria-pressed="false">Задания</button>
+      <button type="button" data-training-mode="sequence" aria-pressed="false">Последовательности</button>
     </div>
-    <div class="training-content" data-testid="training-content"></div>
+    <div class="training-content content-panel" data-testid="training-content"></div>
   `;
   const content = container.querySelector<HTMLElement>('.training-content')!;
   const navigation = options.navigationContainer ?? container;
-  if (options.navigationContainer) options.navigationContainer.append(container.querySelector('.training-switcher')!);
+  if (options.navigationContainer) options.navigationContainer.append(container.querySelector('.workspace-tabs')!);
   if (options.navigationContainer) navigation.addEventListener('click', event => {
     const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-training-mode]') : null;
     if (button) setMode(button.dataset.trainingMode as TrainingMode);
@@ -107,6 +109,17 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
 
   function contextFingerprint(context: TrainingContext) {
     return `${context.structure.root}|${context.structure.id}|${JSON.stringify(context.box ?? null)}|${context.positions.map(position => position.id).join(',')}|${context.fullPositions?.map(position => position.id).join(',') ?? ''}`;
+  }
+
+  function sequenceSnapshot() {
+    const context = getContext();
+    const scope = context.box ? 'structure' : sequenceScope;
+    const key = `${fingerprint}|${scope}|${pattern}`;
+    if (sequenceCache?.key !== key) {
+      try { sequenceCache = { key, value: createSequence({ ...context, scope, pattern }), error: '' }; }
+      catch (failure) { sequenceCache = { key, value: null, error: failure instanceof Error ? failure.message : String(failure) }; }
+    }
+    return sequenceCache;
   }
 
   function quizContext(): TrainingContext {
@@ -127,21 +140,28 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     content.hidden = mode === 'study';
     if (mode === 'study') { content.innerHTML = ''; return; }
     if (mode === 'quiz') renderQuiz();
-    else renderSequence();
+    else {
+      const sequence = sequenceSnapshot();
+      renderSequence(sequence);
+      if (publishedSequence !== sequence.key) {
+        publishedSequence = sequence.key;
+        options.onSequenceChange?.();
+      }
+    }
   }
 
   function quizSetup() {
     const context = quizContext();
     if (context.box) scope = 'structure';
-    return `<div class="training-intro"><div><p class="eyebrow">ПРОВЕРКА ЗНАНИЙ</p><h2>Вспомни. Найди. Проверь себя.</h2></div><p>Здесь проверяются ответы на экране.<br>Точность игры на басу не измеряется.</p></div>
+    return `<div class="panel-heading training-intro"><div><p class="eyebrow">ПРОВЕРКА ЗНАНИЙ</p><h2>Вспомни. Найди. Проверь себя.</h2></div><p>Здесь проверяются ответы на экране.<br>Точность игры на басу не измеряется.</p></div>
       <div class="quiz-settings">
-        <label class="training-field"><span>Тип задания</span><select aria-label="Тип задания" data-quiz-setting="mode"${reviewPositionIds.length ? ' disabled' : ''}>${QUIZ_MODES.map(item => `<option value="${item.id}"${item.id === quizMode ? ' selected' : ''}>${item.name}</option>`).join('')}</select></label>
+        <label class="training-field"><span class="form-label">Тип задания</span><select class="form-control" aria-label="Тип задания" data-quiz-setting="mode"${reviewPositionIds.length ? ' disabled' : ''}>${QUIZ_MODES.map(item => `<option value="${item.id}"${item.id === quizMode ? ' selected' : ''}>${item.name}</option>`).join('')}</select></label>
         <button class="primary-button" type="button" data-training-action="start">${session ? 'Начать заново' : 'Начать занятие'}<span aria-hidden="true">→</span></button>
       </div>
-      <details class="training-advanced" data-training-details="quiz"${quizAdvancedOpen ? ' open' : ''}><summary>Параметры задания</summary><div class="quiz-settings">
-        <label class="training-field"><span>Материал заданий</span><select aria-label="Материал заданий" data-quiz-setting="scope"${context.box || quizMode === 'find-degree' || quizMode === 'find-interval' || reviewPositionIds.length ? ' disabled' : ''}><option value="structure"${scope === 'structure' ? ' selected' : ''}>${context.box ? 'Точные позиции выбранной формы' : 'В выбранной структуре'}</option><option value="chromatic"${scope === 'chromatic' ? ' selected' : ''}>Все ноты диапазона</option></select></label>
-        ${quizMode === 'find-interval' ? `<label class="training-field"><span>Интервал от тоники</span><select aria-label="Интервал от тоники" data-quiz-setting="interval">${INTERVAL_DEGREES.map(degree => `<option value="${degree}"${degree === intervalDegree ? ' selected' : ''}>${degree.replaceAll('b', '♭').replaceAll('#', '♯')}</option>`).join('')}</select></label>` : ''}
-        <label class="training-field count-field"><span>Вопросов</span><input type="number" min="1" max="30" step="1" value="${escapeHtml(countDraft ?? String(count))}" aria-label="Количество вопросов" aria-invalid="${countDraft !== null && (!countDraft || !Number.isInteger(Number(countDraft)) || Number(countDraft) < 1 || Number(countDraft) > 30)}" data-quiz-setting="count"></label>
+      <details class="training-advanced" data-training-details="quiz"${quizAdvancedOpen ? ' open' : ''}><summary class="section-disclosure">Параметры задания</summary><div class="quiz-settings">
+        <label class="training-field"><span class="form-label">Материал заданий</span><select class="form-control" aria-label="Материал заданий" data-quiz-setting="scope"${context.box || quizMode === 'find-degree' || quizMode === 'find-interval' || reviewPositionIds.length ? ' disabled' : ''}><option value="structure"${scope === 'structure' ? ' selected' : ''}>${context.box ? 'Точные позиции выбранной формы' : 'В выбранной структуре'}</option><option value="chromatic"${scope === 'chromatic' ? ' selected' : ''}>Все ноты диапазона</option></select></label>
+        ${quizMode === 'find-interval' ? `<label class="training-field"><span class="form-label">Интервал от тоники</span><select class="form-control" aria-label="Интервал от тоники" data-quiz-setting="interval">${INTERVAL_DEGREES.map(degree => `<option value="${degree}"${degree === intervalDegree ? ' selected' : ''}>${degree.replaceAll('b', '♭').replaceAll('#', '♯')}</option>`).join('')}</select></label>` : ''}
+        <label class="training-field count-field"><span class="form-label">Вопросов</span><input class="form-control" type="number" min="1" max="30" step="1" value="${escapeHtml(countDraft ?? String(count))}" aria-label="Количество вопросов" aria-invalid="${countDraft !== null && (!countDraft || !Number.isInteger(Number(countDraft)) || Number(countDraft) < 1 || Number(countDraft) > 30)}" data-quiz-setting="count"></label>
       </div></details>
       <p class="training-scope-caption">${escapeHtml(QUIZ_MODES.find(item => item.id === quizMode)!.description)} ${quizMode === 'find-degree' ? 'Используются ступени выбранной структуры.' : ''}<span>${escapeHtml(context.structure.root)} · ${escapeHtml(context.structure.name)} · ${context.positions.length} доступных позиций</span></p>${reviewPositionIds.length ? `<div class="quiz-review-banner" role="status" data-testid="review-banner"><span>Повтор ошибок: только ${reviewPositionIds.length} выбранных позиций. Другие позиции не подмешиваются.</span><button class="text-button" type="button" data-training-action="clear-review">Обычные задания</button></div>` : ''}`;
   }
@@ -164,7 +184,7 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
       </div>`;
     } else if (summary) body = summaryMarkup(summary);
     else body = '<div class="quiz-ready"><span aria-hidden="true">?</span><div><h3>Небольшая проверка без спешки</h3><p>Ошибки можно исправлять. Подсказки и пропуски сохраняют свой статус — они не превращаются в самостоятельный правильный ответ.</p></div></div>';
-    content.innerHTML = `${quizSetup()}${quizMode === 'find-interval' && getContext().box ? '<p class="training-notice" role="status">Для интервала доступны все хроматические позиции текущих струн и ладов. Ограничение и подсветка бокса временно отключены.</p>' : ''}${notice ? `<p class="training-notice" role="status">${escapeHtml(notice)}</p>` : ''}${error ? `<p class="training-error" role="alert" data-testid="training-error">${escapeHtml(error)}</p>` : ''}${body}`;
+    content.innerHTML = `${quizSetup()}${quizMode === 'find-interval' && getContext().box ? '<p class="training-notice" role="status">Для интервала доступны все хроматические позиции текущих струн и ладов. Ограничение и подсветка бокса временно отключены.</p>' : ''}${notice ? `<p class="training-notice" role="status">${escapeHtml(notice)}</p>` : ''}${error ? `<p class="training-error status-error" role="alert" data-testid="training-error">${escapeHtml(error)}</p>` : ''}${body}`;
   }
 
   function answerBoard(terminal: boolean) {
@@ -203,18 +223,20 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
   }
 
   function summaryMarkup(value: Summary) {
-    return `<div class="quiz-summary" data-testid="quiz-summary"><p class="eyebrow">РЕЗУЛЬТАТ ЭКРАННЫХ ЗАДАНИЙ</p><h3>${escapeHtml(summaryTitle)}</h3><p class="summary-completed">Завершено <strong data-result="completed">${value.completed}</strong> из ${value.total} вопросов. Это результаты проверки знаний, а не оценка игры на инструменте.</p><p class="summary-context">Материал занятия: ${escapeHtml(summaryContextLabel)}</p><div class="summary-grid"><div><strong data-result="independentCorrect">${value.independentCorrect}</strong><span>Самостоятельно</span></div><div><strong data-result="corrected">${value.corrected}</strong><span>С исправлением</span></div><div><strong data-result="errors">${value.errors}</strong><span>Ошибочных ответов</span></div><div><strong data-result="hints">${value.hints}</strong><span>Ответов показано</span></div><div><strong data-result="skipped">${value.skipped}</strong><span>Пропущено</span></div></div><p class="summary-footnote">Самостоятельный ответ — верный с первой попытки, без показа ответа. Новое занятие начнётся с новым набором вопросов.</p></div>`;
+    return `<div class="quiz-summary" data-testid="quiz-summary"><p class="eyebrow">РЕЗУЛЬТАТ ЭКРАННЫХ ЗАДАНИЙ</p><h3 class="lesson-result-title">${escapeHtml(summaryTitle)}</h3><p class="summary-completed">Завершено <strong data-result="completed">${value.completed}</strong> из ${value.total} вопросов. Это результаты проверки знаний, а не оценка игры на инструменте.</p><p class="summary-context">Материал занятия: ${escapeHtml(summaryContextLabel)}</p><div class="summary-grid lesson-result-metrics"><div><strong data-result="independentCorrect">${value.independentCorrect}</strong><span>Самостоятельно</span></div><div><strong data-result="corrected">${value.corrected}</strong><span>С исправлением</span></div><div><strong data-result="errors">${value.errors}</strong><span>Ошибочных ответов</span></div><div><strong data-result="hints">${value.hints}</strong><span>Ответов показано</span></div><div><strong data-result="skipped">${value.skipped}</strong><span>Пропущено</span></div></div><p class="summary-footnote">Самостоятельный ответ — верный с первой попытки, без показа ответа. Новое занятие начнётся с новым набором вопросов.</p></div>`;
   }
 
-  function renderSequence() {
-    let body = '';
-    if (getContext().box) sequenceScope = 'structure';
-    try {
-      const sequence = createSequence({ ...getContext(), scope: sequenceScope, pattern });
-      body = `<div class="sequence-heading"><h3>${escapeHtml(sequence.name)}</h3><span data-testid="sequence-count">${sequence.notes.length} нот</span></div><details class="sequence-route-details" data-training-details="sequence"${sequenceRouteOpen ? " open" : ""}><summary>Ноты маршрута · ${sequence.notes.length}</summary><ol class="sequence-route" data-testid="sequence-route">${sequence.notes.map((position, index) => `<li data-sequence-index="${index}" data-sequence-position="${position.id}"><span>${index + 1}</span><strong>${escapeHtml(formatMidi(position.midi, position.noteName))}</strong><small>${position.string} · ${position.fret === 0 ? 'откр.' : `${position.fret} лад`}</small>${position.degree ? `<em>${escapeHtml(position.degree.replaceAll('b', '♭').replaceAll('#', '♯'))}</em>` : ''}</li>`).join('')}</ol></details><p class="sequence-caption">${getContext().box ? `Звучат точные позиции формы: ${escapeHtml(getBoxInstance(getContext().box!).label)}. Начальная нота формы не обязательно тоника.` : 'Показан порядок высот, а не рекомендуемая аппликатура. Для компактного пути выбери учебную форму.'} Исполнение на инструменте не оценивается.</p>`;
-    } catch (failure) { body = `<p class="training-error" role="status" data-testid="sequence-error">${escapeHtml(failure instanceof Error ? failure.message : String(failure))}</p>`; }
-    content.innerHTML = `<div class="training-intro"><div><p class="eyebrow">ПРОСТЫЕ ПОСЛЕДОВАТЕЛЬНОСТИ</p><h2>Один материал. Разные маршруты.</h2></div><p>Сначала посмотри порядок нот.<br>Затем пройди маршрут на инструменте.</p></div><div class="sequence-settings"><label class="training-field"><span>Порядок</span><select aria-label="Порядок последовательности" data-sequence-setting="pattern">${PATTERNS.map(item => `<option value="${item.id}"${item.id === pattern ? ' selected' : ''}>${item.name}</option>`).join('')}</select></label><label class="training-field"><span>Материал</span><select aria-label="Материал последовательности" data-sequence-setting="scope"${getContext().box ? " disabled" : ""}><option value="structure"${sequenceScope === 'structure' ? ' selected' : ''}>Выбранная структура</option><option value="chromatic"${sequenceScope === 'chromatic' ? ' selected' : ''}>Все ноты диапазона</option></select></label></div>${body}`;
-    options.onSequenceChange?.();
+  function renderSequence(snapshot: ReturnType<typeof sequenceSnapshot>) {
+    let body: string;
+    const sequence = snapshot.value;
+    const context = getContext();
+    const effectiveScope = context.box ? 'structure' : sequenceScope;
+    if (sequence) {
+      body = `<div class="sequence-heading"><h3>${escapeHtml(sequence.name)}</h3><span data-testid="sequence-count">${sequence.notes.length} нот</span></div><details class="sequence-route-details" data-training-details="sequence"${sequenceRouteOpen ? " open" : ""}><summary class="section-disclosure">Ноты маршрута · ${sequence.notes.length}</summary><ol class="sequence-route" data-testid="sequence-route">${sequence.notes.map((position, index) => `<li data-sequence-index="${index}" data-sequence-position="${position.id}"><span>${index + 1}</span><strong>${escapeHtml(formatMidi(position.midi, position.noteName))}</strong><small>${position.string} · ${position.fret === 0 ? 'откр.' : `${position.fret} лад`}</small>${position.degree ? `<em>${escapeHtml(position.degree.replaceAll('b', '♭').replaceAll('#', '♯'))}</em>` : ''}</li>`).join('')}</ol></details><p class="sequence-caption">${getContext().box ? `Звучат точные позиции формы: ${escapeHtml(getBoxInstance(getContext().box!).label)}. Начальная нота формы не обязательно тоника.` : 'Показан порядок высот, а не рекомендуемая аппликатура. Для компактного пути выбери учебную форму.'} Исполнение на инструменте не оценивается.</p>`;
+    } else { body = `<p class="training-error status-error" role="status" data-testid="sequence-error">${escapeHtml(snapshot.error)}</p>`; }
+    content.innerHTML = `<div class="panel-heading training-intro"><div><p class="eyebrow">ПРОСТЫЕ ПОСЛЕДОВАТЕЛЬНОСТИ</p><h2>Один материал. Разные маршруты.</h2></div><p>Сначала посмотри порядок нот.<br>Затем пройди маршрут на инструменте.</p></div><div class="sequence-settings"><label class="training-field"><span class="form-label">Порядок</span><select class="form-control" aria-label="Порядок последовательности" data-sequence-setting="pattern">${PATTERNS.map(item => `<option value="${item.id}"${item.id === pattern ? ' selected' : ''}>${item.name}</option>`).join('')}</select></label><label class="training-field"><span class="form-label">Материал</span><select class="form-control" aria-label="Материал последовательности" data-sequence-setting="scope"${getContext().box ? " disabled" : ""}><option value="structure"${sequenceScope === 'structure' ? ' selected' : ''}>Выбранная структура</option><option value="chromatic"${sequenceScope === 'chromatic' ? ' selected' : ''}>Все ноты диапазона</option></select></label></div>${body}`;
+    const scopeControl = content.querySelector<HTMLSelectElement>('[data-sequence-setting="scope"]');
+    if (scopeControl) scopeControl.value = effectiveScope;
   }
 
   function resetQuestionUi() {
@@ -440,8 +462,6 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
   return {
     setMode,
     getPreferences(): AppPreferences['training'] {
-      const input = content.querySelector<HTMLInputElement>('[data-quiz-setting="count"]');
-      if (input && (!input.value || !Number.isInteger(Number(input.value)) || Number(input.value) < 1 || Number(input.value) > 30)) throw new RangeError('Количество вопросов — целое число от 1 до 30.');
       return { mode, quizMode, scope: getContext().box && quizMode !== 'find-interval' ? 'structure' : scope, intervalDegree, count, pattern, sequenceScope: getContext().box ? 'structure' : sequenceScope, reviewPositionIds: [...reviewPositionIds], questionPolicy };
     },
     applyPreferences(preferences: AppPreferences['training']) {
@@ -500,12 +520,9 @@ export function mountTraining(container: HTMLElement, getContext: () => Training
     getRouteRef() { return routeRef; },
     getMode() { return mode; },
     getLastSession() { return lastSession; },
-    getSequenceScope(): TrainingScope { return sequenceScope; },
-    getCurrentSequence() {
-      try { return createSequence({ ...getContext(), scope: sequenceScope, pattern }); }
-      catch { return null; }
-    },
-    getSequenceContextKey() { return `${contextFingerprint(getContext())}|${sequenceScope}|${pattern}`; },
+    getSequenceScope(): TrainingScope { return getContext().box ? 'structure' : sequenceScope; },
+    getCurrentSequence() { return sequenceSnapshot().value; },
+    getSequenceContextKey() { return sequenceSnapshot().key; },
     refreshContext() {
       if (disposed) return;
       const nextFingerprint = contextFingerprint(getContext());

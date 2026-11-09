@@ -5,7 +5,10 @@ export function createWriteQueue(onChange: (state: { pending: number; failures: 
   let serial = 0;
   const generations = new Map<string, number>();
   const failures = new Map<string, { operation: () => Promise<unknown>; message: string; generation: number }>();
-  const notify = () => onChange({ pending, failures: [...failures.values()].map(item => item.message) });
+  function notify() {
+    try { onChange({ pending, failures: [...failures.values()].map(item => item.message) }); }
+    catch (error) { console.error('Не удалось обновить состояние очереди сохранения.', error); }
+  }
 
   function schedule<T>(operation: () => Promise<T>, key: string, generation: number, retryOperation: () => Promise<unknown> = operation): Promise<T> {
     pending++;
@@ -21,8 +24,15 @@ export function createWriteQueue(onChange: (state: { pending: number; failures: 
     }).then(() => { pending--; notify(); });
     return result;
   }
-  function run<T>(operation: () => Promise<T>, key = `operation-${++serial}`, generation = generations.get(key) ?? 0): Promise<T> {
-    return schedule(operation, key, generation);
+  function run<T>(operation: () => Promise<T>, key = `operation-${++serial}`, generation = generations.get(key) ?? 0, onCommit?: (result: T) => void): Promise<T> {
+    return schedule(async () => {
+      const result = await operation();
+      if (onCommit && generation === (generations.get(key) ?? 0)) {
+        try { onCommit(result); }
+        catch (error) { console.error('Запись завершилась, но её результат не удалось показать.', error); }
+      }
+      return result;
+    }, key, generation);
   }
 
   return {
@@ -34,8 +44,8 @@ export function createWriteQueue(onChange: (state: { pending: number; failures: 
     generation: (key: string) => generations.get(key) ?? 0,
     isCurrent: (key: string, generation: number) => generation === (generations.get(key) ?? 0),
     async flush() { while (pending) await tail; },
-    async retry() {
-      const failed = [...failures.entries()];
+    async retry(onlyKey?: string) {
+      const failed = [...failures.entries()].filter(([key]) => onlyKey === undefined || key === onlyKey);
       for (const [key, item] of failed) {
         if (failures.get(key) !== item || item.generation !== (generations.get(key) ?? 0)) continue;
         try {

@@ -1,21 +1,28 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import * as original from '@coderline/alphatab';
-// Только приёмочный input: перечень личных исходников, path guard и SHA-256.
-// Продуктовая поставка не импортирует experiments.
-import { selection, sampleBytes, resultDir } from '../experiments/music-bank/inspect.mjs';
-import { musicBankVendorDir, prepareMusicBankVendor } from '../scripts/prepare-music-bank.mjs';
+import { musicBankVendorDir as defaultVendorDir, prepareMusicBankVendor } from '../scripts/prepare-music-bank.mjs';
 import { isPercussionChannel, normalizeScoreChannels, sameInstrumentChannels } from '../scripts/music-bank/channel-layout.mjs';
+import { openMusicBankTestInputs, portableMusicBankSamples, usePersonalMusicBank } from './helpers/music-bank-fixtures.mjs';
 
-const manifest = await prepareMusicBankVendor();
+const resultDir = resolve(process.env.BASS_REGRESSION_RESULTS ?? 'test-results');
+const corpus = usePersonalMusicBank();
+const input = corpus ? await openMusicBankTestInputs(resultDir, true) : null;
+const samples = input?.selection.samples ?? portableMusicBankSamples();
+const sampleBytes = sample => input ? input.sampleBytes(sample) : sample.data;
+const musicBankVendorDir = process.env.BASS_REGRESSION_DIST ? resolve(process.env.BASS_REGRESSION_DIST, 'vendor/music-bank') : defaultVendorDir;
+const manifest = process.env.BASS_REGRESSION_DIST
+  ? JSON.parse(await readFile(resolve(musicBankVendorDir, 'patch-manifest.json'), 'utf8'))
+  : await prepareMusicBankVendor();
 const patched = await import(pathToFileURL(resolve(musicBankVendorDir, 'alphaTab.js')).href);
 const soundFont = new Uint8Array(await readFile(resolve(musicBankVendorDir, 'soundfont/sonivox.sf2')));
-const report = { generatedAt: new Date().toISOString(), manifest, node: process.version, checks: [], files: [],
-  scope: 'Продуктовый public/vendor/music-bank/alphaTab.js: настоящий Node DSP/PCM из локального SoundFont. Вывод в устройство и браузерный live отдельно; PCM не сохраняется.',
-  limitations: ['Целевая выборка 16 файлов и независимые синтетические музыкальные примеры, не весь каталог.',
+const report = { generatedAt: new Date().toISOString(), runId: process.env.BASS_REGRESSION_RUN ?? null, manifest, node: process.version, checks: [], files: [],
+  scope: 'Продуктовый alphaTab.js и настоящий Node DSP/PCM из локального SoundFont. Вывод в устройство и браузерный live отдельно; PCM не сохраняется.',
+  profile: corpus ? 'corpus' : 'portable',
+  limitations: [corpus ? 'Целевая выборка личных файлов, не весь каталог.' : 'Оригинальные синтетические партитуры и независимые MIDI-примеры.',
     'Виртуальные каналы предназначены только для внутреннего проигрывателя; SMF/MIDI-экспорт требует отдельного преобразования.'] };
 
 async function check(name, action) {
@@ -110,8 +117,8 @@ await check('Алгоритм: детерминизм, непересечени�
   return { tracks: first.tracks.length, virtualChannels: used.size, maxChannel: Math.max(...used) };
 });
 
-for (const sample of selection.samples) {
-  const entry = { id: sample.id, path: sample.relativePath }; report.files.push(entry);
+for (const sample of samples) {
+  const entry = { id: sample.id, path: sample.relativePath, sha256: sample.sha256 }; report.files.push(entry);
   await check(`${sample.id}: структура, музыкальные события и отдельный PCM каждой партии`, async () => {
     const bytes = await sampleBytes(sample);
     if (sample.extension === '.gtp') {
@@ -222,7 +229,9 @@ await check('Extended melodic: program-change, pitch-bend, per-note-bend и тр
     reference: stats(reference), actual: stats(actual), difference };
 });
 await check('Повторная подготовка vendor даёт те же байты', async () => {
-  const repeated = await prepareMusicBankVendor(); assert.deepEqual(repeated, manifest);
+  await mkdir(resultDir, { recursive: true });
+  const directory = await mkdtemp(resolve(resultDir, 'vendor-repeat-'));
+  const repeated = await prepareMusicBankVendor(directory); assert.deepEqual(repeated, manifest);
   return { coreSha256: manifest.modifiedCoreSha256, helperSha256: manifest.helperSha256 };
 });
 
@@ -231,6 +240,6 @@ report.completedAt = new Date().toISOString();
 report.summary = { passed: report.checks.filter(c => c.status === 'passed').length,
   failed: report.checks.filter(c => c.status === 'failed').length,
   pcmTracksPassed: report.files.flatMap(f => f.tracks || []).filter(t => t.status === 'passed').length };
-await writeFile(resolve(resultDir, '../p10-music-bank-channels.json'), JSON.stringify(report, null, 2) + '\n');
+await writeFile(resolve(resultDir, 'p10-music-bank-channels.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(report.summary));
 if (report.summary.failed) process.exitCode = 1;

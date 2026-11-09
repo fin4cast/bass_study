@@ -24,7 +24,7 @@ export function enhanceSelect(select: HTMLSelectElement, { gridColumns = 1 }: { 
   wrapper.style.setProperty('--picker-columns', String(gridColumns));
   const trigger = doc.createElement('button');
   trigger.type = 'button';
-  trigger.className = 'select-picker-trigger';
+  trigger.className = 'select-picker-trigger form-control';
   trigger.setAttribute('aria-haspopup', 'listbox');
   trigger.setAttribute('aria-controls', id);
   trigger.setAttribute('aria-expanded', 'false');

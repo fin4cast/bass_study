@@ -1,0 +1,472 @@
+{
+  "format": "bass-study-backup",
+  "schemaVersion": 8,
+  "preferences": {
+    "activeModule": "harmony",
+    "tracks": null,
+    "musicBank": null,
+    "rhythm": {
+      "view": "rhythm",
+      "master": 0.65,
+      "metronome": {
+        "bpm": 92,
+        "bpmUnit": "quarter",
+        "meter": {
+          "beats": 4,
+          "denominator": 4,
+          "groups": [
+            4
+          ]
+        },
+        "division": 1,
+        "accents": [
+          2,
+          1,
+          1,
+          1
+        ],
+        "substeps": [],
+        "swing": 50,
+        "swingMode": "eighth",
+        "kit": "wood",
+        "accentVolume": 0.8,
+        "clickVolume": 0.8,
+        "subdivisionVolume": 0.35,
+        "countIn": false,
+        "training": {
+          "silentEnabled": false,
+          "soundBars": 3,
+          "silentBars": 1,
+          "rampEnabled": false,
+          "stepBpm": 2,
+          "everyBars": 8,
+          "targetBpm": 120
+        }
+      }
+    },
+    "input": {
+      "deviceId": ""
+    },
+    "harmony": {
+      "bpm": 80,
+      "countIn": true,
+      "repeat": "once",
+      "bassVolume": 70,
+      "padVolume": 45,
+      "clickVolume": 50,
+      "bassMuted": false,
+      "padMuted": false,
+      "clickMuted": false
+    },
+    "ear": {
+      "root": "A",
+      "quality": "minor",
+      "count": 10,
+      "bpm": 80
+    },
+    "study": {
+      "root": "A",
+      "structureId": "minor-pentatonic",
+      "labelMode": "notes",
+      "strings": [
+        "G",
+        "D",
+        "A",
+        "E"
+      ],
+      "fretMin": 0,
+      "fretMax": 12,
+      "box": {
+        "version": "boxes-v1",
+        "shapeId": "penta-a",
+        "root": "A",
+        "structureId": "minor-pentatonic",
+        "anchorFret": 5,
+        "anchorString": "E"
+      },
+      "showFingers": false
+    },
+    "training": {
+      "mode": "study",
+      "quizMode": "name-note",
+      "scope": "structure",
+      "intervalDegree": "#4",
+      "count": 10,
+      "pattern": "ascending",
+      "sequenceScope": "structure",
+      "reviewPositionIds": [],
+      "questionPolicy": "random-v1"
+    },
+    "player": {
+      "bpm": 80,
+      "duration": "eighth",
+      "repeat": "once",
+      "countIn": true,
+      "showPulse": true,
+      "from": null,
+      "to": null,
+      "ladderStart": 60,
+      "ladderEnd": 100,
+      "ladderStep": 5,
+      "ladderRepeats": 2,
+      "metronome": true,
+      "metronomeMode": "all",
+      "subdivision": "quarter",
+      "bassVolume": 70,
+      "clickVolume": 50
+    }
+  },
+  "profile": {
+    "theme": "system",
+    "onboarding": {
+      "version": 1,
+      "choice": null,
+      "completed": false
+    }
+  },
+  "practiceDrafts": [
+    {
+      "id": "fixture-rhythm-draft",
+      "createdAt": "2026-11-08T22:35:00.000Z",
+      "updatedAt": "2026-11-08T22:35:00.000Z",
+      "timeZone": "Europe/Moscow",
+      "localDate": "2026-11-09",
+      "context": null,
+      "material": {
+        "kind": "rhythm",
+        "playback": {
+          "preferences": {
+            "view": "rhythm",
+            "master": 0.65,
+            "metronome": {
+              "bpm": 92,
+              "bpmUnit": "quarter",
+              "meter": {
+                "beats": 4,
+                "denominator": 4,
+                "groups": [
+                  4
+                ]
+              },
+              "division": 1,
+              "accents": [
+                2,
+                1,
+                1,
+                1
+              ],
+              "substeps": [],
+              "swing": 50,
+              "swingMode": "eighth",
+              "kit": "wood",
+              "accentVolume": 0.8,
+              "clickVolume": 0.8,
+              "subdivisionVolume": 0.35,
+              "countIn": false,
+              "training": {
+                "silentEnabled": false,
+                "soundBars": 3,
+                "silentBars": 1,
+                "rampEnabled": false,
+                "stepBpm": 2,
+                "everyBars": 8,
+                "targetBpm": 120
+              }
+            }
+          },
+          "project": {
+            "id": "fixture-rhythm-project",
+            "name": "Триольный грув",
+            "createdAt": "2026-11-08T22:35:00.000Z",
+            "updatedAt": "2026-11-08T22:35:00.000Z",
+            "bpm": 117,
+            "swing": 50,
+            "swingMode": "eighth",
+            "channels": [
+              {
+                "id": "kick",
+                "name": "Бочка",
+                "sound": "kick",
+                "volume": 0.62,
+                "muted": true,
+                "solo": false
+              },
+              {
+                "id": "snare",
+                "name": "Малый",
+                "sound": "snare",
+                "volume": 0.7,
+                "muted": false,
+                "solo": false
+              }
+            ],
+            "patterns": [
+              {
+                "id": "A",
+                "name": "Основной грув",
+                "bars": 2,
+                "lanes": [
+                  {
+                    "channelId": "kick",
+                    "steps": [2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0],
+                    "velocities": [1, 0, 0, 0, 0, 0, 0, 0, 0.72, 0, 0.72, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0.72, 0, 0.72, 0, 0, 0, 0, 0]
+                  },
+                  {
+                    "channelId": "snare",
+                    "steps": [0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0],
+                    "velocities": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]
+                  }
+                ]
+              }
+            ],
+            "chain": [
+              {
+                "id": "clip-1",
+                "patternId": "A"
+              },
+              {
+                "id": "clip-2",
+                "patternId": "A"
+              },
+              {
+                "id": "clip-3",
+                "patternId": "A"
+              },
+              {
+                "id": "clip-5",
+                "patternId": "A"
+              },
+              {
+                "id": "clip-6",
+                "patternId": "A"
+              }
+            ],
+            "activePatternId": "A",
+            "scope": "pattern",
+            "repeat": "loop",
+            "countIn": false,
+            "overlay": false
+          }
+        }
+      },
+      "routeRef": null,
+      "totalReferenceMs": 950,
+      "recordedThroughMs": 600,
+      "suggestedBpm": 117,
+      "comfortableBpm": 117,
+      "note": "Остаток ритма",
+      "editRevision": 1
+    }
+  ],
+  "presets": [],
+  "history": [
+    {
+      "id": "fixture-rhythm-history",
+      "occurredAt": "2026-11-08T22:35:00.000Z",
+      "timeZone": "Europe/Moscow",
+      "localDate": "2026-11-09",
+      "routeRef": null,
+      "result": {
+        "kind": "manual",
+        "source": "self-report",
+        "comfortableBpm": 117,
+        "durationMs": 600,
+        "note": "Отметка ритма",
+        "context": null,
+        "material": {
+          "kind": "rhythm",
+          "playback": {
+            "preferences": {
+              "view": "rhythm",
+              "master": 0.65,
+              "metronome": {
+                "bpm": 92,
+                "bpmUnit": "quarter",
+                "meter": {
+                  "beats": 4,
+                  "denominator": 4,
+                  "groups": [
+                    4
+                  ]
+                },
+                "division": 1,
+                "accents": [
+                  2,
+                  1,
+                  1,
+                  1
+                ],
+                "substeps": [],
+                "swing": 50,
+                "swingMode": "eighth",
+                "kit": "wood",
+                "accentVolume": 0.8,
+                "clickVolume": 0.8,
+                "subdivisionVolume": 0.35,
+                "countIn": false,
+                "training": {
+                  "silentEnabled": false,
+                  "soundBars": 3,
+                  "silentBars": 1,
+                  "rampEnabled": false,
+                  "stepBpm": 2,
+                  "everyBars": 8,
+                  "targetBpm": 120
+                }
+              }
+            },
+            "project": {
+              "id": "fixture-rhythm-project",
+              "name": "Триольный грув",
+              "createdAt": "2026-11-08T22:35:00.000Z",
+              "updatedAt": "2026-11-08T22:35:00.000Z",
+              "bpm": 117,
+              "swing": 50,
+              "swingMode": "eighth",
+              "channels": [
+                {
+                  "id": "kick",
+                  "name": "Бочка",
+                  "sound": "kick",
+                  "volume": 0.62,
+                  "muted": true,
+                  "solo": false
+                },
+                {
+                  "id": "snare",
+                  "name": "Малый",
+                  "sound": "snare",
+                  "volume": 0.7,
+                  "muted": false,
+                  "solo": false
+                }
+              ],
+              "patterns": [
+                {
+                  "id": "A",
+                  "name": "Основной грув",
+                  "bars": 2,
+                  "lanes": [
+                    {
+                      "channelId": "kick",
+                      "steps": [2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0],
+                      "velocities": [1, 0, 0, 0, 0, 0, 0, 0, 0.72, 0, 0.72, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0.72, 0, 0.72, 0, 0, 0, 0, 0]
+                    },
+                    {
+                      "channelId": "snare",
+                      "steps": [0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0],
+                      "velocities": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]
+                    }
+                  ]
+                }
+              ],
+              "chain": [
+                {
+                  "id": "clip-1",
+                  "patternId": "A"
+                },
+                {
+                  "id": "clip-2",
+                  "patternId": "A"
+                },
+                {
+                  "id": "clip-3",
+                  "patternId": "A"
+                },
+                {
+                  "id": "clip-5",
+                  "patternId": "A"
+                },
+                {
+                  "id": "clip-6",
+                  "patternId": "A"
+                }
+              ],
+              "activePatternId": "A",
+              "scope": "pattern",
+              "repeat": "loop",
+              "countIn": false,
+              "overlay": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "rhythmProjects": [
+    {
+      "id": "fixture-rhythm-project",
+      "name": "Триольный грув",
+      "createdAt": "2026-11-08T22:35:00.000Z",
+      "updatedAt": "2026-11-08T22:35:00.000Z",
+      "bpm": 117,
+      "swing": 50,
+      "swingMode": "eighth",
+      "channels": [
+        {
+          "id": "kick",
+          "name": "Бочка",
+          "sound": "kick",
+          "volume": 0.62,
+          "muted": true,
+          "solo": false
+        },
+        {
+          "id": "snare",
+          "name": "Малый",
+          "sound": "snare",
+          "volume": 0.7,
+          "muted": false,
+          "solo": false
+        }
+      ],
+      "patterns": [
+        {
+          "id": "A",
+          "name": "Основной грув",
+          "bars": 2,
+          "lanes": [
+            {
+              "channelId": "kick",
+              "steps": [2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0],
+              "velocities": [1, 0, 0, 0, 0, 0, 0, 0, 0.72, 0, 0.72, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0.72, 0, 0.72, 0, 0, 0, 0, 0]
+            },
+            {
+              "channelId": "snare",
+              "steps": [0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0],
+              "velocities": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]
+            }
+          ]
+        }
+      ],
+      "chain": [
+        {
+          "id": "clip-1",
+          "patternId": "A"
+        },
+        {
+          "id": "clip-2",
+          "patternId": "A"
+        },
+        {
+          "id": "clip-3",
+          "patternId": "A"
+        },
+        {
+          "id": "clip-5",
+          "patternId": "A"
+        },
+        {
+          "id": "clip-6",
+          "patternId": "A"
+        }
+      ],
+      "activePatternId": "A",
+      "scope": "pattern",
+      "repeat": "loop",
+      "countIn": false,
+      "overlay": false
+    }
+  ],
+  "activeRhythmProjectId": "fixture-rhythm-project"
+}

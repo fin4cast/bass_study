@@ -92,7 +92,7 @@ async function contrast(page, label) {
       result.push({ kind: 'text', text: text.slice(0, 90), selector: element.id || element.className || element.tagName, colour: paint.color, background: bg, ratio: ratio(blend(fg, bg), bg), threshold: 4.5 });
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(element.tagName) && Number.parseFloat(style.borderTopWidth) > 0) result.push({ kind: 'control-boundary', text: element.getAttribute('aria-label') || text.slice(0, 70), colour: style.borderTopColor, background: bg, ratio: ratio(rgb(style.borderTopColor), bg), threshold: 3 });
     }
-    const selected = document.querySelector('[data-app-module][aria-pressed="true"]');
+    const selected = document.querySelector('[data-app-module][aria-current="page"]');
     if (selected) { const style = getComputedStyle(selected), bg = background(selected); result.push({ kind: 'selected-boundary', text: selected.textContent, colour: style.borderTopColor, background: bg, ratio: ratio(rgb(style.borderTopColor), bg), threshold: 3 }); }
     return result;
   });

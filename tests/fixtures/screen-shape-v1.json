@@ -1,0 +1,74 @@
+{
+  "id": "fixture-shape-history",
+  "occurredAt": "2026-11-08T22:35:00.000Z",
+  "timeZone": "Europe/Moscow",
+  "localDate": "2026-11-09",
+  "routeRef": null,
+  "result": {
+    "kind": "screen",
+    "source": "screen-input",
+    "seed": 77,
+    "mode": "find-note",
+    "context": {
+      "scope": "structure",
+      "root": "A",
+      "structureId": "minor-pentatonic",
+      "positionIds": ["E:5", "E:8", "A:5", "A:7", "D:5", "D:7", "G:5", "G:7"],
+      "box": {
+        "version": "boxes-v1",
+        "shapeId": "penta-a",
+        "root": "A",
+        "structureId": "minor-pentatonic",
+        "anchorFret": 5,
+        "anchorString": "E"
+      }
+    },
+    "plannedCount": 6,
+    "questions": [
+      {
+        "questionId": "q-ead0378f-find-note-2",
+        "answerRule": "any-position",
+        "target": { "pitchClass": 2, "name": "D", "degree": "4" },
+        "targetMidi": null,
+        "selectedPositionIds": ["A:5"],
+        "attempts": 2,
+        "errors": 1,
+        "firstAnswer": "A:7",
+        "firstResponseMs": 120,
+        "completionMs": 300,
+        "firstAttemptCorrect": false,
+        "hintUsed": false,
+        "skipped": false,
+        "independentCorrect": false,
+        "corrected": true,
+        "outcome": "corrected",
+        "answerEvents": [
+          { "answer": "A:7", "elapsedMs": 120, "correct": false },
+          { "answer": "A:5", "elapsedMs": 300, "correct": true }
+        ],
+        "targetPositionId": null
+      },
+      {
+        "questionId": "q-6815927f-find-note-9",
+        "answerRule": "any-position",
+        "target": { "pitchClass": 9, "name": "A", "degree": "1" },
+        "targetMidi": null,
+        "selectedPositionIds": [],
+        "attempts": 0,
+        "errors": 0,
+        "firstAnswer": null,
+        "firstResponseMs": null,
+        "completionMs": 140,
+        "firstAttemptCorrect": null,
+        "hintUsed": true,
+        "skipped": false,
+        "independentCorrect": false,
+        "corrected": false,
+        "outcome": "revealed",
+        "answerEvents": [],
+        "targetPositionId": null
+      }
+    ],
+    "questionPolicy": "shape-6-v1"
+  }
+}

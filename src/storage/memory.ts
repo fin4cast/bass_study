@@ -6,10 +6,15 @@ import {
   type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
 } from './model';
 import type { RhythmProject } from '../rhythm/model';
+import { createImportPreparation, type PreparedStudyImport } from './prepared-import';
+import { createHistoryLinks, type HistoryCommit } from './history-links';
+import { validateRhythmLibraryChange, type RhythmLibraryChange, type RhythmLibraryCommit } from './rhythm-library';
 
 /** Volatile fallback, chosen explicitly by the application after initial IndexedDB failure. */
 export function createMemoryStudyStore() {
+  const imports = createImportPreparation();
   let snapshot: StudySnapshot = emptySnapshot();
+  let historyLinks = createHistoryLinks(snapshot.history);
   let queue: Promise<void> = Promise.resolve();
   function enqueue<T>(operation: () => T): Promise<T> {
     const result = queue.then(operation);
@@ -19,9 +24,45 @@ export function createMemoryStudyStore() {
   function remove(kind: 'presets' | 'history' | 'practiceDrafts', id: string) {
     if (typeof id !== 'string' || !id.trim() || id.length > 160) throw new StudyStorageError('INVALID_DATA', 'Некорректный ID удаляемой записи.');
     snapshot = Object.freeze({ ...snapshot, [kind]: Object.freeze(snapshot[kind].filter(item => item.id !== id)) });
+    if (kind === 'history') historyLinks.remove(id);
   }
   function remember(kind: 'presets' | 'history' | 'practiceDrafts', value: Preset | HistoryEntry | PracticeDraft) {
     snapshot = Object.freeze({ ...snapshot, [kind]: Object.freeze([...snapshot[kind].filter(item => item.id !== value.id), value].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) });
+  }
+  function rememberHistory(commit: HistoryCommit) {
+    for (const entry of [commit.entry, commit.linkedRoute]) {
+      if (!entry) continue;
+      historyLinks.remember(entry);
+      remember('history', entry);
+    }
+  }
+  function mutateRhythmLibrary(change: RhythmLibraryChange): RhythmLibraryCommit {
+    let { rhythmProjects, activeRhythmProjectId } = snapshot;
+    switch (change.kind) {
+      case 'save':
+        rhythmProjects = Object.freeze([...rhythmProjects.filter(item => item.id !== change.project.id), change.project].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+        activeRhythmProjectId = change.project.id;
+        break;
+      case 'select':
+        if (change.id !== null && !rhythmProjects.some(project => project.id === change.id)) throw new StudyStorageError('MISSING_RHYTHM_PROJECT', 'Проект ритма отсутствует.');
+        activeRhythmProjectId = change.id;
+        break;
+      case 'delete':
+        rhythmProjects = Object.freeze(rhythmProjects.filter(project => project.id !== change.id));
+        if (activeRhythmProjectId === change.id) activeRhythmProjectId = null;
+        break;
+    }
+    snapshot = Object.freeze({ ...snapshot, rhythmProjects, activeRhythmProjectId });
+    return Object.freeze({ change, activeId: activeRhythmProjectId });
+  }
+  async function restorePrepared(candidate: PreparedStudyImport, options: { failAfterWrite?: number } = {}) {
+    if (options.failAfterWrite !== undefined) throw new StudyStorageError('UNSUPPORTED_OPERATION', 'Тест транзакционного отказа доступен только для IndexedDB.');
+    return enqueue(() => {
+      snapshot = imports.snapshot(candidate);
+      historyLinks = createHistoryLinks(snapshot.history);
+      imports.consume(candidate);
+      return { status: 'restored' as const, presets: snapshot.presets.length, history: snapshot.history.length, snapshot };
+    });
   }
   return {
     open: () => enqueue(() => ({ name: 'bass-study-memory', version: STUDY_SCHEMA_VERSION })),
@@ -36,10 +77,10 @@ export function createMemoryStudyStore() {
       const current = snapshot.practiceDrafts.find(item => item.id === request.draftId);
       if (!current) throw new StudyStorageError('MISSING_DRAFT', 'Черновик отсутствует.');
       const result = applyDraftDrain(current, request, snapshot.history.find(item => item.id === request.historyId));
-      const history = [...snapshot.history.filter(item => item.id !== result.entry.id), result.entry].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-      const practiceDrafts = snapshot.practiceDrafts.map(item => item.id === result.draft.id ? result.draft : item);
-      snapshot = Object.freeze({ ...snapshot, history: Object.freeze(history), practiceDrafts: Object.freeze(practiceDrafts) });
-      return result;
+      const commit = historyLinks.plan(result.entry);
+      rememberHistory(commit);
+      remember('practiceDrafts', result.draft);
+      return { ...result, ...commit };
     }),
     async savePreferences(preferences: AppPreferences) {
       const validated = validatePreferences(preferences);
@@ -52,31 +93,22 @@ export function createMemoryStudyStore() {
     deletePreset: (id: string) => enqueue(() => remove('presets', id)),
     async addHistory(entry: HistoryEntry) {
       const validated = validateHistoryEntry(entry);
-      return enqueue(() => remember('history', validated));
+      return enqueue(() => { const commit = historyLinks.plan(validated); rememberHistory(commit); return commit; });
     },
     deleteHistory: (id: string) => enqueue(() => remove('history', id)),
+    async changeRhythmLibrary(change: RhythmLibraryChange) { const validated = validateRhythmLibraryChange(change); return enqueue(() => mutateRhythmLibrary(validated)); },
     async saveRhythmProject(project: RhythmProject) {
       const validated = validateStoredRhythmProject(project);
-      return enqueue(() => {
-        const rhythmProjects = [...snapshot.rhythmProjects.filter(item => item.id !== validated.id), validated].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-        snapshot = Object.freeze({ ...snapshot, rhythmProjects: Object.freeze(rhythmProjects), activeRhythmProjectId: validated.id });
-        return validated;
-      });
+      await enqueue(() => mutateRhythmLibrary({ kind: 'save', project: validated }));
+      return validated;
     },
     async selectRhythmProject(id: string | null) {
       const validated = id === null ? null : validateRhythmProjectId(id);
-      return enqueue(() => {
-        if (validated !== null && !snapshot.rhythmProjects.some(project => project.id === validated)) throw new StudyStorageError('MISSING_RHYTHM_PROJECT', 'Проект ритма отсутствует.');
-        snapshot = Object.freeze({ ...snapshot, activeRhythmProjectId: validated });
-      });
+      await enqueue(() => mutateRhythmLibrary({ kind: 'select', id: validated }));
     },
     async deleteRhythmProject(id: string) {
       const validated = validateRhythmProjectId(id);
-      return enqueue(() => {
-        const rhythmProjects = Object.freeze(snapshot.rhythmProjects.filter(project => project.id !== validated));
-        const activeRhythmProjectId = snapshot.activeRhythmProjectId === validated ? null : snapshot.activeRhythmProjectId;
-        snapshot = Object.freeze({ ...snapshot, rhythmProjects, activeRhythmProjectId });
-      });
+      await enqueue(() => mutateRhythmLibrary({ kind: 'delete', id: validated }));
     },
     exportBackup: () => enqueue(() => {
       const json = JSON.stringify(snapshot);
@@ -84,16 +116,15 @@ export function createMemoryStudyStore() {
       return json;
     }),
     previewImport,
+    prepareImport: imports.prepare,
+    restorePrepared,
     async restore(json: string, options: { confirmed: boolean; failAfterWrite?: number }) {
-      const { snapshot: imported } = previewImport(json);
+      const candidate = imports.prepare(json);
       if (!options?.confirmed) return { status: 'cancelled' as const };
-      if (options.failAfterWrite !== undefined) throw new StudyStorageError('UNSUPPORTED_OPERATION', 'Тест транзакционного отказа доступен только для IndexedDB.');
-      return enqueue(() => {
-        snapshot = imported;
-        return { status: 'restored' as const, presets: snapshot.presets.length, history: snapshot.history.length };
-      });
+      const { status, presets, history } = await restorePrepared(candidate, options);
+      return { status, presets, history };
     },
     // Closing the adapter does not pretend that volatile data became persistent.
-    close: () => enqueue(() => undefined),
+    close: () => enqueue(imports.clear),
   };
 }

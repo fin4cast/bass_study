@@ -1,13 +1,9 @@
 @import "../theme.css";
 
-.route-section { padding: 18px; margin: 14px 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
-.route-section[hidden], .route-session-host[hidden] { display: none; }
-.route-heading { max-width: 730px; }
-.route-heading .eyebrow { font-size: 12px; margin-bottom: 8px; }
-.route-heading h2 { font-size: 25px; font-weight: 550; color: var(--accent-text); margin: 0 0 11px; }
-.route-heading > p { font-size: 12px; line-height: 1.8; color: var(--accent-text); }
+.route-section { padding: 18px; }
+.route-heading > p { max-width: 60ch; }
 .route-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; list-style: none; padding: 0; margin: 24px 0; }
-.route-steps > li { position: relative; border: 1px solid var(--border); border-radius: 8px; padding: 20px; background: var(--surface-raised); }
+.route-steps > li { position: relative; padding: 20px; }
 .route-steps > li.is-current { border: 2px solid var(--border-strong); padding: 19px; }
 .route-number { font: 12px Consolas, monospace; color: var(--accent-text); }
 .route-steps h3 { font-size: 18px; color: var(--accent-text); margin: 15px 0 10px; }
@@ -17,10 +13,10 @@
 .route-step-time strong { font: 15px Consolas, monospace; color: var(--accent-text); margin-left: 5px; }
 .route-steps button { margin-top: 15px; }
 .route-plan-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 22px 0; }
-.route-note, .route-finished-note { font-size: 12px; line-height: 1.8; color: var(--accent-text); margin: 18px 0 0; max-width: 850px; }
-.route-finished-note { padding: 13px 16px; border-radius: 6px; background: var(--surface-raised); color: var(--accent-text); }
+.route-note, .route-finished-note { margin: 18px 0 0; max-width: 850px; }
+.route-note { font-size: 12px; line-height: 1.8; color: var(--accent-text); }
 .route-session-host { position: sticky; top: 10px; z-index: 8; margin: 12px 0 19px; }
-.route-session-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 17px; padding: 15px 18px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); box-shadow: 0 5px 16px var(--shadow); }
+.route-session-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 17px; padding: 15px 18px; box-shadow: 0 5px 16px var(--shadow); }
 .route-bar-heading { display: flex; flex-direction: column; gap: 5px; }
 .route-bar-heading .eyebrow { font-size: 12px; margin: 0; color: var(--accent-text); }
 .route-bar-heading strong { font-size: 16px; color: var(--accent-text); }
@@ -30,10 +26,9 @@
 .route-bar-time > strong { grid-row: span 2; font: 27px Consolas, monospace; color: var(--accent-text); min-width: 82px; text-align: right; }
 .route-bar-time small { font-size: 12px; color: var(--text-secondary); }
 .route-bar-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.route-bar-actions button { font-size: 12px; min-height: 36px; }
 .route-section :focus-visible, .route-session-host :focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
 @media (max-width: 850px) { .route-steps { gap: 10px; } .route-steps > li { padding: 15px; } .route-steps > li.is-current { padding: 14px; } .route-session-host { top: 5px; } .route-bar-actions { width: 100%; justify-content: flex-end; } }
-@media (max-width: 600px) { .route-section { padding: 20px; } .route-heading h2 { font-size: 23px; } .route-steps { grid-template-columns: 1fr; } .route-steps p { min-height: 0; } .route-steps h3 { margin-top: 10px; } .route-session-bar { padding: 12px; gap: 13px; } .route-bar-heading { max-width: 59%; } .route-bar-time { column-gap: 8px; } .route-bar-time > strong { font-size: 23px; min-width: 68px; } .route-bar-actions { gap: 7px; justify-content: start; } .route-bar-actions button { font-size: 12px; } }
+@media (max-width: 600px) { .route-steps { grid-template-columns: 1fr; } .route-steps p { min-height: 0; } .route-steps h3 { margin-top: 10px; } .route-session-bar { padding: 12px; gap: 13px; } .route-bar-heading { max-width: 59%; } .route-bar-time { column-gap: 8px; } .route-bar-time > strong { font-size: 23px; min-width: 68px; } .route-bar-actions { gap: 7px; justify-content: start; } }
 
 @media (max-width: 600px) {
   .route-session-bar {

@@ -1,28 +1,16 @@
 @import "../theme.css";
 
-.input-section { margin: 10px 0; padding: 14px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); }
-.input-section[hidden] { display: none; }
-.input-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.input-heading .eyebrow { font-size: 12px; margin-bottom: 7px; }
-.input-heading h2 { margin: 0; color: var(--accent-text); font-size: 24px; font-weight: 550; }
-.input-heading > p, .input-intro { color: var(--accent-text); font-size: 12px; line-height: 1.8; }
-.input-intro { max-width: 830px; margin: 8px 0 12px; line-height: 1.5; }
+.input-section { padding: 18px; }
+.input-intro { max-width: 830px; margin: 8px 0 12px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
 .input-connect { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .input-device-field { display: flex; flex: 1 1 290px; max-width: 480px; flex-direction: column; gap: 7px; min-width: 0; }
-.input-device-field > span { color: var(--accent-text); font-size: 12px; }
-.input-device-field select { width: 100%; min-width: 0; min-height: 40px; font-size: 12px; text-overflow: ellipsis; }
-.input-connect button { min-height: 40px; }
-.input-connect .primary-button { padding: 11px 18px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--accent); color: var(--text-inverse); font-size: 12px; cursor: pointer; }
-.input-connect .text-button { padding: 10px 13px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface-raised); color: var(--accent-text); font-size: 12px; cursor: pointer; }
-.input-connect button:disabled { cursor: default; opacity: .5; }
+.input-device-field select { width: 100%; min-width: 0; text-overflow: ellipsis; }
 .input-device-help, .input-silent-help, .input-diagnostics-help, .input-window-help { color: var(--accent-text); font-size: 12px; line-height: 1.8; }
 .input-device-help { margin: 8px 0 12px; line-height: 1.5; }
-.input-error, .input-notice { margin: 14px 0; padding: 12px 15px; border-radius: 6px; font-size: 12px; line-height: 1.7; }
-.input-error { color: var(--danger-text); background: var(--danger-surface); }
-.input-notice { color: var(--accent-text); background: var(--surface-raised); }
+.input-notice { margin: 14px 0; }
 .input-status { color: var(--accent-text); background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: 6px; padding: 9px 12px; font-size: 12px; line-height: 1.5; }
 .input-readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 10px 0; }
-.input-level-card, .input-pitch-card { min-width: 0; padding: 16px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface-raised); }
+.input-level-card, .input-pitch-card { min-width: 0; padding: 16px; }
 .input-readouts h3 { margin: 0 0 12px; color: var(--accent-text); font-size: 16px; font-weight: 550; }
 .input-meter-label { display: flex; flex-direction: column; gap: 8px; color: var(--accent-text); font-size: 12px; }
 .input-meter-label meter { width: 100%; height: 24px; accent-color: var(--accent); }
@@ -36,11 +24,9 @@
 .input-cents, .input-confidence { font-size: 12px; line-height: 1.7; color: var(--accent-text); }
 .input-uncertainty { min-height: 38px; font-size: 12px; line-height: 1.7; color: var(--accent-text); }
 .input-card-explainer { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
-.input-card-explainer > summary { color: var(--accent-text); font-size: 12px; line-height: 1.5; cursor: pointer; }
 .input-card-help { margin: 8px 0 0; color: var(--accent-text); font-size: 12px; line-height: 1.5; }
 .input-silent-help { max-width: none; margin: 10px 0 12px; line-height: 1.5; }
 .input-diagnostics { border-top: 1px solid var(--border); padding-top: 10px; }
-.input-diagnostics > summary { color: var(--accent-text); font-size: 13px; line-height: 1.7; cursor: pointer; }
 .input-settings-scroll { overflow-x: auto; margin: 18px 0; }
 .input-settings-scroll table { width: 100%; min-width: 590px; border-collapse: collapse; text-align: left; font-size: 12px; color: var(--accent-text); }
 .input-settings-scroll caption { text-align: left; font-size: 12px; color: var(--accent-text); margin-bottom: 12px; }
@@ -53,13 +39,11 @@
 .input-context dd { margin: 7px 0 0; color: var(--accent-text); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
 .input-section :focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
 @media (max-width: 850px) { .input-readouts { gap: 12px; } .input-level-card, .input-pitch-card { padding: 17px; } .input-context { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 600px) { .input-section { padding: 19px; } .input-heading { align-items: start; flex-direction: column; gap: 8px; } .input-heading h2 { font-size: 21px; } .input-heading > p { margin: 0; } .input-readouts { grid-template-columns: 1fr; } .input-connect { gap: 10px; } .input-device-field { flex-basis: 100%; max-width: none; } .input-context { grid-template-columns: 1fr; gap: 15px; } .input-pitch-main { gap: 17px; } }
+@media (max-width: 600px) { .input-readouts { grid-template-columns: 1fr; } .input-connect { gap: 10px; } .input-device-field { flex-basis: 100%; max-width: none; } .input-context { grid-template-columns: 1fr; gap: 15px; } .input-pitch-main { gap: 17px; } }
 
-.input-device-field select { background: var(--surface); color: var(--text-primary); border-color: var(--border-strong); }
 .input-clipping.is-clipping { background: var(--danger-surface); color: var(--danger-text); border-color: var(--danger-border); }
 .input-meter-label meter { color-scheme: inherit; }
 .input-meter-label meter::-webkit-meter-bar { background: var(--surface-muted); border: 1px solid var(--border-strong); }
 .input-meter-label meter::-webkit-meter-optimum-value { background: var(--accent); }
 .input-meter-label meter::-webkit-meter-suboptimum-value { background: var(--warning-border); }
 .input-meter-label meter::-webkit-meter-even-less-good-value { background: var(--danger-border); }
-.input-connect button:disabled { opacity: 1; color: var(--disabled-text); background: var(--disabled-surface); }

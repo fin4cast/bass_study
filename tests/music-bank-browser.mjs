@@ -1,15 +1,21 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { resolve, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runTracksBrowserChecks } from './helpers/tracks-browser-harness.mjs';
-import { selection, samplePath, sampleBytes, libraryRoot } from '../experiments/music-bank/inspect.mjs';
+import { browserCases } from './helpers/browser-case.mjs';
+import { browserRun } from './helpers/browser-runner.mjs';
+import { openMusicBankTestInputs } from './helpers/music-bank-fixtures.mjs';
 
 const checks = [], check = (name, scope, run) => checks.push({ name, scope, run });
 const bank = page => page.locator('#music-bank-mount');
 const field = (page, name) => bank(page).locator(`[data-mb="${name}"]`);
 const row = (page, index) => field(page, 'tracks').locator(`tr[data-track="${index}"]`);
-const sample = id => selection.samples.find(item => item.id === id);
+let inputs;
+const sample = id => inputs.selection.samples.find(item => item.id === (!inputs.corpus && id === 'sample-08' ? 'sample-05' : id));
+const samplePath = item => inputs.samplePath(item);
+const sampleBytes = item => inputs.sampleBytes(item);
 async function ready(page) {
   await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main')?.inert);
   if (await page.locator('[data-intro="free"]').isVisible()) await page.locator('[data-intro="free"]').click();
@@ -28,6 +34,15 @@ async function exported(page) {
   const file = await pending; return JSON.parse(await readFile(await file.path(), 'utf8'));
 }
 async function closeHistory(page) { if (await page.locator('.history-drawer').evaluate(element => element.open)) await page.locator('#open-history').click(); }
+function studioWav() {
+  const sampleRate = 16000, frames = sampleRate * 2, buffer = Buffer.alloc(44 + frames * 2);
+  buffer.write('RIFF', 0); buffer.writeUInt32LE(buffer.length - 8, 4); buffer.write('WAVEfmt ', 8);
+  buffer.writeUInt32LE(16, 16); buffer.writeUInt16LE(1, 20); buffer.writeUInt16LE(1, 22);
+  buffer.writeUInt32LE(sampleRate, 24); buffer.writeUInt32LE(sampleRate * 2, 28); buffer.writeUInt16LE(2, 32); buffer.writeUInt16LE(16, 34);
+  buffer.write('data', 36); buffer.writeUInt32LE(frames * 2, 40);
+  for (let frame = 0; frame < frames; frame++) buffer.writeInt16LE(Math.round(8000 * Math.sin(2 * Math.PI * 55 * frame / sampleRate)), 44 + frame * 2);
+  return { name: 'studio-synthetic-bass.wav', mimeType: 'audio/wav', buffer };
+}
 async function observe(page) {
   await page.addInitScript(() => {
     window.__bankContexts = []; window.__bankContextInfo = []; window.__bankReads = 0;
@@ -45,14 +60,14 @@ async function observe(page) {
   await page.reload(); await ready(page);
 }
 
-check('product-15-real-files-render-independent-track-controls-and-reject-old-GTP', 'ui', async ({ page }) => {
+check('product-files-render-independent-track-controls-and-reject-unsupported-input', 'ui', async ({ page }) => {
   await enter(page); assert.equal(await page.locator('[data-app-module="tracks"]').innerText(), 'Табулатура и ноты');
-  assert.equal(await field(page, 'title').innerText(), 'Табулатура и ноты'); const results = [];
-  for (const item of selection.samples) {
+  assert.equal(await page.locator('#tracks-mount').getByRole('heading', { level: 1 }).innerText(), 'Табулатура и ноты'); const results = [];
+  for (const item of inputs.selection.samples) {
     if (item.extension === '.gtp') {
-      const before = await field(page, 'title').innerText(); await field(page, 'file').setInputFiles(samplePath(item));
+      const before = await field(page, 'song-info').innerText(); await field(page, 'file').setInputFiles(samplePath(item));
       await field(page, 'error').waitFor(); assert.match(await field(page, 'error').innerText(), /не поддерживается/);
-      assert.equal(await field(page, 'title').innerText(), before); results.push({ id: item.id, rejected: true }); continue;
+      assert.equal(await field(page, 'song-info').innerText(), before); results.push({ id: item.id, rejected: true }); continue;
     }
     await load(page, item.id);
     const count = await row(page, 0).locator('..').locator('tr').count();
@@ -94,13 +109,13 @@ check('product-independent-drums-live-volume-mute-solo-and-four-notation-states'
 
 check('product-directory-search-pages-read-only-selected-file-and-no-full-catalogue-backup', 'ui', async ({ page }) => {
   page.setDefaultTimeout(60000); await observe(page); await enter(page);
-  await field(page, 'folder').setInputFiles(libraryRoot);
-  await page.waitForFunction(() => Number(document.querySelector('[data-mb="catalogue-count"]')?.textContent) > 48000);
+  await field(page, 'folder').setInputFiles(inputs.libraryRoot);
+  await page.waitForFunction(minimum => Number(document.querySelector('[data-mb="catalogue-count"]')?.textContent) >= minimum, inputs.minimumCount);
   const count = Number(await field(page, 'catalogue-count').innerText());
   assert.ok(await field(page, 'file-list').locator('button').count() <= 80);
   assert.equal(await page.evaluate(() => window.__bankReads), 0);
   await field(page, 'next').click(); assert.match(await field(page, 'page-count').innerText(), /2 \/ /);
-  await field(page, 'search').fill('Jackson Billie Jean'); const matches = await field(page, 'file-list').locator('button').count(); assert.ok(matches > 0 && matches < 80);
+  await field(page, 'search').fill(inputs.query); const matches = await field(page, 'file-list').locator('button').count(); assert.ok(matches > 0 && matches < 80);
   await field(page, 'file-list').locator('button').first().click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount')?.dataset.musicBankReady === 'true');
   assert.equal(await page.evaluate(() => window.__bankReads), 1);
@@ -131,9 +146,100 @@ check('product-save-reload-content-rebind-export-restore-and-presets-keep-origin
   return { schema: 7, renameByContent: true, previewDidNotWrite: true, exactRestoredPreferences: true, rebindRequired: true };
 });
 
+check('product-studio-bindings-survive-foundation-shortcuts-and-full-preset-requires-rebind', 'ui', async ({ page }) => {
+  const wav = studioWav();
+  const audio = page.locator('#legacy-tracks-mount');
+  const audioAction = name => audio.locator(`[data-tracks-action="${name}"]`);
+  const audioTab = page.locator('[data-bank-view="audio"]');
+  const scoreTab = page.locator('[data-bank-view="scores"]');
+  const activeSection = () => page.locator('[data-app-module][aria-current="page"]').getAttribute('data-app-module');
+  const audioReady = () => page.waitForFunction(() => document.querySelector('#legacy-tracks-mount')?.dataset.tracksReady === 'true');
+  const timeline = panel => panel.locator('.studio-timeline').evaluate(element => {
+    const seek = element.querySelector('input[type="range"]');
+    const time = element.querySelector('output');
+    const seekStyle = getComputedStyle(seek), timeStyle = getComputedStyle(time);
+    const seekBounds = seek.getBoundingClientRect(), timeBounds = time.getBoundingClientRect();
+    return {
+      seek: [seekStyle.height, seekStyle.accentColor, seekStyle.backgroundColor, seekStyle.cursor],
+      time: [timeStyle.fontFamily, timeStyle.fontSize, timeStyle.color, timeStyle.lineHeight],
+      rightAligned: timeBounds.right === element.getBoundingClientRect().right && timeBounds.left >= seekBounds.right,
+      centered: Math.abs((seekBounds.top + seekBounds.bottom) - (timeBounds.top + timeBounds.bottom)) < 1,
+    };
+  });
+  const playScore = async () => {
+    assert.equal(await bank(page).getAttribute('data-music-bank-ready'), 'true');
+    await field(page, 'play').click();
+    await page.waitForFunction(() => document.querySelector('#music-bank-mount')?.dataset.musicBankState === 'playing');
+  };
+  const playAudio = async () => {
+    assert.equal(await audio.getAttribute('data-tracks-bound'), '1');
+    await audioAction('play').click();
+    await page.waitForFunction(() => document.querySelector('#legacy-tracks-mount')?.dataset.tracksState === 'playing');
+  };
+
+  await ready(page);
+  const initial = await exported(page);
+  initial.history.push(JSON.parse(await readFile(new URL('./fixtures/screen-shape-v1.json', import.meta.url), 'utf8')));
+  await page.locator('[data-history-file]').setInputFiles({ name: 'studio-practice.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(initial)) });
+  await page.getByTestId('backup-preview').waitFor();
+  await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check();
+  await page.locator('[data-history-action="confirm-restore"]').click();
+  await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
+
+  await enter(page); await load(page, 'sample-05');
+  const scoreTimeline = await timeline(bank(page));
+  assert.equal(scoreTimeline.rightAligned && scoreTimeline.centered, true);
+  await row(page, 0).locator('[data-control=volume]').fill('0.6');
+  await audioTab.click();
+  await audio.getByLabel('Новый набор аудиофайлов', { exact: true }).setInputFiles(wav);
+  await audioReady();
+  assert.deepEqual(await timeline(audio), scoreTimeline);
+  await audio.getByLabel('Повторять аудиофрагмент', { exact: true }).check();
+  const presetName = 'Студия с партитурой и дорожкой';
+  await page.locator('#open-history').click();
+  await page.getByLabel('Название пресета', { exact: true }).fill(presetName);
+  await page.locator('[data-history-action="save-preset"]').click();
+  await page.getByTestId('preset-list').getByText(presetName, { exact: true }).waitFor();
+  const preset = (await exported(page)).presets.find(item => item.name === presetName);
+  assert.ok(preset?.preferences.musicBank.file && preset.preferences.tracks);
+  await closeHistory(page);
+
+  await scoreTab.click(); await playScore();
+  await page.locator('#open-introduction').click(); await page.locator('[data-intro="guided"]').click();
+  assert.equal(await activeSection(), 'foundation');
+  assert.match(await page.locator('#onboarding-mount').innerText(), /Введение: 1 из 4/);
+  await enter(page); await playScore(); await field(page, 'stop').click();
+  await audioTab.click(); await playAudio();
+
+  await page.locator('#open-history').click(); await page.locator('[data-history-action="review-errors"]').click();
+  await page.getByTestId('review-banner').waitFor();
+  assert.equal(await activeSection(), 'foundation');
+  await enter(page); await playScore(); await field(page, 'stop').click();
+  await audioTab.click(); await playAudio(); await audioAction('stop').click();
+  const afterShortcuts = (await exported(page)).preferences;
+  assert.deepEqual(afterShortcuts.musicBank, preset.preferences.musicBank);
+  assert.deepEqual(afterShortcuts.tracks, preset.preferences.tracks);
+
+  await page.locator(`[data-apply-preset="${preset.id}"]`).click();
+  await page.getByText(`Пресет «${presetName}» применён.`, { exact: true }).waitFor();
+  assert.equal(await activeSection(), 'tracks');
+  await closeHistory(page);
+  await scoreTab.click();
+  assert.equal(await bank(page).getAttribute('data-music-bank-state'), 'missing');
+  assert.equal(await field(page, 'play').isDisabled(), true);
+  await audioTab.click();
+  assert.equal(await audio.getAttribute('data-tracks-bound'), '0');
+  assert.equal(await audioAction('play').isDisabled(), true);
+  const afterPreset = (await exported(page)).preferences;
+  assert.deepEqual(afterPreset.musicBank, preset.preferences.musicBank);
+  assert.deepEqual(afterPreset.tracks, preset.preferences.tracks);
+  return { playedAfterGuidedIntroduction: ['score', 'audio'], playedAfterReview: ['score', 'audio'],
+    exactDescriptorsAndMixPreserved: true, presetRequiredExplicitRebindForBoth: true, sharedTimeline: scoreTimeline };
+});
+
 check('product-pending-file-disables-old-mixer-and-cancel-retains-exact-context', 'ui', async ({ page }) => {
   await enter(page); await load(page, 'sample-03');
-  const before = await field(page, 'title').innerText();
+  const before = await field(page, 'song-info').innerText();
   await page.evaluate(() => {
     const native = File.prototype.arrayBuffer;
     const gate = new Promise(resolve => { window.__releaseRead = resolve; });
@@ -144,7 +250,7 @@ check('product-pending-file-disables-old-mixer-and-cancel-retains-exact-context'
   assert.equal(await row(page, 1).locator('[data-control=audible]').isDisabled(), true);
   assert.equal(await row(page, 1).locator('[data-control=volume]').isDisabled(), true);
   await field(page, 'cancel').click(); await page.evaluate(() => window.__releaseRead()); await delay(200);
-  assert.equal(await field(page, 'title').innerText(), before);
+  assert.equal(await field(page, 'song-info').innerText(), before);
   assert.equal(await row(page, 1).locator('[data-control=audible]').isEnabled(), true);
   assert.equal(await row(page, 1).locator('[data-control=audible]').isChecked(), true);
   const copy = await exported(page); assert.equal(copy.preferences.musicBank.file.sha256, sample('sample-03').sha256);
@@ -246,5 +352,60 @@ check('product-switching-away-cancels-pending-module-load-with-no-late-audio-own
   return { pendingImportCancelled: true, existingContextCount: before.contexts, existingContextStates: before.states, lateAudioContexts: 0 };
 });
 
-const selectedCase = process.argv.find(arg => arg.startsWith('--case='))?.slice(7);
-await runTracksBrowserChecks(selectedCase ? checks.filter(test => test.name.includes(selectedCase)) : checks, { reportFile: selectedCase ? 'p10-music-bank-case-edge.json' : 'p10-music-bank-edge.json', scope: 'Product music-bank Studio A, local files/folder, native schema10 persistence, independent real audio and UI; no physical latency claim.' });
+check('product-engine-failure-keeps-committed-score-and-latest-selection-wins', 'ui', async ({ page, context }) => {
+  await enter(page);
+  await load(page, 'sample-03');
+  const title = await field(page, 'song-info').innerText();
+  await row(page, 0).locator('[data-control=volume]').fill('0.45');
+  await field(page, 'from').fill('2');
+  await field(page, 'to').fill('3');
+  await field(page, 'apply-range').click();
+  const saved = (await exported(page)).preferences.musicBank;
+  await closeHistory(page);
+  await field(page, 'play').click();
+  await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState === 'playing');
+  let blocked = 0;
+  const soundFont = '**/sonivox.sf2';
+  const rejectSoundFont = route => { blocked++; return route.abort('failed'); };
+  await context.route(soundFont, rejectSoundFont);
+  await field(page, 'file').setInputFiles(samplePath(sample('sample-05')));
+  await field(page, 'error').waitFor();
+  assert.ok(blocked > 0);
+  assert.equal(await field(page, 'song-info').innerText(), title);
+  assert.equal(await field(page, 'play').isEnabled(), true);
+  assert.equal(await bank(page).getAttribute('data-music-bank-state'), 'paused');
+  assert.deepEqual((await exported(page)).preferences.musicBank, saved);
+  await closeHistory(page);
+  await field(page, 'play').click();
+  await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState === 'playing');
+  await context.unroute(soundFont, rejectSoundFont);
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  let requests = 0;
+  const delayFirst = async route => {
+    if (++requests === 1) await gate;
+    await route.continue().catch(() => {});
+  };
+  await context.route(soundFont, delayFirst);
+  try {
+    await field(page, 'file').setInputFiles(samplePath(sample('sample-05')));
+    for (let i = 0; i < 150 && !requests; i++) await delay(20);
+    assert.equal(requests, 1);
+    await load(page, 'sample-03');
+    release();
+    await delay(350);
+    assert.equal(await field(page, 'song-info').innerText(), title);
+    assert.equal(await page.locator('.mb-score-staging').count(), 0);
+    assert.deepEqual((await exported(page)).preferences.musicBank, saved);
+  } finally {
+    release();
+    await context.unroute(soundFont, delayFirst);
+  }
+  return { retainedAfterSoundFontFailure: true, lastFileIntentWins: true, unchangedDescriptorAndMix: true };
+});
+
+const selection = browserCases(checks);
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+inputs = await openMusicBankTestInputs(browserRun(root).resultDir);
+await runTracksBrowserChecks(selection.checks, { reportFile: selection.filtered ? 'p10-music-bank-case-edge.json' : 'p10-music-bank-edge.json',
+  scope: `Product music-bank Studio A with ${inputs.corpus ? 'personal corpus' : 'original synthetic scores'}, local files/folder, native schema10 persistence, independent real audio and UI; no physical latency claim.` });

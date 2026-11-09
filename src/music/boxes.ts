@@ -62,7 +62,7 @@ function instance(selection: BoxSelection): BoxInstance {
     : `Тоника ${structure.root} · лад ${selection.anchorFret}`;
   return freeze({ selection, positions, fingers, referencePositionIds: positions.map(position => position.id), window: { fretMin, fretMax }, label });
 }
-export function validateBoxSelection(value: unknown): BoxSelection {
+export function validateBoxSelectionV1(value: unknown): BoxSelection {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RangeError('Нужен сохранённый контекст формы.');
   const raw = value as Record<string, unknown>;
   const keys = ['version', 'shapeId', 'root', 'structureId', 'anchorFret', 'anchorString'];
@@ -74,8 +74,10 @@ export function validateBoxSelection(value: unknown): BoxSelection {
   instance(selection);
   return freeze(selection);
 }
+export const validateBoxSelection = validateBoxSelectionV1;
 export function createBoxSelection(input: Omit<BoxSelection, 'version'>): BoxSelection { return validateBoxSelection({ ...input, version: 'boxes-v1' }); }
-export function getBoxInstance(selection: BoxSelection): BoxInstance { return instance(validateBoxSelection(selection)); }
+export function getBoxInstanceV1(selection: BoxSelection): BoxInstance { return instance(validateBoxSelectionV1(selection)); }
+export const getBoxInstance = getBoxInstanceV1;
 /** All complete closed instances, including +12 copies; no silently clipped forms. */
 export function getBoxCatalogue(root: string, structureId: StructureId): readonly BoxInstance[] {
   const structure = createStructure(root, structureId); const pentatonic = structureId.endsWith('pentatonic');

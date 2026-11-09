@@ -1,20 +1,21 @@
-import { STRUCTURES, annotatePositions, createStructure, getPosition, parseNote, type LabelMode, type StringId, type StructureId } from '../music';
+import { STRUCTURES, annotatePositions, createStructure, getPosition, parseNote, type AnnotatedPosition, type LabelMode, type StringId, type StructureId } from '../music';
 import {
-  nextQuestion, revealAnswer, skipQuestion, startQuiz, submitAnswer,
-  type AnswerEvent, type Question, type QuestionContext, type QuizAnswer, type QuizMode,
+  nextQuestion,
+  type AnswerEvent, type QuestionContext, type QuizAnswer, type QuizMode,
   type QuizResult, type QuizSession, type SequencePattern, type TrainingScope,
   INTERVAL_DEGREES, createIntervalTarget, type IntervalDegree,
 } from '../training';
+import { createQuizQuestionsV1, replayQuizResultV1 } from '../training/quiz-rules-v1';
 import { createManualPracticeResult, manualTempoBounds, type ManualPracticeResult } from '../training/results';
-import { beginEarListen, cancelEarListen, collectEarResults, completeEarListen, createEarQuestion, revealEarAnswer, skipEarQuestion, startEarSession, submitEarAnswer,
-  type EarDegree, type EarQuality, type EarSession, type SavedEarResult } from '../ear';
-import { getRouteResult, replayRouteResult, type RouteEvent, type RouteResult } from '../route';
+import { collectEarResults, createEarQuestionV1, createEarQuestionsV1, replayEarResultV1,
+  type EarAnswerEvent, type EarListenEvent, type EarDegree, type EarQuality, type EarSession, type SavedEarResult } from '../ear/rules-v1';
+import { getRouteResult, replayRouteResultV1, type RouteEvent, type RouteResult } from '../route';
 import { DEFAULT_HARMONY_PREFERENCES, type HarmonyPreferences } from '../harmony';
 import { validateTracksManifest, type TracksManifest } from '../tracks';
 import { validateMusicBankPreferences, type MusicBankPreferences } from '../music-bank/model';
 import { DEFAULT_RHYTHM_VELOCITY, migrateRhythmProject, validateRhythmPlaybackConfig, validateRhythmPreferences, validateRhythmProject,
   type LegacyRhythmVelocityDefaults, type RhythmPreferences, type RhythmProject } from '../rhythm/model';
-import { createBoxSelection, getBoxInstance, validateBoxSelection as validateDomainBoxSelection, type BoxSelection } from '../music/boxes';
+import { createBoxSelection, getBoxInstanceV1, validateBoxSelectionV1, type BoxSelection } from '../music/boxes';
 import type { StoredPracticeMaterial, PracticeMaterial } from '../training/results';
 import { DEFAULT_PROFILE, type GlobalProfile, type PracticeDraft, type DrainDraftRequest } from './contracts';
 export * from './contracts';
@@ -147,7 +148,7 @@ function array(value: unknown, max: number, label: string): readonly unknown[] {
 }
 function validateBoxSelection(value: unknown): BoxSelection {
   object(value, ['version', 'shapeId', 'root', 'structureId', 'anchorFret', 'anchorString'], 'Учебная форма');
-  return validateDomainBoxSelection(value);
+  return validateBoxSelectionV1(value);
 }
 function plainJson(value: unknown, seen = new Set<object>()): void {
   if (value === null || typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number' && Number.isFinite(value)) return;
@@ -265,7 +266,7 @@ export function validateQuestionContext(value: unknown): QuestionContext {
   const box = !hasBox || data.box === null ? null : validateBoxSelection(data.box);
   if (box && (parseNote(box.root).pitchClass !== parseNote(normalizedRoot).pitchClass || box.structureId !== structureId)) invalid('Бокс исходного контекста не соответствует материалу.');
   const ids = positionIds(data.positionIds, 'Позиции контекста', false);
-  if (box) { const expected = getBoxInstance(box).referencePositionIds; if (ids.length !== expected.length || expected.some(id => !ids.includes(id))) invalid('Контекст должен содержать точное множество позиций выбранной формы.'); }
+  if (box) { const expected = getBoxInstanceV1(box).referencePositionIds; if (ids.length !== expected.length || expected.some(id => !ids.includes(id))) invalid('Контекст должен содержать точное множество позиций выбранной формы.'); }
   return immutable({ scope: oneOf(data.scope, SCOPES, 'Область контекста'), root: normalizedRoot, structureId, positionIds: ids, ...(hasBox ? { box } : {}) });
 }
 const context = validateQuestionContext;
@@ -387,11 +388,20 @@ function answerValue(value: unknown): QuizAnswer {
   return number(value, -Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, 'Ответ', false);
 }
 
-function validateScreenQuestion(value: unknown, mode: QuizMode, originalContext: QuestionContext): StoredQuestion {
+function* screenAnswerEvents(value: unknown): Iterable<AnswerEvent> {
+  for (const item of array(value, Number.MAX_SAFE_INTEGER, 'Попытки ответа')) {
+    const event = object(item, ['answer', 'elapsedMs', 'correct'], 'Попытка ответа');
+    yield {
+      answer: answerValue(event.answer),
+      elapsedMs: number(event.elapsedMs, 0, Number.MAX_SAFE_INTEGER, 'Время ответа', false),
+      correct: boolean(event.correct, 'Правильность попытки'),
+    };
+  }
+}
+
+function validateScreenQuestion(value: unknown, mode: QuizMode, originalContext: QuestionContext, allPositions: readonly AnnotatedPosition[]): StoredQuestion {
   const raw = object(value, QUESTION_KEYS, 'Результат вопроса');
   const questionId = text(raw.questionId, 'ID вопроса', 160);
-  const structure = createStructure(originalContext.root, originalContext.structureId);
-  const allPositions = annotatePositions(originalContext.positionIds.map(position), structure);
   const eligible = allPositions.filter(item => originalContext.scope === 'chromatic' || item.inStructure);
   if (eligible.length === 0) invalid('В контексте нет доступных нот для задания.');
   const targetData = object(raw.target, ['pitchClass', 'name', 'degree'], 'Цель вопроса');
@@ -417,42 +427,16 @@ function validateScreenQuestion(value: unknown, mode: QuizMode, originalContext:
   if (raw.firstAttemptCorrect !== null) boolean(raw.firstAttemptCorrect, 'Первый правильный ответ');
   for (const key of ['hintUsed', 'skipped', 'independentCorrect', 'corrected']) boolean(raw[key], key);
   const target = { pitchClass: targetClass, name: targetName, degree: intervalDegree ?? candidates[0].degree };
-  let replay = startQuiz({ positions: allPositions, structure, scope: originalContext.scope, mode, seed: 0, intervalDegree }, 1);
-  const question: Question = { ...replay.currentQuestion, id: questionId, context: originalContext, target, targetMidi,
-    expectedPositionIds: candidates.map(item => item.id), ...(targetPositionId === null ? { targetPositionId: undefined } : { targetPositionId }) };
-  replay = { ...replay, questions: [question], currentQuestion: question };
-  const events = array(raw.answerEvents, Number.MAX_SAFE_INTEGER, 'Попытки ответа').map((item, index): AnswerEvent => {
-    const event = object(item, ['answer', 'elapsedMs', 'correct'], 'Попытка ответа');
-    const answer = answerValue(event.answer);
-    const elapsedMs = number(event.elapsedMs, 0, Number.MAX_SAFE_INTEGER, 'Время ответа', false);
-    const correct = boolean(event.correct, 'Правильность попытки');
-    replay = submitAnswer(replay, answer, elapsedMs);
-    if (replay.answerState.answerEvents.length !== index + 1 || replay.answerState.answerEvents[index].correct !== correct) invalid('Попытки содержат дубликат, лишний ответ или неверный признак правильности.');
-    return { answer, elapsedMs, correct };
-  });
   const outcome = oneOf(raw.outcome, ['correct', 'corrected', 'revealed', 'skipped', 'interrupted'] as const, 'Итог вопроса');
   const completionMs = raw.completionMs === null ? null : number(raw.completionMs, 0, Number.MAX_SAFE_INTEGER, 'Время завершения', false);
-  if (outcome === 'revealed' || outcome === 'skipped') {
-    if (completionMs === null || replay.status !== 'active') invalid('Показ или пропуск не соответствует состоянию ответов.');
-    replay = outcome === 'revealed' ? revealAnswer(replay, completionMs) : skipQuestion(replay, completionMs);
-  }
-  let expected: Omit<StoredQuestion, 'targetPositionId'>;
-  if (outcome === 'interrupted') {
-    if (replay.status !== 'active' || replay.answerState.attempts === 0 || completionMs !== null) invalid('Прерванный вопрос должен содержать реальные незавершённые попытки.');
-    const state = replay.answerState;
-    expected = { questionId, target, targetMidi, answerRule, selectedPositionIds: state.selectedPositionIds,
-      attempts: state.attempts, errors: state.errors, firstAnswer: state.firstAnswer, firstResponseMs: state.firstResponseMs,
-      completionMs: null, firstAttemptCorrect: state.firstAttemptCorrect, hintUsed: false, skipped: false,
-      independentCorrect: false, corrected: false, outcome: 'interrupted', answerEvents: events };
-  } else {
-    if (replay.status !== 'review') invalid('Завершённый вопрос не имеет полного правильного ответа, показа или пропуска.');
-    const { kind: _kind, mode: _mode, context: _context, ...result } = nextQuestion(replay).results[0];
-    expected = result;
-  }
+  const closed = outcome === 'revealed' || outcome === 'skipped';
+  if (closed && completionMs === null) invalid('Показ или пропуск не соответствует состоянию ответов.');
+  const closure = closed && completionMs !== null ? { outcome, atMs: completionMs } : undefined;
+  const expected = replayQuizResultV1(mode, targetClass, candidates.map(item => item.id), screenAnswerEvents(raw.answerEvents), closure);
   for (const key of ['selectedPositionIds', 'attempts', 'errors', 'firstAnswer', 'firstResponseMs', 'completionMs', 'firstAttemptCorrect', 'hintUsed', 'skipped', 'independentCorrect', 'corrected', 'outcome'] as const) {
     if (!same(raw[key], expected[key])) invalid(`Поле результата ${key} не соответствует реальным попыткам.`);
   }
-  return immutable({ ...expected, targetPositionId });
+  return immutable({ questionId, target, targetMidi, answerRule, ...expected, targetPositionId });
 }
 
 const EAR_QUESTION_KEYS = ['id', 'seed', 'root', 'quality', 'referenceMidi', 'targetMidi', 'targetDegree', 'targetName', 'choices'];
@@ -462,39 +446,29 @@ function validateEarResult(value: unknown, root: string, quality: EarQuality, re
   const raw = object(value, EAR_RESULT_KEYS, 'Результат слухового вопроса');
   if (raw.kind !== 'ear' || raw.source !== 'audio-choice') invalid('Неверное происхождение слухового результата.');
   const questionData = object(raw.question, EAR_QUESTION_KEYS, 'Слуховой вопрос');
-  const question = createEarQuestion({ root, quality, referenceMidi, seed: number(questionData.seed, 0, 0xffffffff, 'Seed слухового вопроса') });
+  const question = createEarQuestionV1({ root, quality, referenceMidi, seed: number(questionData.seed, 0, 0xffffffff, 'Seed слухового вопроса') });
   array(questionData.choices, 3, 'Варианты слухового ответа').forEach(choice => object(choice, ['id', 'label'], 'Вариант слухового ответа'));
   if (!same(questionData, question)) invalid('Слуховая цель, написание, октава или варианты не соответствуют исходному вопросу.');
-  let replay = startEarSession({ root, quality, referenceMidi, count: 1, seed: 0 });
-  replay = { ...replay, currentQuestion: question, questions: [question] };
-  const listens = array(raw.listenEvents, Number.MAX_SAFE_INTEGER, 'Прослушивания').map(item => {
+  const listens = array(raw.listenEvents, Number.MAX_SAFE_INTEGER, 'Прослушивания').map((item): EarListenEvent => {
     if (!item || typeof item !== 'object') invalid('Некорректное событие прослушивания.');
     const descriptor = Object.getOwnPropertyDescriptor(item, 'type');
     if (!descriptor || !Object.hasOwn(descriptor, 'value')) invalid('Тип события прослушивания должен быть обычным полем.');
     const type = oneOf(descriptor.value, ['start', 'complete', 'cancel'] as const, 'Событие прослушивания');
     const event = object(item, type === 'start' ? ['type', 'listenId', 'atMs', 'order', 'bpm'] : ['type', 'listenId', 'atMs', 'order'], 'Событие прослушивания');
-    return { category: 'listen' as const, type, listenId: text(event.listenId, 'ID прослушивания', 160), atMs: number(event.atMs, 0, Number.MAX_SAFE_INTEGER, 'Время прослушивания', false), order: number(event.order, 1, Number.MAX_SAFE_INTEGER, 'Порядок события'), bpm: type === 'start' ? number(event.bpm, 60, 120, 'Темп прослушивания') : undefined };
+    const fields = { listenId: text(event.listenId, 'ID прослушивания', 160), atMs: number(event.atMs, 0, Number.MAX_SAFE_INTEGER, 'Время прослушивания', false), order: number(event.order, 1, Number.MAX_SAFE_INTEGER, 'Порядок события') };
+    return type === 'start' ? { type, ...fields, bpm: number(event.bpm, 60, 120, 'Темп прослушивания') } : { type, ...fields };
   });
-  const answers = array(raw.answerEvents, Number.MAX_SAFE_INTEGER, 'Слуховые ответы').map(item => {
+  const answers = array(raw.answerEvents, Number.MAX_SAFE_INTEGER, 'Слуховые ответы').map((item): EarAnswerEvent => {
     const event = object(item, ['degree', 'atMs', 'correct', 'order'], 'Слуховой ответ');
-    return { category: 'answer' as const, degree: oneOf(event.degree, question.choices.map(choice => choice.id), 'Ответ ступенью'),
+    return { degree: oneOf(event.degree, question.choices.map(choice => choice.id), 'Ответ ступенью'),
       atMs: number(event.atMs, 0, Number.MAX_SAFE_INTEGER, 'Время слухового ответа', false), correct: boolean(event.correct, 'Правильность слухового ответа'), order: number(event.order, 1, Number.MAX_SAFE_INTEGER, 'Порядок события') };
   });
-  const timeline = [...listens, ...answers].sort((a, b) => a.order - b.order);
-  timeline.forEach((event, index) => {
-    if (event.order !== index + 1) invalid('Слуховые события должны иметь уникальный непрерывный порядок.');
-    if (event.category === 'answer') replay = submitEarAnswer(replay, event.degree, event.atMs);
-    else if (event.type === 'start') {
-      replay = beginEarListen(replay, event.atMs, event.bpm);
-      if (replay.answerState.activeListen?.id !== event.listenId) invalid('ID начатого прослушивания не соответствует вопросу.');
-    } else replay = event.type === 'complete' ? completeEarListen(replay, event.atMs, event.listenId) : cancelEarListen(replay, event.atMs, event.listenId);
-  });
   const outcome = oneOf(raw.outcome, ['correct', 'corrected', 'revealed', 'skipped', 'interrupted'] as const, 'Итог слухового вопроса');
-  if (outcome === 'revealed' || outcome === 'skipped') {
-    const closedAtMs = number(raw.closedAtMs, 0, Number.MAX_SAFE_INTEGER, 'Закрытие слухового вопроса', false);
-    replay = outcome === 'revealed' ? revealEarAnswer(replay, closedAtMs) : skipEarQuestion(replay, closedAtMs);
-  }
-  const expected = collectEarResults(replay)[0];
+  const closure = outcome === 'revealed' || outcome === 'skipped'
+    ? { outcome, atMs: number(raw.closedAtMs, 0, Number.MAX_SAFE_INTEGER, 'Закрытие слухового вопроса', false) } : undefined;
+  let expected;
+  try { expected = replayEarResultV1(question, listens, answers, closure); }
+  catch (failure) { invalid(failure instanceof Error ? failure.message : 'Некорректный журнал слухового вопроса.'); }
   if (!expected || !same(raw, expected)) invalid('Показатели слухового результата не соответствуют реальным прослушиваниям и ответам.');
   return expected;
 }
@@ -510,7 +484,7 @@ function validateEarHistory(value: unknown, legacy = false): EarHistoryResult {
   const referenceMidi = legacy ? 36 + parseNote(root).pitchClass : number(area.referenceMidi, 0, 120, 'Опорная высота слуха');
   if (referenceMidi % 12 !== parseNote(root).pitchClass) invalid('Опорная высота не соответствует тонике слуха.');
   const questions = array(raw.questions, plannedCount, 'Результаты слуховых вопросов').map(item => validateEarResult(item, root, quality, referenceMidi));
-  const generated = startEarSession({ root, quality, referenceMidi, seed, count: plannedCount }).questions;
+  const generated = createEarQuestionsV1({ root, quality, referenceMidi, seed, count: plannedCount });
   if (!questions.length || questions.some((item, index) => !same(item.question, generated[index]) || item.outcome === 'interrupted' && index !== questions.length - 1)) invalid('Порядок или состав слуховых вопросов не соответствует исходной серии.');
   return immutable({ kind: 'ear', source: 'audio-choice', context: { root, quality, referenceMidi: legacy ? questions[0].question.referenceMidi : referenceMidi }, seed, plannedCount, questions });
 }
@@ -531,7 +505,7 @@ function validateRouteHistory(value: unknown, legacy = false): RouteResult {
   const normalized = legacy ? { ...raw, material: null, sessionLinks: [] } : raw;
   plainJson(normalized.material);
   array(normalized.sessionLinks, Number.MAX_SAFE_INTEGER, 'Связанные занятия').forEach(link => object(link, ['id', 'kind', 'step'], 'Связь занятия'));
-  const expected = replayRouteResult({ id, events, asOfMs, material: normalized.material as RouteResult['material'], sessionLinks: normalized.sessionLinks as RouteResult['sessionLinks'] });
+  const expected = replayRouteResultV1({ id, events, asOfMs, material: normalized.material as RouteResult['material'], sessionLinks: normalized.sessionLinks as RouteResult['sessionLinks'] });
   if (actual.reduce((sum, value) => sum + value, 0) === 0 || !same(normalized, expected)) invalid('Состояние маршрута не соответствует событиям или не содержит активного времени.');
   return expected;
 }
@@ -572,17 +546,20 @@ export function validateHistoryEntry(value: unknown, legacy = false, legacyRhyth
   if (mode === 'find-degree' && originalContext.scope !== 'structure') invalid('Поиск ступени не может иметь хроматический контекст.');
   if (mode === 'find-interval' && originalContext.scope !== 'chromatic') invalid('Произвольный интервал требует хроматический контекст.');
   const plannedCount = number(result.plannedCount, 1, 100, 'Запланированные вопросы');
+  const seed = number(result.seed, 0, 0xffffffff, 'Seed');
   const questionPolicy = legacy ? 'random-v1' : oneOf(result.questionPolicy, ['random-v1', 'triad-6-v1', 'shape-6-v1'] as const, 'Политика вопросов');
-  const questions = array(result.questions, plannedCount, 'Результаты вопросов').map(item => validateScreenQuestion(item, mode, originalContext));
+  const structure = createStructure(originalContext.root, originalContext.structureId);
+  const positions = annotatePositions(originalContext.positionIds.map(position), structure);
+  const questions = array(result.questions, plannedCount, 'Результаты вопросов').map(item => validateScreenQuestion(item, mode, originalContext, positions));
   if (questions.length === 0 || new Set(questions.map(item => item.questionId)).size !== questions.length) invalid('Экранная история пуста или содержит повторяющиеся вопросы.');
   if (questions.some((item, index) => item.outcome === 'interrupted' && index !== questions.length - 1)) invalid('Прерванным может быть только последний сохранённый вопрос.');
   if (questionPolicy === 'triad-6-v1' && (plannedCount !== 6 || !['major-triad', 'minor-triad'].includes(originalContext.structureId))) invalid('Серия трезвучия требует шесть вопросов и трезвучный контекст.');
   if (questionPolicy === 'triad-6-v1' || questionPolicy === 'shape-6-v1') {
-    const generated = startQuiz({ structure: createStructure(originalContext.root, originalContext.structureId), positions: annotatePositions(originalContext.positionIds.map(position), createStructure(originalContext.root, originalContext.structureId)),
-      mode, scope: originalContext.scope, seed: number(result.seed, 0, 0xffffffff, 'Seed'), questionPolicy, box: originalContext.box ?? null }, plannedCount).questions;
+    const generated = createQuizQuestionsV1({ structure, positions,
+      mode, scope: originalContext.scope, seed, questionPolicy, box: originalContext.box ?? null }, plannedCount);
     if (questions.some((question, index) => question.questionId !== generated[index].id || !same(question.target, generated[index].target) || question.targetMidi !== generated[index].targetMidi || question.targetPositionId !== (generated[index].targetPositionId ?? null))) invalid('Учебная серия не соответствует зафиксированному набору шести вопросов.');
   }
-  return immutable({ ...envelope, result: { kind: 'screen', source: 'screen-input', seed: number(result.seed, 0, 0xffffffff, 'Seed'), mode, context: originalContext, plannedCount, questions, questionPolicy } });
+  return immutable({ ...envelope, result: { kind: 'screen', source: 'screen-input', seed, mode, context: originalContext, plannedCount, questions, questionPolicy } });
 }
 
 export function validateSnapshot(value: unknown): StudySnapshot {
@@ -716,31 +693,37 @@ export function migrateV1HistoryEntry(value: unknown): HistoryEntry {
   return migrateV2HistoryEntry({ ...data, result: { ...result, questions } });
 }
 
+/** Record codecs are shared by backup imports and native upgrade transactions. */
+export const legacyRecordMigrations = Object.freeze({
+  1: { preferences: migrateV1Preferences, presets: migrateV1Preset, history: migrateV1HistoryEntry },
+  2: { preferences: migrateV2Preferences, presets: migrateV2Preset, history: migrateV2HistoryEntry },
+  3: { preferences: migrateV3Preferences, presets: migrateV3Preset, history: migrateV3HistoryEntry },
+  4: { preferences: migrateV4Preferences, presets: migrateV4Preset, history: migrateV4HistoryEntry },
+  5: { preferences: migrateV5Preferences, presets: migrateV5Preset, history: migrateV5HistoryEntry },
+  6: { preferences: migrateV6Preferences, presets: migrateV6Preset, history: migrateV6HistoryEntry },
+  7: { preferences: migrateV7Preferences, presets: migrateV7Preset, history: migrateV7HistoryEntry },
+});
+
 export function migrateBackup(value: unknown): StudySnapshot {
-  const version = value && typeof value === 'object' ? Object.getOwnPropertyDescriptor(value, 'schemaVersion')?.value : undefined;
-  if (version !== undefined && ![1, 2, 3, 4, 5, 6, 7, 8, 9, STUDY_SCHEMA_VERSION].includes(version)) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  const version: unknown = value && typeof value === 'object' ? Object.getOwnPropertyDescriptor(value, 'schemaVersion')?.value : undefined;
+  if (version !== undefined && (typeof version !== 'number' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, STUDY_SCHEMA_VERSION].includes(version))) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
   if (version === STUDY_SCHEMA_VERSION) return validateSnapshot(value);
   if (version === 8 || version === 9) return migrateRhythmSnapshot(value, version);
   if (version === 6 || version === 7) {
     const previous = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history', 'profile', 'practiceDrafts'], `Резервная копия версии ${version}`);
-    const migratePreferences = version === 6 ? migrateV6Preferences : migrateV7Preferences;
-    const migratePreset = version === 6 ? migrateV6Preset : migrateV7Preset;
+    const migrations = legacyRecordMigrations[version];
     return validateSnapshot({ ...previous, schemaVersion: STUDY_SCHEMA_VERSION, rhythmProjects: [], activeRhythmProjectId: null,
-      preferences: recordContext('Текущие настройки (preferences/current)', () => migratePreferences(previous.preferences)),
-      presets: array(previous.presets, Number.MAX_SAFE_INTEGER, `Пресеты версии ${version}`).map((value, index) => recordContext(`Пресет №${index + 1}`, () => migratePreset(value))),
-      history: array(previous.history, Number.MAX_SAFE_INTEGER, 'Старая история').map(migrateV7HistoryEntry),
+      preferences: recordContext('Текущие настройки (preferences/current)', () => migrations.preferences(previous.preferences)),
+      presets: array(previous.presets, Number.MAX_SAFE_INTEGER, `Пресеты версии ${version}`).map((value, index) => recordContext(`Пресет №${index + 1}`, () => migrations.presets(value))),
+      history: array(previous.history, Number.MAX_SAFE_INTEGER, 'Старая история').map(migrations.history),
       practiceDrafts: array(previous.practiceDrafts, Number.MAX_SAFE_INTEGER, 'Старые черновики').map(validatePreviousPracticeDraft) });
   }
   const data = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history'], 'Резервная копия');
   if (data.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
   if (data.schemaVersion !== 1 && data.schemaVersion !== 2 && data.schemaVersion !== 3 && data.schemaVersion !== 4 && data.schemaVersion !== 5) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
-  const migrations = data.schemaVersion === 1 ? { preferences: migrateV1Preferences, preset: migrateV1Preset, history: migrateV1HistoryEntry }
-    : data.schemaVersion === 2 ? { preferences: migrateV2Preferences, preset: migrateV2Preset, history: migrateV2HistoryEntry }
-    : data.schemaVersion === 3 ? { preferences: migrateV3Preferences, preset: migrateV3Preset, history: migrateV3HistoryEntry }
-    : data.schemaVersion === 4 ? { preferences: migrateV4Preferences, preset: migrateV4Preset, history: migrateV4HistoryEntry }
-    : { preferences: migrateV5Preferences, preset: migrateV5Preset, history: migrateV5HistoryEntry };
+  const migrations = legacyRecordMigrations[data.schemaVersion];
   return validateSnapshot({ ...data, schemaVersion: STUDY_SCHEMA_VERSION, rhythmProjects: [], activeRhythmProjectId: null, profile: DEFAULT_PROFILE, practiceDrafts: [], preferences: recordContext('Текущие настройки (preferences/current)', () => migrations.preferences(data.preferences)),
-    presets: array(data.presets, Number.MAX_SAFE_INTEGER, 'Старые пресеты').map((value, index) => recordContext(`Пресет №${index + 1}`, () => migrations.preset(value))),
+    presets: array(data.presets, Number.MAX_SAFE_INTEGER, 'Старые пресеты').map((value, index) => recordContext(`Пресет №${index + 1}`, () => migrations.presets(value))),
     history: array(data.history, Number.MAX_SAFE_INTEGER, 'Старая история').map(migrations.history) });
 }
 

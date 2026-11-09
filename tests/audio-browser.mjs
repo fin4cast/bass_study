@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runAudioBrowserChecks } from './helpers/audio-browser-harness.mjs';
@@ -327,13 +328,42 @@ check('ui-metronome-modes-subdivision-and-live-volume-controls', 'ui', async ({ 
 
 check('ui-keyboard-space-escape-and-input-button-guards', 'ui', async ({ page }) => {
   await setupUi(page); const bpm = player(page).getByLabel('Темп, BPM', { exact: true });
+  const advanced = page.locator('.player-advanced');
+  const summary = advanced.locator('summary');
+  for (const open of [false, true, false]) {
+    await summary.focus();
+    await page.keyboard.press('Space');
+    assert.equal(await advanced.evaluate(element => element.open), open);
+    assert.equal(await player(page).getAttribute('data-player-state'), 'stopped');
+  }
   await bpm.focus(); await bpm.press('Space'); assert.equal(await player(page).getAttribute('data-player-state'), 'stopped');
   await page.getByTestId('player-status').click(); await page.keyboard.press('Space'); await stateIs(page, 'running');
   await bpm.focus(); await bpm.press('Escape'); assert.equal(await player(page).getAttribute('data-player-state'), 'running');
   await action(page, 'pause').focus(); await page.keyboard.press('Escape'); assert.equal(await player(page).getAttribute('data-player-state'), 'running');
   await page.getByTestId('player-status').click(); await page.keyboard.press('Space'); await stateIs(page, 'paused');
   await page.keyboard.press('Space'); await stateIs(page, 'running'); await page.keyboard.press('Escape'); await stateIs(page, 'stopped');
-  return { keyboardStartPauseResumeStop: true, guardedInputAndButton: true };
+  await page.evaluate(() => {
+    const dialog = document.body.appendChild(document.createElement('dialog'));
+    dialog.showModal();
+  });
+  await page.keyboard.press('Space'); await stateIs(page, 'stopped');
+  await page.evaluate(() => document.querySelector('dialog').remove());
+  await page.locator('#open-history').click();
+  const download = page.waitForEvent('download');
+  await page.locator('[data-history-action="export"]').click();
+  const bytes = await readFile(await (await download).path());
+  await page.locator('[data-history-file]').setInputFiles({ name: 'guard.json', mimeType: 'application/json', buffer: bytes });
+  await page.locator('[data-history-confirm]').check();
+  const guard = await page.evaluate(() => {
+    document.querySelector('[data-history-action="confirm-restore"]').click();
+    const event = new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true, cancelable: true });
+    document.body.dispatchEvent(event);
+    return { restoring: document.querySelector('main').inert, intercepted: event.defaultPrevented };
+  });
+  assert.deepEqual(guard, { restoring: true, intercepted: false });
+  await page.waitForFunction(() => !document.querySelector('main').inert);
+  await stateIs(page, 'stopped');
+  return { keyboardStartPauseResumeStop: true, guardedInputAndButton: true, nativeSummary: true, modalAndRestoreGuard: true };
 });
 
 check('ui-changing-scope-or-route-and-leaving-sequence-stops-playback', 'ui', async ({ page }) => {

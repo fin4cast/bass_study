@@ -41,6 +41,44 @@ describe('durable practice draft coordinator', () => {
     expect(data.history).toEqual([]); f.manager.dispose();
   });
 
+  it('reads the bound draft without sampling the clock and indexes a new local day separately', () => {
+    const f = fixture();
+    const readClock = vi.fn(f.binding.readClock);
+    f.manager.bind({ ...f.binding, readClock });
+    f.clock.durationMs = 400;
+    const first = f.manager.current()!;
+    const reads = readClock.mock.calls.length;
+    f.clock.durationMs = 900;
+    expect(f.manager.peek()).toEqual(first);
+    expect(readClock).toHaveBeenCalledTimes(reads);
+    f.date('2026-11-09T12:00:00.000Z');
+    const second = f.manager.current()!;
+    expect(second.id).not.toBe(first.id);
+    expect(second.localDate).not.toBe(first.localDate);
+    expect(second.totalReferenceMs).toBe(500);
+    expect(f.manager.get(first.id)?.totalReferenceMs).toBe(400);
+    f.manager.dispose();
+  });
+
+  it('manual Save only persists its chosen draft even when another checkpoint fails', async () => {
+    const attempted: string[] = [];
+    let badId = '';
+    const f = fixture(store => ({ ...store, upsertPracticeDraft: async draft => {
+      attempted.push(draft.id);
+      if (draft.id === badId) throw new Error('unrelated checkpoint');
+      return store.upsertPracticeDraft(draft);
+    } }));
+    f.clock.durationMs = 400; badId = f.manager.current()!.id;
+    f.date('2026-11-09T12:00:00.000Z'); f.clock.durationMs = 900;
+    const chosen = f.manager.current()!;
+    await f.manager.save(chosen.id, 'Сохранено отдельно', 64);
+    expect(attempted).toEqual([chosen.id]);
+    await expect(f.manager.flush()).rejects.toThrow('unrelated checkpoint');
+    expect((await f.store.readSnapshot()).history[0].result).toMatchObject({ durationMs: 500, note: 'Сохранено отдельно' });
+    expect(f.manager.hasPendingChanges()).toBe(true);
+    f.manager.dispose();
+  });
+
   it('retains each closed rhythm epoch even if a live read crosses two edits', async () => {
     const f = fixture();
     const project = createDefaultRhythmProject();

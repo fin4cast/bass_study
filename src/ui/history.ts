@@ -7,19 +7,18 @@ import type { RouteRef, RouteMaterial } from '../route';
 import type { SavedEarResult } from '../ear';
 import { confirmAction } from './confirm';
 import {
-  createStudyStore,
   MAX_BACKUP_BYTES,
   getHistorySummary,
   getReviewPositionIds,
   makeManualHistory,
   type AppPreferences,
   type HistoryEntry,
+  type PreparedStudyImport,
+  type Preset,
   type StudySnapshot,
   type StoredQuestion,
 } from '../storage';
 
-type Store = ReturnType<typeof createStudyStore>;
-export type HistoryStore = Pick<Store, 'readSnapshot' | 'savePreset' | 'deletePreset' | 'addHistory' | 'deleteHistory' | 'exportBackup' | 'previewImport'>;
 type StatusKind = 'saving' | 'saved' | 'memory' | 'error';
 
 export interface ManualPracticeDraft {
@@ -38,20 +37,25 @@ export interface ManualPracticeDraft {
 }
 
 export interface HistoryOptions {
-  store: HistoryStore;
+  readConfirmed: (options?: { fresh?: boolean }) => Promise<StudySnapshot>;
+  savePreset: (preset: Preset) => Promise<void>;
+  deletePreset: (id: string) => Promise<void>;
+  saveManual: (entry: HistoryEntry) => Promise<void>;
+  deleteHistory: (id: string) => Promise<void>;
+  prepareImport: (json: string) => PreparedStudyImport;
+  exportConfirmed: () => Promise<{ json: string; incomplete: boolean }>;
+  reveal?: (target: HTMLElement) => void;
   getPreferences: () => AppPreferences;
   applyPreferences: (preferences: AppPreferences, source: 'preset' | 'restore') => void | Promise<void>;
-  runWrite: <T>(operation: () => Promise<T>) => Promise<T>;
-  flush: () => Promise<void>;
-  restoreBackup: (json: string) => Promise<StudySnapshot>;
-  getPracticeDraft: (force?: boolean) => ManualPracticeDraft;
+  waitForWrites: () => Promise<void>;
+  restoreBackup: (candidate: PreparedStudyImport, onCommitted: () => void) => Promise<StudySnapshot>;
+  peekPracticeDraft: () => ManualPracticeDraft;
+  capturePracticeDraft: (force: boolean) => ManualPracticeDraft;
   getPracticeDrafts?: () => ManualPracticeDraft[];
   editPracticeDraft?: (id: string | null, note: string, bpm: number) => ManualPracticeDraft;
   savePracticeDraft?: (id: string, note: string, bpm: number) => Promise<void>;
   deletePracticeDraft?: (id: string) => Promise<void>;
-  deleteHistory?: (id: string) => Promise<void>;
-  deletePreset?: (id: string) => Promise<void>;
-  onRepeatErrors: (positionIds: readonly string[], context: QuestionContext) => void;
+  onRepeatErrors?: (positionIds: readonly string[], context: QuestionContext) => void;
   isPersistent: () => boolean;
   onManualSaved?: (durationMs: number, runtimeContextKey?: string) => void;
 }
@@ -137,13 +141,13 @@ function answerName(answer: string | number | null, context: QuestionContext, ta
 function screenQuestionMarkup(question: StoredQuestion, context: QuestionContext, mode: string): string {
   const target = question.targetMidi !== null ? formatMidi(question.targetMidi, question.target.name) : mode === 'find-interval' ? `${question.target.degree} от ${context.root} · ${question.target.name}` : question.target.name;
   const required = `${target}${question.targetPositionId ? ` · ${question.targetPositionId.replace(':', '/')}` : ''}`;
-  return `<li><strong>${escapeHtml(required)}</strong><span>${OUTCOME_NAMES[question.outcome]}</span><small>Первый ответ: ${escapeHtml(answerName(question.firstAnswer, context, question.target))} → требуется ${escapeHtml(required)}. ${question.errors} ошибок · первый ответ ${question.firstResponseMs === null ? '—' : `${(question.firstResponseMs / 1000).toFixed(2)} с`}</small>${question.answerEvents.length ? `<details class="attempt-details"><summary>Все попытки · ${question.answerEvents.length}</summary><ol>${question.answerEvents.map((event, index) => `<li>${index + 1}. ${escapeHtml(answerName(event.answer, context, question.target))} — ${event.correct ? 'верно' : 'не совпало'} · ${(event.elapsedMs / 1000).toFixed(2)} с</li>`).join('')}</ol></details>` : ''}</li>`;
+  return `<li><strong>${escapeHtml(required)}</strong><span>${OUTCOME_NAMES[question.outcome]}</span><small>Первый ответ: ${escapeHtml(answerName(question.firstAnswer, context, question.target))} → требуется ${escapeHtml(required)}. ${question.errors} ошибок · первый ответ ${question.firstResponseMs === null ? '—' : `${(question.firstResponseMs / 1000).toFixed(2)} с`}</small>${question.answerEvents.length ? `<details class="attempt-details"><summary class="section-disclosure">Все попытки · ${question.answerEvents.length}</summary><ol>${question.answerEvents.map((event, index) => `<li>${index + 1}. ${escapeHtml(answerName(event.answer, context, question.target))} — ${event.correct ? 'верно' : 'не совпало'} · ${(event.elapsedMs / 1000).toFixed(2)} с</li>`).join('')}</ol></details>` : ''}</li>`;
 }
 
 function earQuestionMarkup(question: SavedEarResult, index: number): string {
   const hidden = question.outcome === 'interrupted';
   const required = hidden ? 'цель скрыта' : `${question.question.targetDegree.replace('b', '♭')} · ${formatMidi(question.question.targetMidi, question.question.targetName)}`;
-  return `<li><strong>${hidden ? `Вопрос ${index + 1} · цель скрыта` : escapeHtml(required)}</strong><span>${OUTCOME_NAMES[question.outcome]}</span><small>Первый ответ: ${question.firstAnswer?.replace('b', '♭') ?? 'нет ответа'} → ${hidden ? 'цель скрыта' : `требуется ${escapeHtml(required)}`} · прослушиваний ${question.listensCompleted} · повторов ${question.replayCount} · ошибок ${question.errors} · первый ответ ${question.firstResponseMs === null ? '—' : `${(question.firstResponseMs / 1000).toFixed(2)} с`}</small>${question.answerEvents.length ? `<details class="attempt-details"><summary>Все попытки · ${question.answerEvents.length}</summary><ol>${question.answerEvents.map(event => `<li>Ступень ${event.degree.replace('b', '♭')} — ${event.correct ? 'верно' : 'не совпало'} · ${(event.atMs / 1000).toFixed(2)} с</li>`).join('')}</ol></details>` : ''}</li>`;
+  return `<li><strong>${hidden ? `Вопрос ${index + 1} · цель скрыта` : escapeHtml(required)}</strong><span>${OUTCOME_NAMES[question.outcome]}</span><small>Первый ответ: ${question.firstAnswer?.replace('b', '♭') ?? 'нет ответа'} → ${hidden ? 'цель скрыта' : `требуется ${escapeHtml(required)}`} · прослушиваний ${question.listensCompleted} · повторов ${question.replayCount} · ошибок ${question.errors} · первый ответ ${question.firstResponseMs === null ? '—' : `${(question.firstResponseMs / 1000).toFixed(2)} с`}</small>${question.answerEvents.length ? `<details class="attempt-details"><summary class="section-disclosure">Все попытки · ${question.answerEvents.length}</summary><ol>${question.answerEvents.map(event => `<li>Ступень ${event.degree.replace('b', '♭')} — ${event.correct ? 'верно' : 'не совпало'} · ${(event.atMs / 1000).toFixed(2)} с</li>`).join('')}</ol></details>` : ''}</li>`;
 }
 
 function reviewReasons(entries: readonly HistoryEntry[]): string {
@@ -160,7 +164,7 @@ function routeMaterialMarkup(material: RouteMaterial): string {
   const from = player.from ?? 1, to = player.to ?? material.sequencePositionIds.length;
   const positions = (ids: readonly string[]) => ids.map(id => id.replace(':', '/')).join(' → ');
   const triad = createStructure(material.root, material.earQuality === 'major' ? 'major-triad' : 'minor-triad');
-  return `<p class="entry-context">${material.kind === 'triad-route-v1' ? 'Вводный маршрут' : 'Маршрут из выбранного материала'} · ${escapeHtml(contextName(context))}</p><p class="history-help">${pattern} · ${player.bpm} BPM · ${duration} · ${repeat} · фрагмент: ноты ${from}–${to}, обе границы включены.</p><details class="route-material-details"><summary>Точный материал и ритм</summary><p>Позиции грифа: ${escapeHtml(positions(material.referencePositionIds))}.</p><p>Слух: опора ${escapeHtml(formatMidi(material.referenceMidi, material.root))} · ${triad.notes.map(note => escapeHtml(formatMidi(material.referenceMidi + note.semitones, note.name))).join(' / ')} · ${material.earBpm} BPM.</p><p>Путь последовательности: ${escapeHtml(positions(material.sequencePositionIds))}.</p><p>Отсчёт: ${player.countIn ? '4 доли' : 'выключен'}. Метроном: ${player.metronome ? { all: 'каждая доля', 'two-four': '2 и 4', 'gap-2-2': 'два такта звук / два тишина' }[player.metronomeMode] : 'выключен'}; деление: ${{ quarter: 'четверти', eighth: 'восьмые', sixteenth: 'шестнадцатые' }[player.subdivision]}. Визуальный пульс ${player.showPulse ? 'включён' : 'выключен'}.</p></details>`;
+  return `<p class="entry-context">${material.kind === 'triad-route-v1' ? 'Вводный маршрут' : 'Маршрут из выбранного материала'} · ${escapeHtml(contextName(context))}</p><p class="history-help">${pattern} · ${player.bpm} BPM · ${duration} · ${repeat} · фрагмент: ноты ${from}–${to}, обе границы включены.</p><details class="route-material-details"><summary class="section-disclosure">Точный материал и ритм</summary><p>Позиции грифа: ${escapeHtml(positions(material.referencePositionIds))}.</p><p>Слух: опора ${escapeHtml(formatMidi(material.referenceMidi, material.root))} · ${triad.notes.map(note => escapeHtml(formatMidi(material.referenceMidi + note.semitones, note.name))).join(' / ')} · ${material.earBpm} BPM.</p><p>Путь последовательности: ${escapeHtml(positions(material.sequencePositionIds))}.</p><p>Отсчёт: ${player.countIn ? '4 доли' : 'выключен'}. Метроном: ${player.metronome ? { all: 'каждая доля', 'two-four': '2 и 4', 'gap-2-2': 'два такта звук / два тишина' }[player.metronomeMode] : 'выключен'}; деление: ${{ quarter: 'четверти', eighth: 'восьмые', sixteenth: 'шестнадцатые' }[player.subdivision]}. Визуальный пульс ${player.showPulse ? 'включён' : 'выключен'}.</p></details>`;
 }
 
 function formatDuration(milliseconds: number): string {
@@ -191,9 +195,9 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
   let manualBpm: string | null = null;
   let manualNote = '';
   let manualDraft: ManualPracticeDraft | null = null;
-  let pendingImport: string | null = null;
+  let importIntent = 0;
   let pendingFilename = '';
-  let preview: ReturnType<Store['previewImport']> | null = null;
+  let preview: PreparedStudyImport | null = null;
   let importConfirmed = false;
   let stableFocus: { attribute: string; value: string } | null = null;
   const revokeTimers = new Set<ReturnType<typeof setTimeout>>();
@@ -201,7 +205,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
   let derived: { history: readonly HistoryEntry[]; summary: ReturnType<typeof getHistorySummary>; groups: ReturnType<typeof reviewGroups> } | null = null;
 
   container.classList.add('history-section');
-  container.innerHTML = `<details class="history-drawer"><summary><span class="history-summary-label"><span class="history-icon" aria-hidden="true">≡</span><strong>Мои занятия и настройки</strong><small data-history-count>История · пресеты · резервная копия</small></span><span class="history-save-status" data-testid="history-save-status" role="status" aria-live="polite"></span><span class="history-chevron" aria-hidden="true">⌄</span></summary><div class="history-body" data-testid="history-body"></div></details>`;
+  container.innerHTML = `<details class="history-drawer content-panel"><summary><span class="history-summary-label"><span class="history-icon" aria-hidden="true">≡</span><strong>Мои занятия и настройки</strong><small data-history-count>История · пресеты · резервная копия</small></span><span class="history-save-status" data-testid="history-save-status" role="status" aria-live="polite"></span><span class="history-chevron" aria-hidden="true">⌄</span></summary><div class="history-body" data-testid="history-body"></div></details>`;
   const body = container.querySelector<HTMLElement>('.history-body')!;
   const drawer = container.querySelector<HTMLDetailsElement>('.history-drawer')!;
   drawer.addEventListener('toggle', () => { if (drawer.open) render(); }, { signal: controller.signal });
@@ -216,7 +220,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
 
   const draftKey = (draft: ManualPracticeDraft) => draft.id ?? JSON.stringify({ context: draft.context, material: draft.material, runtime: draft.runtimeContextKey });
   function captureDraft(force = true) {
-    const current = options.getPracticeDraft(force);
+    const current = options.capturePracticeDraft(force);
     manualDraft = structuredClone(current);
     manualBpm = String(Math.round(current.comfortableBpm));
     manualNote = current.note ?? '';
@@ -254,7 +258,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     reviewContextKey = review?.key ?? null;
     const reviewIds = review?.ids ?? [];
     const ordered = [...snapshot.history].filter(entry => filter === 'all' || entry.result.kind === filter).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt) || a.id.localeCompare(b.id));
-    const currentDraft = options.getPracticeDraft();
+    const currentDraft = options.peekPracticeDraft();
     const savedDrafts = options.getPracticeDrafts?.() ?? [];
     if (!manualDraft && manualBpm === null && !manualNote && currentDraft.id && (currentDraft.durationMs > 0 || currentDraft.note)) {
       manualDraft = currentDraft; manualNote = currentDraft.note ?? ''; manualBpm = String(currentDraft.comfortableBpm);
@@ -265,9 +269,9 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     }
     const draft = manualDraft ?? currentDraft;
     const draftChanged = manualDraft !== null && (currentDraft.available === false || draftKey(manualDraft) !== draftKey(currentDraft));
-    const changedDraftNotice = draftChanged ? `<p class="history-notice" data-testid="manual-context-notice">Эта заметка относится к прежнему материалу. Черновик остаётся в списке; другое занятие открывается отдельно.</p><button class="text-button" type="button" data-history-action="use-current-draft"${currentDraft.available === false ? ' disabled' : ''}>Открыть текущее занятие</button>` : '';
+    const changedDraftNotice = draftChanged ? `<p class="history-notice status-notice" data-testid="manual-context-notice">Эта заметка относится к прежнему материалу. Черновик остаётся в списке; другое занятие открывается отдельно.</p><button class="text-button" type="button" data-history-action="use-current-draft"${currentDraft.available === false ? ' disabled' : ''}>Открыть текущее занятие</button>` : '';
     const manualInfo = `<p class="history-help" data-testid="manual-material">${escapeHtml(draft.label ?? (draft.material ? materialName(draft.material) : 'Практика с эталоном'))} · ${escapeHtml(contextName(draft.context))}</p><p class="history-help" data-testid="manual-draft-state">${manualDraft?.id ? 'Текст черновика сохраняется отдельно; кнопка записывает ручную отметку в историю. Новое время и текст не пропадут, если вводить их во время сохранения.' : 'Перед сохранением проверь материал и комфортный темп.'}</p>${changedDraftNotice}`;
-    const draftPicker = savedDrafts.length ? `<section class="history-block practice-drafts"><label class="history-field"><span>Черновики ручной практики</span><select aria-label="Черновики ручной практики" data-history-field="practiceDraft"><option value="">Текущее занятие</option>${savedDrafts.map(item => `<option value="${escapeHtml(item.id!)}"${item.id === manualDraft?.id ? ' selected' : ''}>${escapeHtml(item.label ?? materialName(item.material))} · ${escapeHtml(contextName(item.context))} · ${formatDuration(item.durationMs)}${item.createdAt ? ` · ${formatDate(item.createdAt, item.timeZone)} (${item.timeZone ?? 'местное время'})` : ''}${item.note ? ' · есть заметка' : ''}</option>`).join('')}</select></label><button class="text-button" type="button" data-history-action="delete-draft"${manualDraft?.id && !busy ? '' : ' disabled'}>Удалить выбранный черновик</button></section>` : '';
+    const draftPicker = savedDrafts.length ? `<section class="history-block practice-drafts"><label class="history-field"><span class="form-label">Черновики ручной практики</span><select class="form-control" aria-label="Черновики ручной практики" data-history-field="practiceDraft"><option value="">Текущее занятие</option>${savedDrafts.map(item => `<option value="${escapeHtml(item.id!)}"${item.id === manualDraft?.id ? ' selected' : ''}>${escapeHtml(item.label ?? materialName(item.material))} · ${escapeHtml(contextName(item.context))} · ${formatDuration(item.durationMs)}${item.createdAt ? ` · ${formatDate(item.createdAt, item.timeZone)} (${item.timeZone ?? 'местное время'})` : ''}${item.note ? ' · есть заметка' : ''}</option>`).join('')}</select></label><button class="text-button button-compact" type="button" data-history-action="delete-draft"${manualDraft?.id && !busy ? '' : ' disabled'}>Удалить выбранный черновик</button></section>` : '';
     const canSaveManual = draft.available !== false && (draft.material?.kind === 'rhythm' || Boolean(draft.context?.positionIds.length));
     const [manualMin, manualMax] = manualTempoBounds(draft.material);
     const currentManualBpm = manualBpm ?? String(Math.round(draft.comfortableBpm));
@@ -276,15 +280,15 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
       ${summary.earSessions ? `<p class="history-help" data-testid="ear-history-summary"><strong>Слух — отдельно:</strong> ${summary.earSessions} занятий · ${summary.earCompletedQuestions} завершённых вопросов · ${summary.earIndependentCorrect} самостоятельных ответов · ${summary.earErrors} ошибок · ${summary.earReplayCount} повторов прослушивания.</p>` : ''}
       ${summary.routeSessions ? `<p class="history-help" data-testid="route-history-summary"><strong>Маршруты:</strong> ${summary.routeSessions} · активный таймер ${formatDuration(summary.routeActiveMs)}. Это время запущенного таймера, без оценки игры или внимания.</p>` : ''}
       ${!options.isPersistent() ? '<p class="history-memory-notice" role="status">Работаем только в памяти этой страницы: изменения не переживут закрытие. Экспортируй копию, чтобы сохранить их отдельно.</p>' : ''}
-      ${actionError ? `<p class="history-error" data-testid="history-error" role="alert">${escapeHtml(actionError)}</p>` : ''}
-      ${actionNotice ? `<p class="history-notice" data-testid="history-notice" role="status">${escapeHtml(actionNotice)}</p>` : ''}
+      ${actionError ? `<p class="history-error status-error" data-testid="history-error" role="alert">${escapeHtml(actionError)}</p>` : ''}
+      ${actionNotice ? `<p class="history-notice status-notice" data-testid="history-notice" role="status">${escapeHtml(actionNotice)}</p>` : ''}
       <div class="history-overview"><div><strong>${summary.screenSessions}</strong><span>Экранных занятий</span></div><div><strong>${summary.completedQuestions}</strong><span>Завершённых вопросов</span></div><div><strong>${summary.independentCorrect}</strong><span>Самостоятельных ответов</span></div><div><strong>${summary.errors}</strong><span>Ошибочных ответов</span></div><div><strong>${summary.manualSessions}</strong><span>Ручных отметок</span></div></div>
-      <section class="history-block history-weak" aria-labelledby="weak-heading"><div><p class="eyebrow">ТОЧЕЧНОЕ ПОВТОРЕНИЕ</p><h3 id="weak-heading">Вернись к трудным позициям</h3><p>${reviewIds.length ? `${reviewIds.length} трудных позиций после ошибок, показа ответа или пропуска. Повтор содержит только эту выборку и сохраняет исходный контекст.` : 'Пока нет позиций для закрепления. Они появятся после ошибки, показа ответа или пропуска.'}</p>${review ? `<p class="history-help">${reviewReasons(review.entries)}</p>` : ''}${groups.length > 1 ? `<label class="history-field review-context-field"><span>Контекст повторения</span><select aria-label="Контекст повторения" data-history-field="reviewContext">${groups.map(group => `<option value="${escapeHtml(group.key)}"${group.key === reviewContextKey ? ' selected' : ''}>${escapeHtml(contextName(group.context))}</option>`).join('')}</select></label>` : review ? `<p>${escapeHtml(contextName(review.context))}</p>` : ''}<div class="weak-position-chips">${reviewIds.slice(0, 12).map(id => { const [string, fret] = id.split(':'); const position = getPosition(string as StringId, Number(fret)); return `<span>${escapeHtml(formatMidi(position.midi))}<small>${escapeHtml(string)}/${fret}</small></span>`; }).join('')}${reviewIds.length > 12 ? `<span>ещё ${reviewIds.length - 12}</span>` : ''}</div></div><button class="secondary-button" type="button" data-history-action="review-errors"${reviewIds.length === 0 || busy ? ' disabled' : ''}>Закрепить трудные позиции</button></section>
-      ${draftPicker}${draft.available === false ? '<p class="history-help" data-testid="manual-unavailable">Начни практику под последовательность, метроном или ритм либо выбери сохранённый черновик.</p>' : ''}<section class="history-block" aria-labelledby="manual-heading"${draft.available === false ? ' hidden' : ''}><div class="history-block-heading"><div><p class="eyebrow">СВОЯ ОЦЕНКА ПРАКТИКИ</p><h3 id="manual-heading">Отметь комфортный темп</h3></div><span class="history-kind manual">Ручная отметка</span></div><p class="history-help">Темп и заметка — твоя оценка. Длительность берётся из проигрывателя эталона и не измеряет, сколько ты играл на басу.</p>${!canSaveManual ? '<p class="history-help" role="status">Выбери хотя бы одну струну и корректный диапазон. Без доступных позиций ручная отметка не сохраняется.</p>' : ''}${manualInfo}<div class="manual-form"><label class="history-field"><span>Комфортный темп, BPM</span><input type="number" min="${manualMin}" max="${manualMax}" step="1" value="${escapeHtml(currentManualBpm)}" aria-label="Комфортный темп" aria-invalid="${!currentManualBpm || !Number.isInteger(Number(currentManualBpm)) || Number(currentManualBpm) < manualMin || Number(currentManualBpm) > manualMax}" data-history-field="manualBpm"></label><div class="manual-duration"><span>Время с эталоном</span><strong data-testid="manual-duration">${formatDuration(draft.durationMs)}</strong><small>${escapeHtml(contextName(draft.context))}</small></div></div><label class="history-field manual-note-field"><span>Заметка</span><textarea maxlength="2000" rows="2" aria-label="Заметка к практике" data-history-field="manualNote" placeholder="Что получилось и что хочется повторить">${escapeHtml(manualNote)}</textarea></label><div class="history-form-actions"><button class="secondary-button" type="button" data-history-action="save-manual"${busy || !canSaveManual ? ' disabled' : ''}>Сохранить ручную отметку</button><button class="text-button" type="button" data-history-action="refresh-draft"${busy ? ' disabled' : ''}>Обновить время</button></div></section>
-      <section class="history-block" aria-labelledby="presets-heading"><div class="history-block-heading"><div><p class="eyebrow">БЫСТРО ВЕРНУТЬСЯ К ЗАНЯТИЮ</p><h3 id="presets-heading">Сохранённые настройки</h3></div><span class="history-small-count">${snapshot.presets.length} пресетов</span></div><p class="history-help">Пресет открывает указанный раздел с его материалом и настройками. Тема оформления, введение, ответы и черновики в него не входят. Аудиофайлы при применении выбираются заново.</p><div class="preset-save-form"><label class="history-field"><span>Название пресета</span><input type="text" maxlength="80" value="${escapeHtml(presetName)}" aria-label="Название пресета" data-history-field="presetName" placeholder="Например, A minor · первые пять ладов"${busy ? ' disabled' : ''}></label><button class="secondary-button" type="button" data-history-action="save-preset"${busy ? ' disabled' : ''}>Сохранить пресет</button></div><div class="preset-list" data-testid="preset-list">${snapshot.presets.length ? [...snapshot.presets].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(preset => `<article class="preset-card" data-preset-id="${escapeHtml(preset.id)}"><div><strong>${escapeHtml(preset.name)}</strong><p>${escapeHtml(presetDescription(preset.preferences))}</p><small>${formatDate(preset.createdAt)}</small></div><div><button class="secondary-button" type="button" data-apply-preset="${escapeHtml(preset.id)}"${busy ? ' disabled' : ''}>Применить</button><button class="text-button" type="button" data-delete-preset="${escapeHtml(preset.id)}" aria-label="Удалить пресет ${escapeHtml(preset.name)}"${busy ? ' disabled' : ''}>Удалить</button></div></article>`).join('') : '<p class="history-empty">Сохрани удобную настройку, чтобы вернуться к ней одной кнопкой.</p>'}</div></section>
-      <section class="history-block" aria-labelledby="history-heading"><div class="history-block-heading"><div><p class="eyebrow">ФАКТИЧЕСКИЕ РЕЗУЛЬТАТЫ</p><h3 id="history-heading">История занятий</h3></div><label class="history-filter"><span class="sr-only">Тип записей истории</span><select aria-label="Тип записей истории" data-history-field="filter"><option value="all"${filter === 'all' ? ' selected' : ''}>Все записи</option><option value="screen"${filter === 'screen' ? ' selected' : ''}>Экранные задания</option><option value="manual"${filter === 'manual' ? ' selected' : ''}>Ручные отметки</option><option value="ear"${filter === "ear" ? " selected" : ""}>Слух</option><option value="route"${filter === "route" ? " selected" : ""}>Маршруты</option></select></label></div><p class="history-help">Результаты хранят исходную тональность, область и способ оценки. Здесь нет общего «уровня басиста».</p><div class="history-entry-list" data-testid="history-list">${ordered.length ? ordered.slice(0, visibleEntries).map(entryMarkup).join('') : `<p class="history-empty">${filter === 'all' ? 'Записей пока нет. Закончи упражнение или сохрани ручную отметку.' : ({ screen: 'Экранных заданий', manual: 'Ручных отметок', ear: 'Слуховых занятий', route: 'Маршрутов' }[filter]) + ' пока нет. В других категориях записи могут быть.'}</p>`}</div>${ordered.length > visibleEntries ? '<button class="text-button" type="button" data-history-action="show-more">Показать ещё</button>' : ''}
-      ${summary.groups.length ? `<details class="history-context-groups"><summary>Сводка по одинаковым условиям · ${summary.groups.length} групп</summary><p class="history-help">Время первого ответа сравнивается только внутри одинакового режима и музыкального контекста.</p><div class="history-table-scroll"><table><thead><tr><th>Контекст</th><th>Самостоятельно</th><th>Ошибки</th><th>Первый ответ, среднее</th></tr></thead><tbody>${summary.groups.map(group => `<tr><td>${escapeHtml(MODE_NAMES[group.mode] ?? group.mode)}<small>${escapeHtml(comparisonConditions(group))}</small><small>${escapeHtml(contextName(group.context))}</small></td><td>${group.independentCorrect} / ${group.completedQuestions}</td><td>${group.errors}</td><td>${group.meanFirstResponseMs === null ? '—' : `${(group.meanFirstResponseMs / 1000).toFixed(2)} с`}</td></tr>`).join('')}</tbody></table></div></details>` : ''}</section>
-      <section class="history-block backup-block" aria-labelledby="backup-heading"><div class="history-block-heading"><div><p class="eyebrow">ПЕРЕНОСИМАЯ КОПИЯ</p><h3 id="backup-heading">Сохрани данные отдельно</h3></div><span class="history-backup-format">JSON · версия ${snapshot.schemaVersion}</span></div><p class="history-help">В копию входят настройки, профиль оформления и введения, пресеты, история и черновики ручной практики. Восстановление полностью заменяет эти данные; предварительный просмотр ничего не меняет.</p><div class="backup-actions"><button class="secondary-button" type="button" data-history-action="export"${busy ? ' disabled' : ''}>Экспортировать JSON</button><label class="backup-file-label">Выбрать копию<input type="file" accept="application/json,.json" aria-label="Файл резервной копии" data-history-file${busy ? ' disabled' : ''}></label></div>${preview ? importPreviewMarkup() : ''}</section>
+      <section class="history-block history-weak" aria-labelledby="weak-heading"><div><p class="eyebrow">ТОЧЕЧНОЕ ПОВТОРЕНИЕ</p><h3 id="weak-heading">Вернись к трудным позициям</h3><p>${reviewIds.length ? `${reviewIds.length} трудных позиций после ошибок, показа ответа или пропуска. Повтор содержит только эту выборку и сохраняет исходный контекст.` : 'Пока нет позиций для закрепления. Они появятся после ошибки, показа ответа или пропуска.'}</p>${review ? `<p class="history-help">${reviewReasons(review.entries)}</p>` : ''}${groups.length > 1 ? `<label class="history-field review-context-field"><span>Контекст повторения</span><select class="form-control" aria-label="Контекст повторения" data-history-field="reviewContext">${groups.map(group => `<option value="${escapeHtml(group.key)}"${group.key === reviewContextKey ? ' selected' : ''}>${escapeHtml(contextName(group.context))}</option>`).join('')}</select></label>` : review ? `<p>${escapeHtml(contextName(review.context))}</p>` : ''}<div class="weak-position-chips">${reviewIds.slice(0, 12).map(id => { const [string, fret] = id.split(':'); const position = getPosition(string as StringId, Number(fret)); return `<span>${escapeHtml(formatMidi(position.midi))}<small>${escapeHtml(string)}/${fret}</small></span>`; }).join('')}${reviewIds.length > 12 ? `<span>ещё ${reviewIds.length - 12}</span>` : ''}</div></div><button class="secondary-button" type="button" data-history-action="review-errors"${reviewIds.length === 0 || !options.onRepeatErrors || busy ? ' disabled' : ''}>Закрепить трудные позиции</button></section>
+      ${draftPicker}${draft.available === false ? '<p class="history-help" data-testid="manual-unavailable">Начни практику под последовательность, метроном или ритм либо выбери сохранённый черновик.</p>' : ''}<section class="history-block" aria-labelledby="manual-heading"${draft.available === false ? ' hidden' : ''}><div class="history-block-heading"><div><p class="eyebrow">СВОЯ ОЦЕНКА ПРАКТИКИ</p><h3 id="manual-heading">Отметь комфортный темп</h3></div><span class="history-kind manual">Ручная отметка</span></div><p class="history-help">Темп и заметка — твоя оценка. Длительность берётся из проигрывателя эталона и не измеряет, сколько ты играл на басу.</p>${!canSaveManual ? '<p class="history-help" role="status">Выбери хотя бы одну струну и корректный диапазон. Без доступных позиций ручная отметка не сохраняется.</p>' : ''}${manualInfo}<div class="manual-form"><label class="history-field"><span class="form-label">Комфортный темп, BPM</span><input class="form-control" type="number" min="${manualMin}" max="${manualMax}" step="1" value="${escapeHtml(currentManualBpm)}" aria-label="Комфортный темп" aria-invalid="${!currentManualBpm || !Number.isInteger(Number(currentManualBpm)) || Number(currentManualBpm) < manualMin || Number(currentManualBpm) > manualMax}" data-history-field="manualBpm"></label><div class="manual-duration"><span>Время с эталоном</span><strong data-testid="manual-duration">${formatDuration(draft.durationMs)}</strong><small>${escapeHtml(contextName(draft.context))}</small></div></div><label class="history-field manual-note-field"><span class="form-label">Заметка</span><textarea class="form-control" maxlength="2000" rows="2" aria-label="Заметка к практике" data-history-field="manualNote" placeholder="Что получилось и что хочется повторить">${escapeHtml(manualNote)}</textarea></label><div class="history-form-actions"><button class="secondary-button" type="button" data-history-action="save-manual"${busy || !canSaveManual ? ' disabled' : ''}>Сохранить ручную отметку</button><button class="text-button" type="button" data-history-action="refresh-draft"${busy ? ' disabled' : ''}>Обновить время</button></div></section>
+      <section class="history-block" aria-labelledby="presets-heading"><div class="history-block-heading"><div><p class="eyebrow">БЫСТРО ВЕРНУТЬСЯ К ЗАНЯТИЮ</p><h3 id="presets-heading">Сохранённые настройки</h3></div><span class="history-small-count">${snapshot.presets.length} пресетов</span></div><p class="history-help">Пресет открывает указанный раздел с его материалом и настройками. Тема оформления, введение, ответы и черновики в него не входят. Аудиофайлы при применении выбираются заново.</p><div class="preset-save-form"><label class="history-field"><span class="form-label">Название пресета</span><input class="form-control" type="text" maxlength="80" value="${escapeHtml(presetName)}" aria-label="Название пресета" data-history-field="presetName" placeholder="Например, A minor · первые пять ладов"${busy ? ' disabled' : ''}></label><button class="secondary-button" type="button" data-history-action="save-preset"${busy ? ' disabled' : ''}>Сохранить пресет</button></div><div class="preset-list" data-testid="preset-list">${snapshot.presets.length ? [...snapshot.presets].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(preset => `<article class="preset-card" data-preset-id="${escapeHtml(preset.id)}"><div><strong>${escapeHtml(preset.name)}</strong><p>${escapeHtml(presetDescription(preset.preferences))}</p><small>${formatDate(preset.createdAt)}</small></div><div><button class="secondary-button" type="button" data-apply-preset="${escapeHtml(preset.id)}"${busy ? ' disabled' : ''}>Применить</button><button class="text-button button-compact" type="button" data-delete-preset="${escapeHtml(preset.id)}" aria-label="Удалить пресет ${escapeHtml(preset.name)}"${busy ? ' disabled' : ''}>Удалить</button></div></article>`).join('') : '<p class="history-empty">Сохрани удобную настройку, чтобы вернуться к ней одной кнопкой.</p>'}</div></section>
+      <section class="history-block" aria-labelledby="history-heading"><div class="history-block-heading"><div><p class="eyebrow">ФАКТИЧЕСКИЕ РЕЗУЛЬТАТЫ</p><h3 id="history-heading">История занятий</h3></div><label class="history-filter"><span class="sr-only">Тип записей истории</span><select class="form-control form-control-compact" aria-label="Тип записей истории" data-history-field="filter"><option value="all"${filter === 'all' ? ' selected' : ''}>Все записи</option><option value="screen"${filter === 'screen' ? ' selected' : ''}>Экранные задания</option><option value="manual"${filter === 'manual' ? ' selected' : ''}>Ручные отметки</option><option value="ear"${filter === "ear" ? " selected" : ""}>Слух</option><option value="route"${filter === "route" ? " selected" : ""}>Маршруты</option></select></label></div><p class="history-help">Результаты хранят исходную тональность, область и способ оценки. Здесь нет общего «уровня басиста».</p><div class="history-entry-list" data-testid="history-list">${ordered.length ? ordered.slice(0, visibleEntries).map(entryMarkup).join('') : `<p class="history-empty">${filter === 'all' ? 'Записей пока нет. Закончи упражнение или сохрани ручную отметку.' : ({ screen: 'Экранных заданий', manual: 'Ручных отметок', ear: 'Слуховых занятий', route: 'Маршрутов' }[filter]) + ' пока нет. В других категориях записи могут быть.'}</p>`}</div>${ordered.length > visibleEntries ? '<button class="text-button" type="button" data-history-action="show-more">Показать ещё</button>' : ''}
+      ${summary.groups.length ? `<details class="history-context-groups"><summary class="section-disclosure">Сводка по одинаковым условиям · ${summary.groups.length} групп</summary><p class="history-help">Время первого ответа сравнивается только внутри одинакового режима и музыкального контекста.</p><div class="history-table-scroll"><table><thead><tr><th>Контекст</th><th>Самостоятельно</th><th>Ошибки</th><th>Первый ответ, среднее</th></tr></thead><tbody>${summary.groups.map(group => `<tr><td>${escapeHtml(MODE_NAMES[group.mode] ?? group.mode)}<small>${escapeHtml(comparisonConditions(group))}</small><small>${escapeHtml(contextName(group.context))}</small></td><td>${group.independentCorrect} / ${group.completedQuestions}</td><td>${group.errors}</td><td>${group.meanFirstResponseMs === null ? '—' : `${(group.meanFirstResponseMs / 1000).toFixed(2)} с`}</td></tr>`).join('')}</tbody></table></div></details>` : ''}</section>
+      <section class="history-block backup-block" aria-labelledby="backup-heading"><div class="history-block-heading"><div><p class="eyebrow">ПЕРЕНОСИМАЯ КОПИЯ</p><h3 id="backup-heading">Сохрани данные отдельно</h3></div><span class="history-backup-format">JSON · версия ${snapshot.schemaVersion}</span></div><p class="history-help">В копию входят настройки, профиль оформления и введения, пресеты, история и черновики ручной практики. Восстановление полностью заменяет эти данные; предварительный просмотр ничего не меняет.</p><div class="backup-actions"><button class="secondary-button" type="button" data-history-action="export"${busy ? ' disabled' : ''}>Экспортировать JSON</button><label class="backup-file-label secondary-button">Выбрать копию<input type="file" accept="application/json,.json" aria-label="Файл резервной копии" data-history-file${busy ? ' disabled' : ''}></label></div>${preview ? importPreviewMarkup() : ''}</section>
     `;
     if (focusField) {
       const next = body.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`[data-history-field="${focusField}"]`);
@@ -307,20 +311,20 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     const routeBadge = entry.routeRef ? `<p class="history-help">В маршруте · шаг ${{ fretboard: 'Гриф', ear: 'Слух', sequence: 'Практика' }[entry.routeRef.step]}</p>` : '';
     if (result.kind === 'route') {
       const total = result.actualStepMs.reduce((sum, value) => sum + value, 0);
-      return `<article class="history-entry route-entry" data-history-entry="${escapeHtml(entry.id)}" data-history-kind="route"><header><span class="history-kind">Маршрут</span><time datetime="${entry.occurredAt}">${date}</time><button class="text-button" type="button" data-delete-history="${escapeHtml(entry.id)}" aria-label="Удалить маршрут от ${escapeHtml(date)}"${busy ? ' disabled' : ''}>Удалить</button></header>${routeBadge}<h4>Гриф → слух → практика</h4><p class="entry-facts">${result.status !== 'finished' ? 'Не завершено' : result.finishReason === 'completed' ? total < result.totalPlannedMs ? 'Завершён досрочно' : 'Маршрут пройден' : 'Остановлен'} · активный таймер ${formatDuration(total)} из ${formatDuration(result.totalPlannedMs)}</p><p class="history-help">Гриф: ${formatDuration(result.actualStepMs[0])} · слух: ${formatDuration(result.actualStepMs[1])} · практика: ${formatDuration(result.actualStepMs[2])}. Паузы и ожидание следующего блока исключены. Таймер не измеряет игру на инструменте.</p>${result.material ? routeMaterialMarkup(result.material) : '<p class="history-help">Прежний маршрут: материал не был сохранён.</p>'}${result.sessionLinks.length ? `<details class="route-linked-results"><summary>Результаты этого маршрута · ${result.sessionLinks.length}</summary><ul>${result.sessionLinks.map(link => `<li>${{ fretboard: 'Гриф', ear: 'Слух', sequence: 'Практика' }[link.step]} · ${{ screen: 'экранные ответы', ear: 'слуховая серия', manual: 'ручная отметка' }[link.kind]} ${snapshot?.history.some(item => item.id === link.id) ? `<button class="text-button" type="button" data-history-reveal="${escapeHtml(link.id)}">Открыть результат</button>` : '· запись удалена'}</li>`).join('')}</ul></details>` : ''}</article>`;
+      return `<article class="history-entry route-entry" data-history-entry="${escapeHtml(entry.id)}" data-history-kind="route"><header><span class="history-kind">Маршрут</span><time datetime="${entry.occurredAt}">${date}</time><button class="text-button button-compact" type="button" data-delete-history="${escapeHtml(entry.id)}" aria-label="Удалить маршрут от ${escapeHtml(date)}"${busy ? ' disabled' : ''}>Удалить</button></header>${routeBadge}<h4>Гриф → слух → практика</h4><p class="entry-facts">${result.status !== 'finished' ? 'Не завершено' : result.finishReason === 'completed' ? total < result.totalPlannedMs ? 'Завершён досрочно' : 'Маршрут пройден' : 'Остановлен'} · активный таймер ${formatDuration(total)} из ${formatDuration(result.totalPlannedMs)}</p><p class="history-help">Гриф: ${formatDuration(result.actualStepMs[0])} · слух: ${formatDuration(result.actualStepMs[1])} · практика: ${formatDuration(result.actualStepMs[2])}. Паузы и ожидание следующего блока исключены. Таймер не измеряет игру на инструменте.</p>${result.material ? routeMaterialMarkup(result.material) : '<p class="history-help">Прежний маршрут: материал не был сохранён.</p>'}${result.sessionLinks.length ? `<details class="route-linked-results"><summary class="section-disclosure">Результаты этого маршрута · ${result.sessionLinks.length}</summary><ul>${result.sessionLinks.map(link => `<li>${{ fretboard: 'Гриф', ear: 'Слух', sequence: 'Практика' }[link.step]} · ${{ screen: 'экранные ответы', ear: 'слуховая серия', manual: 'ручная отметка' }[link.kind]} ${snapshot?.history.some(item => item.id === link.id) ? `<button class="text-button" type="button" data-history-reveal="${escapeHtml(link.id)}">Открыть результат</button>` : '· запись удалена'}</li>`).join('')}</ul></details>` : ''}</article>`;
     }
     if (result.kind === 'ear') {
       const completed = result.questions.filter(question => question.outcome !== 'interrupted').length;
       const independent = result.questions.filter(question => question.independentCorrect).length;
       const errors = result.questions.reduce((total, question) => total + question.errors, 0);
       const replays = result.questions.reduce((total, question) => total + question.replayCount, 0);
-      return `<article class="history-entry ear-entry" data-history-entry="${escapeHtml(entry.id)}" data-history-kind="ear"><header><span class="history-kind">Слух</span><time datetime="${entry.occurredAt}">${date}</time><button class="text-button" type="button" data-delete-history="${escapeHtml(entry.id)}" aria-label="Удалить слуховое занятие от ${escapeHtml(date)}"${busy ? ' disabled' : ''}>Удалить</button></header>${routeBadge}<h4>${escapeHtml(result.context.root)} · ${result.context.quality === 'major' ? 'Мажорное' : 'Минорное'} трезвучие</h4><p class="entry-facts">${completed < result.plannedCount ? '<strong>Не завершено</strong> · ' : ''}Завершено ${completed} из ${result.plannedCount} · самостоятельно ${independent} · ошибок ${errors} · повторов прослушивания ${replays}</p><p class="history-help">Это ответы на слух. Они не входят в точность экранных заданий и не оценивают игру на басу.</p><details class="history-question-details"><summary>Слуховые ответы и прослушивания · ${result.questions.length}</summary><ol>${result.questions.map(earQuestionMarkup).join('')}</ol></details></article>`;
+      return `<article class="history-entry ear-entry" data-history-entry="${escapeHtml(entry.id)}" data-history-kind="ear"><header><span class="history-kind">Слух</span><time datetime="${entry.occurredAt}">${date}</time><button class="text-button button-compact" type="button" data-delete-history="${escapeHtml(entry.id)}" aria-label="Удалить слуховое занятие от ${escapeHtml(date)}"${busy ? ' disabled' : ''}>Удалить</button></header>${routeBadge}<h4>${escapeHtml(result.context.root)} · ${result.context.quality === 'major' ? 'Мажорное' : 'Минорное'} трезвучие</h4><p class="entry-facts">${completed < result.plannedCount ? '<strong>Не завершено</strong> · ' : ''}Завершено ${completed} из ${result.plannedCount} · самостоятельно ${independent} · ошибок ${errors} · повторов прослушивания ${replays}</p><p class="history-help">Это ответы на слух. Они не входят в точность экранных заданий и не оценивают игру на басу.</p><details class="history-question-details"><summary class="section-disclosure">Слуховые ответы и прослушивания · ${result.questions.length}</summary><ol>${result.questions.map(earQuestionMarkup).join('')}</ol></details></article>`;
     }
-    if (result.kind === 'manual') return `<article class="history-entry manual-entry" data-history-entry="${escapeHtml(entry.id)}" data-history-kind="manual"><header><span class="history-kind manual">Ручная отметка</span><time datetime="${entry.occurredAt}">${date}</time><button class="text-button" type="button" data-delete-history="${escapeHtml(entry.id)}" aria-label="Удалить ручную отметку от ${escapeHtml(date)}"${busy ? ' disabled' : ''}>Удалить</button></header>${routeBadge}<h4>${result.comfortableBpm} BPM — комфортный темп</h4><p class="entry-context">${escapeHtml(materialName(result.material))}</p><p class="entry-context">${escapeHtml(contextName(result.context))}</p><p class="entry-facts">Время с эталоном: ${formatDuration(result.durationMs)} · Самооценка, не измерение точности игры</p>${result.material.kind === 'sequence' ? `<details class="route-material-details"><summary>Путь последовательности</summary><p>${escapeHtml(result.material.routePositionIds.map(id => id.replace(':', '/')).join(' → '))}</p></details>` : ''}${result.note ? `<p class="entry-note">${escapeHtml(result.note)}</p>` : ''}</article>`;
+    if (result.kind === 'manual') return `<article class="history-entry manual-entry" data-history-entry="${escapeHtml(entry.id)}" data-history-kind="manual"><header><span class="history-kind manual">Ручная отметка</span><time datetime="${entry.occurredAt}">${date}</time><button class="text-button button-compact" type="button" data-delete-history="${escapeHtml(entry.id)}" aria-label="Удалить ручную отметку от ${escapeHtml(date)}"${busy ? ' disabled' : ''}>Удалить</button></header>${routeBadge}<h4>${result.comfortableBpm} BPM — комфортный темп</h4><p class="entry-context">${escapeHtml(materialName(result.material))}</p><p class="entry-context">${escapeHtml(contextName(result.context))}</p><p class="entry-facts">Время с эталоном: ${formatDuration(result.durationMs)} · Самооценка, не измерение точности игры</p>${result.material.kind === 'sequence' ? `<details class="route-material-details"><summary class="section-disclosure">Путь последовательности</summary><p>${escapeHtml(result.material.routePositionIds.map(id => id.replace(':', '/')).join(' → '))}</p></details>` : ''}${result.note ? `<p class="entry-note">${escapeHtml(result.note)}</p>` : ''}</article>`;
     const completed = result.questions.filter(question => question.outcome !== 'interrupted').length;
     const independent = result.questions.filter(question => question.independentCorrect).length;
     const errors = result.questions.reduce((total, question) => total + question.errors, 0);
-    return `<article class="history-entry screen-entry" data-history-entry="${escapeHtml(entry.id)}" data-history-kind="screen"><header><span class="history-kind screen">Экранные задания</span><time datetime="${entry.occurredAt}">${date}</time><button class="text-button" type="button" data-delete-history="${escapeHtml(entry.id)}" aria-label="Удалить экранное занятие от ${escapeHtml(date)}"${busy ? ' disabled' : ''}>Удалить</button></header>${routeBadge}<h4>${escapeHtml(MODE_NAMES[result.mode] ?? result.mode)}</h4><p class="entry-context">${escapeHtml(contextName(result.context))}</p><p class="entry-facts">${completed < result.plannedCount ? `<strong>Не завершено</strong> · ` : ``}Завершено ${completed} из ${result.plannedCount} · самостоятельно ${independent} · ошибок ${errors}</p><details class="history-question-details"><summary>Ответы и попытки · ${result.questions.length}</summary><ol>${result.questions.map(question => screenQuestionMarkup(question, result.context, result.mode)).join('')}</ol></details></article>`;
+    return `<article class="history-entry screen-entry" data-history-entry="${escapeHtml(entry.id)}" data-history-kind="screen"><header><span class="history-kind screen">Экранные задания</span><time datetime="${entry.occurredAt}">${date}</time><button class="text-button button-compact" type="button" data-delete-history="${escapeHtml(entry.id)}" aria-label="Удалить экранное занятие от ${escapeHtml(date)}"${busy ? ' disabled' : ''}>Удалить</button></header>${routeBadge}<h4>${escapeHtml(MODE_NAMES[result.mode] ?? result.mode)}</h4><p class="entry-context">${escapeHtml(contextName(result.context))}</p><p class="entry-facts">${completed < result.plannedCount ? `<strong>Не завершено</strong> · ` : ``}Завершено ${completed} из ${result.plannedCount} · самостоятельно ${independent} · ошибок ${errors}</p><details class="history-question-details"><summary class="section-disclosure">Ответы и попытки · ${result.questions.length}</summary><ol>${result.questions.map(question => screenQuestionMarkup(question, result.context, result.mode)).join('')}</ol></details></article>`;
   }
 
   function reviewGroups() {
@@ -342,10 +346,12 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
   }
 
   async function refresh(readOptions: { fresh?: boolean } = {}) {
+    if (disposed) return;
     const version = ++refreshVersion;
     try {
-      await options.flush();
-      const next = await options.store.readSnapshot(readOptions);
+      await options.waitForWrites();
+      if (disposed || version !== refreshVersion) return;
+      const next = await options.readConfirmed(readOptions);
       if (disposed || version !== refreshVersion) return;
       snapshot = next;
       if (status === 'Читаем локальные данные…') {
@@ -360,38 +366,33 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     }
   }
 
-  async function perform(operation: () => Promise<void>) {
+  async function perform(operation: (onCommitted: () => void) => Promise<void>) {
     if (busy || disposed) return;
     busy = true;
     actionError = '';
     actionNotice = '';
     render();
-    try { await operation(); }
+    let committed = false;
+    try { await operation(() => { committed = true; }); }
     catch (failure) {
       actionError = failure instanceof Error ? failure.message : String(failure);
-      setSaveStatus('Ошибка сохранения — изменения не подтверждены', 'error');
+      if (!committed) setSaveStatus('Ошибка сохранения — изменения не подтверждены', 'error');
     } finally {
       busy = false;
       await refresh();
+      if (disposed) return;
       const editing = document.activeElement instanceof Element && document.activeElement.matches('[data-history-field="manualNote"], [data-history-field="manualBpm"]');
       if (actionError) {
         const invalid = body.querySelector<HTMLInputElement>('[aria-invalid="true"]');
         const alert = body.querySelector<HTMLElement>('[data-testid="history-error"]');
         const target = invalid ?? (!editing ? alert : null);
         if (target) {
-          const bar = document.querySelector<HTMLElement>('.route-session-host:not([hidden])');
-          const barStyle = bar ? getComputedStyle(bar) : null;
-          const reserved = bar && bar.getClientRects().length && barStyle && ['sticky', 'fixed'].includes(barStyle.position) ? bar.getBoundingClientRect().height + (Number.parseFloat(barStyle.top) || 0) : 0;
-          target.style.scrollMarginTop = `${reserved + 16}px`; target.style.scrollMarginBottom = '16px';
           if (target === alert) target.tabIndex = -1;
-          target.focus({ preventScroll: true }); target.scrollIntoView({ block: 'nearest' });
+          if (options.reveal) options.reveal(target);
+          else { target.focus({ preventScroll: true }); target.scrollIntoView({ block: 'nearest' }); }
         }
       } else if (!editing && actionNotice && (document.activeElement === document.body || container.contains(document.activeElement))) { const confirmation = body.querySelector<HTMLElement>('[data-testid="history-notice"]'); if (confirmation) { confirmation.tabIndex = -1; confirmation.focus(); } }
     }
-  }
-
-  async function write<T>(operation: () => Promise<T>): Promise<T> {
-    return options.runWrite(operation);
   }
 
   async function deleteWithConfirmation(kind: 'preset' | 'history', id: string, title: string, message: string) {
@@ -401,8 +402,8 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     const neighbor = buttons[index + 1]?.getAttribute(attribute) ?? buttons[index - 1]?.getAttribute(attribute);
     if (!await confirmAction({ title: `Удалить: ${title}?`, message, confirmLabel: 'Удалить' }) || disposed) return;
     await perform(async () => {
-      if (kind === 'preset') await (options.deletePreset ? options.deletePreset(id) : write(() => options.store.deletePreset(id)));
-      else await (options.deleteHistory ? options.deleteHistory(id) : write(() => options.store.deleteHistory(id)));
+      if (kind === 'preset') await options.deletePreset(id);
+      else await options.deleteHistory(id);
       actionNotice = kind === 'preset' ? 'Пресет удалён.' : 'Запись истории удалена.';
     });
     const nextId = actionError ? id : neighbor;
@@ -412,8 +413,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
   }
 
   async function downloadBackup() {
-    await options.flush();
-    const json = await options.store.exportBackup();
+    const { incomplete, json } = await options.exportConfirmed();
     const blobUrl = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
     blobUrls.add(blobUrl);
     const anchor = document.createElement('a');
@@ -422,7 +422,29 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     anchor.click();
     const timer = setTimeout(() => { URL.revokeObjectURL(blobUrl); blobUrls.delete(blobUrl); revokeTimers.delete(timer); }, 1000);
     revokeTimers.add(timer);
-    actionNotice = 'Копия подготовлена для скачивания. Проверь сохранённый файл.';
+    actionNotice = incomplete
+      ? 'Копия содержит подтверждённые данные. Несохранённые изменения в неё не вошли. Повтори сохранение.'
+      : 'Копия подготовлена для скачивания. Проверь сохранённый файл.';
+  }
+
+  async function prepareFile(file: File) {
+    const request = ++importIntent;
+    preview = null; pendingFilename = ''; importConfirmed = false;
+    actionError = ''; actionNotice = '';
+    render();
+    try {
+      if (file.size > MAX_BACKUP_BYTES) throw new RangeError(`Копия должна быть не больше ${MAX_BACKUP_BYTES / 1024 / 1024} МиБ.`);
+      const json = await file.text();
+      if (disposed || request !== importIntent) return;
+      preview = options.prepareImport(json);
+      pendingFilename = file.name;
+      render();
+      body.querySelector<HTMLElement>('#restore-preview-title')?.focus();
+    } catch (failure) {
+      if (disposed || request !== importIntent) return;
+      actionError = `Ошибка чтения копии: ${failure instanceof Error ? failure.message : String(failure)}`;
+      render();
+    }
   }
 
   container.addEventListener('input', event => {
@@ -436,7 +458,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     }
     if (input.dataset.historyField === 'manualBpm') {
       manualBpm = input.value;
-      const [min, max] = manualTempoBounds((manualDraft ?? options.getPracticeDraft()).material);
+      const [min, max] = manualTempoBounds((manualDraft ?? options.peekPracticeDraft()).material);
       const bpm = Number(input.value);
       input.setAttribute('aria-invalid', String(!input.value || !Number.isInteger(bpm) || bpm < min || bpm > max));
     }
@@ -471,23 +493,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
       const button = body.querySelector<HTMLButtonElement>('[data-history-action="confirm-restore"]');
       if (button) button.disabled = !importConfirmed || busy;
     }
-    if (input instanceof HTMLInputElement && input.hasAttribute('data-history-file') && input.files?.[0]) {
-      const file = input.files[0];
-      pendingImport = null;
-      pendingFilename = '';
-      preview = null;
-      importConfirmed = false;
-      void perform(async () => {
-        await options.flush();
-        if (file.size > MAX_BACKUP_BYTES) throw new RangeError(`Копия должна быть не больше ${MAX_BACKUP_BYTES / 1024 / 1024} МиБ.`);
-        const json = await file.text();
-        const nextPreview = options.store.previewImport(json);
-        pendingImport = json;
-        pendingFilename = file.name;
-        preview = nextPreview;
-        importConfirmed = false;
-      }).then(() => { if (preview) body.querySelector<HTMLElement>('#restore-preview-title')?.focus(); });
-    }
+    if (input instanceof HTMLInputElement && input.hasAttribute('data-history-file') && input.files?.[0] && !busy) void prepareFile(input.files[0]);
   }, { signal: controller.signal });
 
   container.addEventListener('click', event => {
@@ -505,7 +511,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     const presetApply = target?.closest<HTMLButtonElement>('[data-apply-preset]')?.dataset.applyPreset;
     if (presetApply) {
       const preset = snapshot?.presets.find(item => item.id === presetApply);
-      if (preset) void perform(async () => { await options.applyPreferences(preset.preferences, 'preset'); await options.flush(); actionNotice = `Пресет «${preset.name}» применён.`; });
+      if (preset) void perform(async () => { await options.applyPreferences(preset.preferences, 'preset'); actionNotice = `Пресет «${preset.name}» применён.`; });
       return;
     }
     const presetDelete = target?.closest<HTMLButtonElement>('[data-delete-preset]')?.dataset.deletePreset;
@@ -525,12 +531,12 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     if (action === 'refresh') { void refresh({ fresh: true }); return; }
     if (action === 'show-more') { visibleEntries += 10; render(); return; }
     if (action === 'refresh-draft') {
-      const current = options.getPracticeDraft();
+      const current = options.capturePracticeDraft(false);
       if (manualDraft && draftKey(manualDraft) !== draftKey(current)) actionNotice = 'Черновик относится к прежнему занятию. Сохрани его отдельно или явно отнеси заметку к текущему материалу.';
       else captureDraft();
       render(); return;
     }
-    if (action === 'use-current-draft') { if (options.getPracticeDraft().available === false) return; captureDraft(); actionNotice = 'Открыт черновик текущего занятия. Прежний черновик остаётся в списке.'; render(); return; }
+    if (action === 'use-current-draft') { if (options.peekPracticeDraft().available === false) return; captureDraft(); actionNotice = 'Открыт черновик текущего занятия. Прежний черновик остаётся в списке.'; render(); return; }
     if (action === 'delete-draft') {
       const draft = manualDraft;
       if (draft?.id && options.deletePracticeDraft) void (async () => {
@@ -540,20 +546,20 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
       return;
     }
     if (action === 'cancel-restore') {
-      pendingImport = null; preview = null; importConfirmed = false; actionNotice = 'Импорт отменён. Данные не изменились.'; actionError = ''; render(); return;
+      ++importIntent; preview = null; pendingFilename = ''; importConfirmed = false; actionNotice = 'Импорт отменён. Данные не изменились.'; actionError = ''; render(); return;
     }
     if (action === 'review-errors') {
       const groups = reviewGroups();
       const review = groups.find(group => group.key === reviewContextKey) ?? groups[0];
-      if (review?.ids.length) options.onRepeatErrors(review.ids, review.context);
+      if (review?.ids.length) options.onRepeatErrors?.(review.ids, review.context);
       return;
     }
-    void perform(async () => {
+    void perform(async onCommitted => {
       if (action === 'save-preset') {
         const name = presetName.trim();
         if (!name) throw new RangeError('Дай пресету короткое понятное название.');
         const preset = { id: `preset-${crypto.randomUUID()}`, name, createdAt: new Date().toISOString(), preferences: options.getPreferences() };
-        await write(() => options.store.savePreset(preset));
+        await options.savePreset(preset);
         presetName = '';
         actionNotice = 'Пресет сохранён.';
       } else if (action === 'save-manual') {
@@ -572,17 +578,19 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
         } else {
           const result = createManualPracticeResult({ context: draft.context, material: draft.material, comfortableBpm: bpm, durationMs: draft.durationMs, note: manualNote });
           const entry = makeManualHistory(result, { id: `manual-${crypto.randomUUID()}`, occurredAt: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, routeRef: draft.routeRef });
-          await write(() => options.store.addHistory(entry));
+          await options.saveManual(entry);
           options.onManualSaved?.(draft.durationMs, draft.runtimeContextKey);
           manualNote = ''; manualBpm = null; manualDraft = null;
         }
         actionNotice = 'Ручная отметка сохранена отдельно от экранных результатов.';
       } else if (action === 'export') await downloadBackup();
       else if (action === 'confirm-restore') {
-        if (!pendingImport || !preview || !importConfirmed) throw new Error('Сначала выбери копию и подтверди полную замену.');
-        await options.restoreBackup(pendingImport);
-        manualDraft = null; manualNote = ''; manualBpm = null;
-        pendingImport = null; preview = null; importConfirmed = false;
+        if (!preview || !importConfirmed) throw new Error('Сначала выбери копию и подтверди полную замену.');
+        await options.restoreBackup(preview, () => {
+          onCommitted();
+          manualDraft = null; manualNote = ''; manualBpm = null;
+          ++importIntent; preview = null; pendingFilename = ''; importConfirmed = false;
+        });
         actionNotice = 'Данные восстановлены из копии; настройки применены.';
       }
     });
@@ -601,7 +609,6 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
       if (!body.contains(document.activeElement)) render();
       else container.querySelector<HTMLElement>('[data-history-count]')!.textContent = `${history.length} записей · ${snapshot.presets.length} пресетов`;
     },
-    clearActionError() { actionError = ''; },
     setSaveStatus,
     dispose() {
       disposed = true;

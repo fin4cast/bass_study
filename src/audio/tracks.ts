@@ -127,6 +127,12 @@ export function createTracksPlayer() {
   }
   function bufferBytes(values: Iterable<AudioBuffer>) { let total = 0; for (const buffer of values) total += buffer.length * buffer.numberOfChannels * 4; return total; }
 
+  function getPlaybackState() {
+    if (state === 'playing') tick();
+    const actual = actualPosition();
+    return { state, position: actual.position, cycleIndex: actual.cycleIndex, loading, ready: ready(), pauseReason, boundTrackIds: [...buffers.keys()] };
+  }
+
   return {
     async loadFiles(files: readonly File[]) {
       ensureActive();
@@ -179,13 +185,12 @@ export function createTracksPlayer() {
     setRate(rate: number) { const current = requireManifest(); requirePaused(); manifest = setTracksPlayback(current, { rate }); return manifest; },
     setTrackMix(id: string, mix: { volume?: number; muted?: boolean }) { manifest = updateMix(requireManifest(), id, mix); updateGains(); return manifest; },
     getManifest() { return manifest; },
+    getPlaybackState,
     getSnapshot() {
-      if (state === 'playing') tick();
+      const playback = getPlaybackState();
       let peak = 0; let energy = 0;
       if (analyser) { analyser.getFloatTimeDomainData(waveform); for (const sample of waveform) { peak = Math.max(peak, Math.abs(sample)); energy += sample * sample; } }
-      const actual = actualPosition();
-      return { state, position: actual.position, cycleIndex: actual.cycleIndex, loading, ready: ready(), pauseReason,
-        boundTrackIds: [...buffers.keys()], activeSources: sources.size, sampleRate: context?.sampleRate ?? null,
+      return { ...playback, activeSources: sources.size, sampleRate: context?.sampleRate ?? null,
         pitchShiftCents: manifest ? 1200 * Math.log2(manifest.rate) : 0, output: { peak, rms: Math.sqrt(energy / waveform.length) } };
     },
     async renderOffline(options: { durationSeconds?: number } = {}) {

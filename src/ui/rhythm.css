@@ -1,6 +1,8 @@
 /* The shared theme surrounds one darker playing surface in each tab. */
 .rhythm-view {
   --rhythm-paper: var(--surface-canvas);
+  --rhythm-wide: 0;
+  --rhythm-side-panel: 0;
   --rhythm-surface: var(--surface);
   --rhythm-recess: var(--surface-raised);
   --rhythm-hover: var(--surface-hover);
@@ -41,7 +43,7 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  padding-block: var(--study-block-inset, 18px) 12px;
+  padding-block-end: 12px;
   gap: 9px;
   color: var(--rhythm-ink);
   container-type: inline-size;
@@ -54,8 +56,8 @@
 .rhythm-view :is(h1, h2, h3, p) { margin: 0; }
 .rhythm-view h2 { font-size: 15px; font-weight: 600; letter-spacing: 0; }
 .rhythm-view h3 { font-size: 13px; font-weight: 600; }
-.rhythm-view :is(button, input) { color: inherit; font: inherit; accent-color: var(--accent); }
-.rhythm-view :is(button, input[type="number"], input[type="text"]) {
+.rhythm-view :is(button:not([role="tab"], .primary-button, .secondary-button, .text-button), input:not(.form-control)) { color: inherit; font: inherit; accent-color: var(--accent); }
+.rhythm-view :is(button:not([role="tab"], .primary-button, .secondary-button, .text-button), input[type="number"]:not(:where(.form-control))) {
   min-height: 30px;
   padding: 4px 8px;
   border: 1px solid var(--rhythm-edge);
@@ -63,36 +65,14 @@
   background: var(--surface-input);
 }
 .rhythm-view button:not(:disabled) { cursor: pointer; }
-.rhythm-view button:hover:not(:disabled) { background-color: var(--rhythm-hover); }
-.rhythm-view button:disabled { color: var(--rhythm-muted); opacity: .64; cursor: default; }
+.rhythm-view button:hover:not(:disabled, [role="tab"], .primary-button, .secondary-button, .text-button) { background-color: var(--rhythm-hover); }
+.rhythm-view button:disabled:not([role="tab"], .primary-button, .secondary-button, .text-button) { color: var(--rhythm-muted); opacity: .64; cursor: default; }
 .rhythm-view input[type="range"] { min-width: 0; margin: 0; }
 .rhythm-view input[type="checkbox"] { width: 15px; height: 15px; margin: 0; flex: none; }
-.rhythm-view :is(button, input, summary, [tabindex]):focus-visible { outline-offset: 2px; }
-.rhythm-view input[aria-invalid="true"] { border-color: var(--danger-border); background: var(--danger-surface); }
-.rhythm-view .rhythm-error { font-size: 12px; color: var(--danger-text); }
+.rhythm-view :is(button, input, summary, [tabindex]):focus-visible:not([role="tab"], .primary-button, .secondary-button, .text-button, .form-control, .section-disclosure) { outline-offset: 2px; }
 .rhythm-view :is(.rhythm-muted, .rhythm-status) { color: var(--rhythm-muted); font-size: 12px; }
 
 .rhythm-view .rhythm-header { flex: none; }
-.rhythm-view button.rhythm-settings-toggle {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  margin-inline-start: auto;
-  gap: 7px;
-  min-height: 34px;
-  padding: 4px 9px;
-  color: var(--accent-text);
-  box-shadow: inset 0 -2px var(--rhythm-line);
-}
-.rhythm-view button.rhythm-settings-toggle[aria-expanded="true"] {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: inset 0 1px var(--rhythm-edge);
-}
-.rhythm-settings-toggle svg { fill: none; stroke: currentColor; stroke-linecap: round; }
-.rhythm-settings-faders { stroke-width: 2.5; }
-.rhythm-settings-lamp { width: 7px; height: 7px; border: 1px solid currentColor; border-radius: 50%; }
-.rhythm-settings-toggle[aria-expanded="true"] .rhythm-settings-lamp { background: currentColor; }
 
 .rhythm-view .rhythm-content {
   flex: none;
@@ -109,40 +89,23 @@
 .rhythm-view .rhythm-side-scroll {
   min-width: 0;
   min-height: 0;
-  border-inline-start: 0;
-  border-block-start: 1px solid var(--border);
-  border-radius: 7px;
   padding: 10px 12px;
   scrollbar-width: thin;
   scrollbar-color: var(--rhythm-edge) var(--surface-raised);
 }
-.rhythm-view .rhythm-side-scroll > .section-title { margin-bottom: 6px; }
 .rhythm-view .rhythm-side-scroll:focus-visible { outline-offset: -2px; }
-.rhythm-view button.rhythm-settings-close {
-  flex-shrink: 0;
-  min-height: 28px;
-  padding: 4px;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
+.rhythm-view .rhythm-settings-close { flex-shrink: 0; }
 .rhythm-view .rhythm-side-scroll .learning-help { margin-block: 0; }
-.rhythm-view .rhythm-side-scroll .learning-help > summary { min-height: 30px; }
 .rhythm-view .rhythm-side-scroll :is(.rhythm-control, .rhythm-choice) { gap: 4px; }
 .rhythm-view .rhythm-side-scroll :is(.rhythm-control, .rhythm-choice) > span { font-weight: 400; }
-.rhythm-view .rhythm-side-scroll .rhythm-control input {
-  width: 100%;
-  min-height: 32px;
-  font-size: 14px;
-}
+.rhythm-view .rhythm-side-scroll .rhythm-control input { width: 100%; }
 .rhythm-view .rhythm-groove-tools { display: grid; align-content: start; gap: 5px; min-width: 0; padding-inline: 1px; }
 .rhythm-view .rhythm-groove-extras { display: flex; flex-wrap: wrap; gap: 5px 14px; min-width: 0; }
 .rhythm-view .rhythm-groove-extras > details { max-width: 100%; }
 .rhythm-view .rhythm-groove-extras > details[open] { flex: 0 0 100%; }
 .rhythm-view .rhythm-playback-settings { display: grid; gap: 5px; padding-top: 8px; border-top: 1px solid var(--border); }
 .rhythm-view :is(.rhythm-choice, .rhythm-control) { display: grid; gap: 4px; min-width: 0; }
-.rhythm-view :is(.rhythm-choice, .rhythm-control) > span { color: var(--rhythm-muted); font-size: 12px; font-weight: 500; }
+.rhythm-view .rhythm-choice > span { color: var(--rhythm-muted); font-size: 12px; font-weight: 500; }
 .rhythm-view .rhythm-control input { min-width: 0; font-variant-numeric: tabular-nums; }
 .rhythm-view .rhythm-segment { display: flex; flex-wrap: wrap; gap: 2px; width: fit-content; max-width: 100%; padding: 2px; border-radius: 6px; background: var(--rhythm-recess); }
 .rhythm-view .rhythm-segment button { min-height: 27px; border: 0; border-radius: 4px; background: transparent; font-size: 12px; }
@@ -343,10 +306,8 @@
 .rhythm-view .rhythm-sounds { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 5px; }
 .rhythm-view .rhythm-sounds:has(details[open]) { grid-template-columns: minmax(0, 1fr); }
 .rhythm-view .rhythm-sounds > details { margin: 0; padding: 0; border: 0; background: transparent; }
-.rhythm-view .rhythm-sounds > button { min-height: 28px; padding: 2px 6px; border-color: var(--rhythm-line); color: var(--accent-text); font-size: 12px; }
-.rhythm-view .rhythm-metro-secondary summary { min-height: 28px; align-content: center; font-size: 13px; line-height: 1.25; }
 .rhythm-view .rhythm-metro-secondary summary strong { font-weight: 500; }
-.rhythm-view .rhythm-metro-secondary summary .rhythm-muted { margin-inline-start: 8px; font-weight: 400; }
+.rhythm-view .rhythm-metro-secondary summary .rhythm-muted { font-weight: 400; }
 .rhythm-view .rhythm-kit-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(116px, 100%), 1fr));
@@ -437,22 +398,8 @@
 
 .rhythm-view :is(.rhythm-library, .rhythm-velocity) > summary {
   width: fit-content;
-  list-style: none;
   padding: 4px 5px;
-  color: var(--rhythm-muted);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
 }
-.rhythm-view :is(.rhythm-library, .rhythm-velocity) > summary::before {
-  content: "+";
-  display: inline-block;
-  width: 1.4em;
-  color: var(--rhythm-gold);
-  font-family: monospace;
-  font-weight: 750;
-}
-.rhythm-view :is(.rhythm-library, .rhythm-velocity)[open] > summary::before { content: "−"; }
 .rhythm-view .rhythm-accent-hint { margin-inline-start: 9px; font-weight: 400; white-space: nowrap; }
 .rhythm-view .rhythm-velocity-row { margin-top: 4px; padding-block: 5px; border-block: 1px solid var(--rhythm-line); }
 .rhythm-view .rhythm-velocity-label { display: grid; gap: 1px; font-size: 12px; }
@@ -498,17 +445,16 @@
 .rhythm-view .rhythm-editor { display: grid; gap: 8px; }
 .rhythm-view .rhythm-editor-pattern { display: grid; gap: 6px; }
 .rhythm-view .rhythm-editor-pattern .rhythm-name { display: grid; gap: 7px; }
-.rhythm-view .rhythm-editor-sounds > .rhythm-utility { margin-top: 5px; }
+.rhythm-view .rhythm-editor-sounds > button { justify-self: start; margin-top: 5px; }
 .rhythm-view .rhythm-action-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.rhythm-view :is(.rhythm-action-strip button, button.rhythm-utility) { width: fit-content; min-height: 27px; border: 0; background: transparent; font-size: 12px; font-weight: 500; text-align: left; }
-.rhythm-view :is(.rhythm-action-strip button, button.rhythm-utility):hover:not(:disabled) { background: var(--rhythm-hover); }
+.rhythm-view button.rhythm-utility { width: fit-content; min-height: 27px; border: 0; background: transparent; font-size: 12px; font-weight: 500; text-align: left; }
 .rhythm-view .rhythm-sound-bank { width: 100%; padding: 0; background: transparent; }
 .rhythm-view .rhythm-sound-bank button { display: inline-flex; align-items: center; gap: 5px; }
 .rhythm-view .rhythm-sound-bank button[aria-pressed="true"] { --instrument-ink: var(--accent-text); --instrument-fill: var(--accent-soft); }
 .rhythm-view .rhythm-sound-bank .rhythm-instrument-art { width: 21px; height: 21px; }
 
 .rhythm-view .rhythm-library { border: 0; background: transparent; }
-.rhythm-view .rhythm-library > summary { min-height: 30px; padding: 5px 8px; border-radius: 5px; background: transparent; color: var(--accent-text); }
+.rhythm-view .rhythm-library > summary { padding-inline: 8px; border-radius: 5px; }
 .rhythm-view .rhythm-library > summary:hover { background: var(--rhythm-hover); }
 .rhythm-view .rhythm-library-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); gap: 12px; margin-top: 6px; padding: 10px; border-block: 1px solid var(--rhythm-line); }
 .rhythm-view .rhythm-preset-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
@@ -1162,21 +1108,6 @@
 
 .rhythm-view .rhythm-transport-options .rhythm-error { flex-basis: 100%; color: var(--danger-text); }
 
-@media (width < 1050px), (height < 660px) {
-  /* Short layouts scroll as a page; don't leave an empty frame after the controls. */
-  .app-shell:has(#harmony-mount:not([hidden])):not(:has(#history-mount:not([hidden]), #onboarding-mount:not([hidden]))) {
-    min-height: 0;
-    & > .site-header {
-      @media (min-width: 621px) {
-        position: static;
-        align-self: stretch;
-        min-height: 0;
-        max-height: none;
-        .sidebar-art { flex-basis: 0; }
-      }
-    }
-  }
-}
 
 @media (min-width: 821px) and (min-height: 801px) {
   .rhythm-view {
@@ -1187,16 +1118,7 @@
 }
 
 @media (min-width: 1050px) and (min-height: 660px) {
-  /* The rhythm workspace keeps its frame when history is appended below it. */
-  .app-content #harmony-mount.rhythm-view { block-size: var(--study-content-height); }
-  .app-content:has(#harmony-mount:not([hidden])):not(:has(#history-mount:not([hidden]), #onboarding-mount:not([hidden]))) {
-    display: flex;
-    flex-direction: column;
-    block-size: var(--study-content-height);
-    & > main { flex: 1; min-block-size: 0; }
-    & #harmony-mount { block-size: 100%; }
-  }
-  .rhythm-view { gap: 7px; }
+  .rhythm-view { --rhythm-wide: 1; gap: 7px; }
   .rhythm-view .rhythm-content {
     flex: 1 0 0px;
     min-block-size: 275px;
@@ -1253,6 +1175,7 @@
 }
 
 @media (min-width: 1440px) and (min-height: 700px) {
+  .rhythm-view { --rhythm-side-panel: 1; }
   .rhythm-view .rhythm-workspace:has(.rhythm-side-scroll:not([hidden])) { grid-template-columns: minmax(0, 1fr) 280px; }
   .rhythm-view .rhythm-constructor { grid-column: 1; }
   .rhythm-view .rhythm-groove-detail-scroll { display: contents; }
@@ -1261,8 +1184,6 @@
     grid-column: 2;
     grid-row: 1 / -1;
     overflow-y: auto;
-    border-inline-start: 1px solid var(--border);
-    border-block-start: 0;
   }
   .rhythm-view :is(.rhythm-groove-tools, .rhythm-side-scroll) {
     scrollbar-width: thin;
@@ -1281,7 +1202,6 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .rhythm-view .rhythm-settings-lamp { transition: background-color 130ms ease-out; }
   .rhythm-view .rhythm-side-scroll:not([hidden]) > * { animation: rhythm-settings-light-on 130ms ease-out; }
 }
 @keyframes rhythm-settings-light-on {

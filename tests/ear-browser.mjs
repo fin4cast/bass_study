@@ -215,7 +215,7 @@ check('ui-ear-preferences-and-three-route-links-persist-without-fret-filter-depe
   const visits = [];
   for (const step of ['fretboard', 'ear', 'sequence']) {
     await page.locator('[data-app-module="route"]').click(); assert.deepEqual(await page.locator('[data-route-step]').evaluateAll(nodes => nodes.map(node => node.dataset.routeStep)), ['fretboard', 'ear', 'sequence']);
-    await page.locator(`[data-route-step="${step}"]`).click(); visits.push({ step, module: await page.locator('[data-app-module][aria-pressed="true"]').getAttribute('data-app-module') });
+    await page.locator(`[data-route-step="${step}"]`).click(); visits.push({ step, module: await page.locator('[data-app-module][aria-current="page"]').getAttribute('data-app-module') });
     assert.equal(visits.at(-1).module, step === 'ear' ? 'ear' : 'foundation');
     if (step === 'sequence') assert.equal(await page.locator('[data-training-mode="sequence"]').getAttribute('aria-pressed'), 'true');
   }
@@ -257,7 +257,7 @@ async function startRoute(page) {
   await ready(page); await page.locator('[data-app-module="route"]').click();
   assert.deepEqual(await page.locator('#route-mount [data-route-planned-ms]').evaluateAll(nodes => nodes.map(node => Number(node.dataset.routePlannedMs))), [180000, 180000, 240000]);
   await page.locator('#route-mount [data-route-action="start"]').click(); await routeState(page, 'running');
-  assert.equal(await page.locator('[data-app-module][aria-pressed="true"]').getAttribute('data-app-module'), 'foundation');
+  assert.equal(await page.locator('[data-app-module][aria-current="page"]').getAttribute('data-app-module'), 'foundation');
   assert.ok(await page.getByTestId('route-session-bar').isVisible());
 }
 
@@ -376,7 +376,16 @@ check('timed-route-five-second-checkpoint-preserves-history-field-focus-and-one-
 });
 
 check('native-hidden-tab-pauses-timed-route-and-return-requires-explicit-resume', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
-  await startRoute(page); await page.waitForFunction(() => Number(document.querySelector('#route-session-mount')?.dataset.routeActiveMs) > 300, undefined, { polling: 100 });
+  await startRoute(page);
+  // The route page is hidden during the fretboard step, but the visible bar
+  // must still drive and persist the first running checkpoint.
+  assert.equal(await page.locator('#route-mount').isHidden(), true);
+  await page.waitForFunction(() => !document.hidden && Number(document.querySelector('#route-session-mount')?.dataset.routeActiveMs) >= 5200, undefined, { polling: 100 });
+  const checkpoint = (await readNativeHistory(page)).history.find(entry => entry.result.kind === 'route');
+  assert.ok(checkpoint);
+  assert.equal(checkpoint.result.status, 'running');
+  assert.ok(checkpoint.result.actualStepMs[0] >= 5000 && checkpoint.result.actualStepMs[0] <= await routeActive(page));
+  assert.deepEqual(checkpoint.result.actualStepMs.slice(1), [0, 0]);
   const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront();
   await page.waitForFunction(() => document.hidden && document.querySelector('#route-session-mount')?.dataset.routeState === 'paused', undefined, { polling: 100 });
   const paused = await routeActive(page); await delay(350); assert.equal(await routeActive(page), paused);
@@ -386,8 +395,12 @@ check('native-hidden-tab-pauses-timed-route-and-return-requires-explicit-resume'
   await page.waitForFunction(paused => Number(document.querySelector('#route-session-mount')?.dataset.routeActiveMs) > paused + 200, paused, { polling: 100 });
   await routeAction(page, 'stop').click({ force: true }); const persisted = await readNativeHistory(page); const entry = persisted.history.find(entry => entry.result.kind === 'route');
   assert.ok(entry); assert.equal(entry.result.events.find(event => event.type === 'pause').reason, 'hidden'); assert.equal(entry.result.events.filter(event => event.type === 'resume').length, 1);
-  assert.ok(entry.result.actualStepMs.reduce((sum, value) => sum + value, 0) < 5000);
-  return { actualDocumentHidden: true, pausedActiveMs: paused, automaticResumeClaimed: false, historyReadMethod: persisted.method, databaseVersion: persisted.databaseVersion, entry };
+  assert.equal(entry.id, checkpoint.id);
+  assert.equal(entry.result.actualStepMs[0], await routeActive(page));
+  assert.ok(entry.result.actualStepMs[0] > paused + 200 && entry.result.actualStepMs[0] < paused + 5000);
+  assert.deepEqual(entry.result.actualStepMs.slice(1), [0, 0]);
+  return { visibleFretboardCheckpointMs: checkpoint.result.actualStepMs[0], actualDocumentHidden: true, pausedActiveMs: paused,
+    automaticResumeClaimed: false, historyReadMethod: persisted.method, databaseVersion: persisted.databaseVersion, entry };
 }));
 
 check('native-hidden-tab-cancels-cue-and-requires-new-complete-listen', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {

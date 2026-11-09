@@ -12,7 +12,7 @@ export interface PracticeBinding {
 interface DraftStore {
   upsertPracticeDraft(value: PracticeDraft): Promise<PracticeDraft>;
   deletePracticeDraft(id: string): Promise<unknown>;
-  drainDraft(value: DrainDraftRequest): Promise<{ entry: import('../storage').ManualHistoryEntry; draft: PracticeDraft }>;
+  drainDraft(value: DrainDraftRequest): Promise<import('../storage').HistoryCommit<import('../storage').ManualHistoryEntry> & { draft: PracticeDraft }>;
 }
 interface Options {
   readonly getStore: () => DraftStore;
@@ -20,7 +20,7 @@ interface Options {
   readonly supersede?: (key: string) => unknown;
   readonly resolveSuperseded?: (key: string) => void;
   readonly onCommit: (draft: PracticeDraft) => void;
-  readonly onEntry: (entry: import('../storage').ManualHistoryEntry) => void;
+  readonly onEntry: (entry: import('../storage').ManualHistoryEntry, linkedRoute?: import('../storage').HistoryCommit['linkedRoute']) => void;
   readonly onChange?: () => void;
   readonly now?: () => Date;
 }
@@ -32,12 +32,16 @@ function stable(value: unknown): unknown {
   if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, stable((value as Record<string, unknown>)[key])]));
   return value;
 }
-const keyOf = (context: QuestionContext | null, material: PracticeMaterial, routeRef: RouteRef | null, day: string) => JSON.stringify(stable({ context: context && { ...context, positionIds: [...context.positionIds].sort() }, material, routeRef, day }));
+const materialKey = ({ context, material, routeRef }: Pick<PracticeBinding, 'context' | 'material' | 'routeRef'>) =>
+  JSON.stringify(stable({ context: context && { ...context, positionIds: [...context.positionIds].sort() }, material, routeRef }));
 
 /** Owns durable, ungraded practice. Audio clocks remain owned by the players. */
 export function createPracticeDrafts(options: Options) {
   const records = new Map<string, PracticeDraft>();
-  const committed = new Map<string, string>();
+  const byMaterialDay = new Map<string, Set<string>>();
+  const keysById = new Map<string, string>();
+  const bindingKeys = new WeakMap<PracticeBinding, string>();
+  const dirty = new Set<string>();
   const clocks = new Map<string, number>();
   const saves = new Map<string, DrainDraftRequest>();
   const retired = new Set<string>();
@@ -50,12 +54,34 @@ export function createPracticeDrafts(options: Options) {
   const notify = () => { try { options.onChange?.(); } catch (error) { console.error('Не удалось обновить представление черновика.', error); } };
   const publish = (draft: PracticeDraft) => { try { options.onCommit(draft); } catch (error) { console.error('Черновик записан, но представление не обновилось.', error); } };
 
-  function remember(value: PracticeDraft) {
+  function index(id: string, key: string) {
+    let matches = byMaterialDay.get(key);
+    if (!matches) { matches = new Set(); byMaterialDay.set(key, matches); }
+    matches.add(id);
+    keysById.set(id, key);
+  }
+
+  function unindex(id: string) {
+    const key = keysById.get(id);
+    if (key === undefined) return;
+    const matches = byMaterialDay.get(key)!;
+    matches.delete(id);
+    if (matches.size === 0) byMaterialDay.delete(key);
+    keysById.delete(id);
+  }
+
+  function rememberCommit(value: PracticeDraft, written: PracticeDraft | undefined, previouslyDirty = false) {
     const current = records.get(value.id);
-    if (!current) records.set(value.id, clone(value));
-    else records.set(value.id, { ...clone(value), totalReferenceMs: Math.max(value.totalReferenceMs, current.totalReferenceMs), recordedThroughMs: Math.max(value.recordedThroughMs, current.recordedThroughMs),
-      ...(current.editRevision > value.editRevision || current.editRevision === value.editRevision && current.recordedThroughMs > value.recordedThroughMs
-        ? { note: current.note, comfortableBpm: current.comfortableBpm, editRevision: current.editRevision } : {}) });
+    if (retired.has(value.id) || !current) return;
+    if (current === written && !previouslyDirty) {
+      records.set(value.id, value);
+      dirty.delete(value.id);
+      return;
+    }
+    // The record object is the local revision. Keep input or time accrued while the write was in flight.
+    records.set(value.id, { ...value, totalReferenceMs: Math.max(value.totalReferenceMs, current.totalReferenceMs),
+      recordedThroughMs: Math.max(value.recordedThroughMs, current.recordedThroughMs), suggestedBpm: current.suggestedBpm, updatedAt: current.updatedAt,
+      ...(current.editRevision > value.editRevision ? { note: current.note, comfortableBpm: current.comfortableBpm, editRevision: current.editRevision } : {}) });
   }
 
   function capture(force = false, source = binding): PracticeDraft | null {
@@ -69,35 +95,47 @@ export function createPracticeDrafts(options: Options) {
     clocks.set(runtime, source.material.kind === 'rhythm' ? Math.max(previous, elapsed) : elapsed);
     const date = now(); const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const day = localDay(date, timeZone);
-    const key = keyOf(source.context, source.material, source.routeRef, day);
-    let draft = [...records.values()].find(value => !retired.has(value.id) && keyOf(value.context, value.material, value.routeRef, value.localDate) === key);
-    if (!draft && !force && !delta) { currentId = null; return null; }
+    let material = bindingKeys.get(source);
+    if (material === undefined) { material = materialKey(source); bindingKeys.set(source, material); }
+    const key = `${day}:${material}`;
+    const id = byMaterialDay.get(key)?.values().next().value;
+    let draft = id === undefined ? undefined : records.get(id);
+    if (!draft && !force && !delta) { if (source === binding) currentId = null; return null; }
     if (!draft) {
       draft = { id: `draft-${crypto.randomUUID()}`, createdAt: date.toISOString(), updatedAt: date.toISOString(), timeZone, localDate: day,
         context: clone(source.context), material: clone(source.material), routeRef: clone(source.routeRef), totalReferenceMs: 0, recordedThroughMs: 0,
         suggestedBpm: clock.comfortableBpm, comfortableBpm: clock.comfortableBpm, note: '', editRevision: 0 };
+      index(draft.id, key);
+      dirty.add(draft.id);
     }
-    if (delta) draft = { ...draft, totalReferenceMs: draft.totalReferenceMs + delta, suggestedBpm: clock.comfortableBpm, updatedAt: date.toISOString() };
-    records.set(draft.id, draft); currentId = draft.id;
-    return clone(draft);
+    if (delta) {
+      draft = { ...draft, totalReferenceMs: draft.totalReferenceMs + delta, suggestedBpm: clock.comfortableBpm, updatedAt: date.toISOString() };
+      dirty.add(draft.id);
+    }
+    records.set(draft.id, draft);
+    if (source === binding) currentId = draft.id;
+    return draft;
   }
 
-  async function persist(draft: PracticeDraft) {
-    if (retired.has(draft.id)) return;
-    const revision = generation; const value = clone(draft); const signature = JSON.stringify(value);
-    if (committed.get(value.id) === signature) return;
+  async function persist(id: string) {
+    if (!dirty.has(id) || retired.has(id)) return;
+    const revision = generation;
     await options.write(async () => {
-      if (disposed || revision !== generation || retired.has(value.id)) return;
+      if (disposed || revision !== generation || retired.has(id) || !dirty.has(id)) return;
+      const value = records.get(id)!;
       const saved = await options.getStore().upsertPracticeDraft(value);
       if (disposed || revision !== generation) return;
-      committed.set(value.id, JSON.stringify(saved)); remember(saved); publish(saved);
-    }, `draft:${value.id}`);
+      rememberCommit(saved, value);
+      publish(saved);
+    }, `draft:${id}`);
   }
 
   async function flush() {
     capture();
     if (debounce) { clearTimeout(debounce); debounce = null; }
-    for (const draft of [...records.values()]) await persist(draft);
+    const outcomes = await Promise.allSettled([...dirty].map(persist));
+    const failure = outcomes.find(outcome => outcome.status === 'rejected');
+    if (failure) throw failure.reason;
   }
 
   function edit(id: string | null, note: string, comfortableBpm: number) {
@@ -109,6 +147,7 @@ export function createPracticeDrafts(options: Options) {
     if (note.length > 2000) throw new RangeError('Заметка должна содержать не больше 2000 символов.');
     const updated = { ...draft, note, comfortableBpm, editRevision: draft.editRevision + 1, updatedAt: now().toISOString() };
     records.set(updated.id, updated);
+    dirty.add(updated.id);
     if (debounce) clearTimeout(debounce);
     debounce = setTimeout(() => { debounce = null; void flush().catch(() => {}); }, 300);
     notify(); return clone(updated);
@@ -119,7 +158,6 @@ export function createPracticeDrafts(options: Options) {
     const current = records.get(id); if (!current) throw new Error('Черновик больше не существует.');
     if (retired.has(id)) throw new Error('Этот черновик ожидает удаления.');
     if (current.note !== note || current.comfortableBpm !== comfortableBpm) edit(id, note, comfortableBpm);
-    await flush();
     const draft = records.get(id)!;
     let request = saves.get(id);
     if (!request) {
@@ -129,13 +167,17 @@ export function createPracticeDrafts(options: Options) {
       saves.set(id, request);
     }
     const captured = request; const revision = generation;
+    await persist(id);
     return options.write(async () => {
       if (disposed || revision !== generation || retired.has(id)) throw new Error('Данные изменились; открой черновик заново.');
+      const beforeDrain = records.get(id);
+      const previouslyDirty = dirty.has(id);
       const result = await options.getStore().drainDraft(captured);
       if (revision === generation && !disposed) {
-        remember(result.draft); committed.set(result.draft.id, JSON.stringify(result.draft)); saves.delete(id);
+        rememberCommit(result.draft, beforeDrain, previouslyDirty);
+        if (saves.get(id) === captured) saves.delete(id);
         publish(result.draft);
-        try { options.onEntry(result.entry); } catch (error) { console.error('Результат записан, но представление не обновилось.', error); }
+        try { options.onEntry(result.entry, result.linkedRoute); } catch (error) { console.error('Результат записан, но представление не обновилось.', error); }
         notify();
       }
       return result;
@@ -143,27 +185,33 @@ export function createPracticeDrafts(options: Options) {
   }
 
   return {
-    capture(force = false) { return capture(force); },
+    capture(force = false) { return clone(capture(force)); },
     captureClosed(source: PracticeBinding) { capture(false, source); },
     bind(next: PracticeBinding | null) { capture(); binding = next; currentId = null; capture(); },
-    current(force = false) { return capture(force); },
+    current(force = false) { return clone(capture(force)); },
+    peek() { return clone(currentId === null || retired.has(currentId) ? null : records.get(currentId) ?? null); },
     get(id: string) { const value = records.get(id); return value ? clone(value) : null; },
-    hasPendingChanges() { return [...records.values()].some(value => !retired.has(value.id) && committed.get(value.id) !== JSON.stringify(value)); },
+    hasPendingChanges() { return dirty.size > 0; },
     all() { return [...records.values()].filter(value => value.totalReferenceMs > value.recordedThroughMs || value.note.trim()).map(clone); },
     edit, save, flush,
     async remove(id: string) {
       capture(); const revision = generation; const key = `draft:${id}`;
       const pendingSave = saves.get(id); const saveKey = pendingSave ? `draft-save:${pendingSave.historyId}` : null;
-      retired.add(id); options.supersede?.(key);
+      retired.add(id); unindex(id); dirty.delete(id); options.supersede?.(key);
       if (saveKey) options.supersede?.(saveKey);
       await options.write(async () => {
         if (disposed || revision !== generation) return;
         await options.getStore().deletePracticeDraft(id);
-        if (revision === generation && !disposed) { records.delete(id); committed.delete(id); saves.delete(id); retired.delete(id); if (saveKey) options.resolveSuperseded?.(saveKey); if (currentId === id) currentId = null; notify(); }
+        if (revision === generation && !disposed) { records.delete(id); saves.delete(id); retired.delete(id); if (saveKey) options.resolveSuperseded?.(saveKey); if (currentId === id) currentId = null; notify(); }
       }, key);
     },
-    reload(values: readonly PracticeDraft[]) { generation++; binding = null; records.clear(); committed.clear(); clocks.clear(); saves.clear(); retired.clear(); currentId = null; if (debounce) { clearTimeout(debounce); debounce = null; } for (const draft of values) { records.set(draft.id, clone(draft)); committed.set(draft.id, JSON.stringify(draft)); } notify(); },
-    dispose() { disposed = true; generation++; if (debounce) clearTimeout(debounce); records.clear(); binding = null; },
+    reload(values: readonly PracticeDraft[]) {
+      generation++; binding = null; records.clear(); byMaterialDay.clear(); keysById.clear(); dirty.clear(); clocks.clear(); saves.clear(); retired.clear(); currentId = null;
+      if (debounce) { clearTimeout(debounce); debounce = null; }
+      for (const draft of values) { records.set(draft.id, clone(draft)); index(draft.id, `${draft.localDate}:${materialKey(draft)}`); }
+      notify();
+    },
+    dispose() { disposed = true; generation++; if (debounce) clearTimeout(debounce); records.clear(); byMaterialDay.clear(); keysById.clear(); dirty.clear(); clocks.clear(); saves.clear(); retired.clear(); binding = null; },
   };
 }
 

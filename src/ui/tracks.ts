@@ -2,10 +2,11 @@ import './tracks.css';
 import { createTracksPlayer } from '../audio/tracks';
 import { TRACK_LIMITS, TracksError, setTracksPlayback, validateTracksManifest, type TracksManifest } from '../tracks';
 import { confirmAction } from './confirm';
+import { createActiveFrame } from './active-frame';
 
 export interface TracksOptions {
   readonly onPreferencesChange?: () => void;
-  readonly onBeforePlay?: () => void;
+  readonly onBeforePlay?: () => boolean | void;
 }
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, mark => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[mark]!);
 function timeText(seconds: number) { const hundredths = Math.max(0, Math.round(seconds * 100)); return `${Math.floor(hundredths / 6000)}:${String(Math.floor(hundredths / 100) % 60).padStart(2, '0')},${String(hundredths % 100).padStart(2, '0')}`; }
@@ -22,11 +23,12 @@ export function mountTracks(container: HTMLElement, options: TracksOptions = {})
   let error = '', notice = '';
   let fromDraft: string | null = null, toDraft: string | null = null, rateDraft: string | null = null;
   let lastAnnouncement = '';
-  let frame: number;
+  let controlSignature = '';
+  const frame = createActiveFrame(update);
   const controller = new AbortController();
   container.classList.add('tracks-section');
 
-  function snapshot() { return player.getSnapshot(); }
+  function snapshot() { return player.getPlaybackState(); }
   function field<T extends HTMLInputElement = HTMLInputElement>(name: string) { return container.querySelector<T>(`[data-tracks-setting="${name}"]`); }
   function changed() { options.onPreferencesChange?.(); }
   function number(raw: string, label: string) { if (!raw.trim() || !Number.isFinite(Number(raw))) throw new RangeError(`${label}: укажи корректное число.`); return Number(raw); }
@@ -52,7 +54,12 @@ export function mountTracks(container: HTMLElement, options: TracksOptions = {})
     const manifest = player.getManifest(), state = snapshot();
     const bound = new Set(state.boundTrackIds);
     const duration = manifest ? Math.max(...manifest.tracks.map(track => track.decoded.duration)) : 0;
-    container.innerHTML = `<div class="tracks-heading"><div><p class="eyebrow">ЛИЧНЫЕ ЗАПИСИ</p><h2>Слушай фрагмент. Играй свою партию.</h2></div><p>Один файл или до четырёх готовых дорожек.<br>Общий старт, фрагмент и время.</p></div><p class="tracks-intro">Выбери локальные WAV/MP3: до четырёх файлов, каждый не больше 64 МиБ. Готовые отдельные партии (stems) должны начинаться в одной точке; автоматического выравнивания и выделения инструментов здесь нет.</p><div class="tracks-file-actions"><label class="tracks-file-button">${manifest ? 'Открыть новый набор' : 'Выбрать аудиофайлы'}<input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg" multiple aria-label="Новый набор аудиофайлов" data-tracks-files${busy ? ' disabled' : ''}></label>${manifest ? `<label class="tracks-file-button secondary">Привязать исходные файлы<input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg" multiple aria-label="Привязать исходные файлы" data-tracks-rebind${busy ? ' disabled' : ''}></label><button class="text-button" type="button" data-tracks-action="clear"${busy ? ' disabled' : ''}>Очистить набор</button>` : ''}${busy === 'load' || busy === 'rebind' ? '<button class="text-button" type="button" data-tracks-action="cancel-load">Отменить загрузку</button>' : ''}</div><p class="tracks-load-status" role="status" data-testid="tracks-load-status">${busy === 'load' ? 'Читаем и декодируем выбранные файлы…' : busy === 'rebind' ? 'Проверяем содержимое и привязываем файлы по очереди…' : manifest ? `Готово ${bound.size} из ${manifest.tracks.length} дорожек` : 'Файлы остаются на этом компьютере.'}</p><p class="tracks-error" role="alert" data-testid="tracks-error" hidden></p><p class="tracks-notice" role="status" data-testid="tracks-notice" hidden></p>${manifest ? `<div class="tracks-list" data-testid="tracks-list">${manifest.tracks.map((track, index) => `<article class="tracks-track${bound.has(track.id) ? '' : ' is-missing'}" data-track-id="${escapeHtml(track.id)}"><div class="tracks-track-name"><span class="tracks-number">${String(index + 1).padStart(2, '0')}</span><div><h3>${escapeHtml(track.name)}</h3><p>${timeText(track.decoded.duration)} · ${megabytes(track.size)} · ${track.decoded.channels} ${track.decoded.channels === 1 ? 'канал' : 'канала'}</p></div><strong class="tracks-file-state" data-track-bound="${bound.has(track.id)}">${bound.has(track.id) ? 'Файл привязан' : 'Нужен исходный файл'}</strong></div><div class="tracks-track-mix"><label><span>Громкость</span><input type="range" min="0" max="100" step="1" value="${Math.round(track.volume * 100)}" aria-label="Громкость дорожки ${index + 1}" data-track-volume="${escapeHtml(track.id)}"${busy === 'load' || busy === 'rebind' ? ' disabled' : ''}><output data-track-volume-output="${escapeHtml(track.id)}">${Math.round(track.volume * 100)}%</output></label><label class="tracks-check"><input type="checkbox" aria-label="Выключить дорожку ${index + 1}" data-track-mute="${escapeHtml(track.id)}"${track.muted ? ' checked' : ''}${busy === 'load' || busy === 'rebind' ? ' disabled' : ''}><span>Выключить</span></label><label class="tracks-rebind-one">${bound.has(track.id) ? 'Найти тот же исходный файл' : 'Выбрать этот файл'}<input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg" aria-label="Исходный файл дорожки ${index + 1}" data-track-rebind="${escapeHtml(track.id)}"${busy ? ' disabled' : ''}></label></div></article>`).join('')}</div>${!state.ready ? '<p class="tracks-missing-notice" role="status" data-testid="tracks-missing">В сохранённом наборе есть только названия и метки. Выбери исходные файлы снова — проверим содержимое (SHA-256) и размер. Имена файлов могут отличаться. Старт доступен после привязки всех дорожек.</p>' : ''}<div class="tracks-clip-controls"><fieldset><legend>Фрагмент исходника · A включено, B исключено</legend><label class="tracks-field"><span>A · начало, с</span><input type="number" min="0" max="${duration}" step="any" value="${escapeHtml(fromDraft ?? inputTime(manifest.clip.from))}" aria-label="Начало фрагмента A" data-tracks-setting="from"></label><span class="tracks-clip-dash">—</span><label class="tracks-field"><span>B · конец, с</span><input type="number" min="0" max="${duration}" step="any" value="${escapeHtml(toDraft ?? inputTime(manifest.clip.to))}" aria-label="Конец фрагмента B" data-tracks-setting="to"></label></fieldset><label class="tracks-check"><input type="checkbox" aria-label="Повторять аудиофрагмент" data-tracks-setting="loop"${manifest.loop ? ' checked' : ''}><span>По кругу</span></label><label class="tracks-field"><span>Скорость · меняет высоту</span><input type="number" min="0.5" max="1.5" step="0.05" value="${escapeHtml(rateDraft ?? String(manifest.rate))}" aria-label="Скорость с изменением высоты" data-tracks-setting="rate"></label><button class="secondary-button" type="button" data-tracks-action="from-here">Начало здесь</button><button class="secondary-button" type="button" data-tracks-action="to-here">Конец здесь</button><button class="text-button" type="button" data-tracks-action="full-clip">Весь файл</button></div><p class="tracks-edit-help">Минимум фрагмента — 0,05 с. «Начало здесь» и «Конец здесь» ставят воспроизведение на паузу и используют текущую позицию. Для выбора за пределами участка сначала нажми «Весь файл».</p><p class="tracks-rate-warning" data-testid="tracks-rate-warning">${manifest.rate === 1 ? 'Скорость ×1: исходная высота. A включается, B исключается; короткая дорожка заканчивается тишиной до общей границы.' : `Скорость ×${manifest.rate.toLocaleString('ru-RU')}: высота тоже меняется. Это varispeed, без сохранения исходной высоты.`}</p><div class="tracks-transport"><button class="primary-button" type="button" data-tracks-action="play">${state.state === 'paused' ? 'Продолжить' : 'Старт'}<span aria-hidden="true">▶</span></button><button class="secondary-button" type="button" data-tracks-action="pause">Пауза</button><button class="text-button" type="button" data-tracks-action="stop">Стоп</button></div><p class="tracks-edit-help">Время ниже — абсолютная позиция в исходной записи, а не время от начала фрагмента.</p><div class="tracks-position"><label><span class="sr-only">Позиция аудиофрагмента</span><input type="range" min="${manifest.clip.from}" max="${manifest.clip.to}" step="0.01" value="${state.position}" aria-label="Позиция аудиофрагмента" data-tracks-setting="seek"></label><output data-testid="tracks-position">${timeText(state.position)} / ${timeText(duration)}</output></div><p class="tracks-play-status" data-testid="tracks-play-status"></p><p class="tracks-edit-help" data-testid="tracks-edit-help"></p>` : '<div class="tracks-empty" data-testid="tracks-empty"><span aria-hidden="true">≋</span><h3>Твоя запись — твоя учебная петля</h3><p>Загрузи один трек для разбора или готовые отдельные партии. В JSON-копию попадут только метаданные и границы фрагмента, без аудио.</p></div>'}<details class="tracks-memory-help"><summary>Ограничение памяти</summary><p>Набор ограничен 512 МиБ расчётных декодированных данных. Декодер, прежний набор и временные копии могут требовать дополнительную память; это не гарантия пикового расхода RAM.</p></details><p class="tracks-backup-note">Резервная копия хранит названия, метки и параметры, без аудиофайлов. После перезагрузки и восстановления исходные файлы нужно привязать повторно.</p><span class="sr-only" role="status" data-tracks-live></span>`;
+    container.innerHTML = `
+      <div class="studio-file-row"><p class="tracks-intro">Выбери локальные WAV/MP3: до четырёх файлов, каждый не больше 64 МиБ. Готовые отдельные партии (stems) должны начинаться в одной точке; автоматического выравнивания и выделения инструментов здесь нет.</p><div class="tracks-file-actions studio-file-actions"><label class="primary-button button-compact">${manifest ? 'Открыть новый набор' : 'Выбрать аудиофайлы'}<input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg" multiple aria-label="Новый набор аудиофайлов" data-tracks-files${busy ? ' disabled' : ''}></label>${manifest ? `<label class="secondary-button button-compact">Привязать исходные файлы<input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg" multiple aria-label="Привязать исходные файлы" data-tracks-rebind${busy ? ' disabled' : ''}></label><button class="text-button button-compact" type="button" data-tracks-action="clear"${busy ? ' disabled' : ''}>Очистить набор</button>` : ''}${busy === 'load' || busy === 'rebind' ? '<button class="text-button button-compact" type="button" data-tracks-action="cancel-load">Отменить загрузку</button>' : ''}</div></div>
+      <p class="tracks-load-status studio-status" role="status" data-testid="tracks-load-status">${busy === 'load' ? 'Читаем и декодируем выбранные файлы…' : busy === 'rebind' ? 'Проверяем содержимое и привязываем файлы по очереди…' : manifest ? `Готово ${bound.size} из ${manifest.tracks.length} дорожек` : 'Файлы остаются на этом компьютере.'}</p><p class="status-error" role="alert" data-testid="tracks-error" hidden></p><p class="status-notice" role="status" data-testid="tracks-notice" hidden></p>${manifest ? `<div class="tracks-list" data-testid="tracks-list">${manifest.tracks.map((track, index) => `<article class="tracks-track content-panel content-panel-raised${bound.has(track.id) ? '' : ' is-missing'}" data-track-id="${escapeHtml(track.id)}"><div class="tracks-track-name"><span class="tracks-number">${String(index + 1).padStart(2, '0')}</span><div><h3>${escapeHtml(track.name)}</h3><p>${timeText(track.decoded.duration)} · ${megabytes(track.size)} · ${track.decoded.channels} ${track.decoded.channels === 1 ? 'канал' : 'канала'}</p></div><strong class="tracks-file-state" data-track-bound="${bound.has(track.id)}">${bound.has(track.id) ? 'Файл привязан' : 'Нужен исходный файл'}</strong></div><div class="tracks-track-mix"><label><span>Громкость</span><input type="range" min="0" max="100" step="1" value="${Math.round(track.volume * 100)}" aria-label="Громкость дорожки ${index + 1}" data-track-volume="${escapeHtml(track.id)}"${busy === 'load' || busy === 'rebind' ? ' disabled' : ''}><output data-track-volume-output="${escapeHtml(track.id)}">${Math.round(track.volume * 100)}%</output></label><label class="tracks-check"><input type="checkbox" aria-label="Выключить дорожку ${index + 1}" data-track-mute="${escapeHtml(track.id)}"${track.muted ? ' checked' : ''}${busy === 'load' || busy === 'rebind' ? ' disabled' : ''}><span>Выключить</span></label><label class="tracks-rebind-one secondary-button button-compact">${bound.has(track.id) ? 'Найти тот же исходный файл' : 'Выбрать этот файл'}<input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg" aria-label="Исходный файл дорожки ${index + 1}" data-track-rebind="${escapeHtml(track.id)}"${busy ? ' disabled' : ''}></label></div></article>`).join('')}</div>${!state.ready ? '<p class="tracks-missing-notice" role="status" data-testid="tracks-missing">В сохранённом наборе есть только названия и метки. Выбери исходные файлы снова — проверим содержимое (SHA-256) и размер. Имена файлов могут отличаться. Старт доступен после привязки всех дорожек.</p>' : ''}<div class="tracks-clip-controls"><fieldset><legend>Фрагмент исходника · A включено, B исключено</legend><label class="tracks-field"><span class="form-label">A · начало, с</span><input type="number" class="form-control" min="0" max="${duration}" step="any" value="${escapeHtml(fromDraft ?? inputTime(manifest.clip.from))}" aria-label="Начало фрагмента A" data-tracks-setting="from"></label><span class="tracks-clip-dash">—</span><label class="tracks-field"><span class="form-label">B · конец, с</span><input type="number" class="form-control" min="0" max="${duration}" step="any" value="${escapeHtml(toDraft ?? inputTime(manifest.clip.to))}" aria-label="Конец фрагмента B" data-tracks-setting="to"></label></fieldset><label class="tracks-check"><input type="checkbox" aria-label="Повторять аудиофрагмент" data-tracks-setting="loop"${manifest.loop ? ' checked' : ''}><span>По кругу</span></label><label class="tracks-field"><span class="form-label">Скорость · меняет высоту</span><input type="number" class="form-control" min="0.5" max="1.5" step="0.05" value="${escapeHtml(rateDraft ?? String(manifest.rate))}" aria-label="Скорость с изменением высоты" data-tracks-setting="rate"></label><button class="secondary-button" type="button" data-tracks-action="from-here">Начало здесь</button><button class="secondary-button" type="button" data-tracks-action="to-here">Конец здесь</button><button class="text-button button-compact" type="button" data-tracks-action="full-clip">Весь файл</button></div><p class="tracks-edit-help">Минимум фрагмента — 0,05 с. «Начало здесь» и «Конец здесь» ставят воспроизведение на паузу и используют текущую позицию. Для выбора за пределами участка сначала нажми «Весь файл».</p><p class="tracks-rate-warning" data-testid="tracks-rate-warning">${manifest.rate === 1 ? 'Скорость ×1: исходная высота. A включается, B исключается; короткая дорожка заканчивается тишиной до общей границы.' : `Скорость ×${manifest.rate.toLocaleString('ru-RU')}: высота тоже меняется. Это varispeed, без сохранения исходной высоты.`}</p><section class="tracks-player content-panel content-panel-raised" aria-label="Проигрывание"><div class="studio-playback"><button class="primary-button button-compact" type="button" data-tracks-action="play">${state.state === 'paused' ? 'Продолжить' : 'Старт'}<span aria-hidden="true">▶</span></button><button class="secondary-button button-compact" type="button" data-tracks-action="pause">Пауза</button><button class="secondary-button button-compact" type="button" data-tracks-action="stop">Стоп</button></div>
+      <div class="studio-timeline"><label><span class="sr-only">Позиция аудиофрагмента</span><input type="range" min="${manifest.clip.from}" max="${manifest.clip.to}" step="0.01" value="${state.position}" aria-label="Позиция аудиофрагмента" data-tracks-setting="seek"></label><output data-testid="tracks-position">${timeText(state.position)} / ${timeText(duration)}</output></div>
+      <p class="tracks-edit-help">Время показано от начала исходной записи.</p><p class="tracks-play-status studio-status" data-testid="tracks-play-status"></p><p class="tracks-edit-help" data-testid="tracks-edit-help"></p></section>` : '<div class="tracks-empty studio-empty" data-testid="tracks-empty"><span aria-hidden="true">≋</span><h3>Твоя запись — твоя учебная петля</h3><p>Загрузи один трек для разбора или готовые отдельные партии. В JSON-копию попадут только метаданные и границы фрагмента, без аудио.</p></div>'}<details class="tracks-memory-help"><summary class="section-disclosure">Ограничение памяти</summary><p>Набор ограничен 512 МиБ расчётных декодированных данных. Декодер, прежний набор и временные копии могут требовать дополнительную память; это не гарантия пикового расхода RAM.</p></details><p class="tracks-backup-note">Резервная копия хранит названия, метки и параметры, без аудиофайлов. После перезагрузки и восстановления исходные файлы нужно привязать повторно.</p><span class="sr-only" role="status" data-tracks-live></span>`;
+    controlSignature = '';
     refreshMessage(); update();
     if (visible && focused) {
       const next = focusSetting ? field(focusSetting) : focusAction ? container.querySelector<HTMLButtonElement>(`[data-tracks-action="${focusAction}"]`) : null;
@@ -60,13 +67,10 @@ export function mountTracks(container: HTMLElement, options: TracksOptions = {})
       else container.querySelector<HTMLInputElement>('[data-tracks-files]')?.focus({ preventScroll: true });
     }
   }
-  function update() {
-    if (disposed) return;
-    const state = snapshot(), manifest = player.getManifest();
-    container.dataset.tracksState = state.state;
-    container.dataset.tracksReady = String(state.ready);
-    container.dataset.tracksBound = String(state.boundTrackIds.length);
-    if (!manifest) return;
+  function updateControls(state: ReturnType<typeof snapshot>) {
+    const signature = `${state.state}/${state.ready}/${busy ?? ''}`;
+    if (signature === controlSignature) return;
+    controlSignature = signature;
     const playing = state.state === 'playing' || state.state === 'starting';
     const loading = busy === 'load' || busy === 'rebind';
     for (const name of ['from', 'to', 'loop', 'rate']) { const input = field(name); if (input) input.disabled = playing || busy !== null; }
@@ -83,11 +87,26 @@ export function mountTracks(container: HTMLElement, options: TracksOptions = {})
     }
     const pause = container.querySelector<HTMLButtonElement>('[data-tracks-action="pause"]'); if (pause) pause.disabled = !playing || loading;
     const stop = container.querySelector<HTMLButtonElement>('[data-tracks-action="stop"]'); if (stop) stop.disabled = (!playing && state.state !== 'paused' && state.state !== 'finished') || loading;
-    const seek = field('seek'); if (seek) { seek.disabled = busy !== null; if (document.activeElement !== seek) seek.value = String(state.position); }
-    const position = container.querySelector<HTMLOutputElement>('[data-testid="tracks-position"]'); if (position) position.value = `${timeText(state.position)} / ${timeText(Math.max(...manifest.tracks.map(track => track.decoded.duration)))}`;
+    const seek = field('seek'); if (seek) seek.disabled = busy !== null;
+    const help = container.querySelector<HTMLElement>('[data-testid="tracks-edit-help"]'); if (help) help.textContent = playing ? 'Поставь воспроизведение на паузу, чтобы изменить фрагмент, повтор или скорость. Громкость и перемещение доступны сейчас.' : 'Настрой A–B, повтор и скорость перед продолжением. Файлы используют общую временную шкалу.';
+  }
+  function update() {
+    if (disposed) return;
+    const state = snapshot(), manifest = player.getManifest();
+    frame.setActive(visible && !document.hidden && (state.state === 'playing' || state.state === 'starting'));
+    const ready = String(state.ready), bound = String(state.boundTrackIds.length);
+    if (container.dataset.tracksState !== state.state) container.dataset.tracksState = state.state;
+    if (container.dataset.tracksReady !== ready) container.dataset.tracksReady = ready;
+    if (container.dataset.tracksBound !== bound) container.dataset.tracksBound = bound;
+    if (!manifest) return;
+    updateControls(state);
+    const seek = field('seek');
+    if (seek && document.activeElement !== seek && seek.valueAsNumber !== state.position) seek.value = String(state.position);
+    const position = container.querySelector<HTMLOutputElement>('[data-testid="tracks-position"]');
+    const positionText = `${timeText(state.position)} / ${timeText(Math.max(...manifest.tracks.map(track => track.decoded.duration)))}`;
+    if (position && position.value !== positionText) position.value = positionText;
     const labels: Record<typeof state.state, string> = { stopped: state.ready ? 'Готово к воспроизведению' : 'Нужны исходные файлы', starting: 'Подготавливаем звук…', playing: `Звучит фрагмент · проход ${state.cycleIndex + 1}`, paused: state.pauseReason === 'hidden' ? 'Пауза: вкладка скрывалась. Продолжи явно.' : 'На паузе', finished: 'Фрагмент завершён' };
     const status = container.querySelector<HTMLElement>('[data-testid="tracks-play-status"]'); if (status && status.textContent !== labels[state.state]) status.textContent = labels[state.state];
-    const help = container.querySelector<HTMLElement>('[data-testid="tracks-edit-help"]'); if (help) help.textContent = playing ? 'Поставь воспроизведение на паузу, чтобы изменить фрагмент, повтор или скорость. Громкость и перемещение доступны сейчас.' : 'Настрой A–B, повтор и скорость перед продолжением. Файлы используют общую временную шкалу.';
     const announced = `${state.state}/${state.pauseReason ?? ''}/${state.ready}`;
     if (announced !== lastAnnouncement) { lastAnnouncement = announced; const live = container.querySelector<HTMLElement>('[data-tracks-live]'); if (live) live.textContent = labels[state.state]; }
   }
@@ -154,7 +173,7 @@ export function mountTracks(container: HTMLElement, options: TracksOptions = {})
   async function act(action: string) {
     if (disposed || (busy && action !== 'stop' && action !== 'cancel-load')) return;
     if (action === 'cancel-load') { cancelLoad(); return; }
-    if (action === 'stop') { stop(); render(); return; }
+    if (action === 'stop') { stop(); return; }
     if (action === 'pause') { pause(); return; }
     if (action === 'clear') {
       const manifest = player.getManifest();
@@ -170,8 +189,12 @@ export function mountTracks(container: HTMLElement, options: TracksOptions = {})
     try {
       error = '';
       if (action === 'play') {
-        getPreferences(); options.onBeforePlay?.(); busy = 'transport'; update();
-        await currentPlayer.play();
+        getPreferences();
+        if (options.onBeforePlay?.() === false) return;
+        busy = 'transport';
+        const pending = currentPlayer.play();
+        update();
+        await pending;
       } else if (action === 'full-clip') {
         const manifest = currentPlayer.getManifest(); if (!manifest) return;
         currentPlayer.setClip({ from: 0, to: Math.max(...manifest.tracks.map(track => track.decoded.duration)) });
@@ -237,13 +260,17 @@ export function mountTracks(container: HTMLElement, options: TracksOptions = {})
   document.addEventListener('visibilitychange', () => {
     if (visible && document.hidden && ['playing', 'starting'].includes(snapshot().state)) { pause('hidden'); notice = 'Вкладка скрывалась. Продолжи воспроизведение явно.'; refreshMessage(); }
   }, { signal: controller.signal });
-  function draw() { if (disposed) return; if (visible) update(); frame = requestAnimationFrame(draw); }
-  render(); frame = requestAnimationFrame(draw);
+  render();
   return {
     getPreferences, applyPreferences,
-    setVisible(next: boolean) { if (visible && !next) { stop(); render(); } visible = next; container.hidden = !next; },
+    setVisible(next: boolean) {
+      if (disposed || visible === next) return;
+      visible = next; container.hidden = !next;
+      if (visible) update();
+      else stop();
+    },
     stop, pause,
-    getSnapshot: snapshot,
-    dispose() { if (disposed) return; stop(); disposed = true; controller.abort(); cancelAnimationFrame(frame); void player.dispose(); container.innerHTML = ''; },
+    getSnapshot: () => player.getSnapshot(),
+    dispose() { if (disposed) return; stop(); disposed = true; controller.abort(); frame.setActive(false); void player.dispose(); container.innerHTML = ''; },
   };
 }

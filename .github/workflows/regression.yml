@@ -1,0 +1,38 @@
+name: Windows Edge regression
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  portable:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Check Edge installation
+        run: |
+          $edge = Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe'
+          if (-not (Test-Path -LiteralPath $edge)) { npx playwright install msedge }
+      - run: npm run test:regression
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: portable-regression
+          path: |
+            test-results/regression-*/summary.json
+            test-results/regression-*/inputs.json
+            test-results/regression-*/build.json
+            test-results/regression-*/reports/**/*.json
+            test-results/regression-*/logs/*.log

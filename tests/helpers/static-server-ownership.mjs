@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 export async function inspectStaticServer(origin, builtIndex, reuseRequested) {
   const expected = await readFile(builtIndex);
   let response;
-  try { response = await fetch(origin, { signal: AbortSignal.timeout(700) }); }
+  try { response = await fetch(origin, { signal: AbortSignal.timeout(700), redirect: 'manual' }); }
   catch { return { external: false, evidence: { reuseRequested, owned: true, mode: 'runner-owned', restartAllowed: true, shutdownAllowed: true } }; }
   if (!reuseRequested) throw new Error(`Port already occupied: ${origin}; use --reuse-server only for a matching local build`);
   assert.equal(response.status, 200, 'Existing local server did not return HTTP 200');

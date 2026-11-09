@@ -1,20 +1,18 @@
+import { browserRun, startBrowserBuild, writeBrowserReport, startBrowserFixture, launchTestBuild } from './browser-runner.mjs';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
-import { createServer } from 'vite';
 
 export async function runReleaseBrowserChecks(checks) {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-  const origin = 'http://localhost:4173';
-  const fixtureOrigin = 'http://127.0.0.1:4183';
-  const fixtureUrl = `${fixtureOrigin}/tests/fixtures/migration.html`;
-  const resultDir = join(root, 'test-results');
-  const reuseRequested = process.argv.includes('--reuse-server');
+  const config = browserRun(root);
+  let origin = config.origin;
+  let fixtureOrigin = null;
+  let fixtureUrl;
+  const { resultDir, reuseRequested } = config;
   const report = {
     generatedAt: new Date().toISOString(), platform: process.platform, architecture: process.arch,
     node: process.version, browserChannel: 'msedge', browserVersion: null, origin, fixtureOrigin,
@@ -23,7 +21,7 @@ export async function runReleaseBrowserChecks(checks) {
     staticServer: { reuseRequested, owned: false, mode: 'not-started' },
     checks: [], externalRequests: [], pageErrors: [], cleanupErrors: [],
   };
-  let browser, server, fixtureServer, temporary; let externalServer = false;
+  let browser, server, fixtureServer, temporary;
   const contexts = new Set();
   async function cleanup(name, operation) {
     try { await operation(); }
@@ -56,52 +54,41 @@ export async function runReleaseBrowserChecks(checks) {
     return { page, context, cdp };
   }
   async function closeContext(context) { await context.close(); contexts.delete(context); }
-  async function startStaticServer() {
-    assert.equal(externalServer, false, 'The runner cannot start or replace an external server');
-    server = spawn(process.execPath, [join(root, 'scripts', 'serve.mjs')], { cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    let startup = '', launchError;
-    server.on('error', error => { launchError = error; }); server.stdout.on('data', data => { startup += data; }); server.stderr.on('data', data => { startup += data; });
-    for (let attempt = 0; attempt < 100; attempt++) {
-      if (launchError) throw launchError;
-      if (server.exitCode !== null) throw new Error(`Static server exited: ${startup}`);
-      try { if ((await fetch(origin, { signal: AbortSignal.timeout(300) })).ok) { report.staticServer = { reuseRequested, owned: true, mode: 'runner-owned', restartAllowed: true, shutdownAllowed: true }; return; } } catch { /* starting */ }
-      await delay(50);
-    }
-    throw new Error(`Server did not become ready: ${startup}`);
-  }
   async function restartServer() {
-    if (externalServer) return false;
-    if (server?.pid && server.exitCode === null) { const done = new Promise(resolve => server.once('exit', resolve)); server.kill(); await done; }
-    await startStaticServer();
+    if (!report.staticServer.owned) return false;
+    const port = Number(new URL(origin).port);
+    await server.close();
+    server = await startBrowserBuild(config, report, port);
+    assert.equal(server.origin, origin);
     return true;
   }
+  async function refuseOccupiedServer() {
+    const port = Number(new URL(origin).port);
+    try {
+      const duplicate = await launchTestBuild(config.directory, port);
+      await duplicate.close();
+    } catch (error) {
+      assert.match(error.message, /EADDRINUSE/);
+      return error.message;
+    }
+    throw new Error('The static server opened a second listener on the occupied port');
+  }
+
   try {
-    const expectedIndex = await readFile(join(root, 'dist', 'index.html'));
-    let existing;
-    try { existing = await fetch(origin, { signal: AbortSignal.timeout(500), redirect: 'error' }); } catch { /* no usable HTTP listener */ }
-    if (existing) {
-      assert.ok(reuseRequested, `Port already occupied: ${origin}; explicit --reuse-server is required`);
-      assert.equal(existing.status, 200, 'Existing server must return the built index directly');
-      assert.ok(Buffer.from(await existing.arrayBuffer()).equals(expectedIndex), 'Existing server index differs from root/dist/index.html; refusing reuse');
-      externalServer = true;
-      report.staticServer = { reuseRequested, owned: false, mode: 'external-reused', indexVerifiedByteForByte: true, restartAllowed: false, shutdownAllowed: false };
-    }
-    for (const url of [fixtureOrigin]) {
-      try { await fetch(url, { signal: AbortSignal.timeout(500) }); throw new Error(`Port already occupied: ${url}`); }
-      catch (error) { if (error.message.startsWith('Port already occupied:')) throw error; }
-    }
+    server = await startBrowserBuild(config, report);
+    origin = server.origin;
     await mkdir(resultDir, { recursive: true });
     temporary = await mkdtemp(join(tmpdir(), 'bass-study-p6-'));
-    fixtureServer = await createServer({ configFile: false, root, server: { host: '127.0.0.1', port: 4183, strictPort: true }, clearScreen: false, logLevel: 'warn' });
-    await fixtureServer.listen();
-    if (!externalServer) await startStaticServer();
+    fixtureServer = await startBrowserFixture(root, config, 4183, report);
+    fixtureOrigin = report.fixtureOrigin;
+    fixtureUrl = `${fixtureOrigin}/tests/fixtures/migration.html`;
     browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--mute-audio'] }); report.browserVersion = browser.version();
     for (const { name, scope = 'api', memory = false, run } of checks) {
       const started = performance.now(); let context;
       try {
         const setup = scope === 'persistent' ? {} : await freshPage(scope === 'ui' ? origin : fixtureUrl, memory);
         context = setup.context;
-        const evidence = await run({ ...setup, origin, fixtureOrigin, fixtureUrl, resultDir, report, freshPage, closeContext, restartServer });
+        const evidence = await run({ ...setup, origin, fixtureOrigin, fixtureUrl, resultDir, report, freshPage, closeContext, restartServer, refuseOccupiedServer });
         report.checks.push({ name, scope, status: 'passed', durationMs: Math.round(performance.now() - started), evidence }); console.log(`PASS ${name}`);
       } catch (error) {
         report.checks.push({ name, scope, status: 'failed', durationMs: Math.round(performance.now() - started), error: error.stack || String(error) }); console.error(`FAIL ${name}: ${error.message}`);
@@ -116,18 +103,13 @@ export async function runReleaseBrowserChecks(checks) {
     for (const context of contexts) await cleanup('remaining-context', () => context.close());
     await cleanup('browser', async () => { await browser?.close(); });
     await cleanup('fixture-server', async () => { await fixtureServer?.close(); });
-    await cleanup('static-server', async () => {
-      if (!externalServer && server?.pid && server.exitCode === null) { const done = new Promise(resolve => server.once('exit', resolve)); server.kill(); await done; }
-    });
+    await cleanup('static-server', async () => { await server?.close(); });
     await cleanup('isolated-profiles', async () => {
       if (!temporary) return;
       const parentPath = await realpath(tmpdir()); const target = await realpath(temporary); const inside = relative(parentPath, target);
       assert.ok(inside.startsWith('bass-study-p6-') && !inside.startsWith('..') && !inside.includes(sep), 'Refusing cleanup outside the isolated temp root');
       await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 });
     });
-    report.passed = report.checks.filter(check => check.status === 'passed').length; report.failed = report.checks.filter(check => check.status === 'failed').length;
-    report.status = !report.setupError && report.failed === 0 && report.cleanupErrors.length === 0 ? 'passed' : 'failed';
-    await mkdir(resultDir, { recursive: true }); await writeFile(join(resultDir, 'p6-edge.json'), JSON.stringify(report, null, 2) + '\n');
-    console.log(`${report.status}: ${report.passed} passed, ${report.failed} failed; report test-results/p6-edge.json`); process.exitCode = report.status === 'passed' ? 0 : 1;
+    await writeBrowserReport(resultDir, 'p6-edge.json', report, checks.length);
   }
 }

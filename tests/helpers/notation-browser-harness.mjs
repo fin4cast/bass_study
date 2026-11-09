@@ -1,23 +1,22 @@
+import { browserRun, startBrowserBuild, writeBrowserReport, startBrowserFixture } from './browser-runner.mjs';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { mkdir } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
-import { createServer } from 'vite';
 
 export async function runNotationBrowserChecks(checks, suite = {}) {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-  const origin = 'http://localhost:4173', fixtureOrigin = 'http://127.0.0.1:4194';
-  const fixtureUrl = `${fixtureOrigin}/tests/fixtures/notation.html`, resultDir = join(root, 'test-results');
-  const reuseRequested = process.argv.includes('--reuse-server');
+  const config = browserRun(root);
+  let origin = config.origin, fixtureOrigin = null;
+  let fixtureUrl;
+  const { resultDir, reuseRequested } = config;
   const report = { generatedAt: new Date().toISOString(), platform: process.platform, node: process.version, browserChannel: 'msedge', browserVersion: null,
     scope: suite.scope ?? 'R018 independent real SVG geometry/glyphs, local bundled fonts, keyboard/mobile/zoom and existing sequence audio cursor; synthetic notes, no physical bass assessment.',
     origin, fixtureOrigin, staticServer: { reuseRequested, owned: false, mode: 'not-started' },
     networkIsolation: 'Fresh Edge contexts, cache disabled, non-loopback HTTP denied; no user browser profile or hardware microphone.',
     checks: [], externalRequests: [], pageErrors: [], cleanupErrors: [] };
-  let server, fixtureServer, browser; let externalServer = false;
+  let server, fixtureServer, browser;
   const contexts = new Set();
   async function cleanup(name, operation) { try { await operation(); } catch (error) { report.cleanupErrors.push({ name, error: error.stack || String(error) }); } }
   async function freshPage(url) {
@@ -43,29 +42,12 @@ export async function runNotationBrowserChecks(checks, suite = {}) {
     return { page, context, cdp };
   }
   try {
-    const expectedIndex = await readFile(join(root, 'dist/index.html'));
-    let existing; try { existing = await fetch(origin, { signal: AbortSignal.timeout(500), redirect: 'error' }); } catch { /* runner may own a new server */ }
-    if (existing) {
-      assert.ok(reuseRequested, 'Port4173 is occupied; explicit --reuse-server required.');
-      assert.equal(existing.status, 200); assert.ok(Buffer.from(await existing.arrayBuffer()).equals(expectedIndex), 'Existing server differs from root/dist index.');
-      externalServer = true; report.staticServer = { reuseRequested, owned: false, mode: 'external-reused', indexVerifiedByteForByte: true, shutdownAllowed: false };
-    }
-    try { await fetch(fixtureOrigin, { signal: AbortSignal.timeout(500) }); throw new Error('Fixture port4194 is occupied.'); }
-    catch (error) { if (error.message === 'Fixture port4194 is occupied.') throw error; }
-    fixtureServer = await createServer({ configFile: false, root, server: { host: '127.0.0.1', port: 4194, strictPort: true }, logLevel: 'warn', clearScreen: false });
-    await fixtureServer.listen(); await mkdir(resultDir, { recursive: true });
-    if (!externalServer) {
-      server = spawn(process.execPath, [join(root, 'scripts/serve.mjs')], { cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-      let startup = '', failure; server.on('error', error => { failure = error; });
-      server.stdout.on('data', value => { startup += value; }); server.stderr.on('data', value => { startup += value; });
-      let ready = false;
-      for (let i = 0; i < 100; i++) {
-        if (failure) throw failure; if (server.exitCode !== null) throw new Error(`Static server exited: ${startup}`);
-        try { if ((await fetch(origin, { signal: AbortSignal.timeout(300) })).ok) { ready = true; break; } } catch { /* starting */ }
-        await delay(50);
-      }
-      assert.ok(ready, startup); report.staticServer = { reuseRequested, owned: true, mode: 'runner-owned', shutdownAllowed: true };
-    }
+    server = await startBrowserBuild(config, report);
+    origin = server.origin;
+    await mkdir(resultDir, { recursive: true });
+    fixtureServer = await startBrowserFixture(root, config, 4194, report);
+    fixtureOrigin = report.fixtureOrigin;
+    fixtureUrl = `${fixtureOrigin}/tests/fixtures/notation.html`;
     browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--mute-audio'] }); report.browserVersion = browser.version();
     for (const { name, scope = 'fixture', run } of checks) {
       const started = performance.now(); let context;
@@ -81,11 +63,7 @@ export async function runNotationBrowserChecks(checks, suite = {}) {
   finally {
     for (const context of contexts) await cleanup('remaining-context', () => context.close());
     await cleanup('browser', async () => { await browser?.close(); }); await cleanup('fixture-server', async () => { await fixtureServer?.close(); });
-    await cleanup('owned-static-server', async () => { if (!externalServer && server?.pid && server.exitCode === null) { const exited = new Promise(resolve => server.once('exit', resolve)); server.kill(); await exited; } });
-    report.passed = report.checks.filter(check => check.status === 'passed').length; report.failed = report.checks.filter(check => check.status === 'failed').length;
-    report.status = !report.setupError && !report.failed && !report.cleanupErrors.length ? 'passed' : 'failed';
-    const reportName = suite.reportName ?? 'p7-notation-edge.json';
-    await mkdir(resultDir, { recursive: true }); await writeFile(join(resultDir, reportName), JSON.stringify(report, null, 2) + '\n');
-    console.log(`${report.status}: ${report.passed} passed, ${report.failed} failed; test-results/${reportName}`); process.exitCode = report.status === 'passed' ? 0 : 1;
+    await cleanup('owned-static-server', async () => { await server?.close(); });
+    await writeBrowserReport(resultDir, suite.reportName ?? 'p7-notation-edge.json', report, checks.length);
   }
 }

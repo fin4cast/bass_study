@@ -12,7 +12,7 @@ const coreName = 'alphaTab.core.mjs';
 const expectedCoreSha256 = '7d5e9412c6d0a692c569f4b8a1afda0ef76be044f2538e6f8f43e907a2cf588e';
 const digest = data => createHash('sha256').update(data).digest('hex');
 
-export async function prepareMusicBankVendor() {
+export async function prepareMusicBankVendor(directory = musicBankVendorDir) {
   let pkg;
   try { pkg = JSON.parse(await readFile(resolve(sourceDir, '../package.json'), 'utf8')); }
   catch (cause) { throw new Error('Не найдена зависимость alphaTab. Выполните npm ci перед подготовкой музбанка.', { cause }); }
@@ -68,26 +68,26 @@ export async function prepareMusicBankVendor() {
   // статическими серверами, уже раздающими JavaScript с корректным MIME.
   const rewriteModuleUrls = source => source.replace(/(["'])\.\/(alphaTab(?:\.core|\.worker|\.worklet)?|channel-layout)\.mjs\1/g, (_match, quote, name) => `${quote}./${name}.js${quote}`);
   core = rewriteModuleUrls(notice + core);
-  await mkdir(musicBankVendorDir, { recursive: true });
+  await mkdir(directory, { recursive: true });
   const assets = [];
   // Копируем только проверяемый ESM-путь, без непатченных UMD/min-альтернатив.
   for (const name of ['alphaTab.mjs', 'alphaTab.worker.mjs', 'alphaTab.worklet.mjs']) {
     const source = await readFile(resolve(sourceDir, name), 'utf8');
     const outputName = name.replace(/\.mjs$/, '.js'), output = rewriteModuleUrls(source);
-    await writeFile(resolve(musicBankVendorDir, outputName), output);
+    await writeFile(resolve(directory, outputName), output);
     assets.push({ path: outputName, sourceSha256: digest(source), sha256: digest(output) });
   }
-  for (const name of ['font', 'soundfont']) await cp(resolve(sourceDir, name), resolve(musicBankVendorDir, name), { recursive: true });
-  await cp(resolve(sourceDir, '../LICENSE'), resolve(musicBankVendorDir, 'LICENSE'));
-  await cp(resolve(sourceDir, '../LICENSE.header'), resolve(musicBankVendorDir, 'LICENSE.header'));
+  for (const name of ['font', 'soundfont']) await cp(resolve(sourceDir, name), resolve(directory, name), { recursive: true });
+  await cp(resolve(sourceDir, '../LICENSE'), resolve(directory, 'LICENSE'));
+  await cp(resolve(sourceDir, '../LICENSE.header'), resolve(directory, 'LICENSE.header'));
   const helper = await readFile(sourceHelper);
-  await writeFile(resolve(musicBankVendorDir, 'channel-layout.js'), helper);
-  await writeFile(resolve(musicBankVendorDir, 'alphaTab.core.js'), core);
+  await writeFile(resolve(directory, 'channel-layout.js'), helper);
+  await writeFile(resolve(directory, 'alphaTab.core.js'), core);
   assets.push({ path: 'channel-layout.js', sourceSha256: digest(helper), sha256: digest(helper) });
   assets.push({ path: 'alphaTab.core.js', sourceSha256: expectedCoreSha256, sha256: digest(core) });
   // Удаляются только известные прежние generated имена, без рекурсивного удаления.
   for (const name of ['alphaTab.mjs', 'alphaTab.core.mjs', 'alphaTab.worker.mjs', 'alphaTab.worklet.mjs', 'channel-layout.mjs']) {
-    await rm(resolve(musicBankVendorDir, name), { force: true });
+    await rm(resolve(directory, name), { force: true });
   }
   const manifest = {
     format: 'bass-study-alphatab-local-patch', version: 1,
@@ -96,7 +96,7 @@ export async function prepareMusicBankVendor() {
     helperSha256: digest(helper), changes, assets,
     note: 'Локальная поставка музбанка bass_study. Исходники npm и GP не изменены; PCM не хранится.'
   };
-  await writeFile(resolve(musicBankVendorDir, 'patch-manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+  await writeFile(resolve(directory, 'patch-manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
   return manifest;
 }
 

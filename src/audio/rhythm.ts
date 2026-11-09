@@ -31,8 +31,9 @@ export interface RhythmSnapshot {
   readonly activeVoices: number; readonly trace: readonly RhythmTraceEvent[];
   readonly output: { readonly peak: number; readonly rms: number };
 }
+export type RhythmViewSnapshot = Pick<RhythmSnapshot, 'state' | 'phase' | 'position' | 'effectiveConfig' | 'bpm' | 'runtimeContextKey' | 'pauseReason'>;
 export interface RhythmPlayerOptions {
-  readonly onSnapshot?: (snapshot: RhythmSnapshot) => void;
+  readonly onSnapshot?: (snapshot: RhythmViewSnapshot) => void;
   readonly onPracticeEnd?: (clock: RhythmPracticeClock) => void;
 }
 interface PlanVersion {
@@ -67,6 +68,30 @@ const mixFor = ({ preferences, project }: RhythmPlaybackConfig): RhythmMix => Ob
 });
 const DEFAULT_MIX = mixFor({ preferences: DEFAULT_RHYTHM_PREFERENCES });
 
+const sameChannelMix = (left: RhythmChannel, right: RhythmChannel) =>
+  left.id === right.id && left.volume === right.volume && left.muted === right.muted && left.solo === right.solo;
+function sameMix(left: RhythmMix, right: RhythmMix) {
+  return left.master === right.master && left.accentVolume === right.accentVolume &&
+    left.clickVolume === right.clickVolume && left.subdivisionVolume === right.subdivisionVolume &&
+    left.channels.length === right.channels.length && left.channels.every((channel, index) => sameChannelMix(channel, right.channels[index]));
+}
+
+/** The sounding grid can lag behind the settings while the gain buses apply immediately. */
+function withMix(config: RhythmPlaybackConfig, mix: RhythmMix): RhythmPlaybackConfig {
+  if (sameMix(mixFor(config), mix)) return config;
+  const { master, accentVolume, clickVolume, subdivisionVolume } = mix;
+  const preferences = Object.freeze({ ...config.preferences, master,
+    metronome: Object.freeze({ ...config.preferences.metronome, accentVolume, clickVolume, subdivisionVolume }) });
+  if (!config.project) return Object.freeze({ preferences });
+  const channels = config.project.channels.map(channel => {
+    const applied = mix.channels.find(candidate => candidate.id === channel.id);
+    if (!applied || sameChannelMix(channel, applied)) return channel;
+    const { volume, muted, solo } = applied;
+    return Object.freeze({ ...channel, volume, muted, solo });
+  });
+  return Object.freeze({ preferences, project: Object.freeze({ ...config.project, channels: Object.freeze(channels) }) });
+}
+
 function mixSources(mix: RhythmMix): RhythmSource[] {
   return [...CLICK_SOURCES, ...mix.channels.map(channel => `lane:${channel.id}` as const)];
 }
@@ -87,8 +112,7 @@ function setGain(gain: AudioParam, value: number, at: number, smooth: boolean) {
   else { gain.cancelScheduledValues(at); gain.setValueAtTime(gain.value, at); }
   gain.linearRampToValueAtTime(value, at + MIX_RAMP);
 }
-function applyGraphMix(graph: RhythmGraph, mix: RhythmMix, smooth: boolean) {
-  const at = graph.context.currentTime;
+function applyGraphMix(graph: RhythmGraph, mix: RhythmMix, smooth: boolean, at = graph.context.currentTime) {
   const gains = gainsFor(mix);
   setGain(graph.master.gain, mix.master, at, smooth);
   for (const [source, node] of graph.buses) setGain(node.gain, gains.get(source) ?? 0, at, smooth);
@@ -197,6 +221,9 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
   let finishAt: number | null = null;
   let practiceSince: number | null = null;
   let practiceSeconds = 0;
+  let sealedPracticeSeconds = 0;
+  let practiceEpoch = 0;
+  let practiceConfig: RhythmPlaybackConfig | null = null;
   let practiceClosed = true;
   let dispatchClock: RhythmPracticeClock | null = null;
   let runId = 0;
@@ -211,24 +238,40 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
 
   const clock = () => context?.currentTime ?? 0;
   const running = () => state === 'running' || state === 'finishing';
+  const practiceKey = () => `rhythm:${runId}:${practiceEpoch}`;
   function traceEvent(type: RhythmTraceEvent['type'], time: number, frame = current, hit?: RhythmHit, continuation = false) {
     trace.push(eventFor(type, frame, time, runId, frame?.version.epoch ?? effective?.epoch ?? 0,
       frame?.frame.bpm ?? (effective ? baseBpm(effective.plan.config) : 92), hit, continuation));
     if (trace.length > TRACE_LIMIT) trace.splice(0, TRACE_LIMIT / 4);
   }
+  function elapsedPractice(at: number) {
+    return practiceSeconds + (practiceSince === null ? 0 : Math.max(0, at - practiceSince));
+  }
   function currentPractice(at: number): RhythmPracticeClock | null {
-    if (!effective || practiceClosed) return null;
-    return { playback: effective.plan.config,
-      durationMs: Math.round((practiceSeconds + (practiceSince === null ? 0 : Math.max(0, at - practiceSince))) * 1000),
-      comfortableBpm: current?.frame.bpm ?? baseBpm(effective.plan.config), runtimeContextKey: `rhythm:${runId}:${effective.epoch}` };
+    if (!practiceConfig || practiceClosed) return null;
+    // Round the running total at each boundary so short consecutive intervals do not accumulate rounding errors.
+    const durationMs = Math.round((sealedPracticeSeconds + elapsedPractice(at)) * 1000) - Math.round(sealedPracticeSeconds * 1000);
+    return { playback: practiceConfig, durationMs,
+      comfortableBpm: current?.frame.bpm ?? baseBpm(practiceConfig), runtimeContextKey: practiceKey() };
   }
   function closePractice(at: number) {
+    if (practiceClosed) return;
     const practice = currentPractice(at);
+    sealedPracticeSeconds += elapsedPractice(at);
     practiceClosed = true;
     practiceSince = null;
     if (!practice || practice.durationMs === 0 || !options.onPracticeEnd) return;
     dispatchClock = practice;
     try { options.onPracticeEnd(practice); } finally { dispatchClock = null; }
+  }
+  function switchPractice(at: number, config: RhythmPlaybackConfig) {
+    const since = practiceSince;
+    closePractice(at);
+    practiceConfig = config;
+    practiceEpoch++;
+    practiceClosed = false;
+    practiceSeconds = 0;
+    practiceSince = since === null ? null : Math.max(since, at);
   }
   function quiet(at = clock()) {
     if (timer !== null) clearInterval(timer);
@@ -246,10 +289,8 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
       while (queued.length && queued[0].at <= now) {
         const frame = queued.shift()!;
         if (frame.version !== effective) {
-          closePractice(frame.at);
+          switchPractice(frame.at, withMix(frame.version.plan.config, mix));
           effective = frame.version;
-          practiceClosed = false;
-          practiceSeconds = 0;
         }
         current = frame;
         if (frame.frame.position.phase === 'practice' && practiceSince === null) practiceSince = frame.at;
@@ -262,12 +303,18 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
       }
     } finally { updating = false; }
   }
-  function getSnapshot({ includeTrace = true }: { includeTrace?: boolean } = {}): RhythmSnapshot {
-    const now = clock();
+  function viewSnapshot(now: number): RhythmViewSnapshot {
     advanceActual(now);
-    const practice = dispatchClock ?? currentPractice(now);
     const position = state === 'stopped' || state === 'finished' ? null : current?.frame.position ?? null;
     const phase = position?.phase ?? (effective?.plan.countInSteps ? 'count-in' : 'practice');
+    return { state, phase, position, effectiveConfig: effective ? practiceConfig : null,
+      bpm: current?.frame.bpm ?? (desired ? baseBpm(desired) : 92), pauseReason,
+      runtimeContextKey: dispatchClock?.runtimeContextKey ?? (practiceClosed ? null : practiceKey()) };
+  }
+  function getSnapshot({ includeTrace = true }: { includeTrace?: boolean } = {}): RhythmSnapshot {
+    const now = clock();
+    const view = viewSnapshot(now);
+    const practice = dispatchClock ?? currentPractice(now);
     let peak = 0, squares = 0;
     const analyser = graph?.analyser;
     if (analyser) {
@@ -275,13 +322,12 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
       analyser.getFloatTimeDomainData(samples);
       for (const value of samples) { peak = Math.max(peak, Math.abs(value)); squares += value * value; }
     }
-    return { state, phase, position, effectiveConfig: effective?.plan.config ?? null, mix, audioTime: now,
-      bpm: current?.frame.bpm ?? (desired ? baseBpm(desired) : 92), runId, epoch: effective?.epoch ?? 0,
-      practiceDurationMs: practice?.durationMs ?? 0, runtimeContextKey: practice?.runtimeContextKey ?? null,
-      startAt, finishAt, pauseReason, activeVoices: voices.filter(voice => voice.start <= now && voice.end > now).length,
+    return { ...view, mix, audioTime: now, runId, epoch: effective?.epoch ?? 0,
+      practiceDurationMs: practice?.durationMs ?? 0,
+      startAt, finishAt, activeVoices: voices.filter(voice => voice.start <= now && voice.end > now).length,
       trace: includeTrace ? trace.map(event => ({ ...event })) : [], output: { peak, rms: Math.sqrt(squares / (analyser?.fftSize ?? 1)) } };
   }
-  const emit = () => options.onSnapshot?.(getSnapshot({ includeTrace: false }));
+  const emit = () => options.onSnapshot?.(viewSnapshot(clock()));
   function stop() {
     if (disposed) return;
     const now = clock();
@@ -295,11 +341,15 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
     emit();
   }
   function updateMix(value: RhythmMix, smooth = true) {
+    const changed = !sameMix(mix, value);
+    const now = clock();
+    if (changed && effective && !practiceClosed) switchPractice(now, withMix(effective.plan.config, value));
     mix = value;
-    if (graph) {
-      applyGraphMix(graph, mix, smooth);
-      setGain(graph.preview.gain, mix.master, clock(), smooth);
+    if (graph && changed) {
+      applyGraphMix(graph, mix, smooth, now);
+      setGain(graph.preview.gain, mix.master, now, smooth);
     }
+    return changed;
   }
   function setMix(change: Partial<RhythmMix>) {
     const next = { ...mix, ...change };
@@ -310,6 +360,7 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
     if (JSON.stringify(channels.map(channel => [channel.id, channel.sound])) !== JSON.stringify(mix.channels.map(channel => [channel.id, channel.sound]))) {
       throw new RangeError('Состав инструментов меняется после остановки.');
     }
+    advanceActual();
     updateMix(Object.freeze({ ...next, channels: Object.freeze(channels) }));
     emit();
   }
@@ -323,7 +374,7 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
       stop(); desired = next; updateMix(mixFor(next)); emit(); return 'stopped';
     }
     desired = next;
-    updateMix(mixFor(next));
+    if (updateMix(mixFor(next))) emit();
     if (active && audibleKey(scheduledPlan!.plan.config) !== audibleKey(next)) {
       planDirty = true;
       return 'queued';
@@ -474,9 +525,10 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
       const expected = ++generation;
       runId++; nextEpoch = 0; trace.length = 0;
       desired = plan.config; effective = scheduledPlan = { plan, tempoBaseBar: 0, epoch: 0 };
-      practiceSeconds = 0; practiceSince = null; practiceClosed = false;
+      practiceSeconds = 0; practiceSince = null; sealedPracticeSeconds = 0; practiceEpoch = 0;
       planDirty = false; waitingForBar = false;
       updateMix(mixFor(plan.config), false);
+      practiceConfig = plan.config; practiceClosed = false;
       state = 'starting'; emit();
       try {
         const audio = await acquireContext(expected);

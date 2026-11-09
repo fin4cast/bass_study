@@ -133,6 +133,7 @@ function createInternalPlayer(context: ToneContext, separateChannels: boolean) {
   let pausedTicks = 0;
   let pauseReason: string | null = null;
   let finishAt: number | null = null;
+  let interruptionAt: number | null = null;
   let finishTimer: ReturnType<typeof setTimeout> | null = null;
   let disposed = false; let offlineRendering = false;
   let manualBpm = 80;
@@ -225,7 +226,8 @@ function createInternalPlayer(context: ToneContext, separateChannels: boolean) {
     }, '16n', `${firstGrid * gridTicks}i`);
   }
   function stopInternal() {
-    cancelFutureTrace(now());
+    interruptionAt = now();
+    cancelFutureTrace(interruptionAt);
     operation++; epoch++;
     clearRepeat(); clearFinishTimer();
     transport.stop(now());
@@ -238,6 +240,7 @@ function createInternalPlayer(context: ToneContext, separateChannels: boolean) {
   }
   function arm(nextPlan: PlaybackPlan, startTime: number) {
     plan = nextPlan; runId++; epoch++;
+    interruptionAt = null;
     frames = []; servedGrids.clear(); finishAt = null; pausedTicks = 0; pauseReason = null;
     transport.loop = false;
     transport.bpm.cancelScheduledValues(0);
@@ -264,6 +267,7 @@ function createInternalPlayer(context: ToneContext, separateChannels: boolean) {
     ensureUsable(); settleFinished();
     if (!['running', 'finishing', 'starting'].includes(state)) return getSnapshot();
     const time = now();
+    interruptionAt = time;
     pausedTicks = Math.max(0, transport.getTicksAtTime(time));
     const actualBpm = transport.bpm.getValueAtTime(time);
     cancelFutureTrace(time);
@@ -296,6 +300,7 @@ function createInternalPlayer(context: ToneContext, separateChannels: boolean) {
     pendingTempo = null;
     graph.setVolumes(volumes); graph.activate();
     state = 'running'; pauseReason = null;
+    interruptionAt = null;
     scheduleFrom(firstGrid);
     // Tone's string parser accepts integer tick strings only. A fractional
     // "350.976i" falls back to seconds; the explicit class preserves ticks.
@@ -323,12 +328,17 @@ function createInternalPlayer(context: ToneContext, separateChannels: boolean) {
     if (![next.bass, next.click].every(value => Number.isFinite(value) && value >= 0 && value <= 1)) throw new RangeError('Громкость должна быть от 0 до 1.');
     volumes = next; graph.setVolumes(volumes); return getSnapshot();
   }
-  function getSnapshot(): PlayerSnapshot {
+  function playbackState() {
     if (!disposed) settleFinished();
     const time = now();
     let frame: Frame | undefined;
+    let lastNoteAt: number | null = null;
     for (let index = frames.length - 1; index >= 0; index--) {
-      if (frames[index].time <= time + 0.000001) { frame = frames[index]; break; }
+      const candidate = frames[index];
+      if (candidate.time > time) continue;
+      frame ??= candidate;
+      if (candidate.epoch !== epoch || candidate.phase !== 'practice') break;
+      if (candidate.note) { lastNoteAt = candidate.time; break; }
     }
     const inactive = state === 'stopped' || state === 'starting' || state === 'finished';
     const noteIndex = inactive ? null : frame?.noteIndex ?? null;
@@ -338,11 +348,17 @@ function createInternalPlayer(context: ToneContext, separateChannels: boolean) {
       noteIndex, beat: frame?.beat ?? 1, bar: frame?.bar ?? 0,
       passIndex: Math.min(frame?.passIndex ?? 0, Math.max(0, (plan?.totalPasses ?? Infinity) - 1)),
       totalPasses: plan?.totalPasses ?? null, finishAt, pauseReason,
-      pendingTempo: pendingTempo ? { ...pendingTempo } : null,
+      pendingTempo: pendingTempo ? { ...pendingTempo } : null, runId, epoch, lastNoteAt, interruptionAt,
+    };
+  }
+  function getSnapshot(): PlayerSnapshot {
+    const { lastNoteAt: _lastNote, interruptionAt: _interruption, ...playback } = playbackState();
+    return {
+      ...playback,
       output: disposed ? { peak: 0, rms: 0 } : graph.level(), volumes: { ...volumes },
-      trace: trace.map(event => ({ ...event })), runId, epoch, repeatId,
+      trace: trace.map(event => ({ ...event })), repeatId,
       activeVoices: disposed ? 0 : graph.voices(),
-      transportBeat: state === 'paused' ? pausedTicks / transport.PPQ : state === 'finished' && plan?.finishGrid !== null ? (plan?.finishGrid ?? 0) / 4 : transport.getTicksAtTime(time) / transport.PPQ,
+      transportBeat: state === 'paused' ? pausedTicks / transport.PPQ : state === 'finished' && plan?.finishGrid !== null ? (plan?.finishGrid ?? 0) / 4 : transport.getTicksAtTime(playback.audioTime) / transport.PPQ,
       contextState: context.state,
     };
   }
@@ -383,5 +399,5 @@ function createInternalPlayer(context: ToneContext, separateChannels: boolean) {
       player?.dispose(); offlineRendering = false;
     }
   }
-  return { start, pause, resume, stop, setBpm, setVolumes, getSnapshot, dispose, renderOffline };
+  return { start, pause, resume, stop, setBpm, setVolumes, getSnapshot, playbackState, dispose, renderOffline };
 }

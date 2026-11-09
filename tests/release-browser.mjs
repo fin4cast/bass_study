@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -294,8 +293,13 @@ check('manual-draft-keeps-old-material-and-merges-new-runs-without-double-counti
   const oldText = 'Заметка к прежнему материалу C.';
   await page.getByLabel('Заметка к практике', { exact: true }).fill(oldText); await page.getByLabel('Комфортный темп', { exact: true }).fill('72');
   const withDraft = await exportUi(page); const originalDraft = withDraft.practiceDrafts.find(item => item.note === oldText); assert.ok(originalDraft); assert.equal(withDraft.history.length, 0);
-  await page.locator('[data-app-module="tracks"]').click(); assert.equal(await page.getByLabel('Заметка к практике', { exact: true }).inputValue(), oldText); assert.ok(await historyAction(page, 'use-current-draft').isDisabled());
-  await page.locator('[data-app-module="foundation"]').click(); await page.getByLabel('Тоника', { exact: true }).selectOption('G'); await historyAction(page, 'refresh-draft').click();
+  await page.locator('[data-app-module="tracks"]').click();
+  assert.equal(await page.locator('#open-history').getAttribute('aria-expanded'), 'false');
+  await openHistory(page);
+  assert.equal(await page.getByLabel('Заметка к практике', { exact: true }).inputValue(), oldText); assert.ok(await historyAction(page, 'use-current-draft').isDisabled());
+  await page.locator('[data-app-module="foundation"]').click();
+  assert.equal(await page.locator('#open-history').getAttribute('aria-expanded'), 'false');
+  await page.getByLabel('Тоника', { exact: true }).selectOption('G'); await openHistory(page); await historyAction(page, 'refresh-draft').click();
   assert.match(await page.getByTestId('manual-context-notice').innerText(), /прежнему материалу/); assert.match(await page.getByTestId('manual-material').innerText(), /C ·/);
   await historyAction(page, 'save-manual').click(); await page.getByTestId('history-list').locator('[data-history-kind="manual"]').waitFor();
   const first = await exportUi(page), oldEntry = first.history.find(entry => entry.result.note === oldText);
@@ -450,14 +454,51 @@ check('actual-web-lock-prevents-second-writer-and-hands-off-after-close', async 
   return { nativeHeldLocks: locks, blockedSecondWriter: true, blockedGlobalProfileControls: true, confirmedOwnerProfileUnchanged: true, explicitReloadAfterRelease: true, preservedHistoryIds: after.history.map(entry => entry.id) };
 }, { scope: 'ui' });
 
-check('local-production-server-refuses-busy-port-without-moving-origin', async ({ origin }) => {
-  const child = spawn(process.execPath, [join(process.cwd(), 'scripts', 'serve.mjs')], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }); let output = '';
-  child.stdout.on('data', chunk => { output += chunk; }); child.stderr.on('data', chunk => { output += chunk; });
-  try {
-    const code = await Promise.race([new Promise((resolve, reject) => { child.on('exit', resolve); child.on('error', reject); }), delay(4000).then(() => { throw new Error('Second server did not refuse the busy port'); })]);
-    assert.notEqual(code, 0); assert.match(output, /EADDRINUSE|занят/); assert.equal((await fetch(origin)).status, 200);
-    return { secondServerExitCode: code, refusal: output.trim(), originalOriginStillResponds: origin };
-  } finally { if (child.pid && child.exitCode === null) { const done = new Promise(resolve => child.once('exit', resolve)); child.kill(); await done; } }
+check('p12-sequence-retirement-saves-pending-note-before-next-writer', async ({ page, context, origin }) => {
+  await ready(page);
+  await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
+  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite');
+  await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
+  await page.locator('[data-player-action="start"]').click();
+  await page.waitForFunction(() => {
+    const player = document.querySelector('#player-mount');
+    return player?.dataset.playerState === 'running' && player.dataset.playerPhase === 'practice' && !!player.dataset.currentPosition;
+  });
+  await delay(300);
+  await page.locator('[data-player-action="stop"]').click();
+  const before = await exportUi(page);
+  const draft = before.practiceDrafts.find(value => value.material.kind === 'sequence' && value.totalReferenceMs > 0);
+  assert.ok(draft);
+  assert.equal(draft.note, '');
+
+  const next = await context.newPage();
+  await next.goto(origin);
+  await next.waitForFunction(() => document.querySelector('main')?.inert && !document.querySelector('#retry-tab')?.hidden);
+  await page.bringToFront();
+  await page.getByLabel('Заметка к практике', { exact: true }).focus();
+  const note = 'Черновик перед закрытием';
+  await page.evaluate(note => {
+    const editor = document.querySelector('[data-history-field="manualNote"]');
+    editor.value = note;
+    editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: note }));
+    // Keep the real document alive for IndexedDB while invoking its retirement listener before debounce.
+    window.dispatchEvent(new PageTransitionEvent('pagehide'));
+  }, note);
+  await next.waitForFunction(async () => !(await navigator.locks.query()).held.some(lock => lock.name === 'bass-study:writer'));
+  await next.locator('#retry-tab').click();
+  await ready(next);
+  const after = await exportUi(next);
+  const savedDraft = after.practiceDrafts.find(value => value.id === draft.id);
+  assert.ok(savedDraft, 'The next writer must read the original draft from IndexedDB');
+  const { updatedAt: _updatedAt, ...expected } = draft;
+  assert.deepEqual(savedDraft, { ...expected, note, editRevision: draft.editRevision + 1, updatedAt: savedDraft.updatedAt });
+  return { controlledPagehide: true, nextNativeWriter: true, draftId: draft.id, durationMs: draft.totalReferenceMs, pendingNotePersisted: true };
+}, { scope: 'ui' });
+
+check('local-production-server-refuses-busy-port-without-moving-origin', async ({ origin, refuseOccupiedServer }) => {
+  const refusal = await refuseOccupiedServer();
+  assert.equal((await fetch(origin)).status, 200);
+  return { refused: true, refusal, originalOriginStillResponds: origin };
 }, { scope: 'ui' });
 
 await runReleaseBrowserChecks(checks);

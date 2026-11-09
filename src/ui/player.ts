@@ -2,14 +2,15 @@ import './player.css';
 import type { AppPreferences } from '../storage';
 import { formatMidi, type AnnotatedPosition } from '../music';
 import { createPlayer, type PlaybackConfig } from '../audio/engine';
+import { allowsTransportShortcut } from './transport-shortcut';
 
 type Engine = ReturnType<typeof createPlayer>;
-type Snapshot = ReturnType<Engine['getSnapshot']>;
+type Snapshot = ReturnType<Engine['playbackState']>;
 
 export interface PlayerOptions {
-  onBeforeStart?: () => void;
+  onBeforeStart?: () => boolean | void;
   onPositionChange?: (id: string | null, noteIndex: number | null) => void;
-  onSnapshot?: (snapshot: Snapshot) => void;
+  onSnapshot?: (snapshot: Snapshot & { readonly showPulse: boolean }) => void;
   getContextKey?: () => string;
   onPreferencesChange?: () => void;
 }
@@ -26,49 +27,50 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
   let lastIndex: number | null = null;
   let forcePositionCallback = false;
   let lastAnnouncedState = '';
+  let lastPaint = '';
   let animationFrame = 0;
   let practiceElapsedMs = 0;
   let practiceEpoch = 0;
   let lastValidLadder = { start: 60, end: 100, step: 5, repeats: 2 };
   let practiceClock: { at: number; runId: number; active: boolean } | null = null;
 
-  container.classList.add('player-section');
+  container.classList.add('player-section', 'content-panel');
   container.innerHTML = `
-    <div class="player-heading"><div><p class="eyebrow">ПРАКТИКА ПОД РИТМ</p><h2>Послушай маршрут. Сыграй вместе.</h2></div><span class="player-scope" data-testid="player-scope"></span></div>
+    <div class="panel-heading player-heading"><div><p class="eyebrow">ПРАКТИКА ПОД РИТМ</p><h2>Послушай маршрут. Сыграй вместе.</h2></div><span class="player-scope" data-testid="player-scope"></span></div>
     <div class="player-settings">
-      <label class="player-field player-bpm-field"><span>Темп, BPM</span><input type="number" min="40" max="220" step="1" value="80" aria-label="Темп, BPM" data-player="bpm"></label>
-      <label class="player-field"><span>Длительность нот</span><select aria-label="Длительность нот" data-player="duration"><option value="quarter">Четверти · ¼</option><option value="eighth" selected>Восьмые · ⅛</option><option value="sixteenth">Шестнадцатые · 1/16</option></select></label>
-      <label class="player-field"><span>Повтор</span><select aria-label="Повтор" data-player="repeat"><option value="once">Один проход</option><option value="infinite">По кругу</option><option value="ladder">Лестница темпа</option></select></label>
+      <label class="player-field player-bpm-field"><span class="form-label">Темп, BPM</span><input class="form-control" type="number" min="40" max="220" step="1" value="80" aria-label="Темп, BPM" data-player="bpm"></label>
+      <label class="player-field"><span class="form-label">Длительность нот</span><select class="form-control" aria-label="Длительность нот" data-player="duration"><option value="quarter">Четверти · ¼</option><option value="eighth" selected>Восьмые · ⅛</option><option value="sixteenth">Шестнадцатые · 1/16</option></select></label>
+      <label class="player-field"><span class="form-label">Повтор</span><select class="form-control" aria-label="Повтор" data-player="repeat"><option value="once">Один проход</option><option value="infinite">По кругу</option><option value="ladder">Лестница темпа</option></select></label>
       <label class="player-check"><input type="checkbox" checked data-player="countIn" aria-label="Отсчёт перед стартом"><span>Отсчёт: 4 доли</span></label>
       <label class="player-check"><input type="checkbox" checked data-player="showPulse" aria-label="Показывать пульс"><span>Показывать пульс</span></label>
     </div>
     <div class="player-fragment">
       <span class="player-group-label">Фрагмент</span>
-      <label class="player-field"><span>С ноты</span><input type="number" min="1" step="1" value="1" aria-label="Первая нота фрагмента" data-player="from"></label>
+      <label class="player-field"><span class="form-label">С ноты</span><input class="form-control" type="number" min="1" step="1" value="1" aria-label="Первая нота фрагмента" data-player="from"></label>
       <span class="fragment-arrow" aria-hidden="true">→</span>
-      <label class="player-field"><span>По ноту</span><input type="number" min="1" step="1" value="1" aria-label="Последняя нота фрагмента" data-player="to"></label>
+      <label class="player-field"><span class="form-label">По ноту</span><input class="form-control" type="number" min="1" step="1" value="1" aria-label="Последняя нота фрагмента" data-player="to"></label>
       <p class="player-caption" data-testid="player-fragment-caption">Обе границы включены.</p>
     </div>
     <div class="player-ladder" data-player-panel="ladder" hidden>
-      <label class="player-field"><span>Начальный BPM</span><input type="number" min="40" max="220" step="1" value="60" aria-label="Начальный темп" data-player="ladderStart"></label>
-      <label class="player-field"><span>Целевой BPM</span><input type="number" min="40" max="220" step="1" value="100" aria-label="Целевой темп" data-player="ladderEnd"></label>
-      <label class="player-field"><span>Шаг, BPM</span><input type="number" min="1" max="180" step="1" value="5" aria-label="Шаг темпа" data-player="ladderStep"></label>
-      <label class="player-field"><span>Повторов на темп</span><input type="number" min="1" max="20" step="1" value="2" aria-label="Повторов на темп" data-player="ladderRepeats"></label>
+      <label class="player-field"><span class="form-label">Начальный BPM</span><input class="form-control" type="number" min="40" max="220" step="1" value="60" aria-label="Начальный темп" data-player="ladderStart"></label>
+      <label class="player-field"><span class="form-label">Целевой BPM</span><input class="form-control" type="number" min="40" max="220" step="1" value="100" aria-label="Целевой темп" data-player="ladderEnd"></label>
+      <label class="player-field"><span class="form-label">Шаг, BPM</span><input class="form-control" type="number" min="1" max="180" step="1" value="5" aria-label="Шаг темпа" data-player="ladderStep"></label>
+      <label class="player-field"><span class="form-label">Повторов на темп</span><input class="form-control" type="number" min="1" max="20" step="1" value="2" aria-label="Повторов на темп" data-player="ladderRepeats"></label>
       <p class="player-caption">Темп меняется только после заданного числа проходов. Последний темп не превышает цель.</p>
     </div>
     <div class="player-metronome">
       <label class="player-check"><input type="checkbox" checked data-player="metronome" aria-label="Метроном"><span>Метроном</span></label>
-      <label class="player-field"><span>Рисунок клика</span><select aria-label="Рисунок метронома" data-player="metronomeMode"><option value="all">Каждая доля</option><option value="two-four">Только 2 и 4</option><option value="gap-2-2">2 такта звук / 2 тишина</option></select></label>
-      <label class="player-field"><span>Деление клика</span><select aria-label="Деление метронома" data-player="subdivision"><option value="quarter">Четверти</option><option value="eighth">Восьмые</option><option value="sixteenth">Шестнадцатые</option></select></label>
+      <label class="player-field"><span class="form-label">Рисунок клика</span><select class="form-control" aria-label="Рисунок метронома" data-player="metronomeMode"><option value="all">Каждая доля</option><option value="two-four">Только 2 и 4</option><option value="gap-2-2">2 такта звук / 2 тишина</option></select></label>
+      <label class="player-field"><span class="form-label">Деление клика</span><select class="form-control" aria-label="Деление метронома" data-player="subdivision"><option value="quarter">Четверти</option><option value="eighth">Восьмые</option><option value="sixteenth">Шестнадцатые</option></select></label>
       <p class="player-caption" data-testid="player-metronome-help">Первая доля такта выделена акцентом.</p>
     </div>
     <div class="player-volumes">
       <label><span>Бас</span><input type="range" min="0" max="100" step="1" value="70" aria-label="Громкость баса" data-player="bassVolume"><output data-player-output="bassVolume">70%</output></label>
       <label><span>Клик</span><input type="range" min="0" max="100" step="1" value="50" aria-label="Громкость метронома" data-player="clickVolume"><output data-player-output="clickVolume">50%</output></label>
     </div>
-    <p class="player-error" role="alert" data-testid="player-error" hidden></p>
+    <p class="player-error status-error" role="alert" data-testid="player-error" hidden></p>
     <p class="player-notice" role="status" data-testid="player-notice" hidden></p>
-    <div class="player-transport"><div class="player-buttons"><button class="primary-button" type="button" data-player-action="start">Старт <span aria-hidden="true">▶</span></button><button class="secondary-button" type="button" data-player-action="pause" disabled>Пауза</button><button class="secondary-button" type="button" data-player-action="resume" disabled>Продолжить</button><button class="text-button" type="button" data-player-action="stop" disabled>Стоп</button></div><p class="player-shortcuts">Пробел — старт / пауза · Esc — стоп</p></div>
+    <div class="player-transport"><div class="player-buttons"><button class="primary-button" type="button" data-player-action="start">Старт <span aria-hidden="true">▶</span></button><button class="secondary-button" type="button" data-player-action="pause" disabled>Пауза</button><button class="secondary-button" type="button" data-player-action="resume" disabled>Продолжить</button><button class="secondary-button" type="button" data-player-action="stop" disabled>Стоп</button></div><p class="player-shortcuts">Пробел — старт / пауза · Esc — стоп</p></div>
     <div class="player-now"><span class="player-state-dot" aria-hidden="true"></span><p data-testid="player-status" aria-live="off">Готово к практике</p><strong data-testid="player-current-note">—</strong></div>
     <p class="player-edit-help" data-testid="player-edit-help">Маршрут и ритм настраиваются до старта. Во время воспроизведения доступны темп и громкость.</p>
     <p class="sr-only" role="status" aria-live="polite" data-player-live></p>
@@ -76,10 +78,10 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
   `;
 
   const advanced = document.createElement('details'); advanced.className = 'learning-help player-advanced';
-  const advancedTitle = document.createElement('summary'); advancedTitle.textContent = 'Метроном и громкость'; advanced.append(advancedTitle);
+  const advancedTitle = document.createElement('summary'); advancedTitle.className = 'section-disclosure'; advancedTitle.textContent = 'Метроном и громкость'; advanced.append(advancedTitle);
   for (const selector of ['.player-metronome', '.player-volumes']) { const panel = container.querySelector(selector); if (panel) advanced.append(panel); }
   container.querySelector('.player-fragment')?.after(advanced);
-  const rhythmHelp = document.createElement('details'); rhythmHelp.className = 'learning-help'; rhythmHelp.innerHTML = '<summary>Доли, длительности и фрагмент</summary><p>Здесь 4/4: в такте четыре четвертных доли. BPM — число долей в минуту. Четверть занимает долю, восьмая — половину, шестнадцатая — четверть доли. Отсчёт перед стартом — четыре доли.</p><p>Обе границы фрагмента включены: «2–4» воспроизводит ноты2,3,4. Запись показывает весь исходный маршрут, выбранный фрагмент выделен.</p>';
+  const rhythmHelp = document.createElement('details'); rhythmHelp.className = 'learning-help'; rhythmHelp.innerHTML = '<summary class="section-disclosure">Доли, длительности и фрагмент</summary><p>Здесь 4/4: в такте четыре четвертных доли. BPM — число долей в минуту. Четверть занимает долю, восьмая — половину, шестнадцатая — четверть доли. Отсчёт перед стартом — четыре доли.</p><p>Обе границы фрагмента включены: «2–4» воспроизводит ноты2,3,4. Запись показывает весь исходный маршрут, выбранный фрагмент выделен.</p>';
   advanced.after(rhythmHelp);
   const transport = container.querySelector('.player-transport'); if (transport) container.querySelector('.player-settings')?.after(transport);
   const field = <T extends HTMLInputElement | HTMLSelectElement>(name: string) => container.querySelector<T>(`[data-player="${name}"]`)!;
@@ -143,21 +145,17 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
     return `${options.getContextKey?.() ?? ''}|${nextNotes.map(note => `${note.id}/${note.midi}/${note.noteName}/${note.degree ?? ''}`).join(',')}`;
   }
 
-  function playing(snapshot = player.getSnapshot()) {
+  function playing(snapshot = player.playbackState()) {
     return ['starting', 'running', 'paused', 'finishing'].includes(snapshot.state);
   }
 
   function measurePractice(snapshot: Snapshot) {
     let end = snapshot.audioTime;
     if (snapshot.finishAt !== null) end = Math.min(end, snapshot.finishAt);
-    if (snapshot.state === 'paused' || snapshot.state === 'stopped') {
-      const boundary = [...snapshot.trace].reverse().find(event => event.runId === snapshot.runId && (event.type === 'pause' || event.type === 'stop') && event.time <= snapshot.audioTime);
-      if (boundary) end = Math.min(end, boundary.time);
-    }
-    const latestNote = [...snapshot.trace].reverse().find(event => event.runId === snapshot.runId && event.epoch === snapshot.epoch && event.type === 'note' && event.time <= snapshot.audioTime);
-    const active = ['running', 'finishing'].includes(snapshot.state) && snapshot.phase === 'practice' && latestNote !== undefined;
+    if (snapshot.interruptionAt !== null) end = Math.min(end, snapshot.interruptionAt);
+    const active = ['running', 'finishing'].includes(snapshot.state) && snapshot.phase === 'practice' && snapshot.lastNoteAt !== null;
     if (practiceClock?.runId === snapshot.runId && practiceClock.active) practiceElapsedMs += Math.max(0, end - practiceClock.at) * 1000;
-    else if (active && latestNote) practiceElapsedMs += Math.max(0, end - latestNote.time) * 1000;
+    else if (active && snapshot.lastNoteAt !== null) practiceElapsedMs += Math.max(0, end - snapshot.lastNoteAt) * 1000;
     practiceClock = { at: end, runId: snapshot.runId, active };
   }
 
@@ -190,10 +188,16 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
     }
   }
 
-  function renderSnapshot() {
+  function renderSnapshot(force = true) {
     if (disposed) return;
-    const snapshot = player.getSnapshot();
+    const snapshot = player.playbackState();
     measurePractice(snapshot);
+    if (!animationFrame && ['starting', 'running', 'finishing'].includes(snapshot.state)) animationFrame = requestAnimationFrame(frame);
+    const showPulse = field<HTMLInputElement>('showPulse').checked;
+    const paint = [snapshot.state, snapshot.phase, snapshot.positionId, snapshot.noteIndex, snapshot.bar, snapshot.beat,
+      snapshot.passIndex, snapshot.totalPasses, snapshot.bpm, snapshot.pendingTempo?.bpm, snapshot.pauseReason, showPulse].join('|');
+    if (!force && paint === lastPaint) return;
+    lastPaint = paint;
     container.dataset.playerState = snapshot.state;
     container.dataset.playerPhase = snapshot.phase;
     container.dataset.currentPosition = snapshot.positionId ?? '';
@@ -203,7 +207,6 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
       stopped: 'Готово к практике', starting: 'Подготавливаем звук…', running: snapshot.phase === 'count-in' ? 'Отсчёт' : 'Звучит последовательность', paused: snapshot.pauseReason === 'hidden' ? 'Пауза: вкладка скрывалась' : 'Пауза', finishing: 'Завершается звучание', finished: 'Проходы завершены',
     };
     const active = ['running', 'finishing'].includes(snapshot.state);
-    const showPulse = field<HTMLInputElement>('showPulse').checked;
     const counter = showPulse && (active || snapshot.state === 'paused' || snapshot.state === 'finishing')
       ? ` · такт ${snapshot.bar + 1} · доля ${snapshot.beat} · повтор ${snapshot.passIndex + 1}${snapshot.totalPasses === null ? '' : ` / ${snapshot.totalPasses}`} · ${Math.round(snapshot.bpm)} BPM`
       : '';
@@ -224,18 +227,18 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
       container.querySelector<HTMLElement>('[data-player-live]')!.textContent = labels[snapshot.state];
     }
     renderControls(snapshot);
-    options.onSnapshot?.(snapshot);
+    options.onSnapshot?.({ ...snapshot, showPulse });
   }
 
   async function act(action: string) {
     if (disposed || (operationPending && action !== 'stop')) return;
     message('player-error');
     try {
-      measurePractice(player.getSnapshot());
+      measurePractice(player.playbackState());
       if (action === 'start') {
         if (!notes.length) throw new RangeError('Для воспроизведения нужен непустой маршрут. Проверь диапазон и выбранные струны.');
         const config = configuration();
-        options.onBeforeStart?.();
+        if (options.onBeforeStart?.() === false) return;
         message('player-notice');
         operationPending = true;
         setVolumes();
@@ -244,7 +247,7 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
         await result;
       } else if (action === 'pause') player.pause('manual');
       else if (action === 'resume') {
-        options.onBeforeStart?.();
+        if (options.onBeforeStart?.() === false) return;
         operationPending = true;
         message('player-notice');
         await player.resume();
@@ -289,8 +292,9 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
   }, { signal: controller.signal });
 
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && ['starting', 'running', 'finishing'].includes(player.getSnapshot().state)) {
-      measurePractice(player.getSnapshot());
+    const snapshot = player.playbackState();
+    if (document.hidden && ['starting', 'running', 'finishing'].includes(snapshot.state)) {
+      measurePractice(snapshot);
       player.pause('hidden');
       message('player-notice', 'Вкладка была скрыта. Воспроизведение на паузе — для продолжения нажми «Продолжить».');
       renderSnapshot();
@@ -298,12 +302,10 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
   }, { signal: controller.signal });
 
   document.addEventListener('keydown', event => {
-    if (disposed || event.repeat || container.hidden || container.getClientRects().length === 0 || document.hidden) return;
-    const target = event.target instanceof Element ? event.target : null;
-    if (target?.closest('input, select, textarea, button, a, [role="button"], [contenteditable="true"]')) return;
+    if (disposed || !allowsTransportShortcut(event, container)) return;
     if (event.key === 'Escape') { event.preventDefault(); void act('stop'); }
     else if (event.code === 'Space' || event.key === ' ') {
-      const state = player.getSnapshot().state;
+      const state = player.playbackState().state;
       event.preventDefault();
       void act(state === 'running' || state === 'finishing' ? 'pause' : state === 'paused' ? 'resume' : 'start');
     }
@@ -334,8 +336,8 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
   }
 
   function frame() {
-    if (!container.hidden && container.getClientRects().length > 0) renderSnapshot();
-    if (!disposed) animationFrame = requestAnimationFrame(frame);
+    animationFrame = 0;
+    renderSnapshot(false);
   }
 
   function getPreferences(): AppPreferences['player'] {
@@ -369,12 +371,11 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
     };
   }
   refreshContext();
-  animationFrame = requestAnimationFrame(frame);
   return {
     getPreferences,
     getDuration() { return field<HTMLSelectElement>('duration').value as AppPreferences['player']['duration']; },
     applyPreferences(preferences: AppPreferences['player']) {
-      measurePractice(player.getSnapshot());
+      measurePractice(player.playbackState());
       player.stop();
       practiceElapsedMs = 0;
       practiceEpoch++;
@@ -391,7 +392,7 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
       renderSnapshot();
     },
     getPracticeDraft() {
-      const snapshot = player.getSnapshot();
+      const snapshot = player.playbackState();
       measurePractice(snapshot);
       const configured = Number(field<HTMLInputElement>('bpm').value);
       const comfortableBpm = Math.round(playing(snapshot) ? snapshot.bpm : Number.isFinite(configured) && configured >= 40 && configured <= 220 ? configured : snapshot.bpm);
@@ -399,14 +400,14 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
     },
     consumePracticeDuration(durationMs: number, expectedContextKey?: string) {
       if (!Number.isFinite(durationMs) || durationMs < 0) throw new RangeError('Длительность должна быть неотрицательной.');
-      measurePractice(player.getSnapshot());
+      measurePractice(player.playbackState());
       if (expectedContextKey !== undefined && expectedContextKey !== `sequence:${contextKey}#${practiceEpoch}`) return;
       practiceElapsedMs = Math.max(0, practiceElapsedMs - durationMs);
     },
     refreshContext,
     refreshHighlight() { forcePositionCallback = true; renderSnapshot(); },
     getSnapshot: () => player.getSnapshot(),
-    stop() { measurePractice(player.getSnapshot()); player.stop(); renderSnapshot(); },
+    stop() { measurePractice(player.playbackState()); player.stop(); renderSnapshot(); },
     dispose() {
       if (disposed) return;
       disposed = true;

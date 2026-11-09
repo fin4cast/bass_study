@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runStorageBrowserChecks } from './helpers/storage-browser-harness.mjs';
+import { p12CompositionChecks } from './helpers/p12-composition-cases.mjs';
 
 const checks = [];
 const check = (name, run, options = {}) => checks.push({ name, run, ...options });
@@ -45,6 +46,123 @@ check('native-v6-draft-drain-aborts-after-real-history-put-and-retries-once', as
   assert.deepEqual(evidence.after.practiceDrafts[0], { ...evidence.before.practiceDrafts[0], totalReferenceMs: 1800, recordedThroughMs: 1200, note: 'Остаток', editRevision: 2, comfortableBpm: 70 });
   assert.deepEqual(evidence.afterFresh, evidence.after); assert.deepEqual(evidence.restored, evidence.after);
   return evidence;
+});
+
+check('native-route-link-rollback-retry-old-parent-and-delete', async ({ page }) => {
+  const evidence = await page.evaluate(async () => {
+    const { store, route, screen, readRaw } = window.p5;
+    const parent = route('history-a');
+    const other = route('history-b');
+    const first = { ...screen('first-linked-screen'), routeRef: { routeId: parent.result.id, step: 'fretboard' } };
+    const second = { ...screen('second-linked-screen'), routeRef: first.routeRef };
+    const delayed = { ...screen('screen-before-parent'), routeRef: { routeId: 'session-history-c', step: 'fretboard' } };
+    await store.addHistory(parent);
+    const cachedBefore = await store.readSnapshot(), rawBefore = await readRaw();
+    const put = IDBObjectStore.prototype.put;
+    async function abortAfterPut(entry) {
+      IDBObjectStore.prototype.put = function (...args) {
+        const request = put.apply(this, args);
+        if (this.name === 'history' && args[0]?.id === entry.id) {
+          const transaction = this.transaction;
+          request.addEventListener('success', () => transaction.abort());
+        }
+        return request;
+      };
+      try { await store.addHistory(entry); return null; }
+      catch (error) { return { code: error.code, ...store.getLastTransaction() }; }
+      finally { IDBObjectStore.prototype.put = put; }
+    }
+    const firstAbort = await abortAfterPut(first);
+    const unchanged = (await store.readSnapshot()) === cachedBefore;
+    const rawAfterAbort = await readRaw();
+    await store.addHistory(other);
+    const receipt = await store.addHistory(first);
+    const checkpoint = await store.addHistory(route('history-a', 4200));
+    await store.deleteHistory(first.id);
+    const afterChildDeletion = await store.readSnapshot();
+    const secondAbort = await abortAfterPut(second);
+    await store.deleteHistory(parent.id);
+    const retryAfterDelete = await store.addHistory(second);
+    const delayedParentAbort = await abortAfterPut(route('history-c'));
+    await store.addHistory(delayed);
+    await store.addHistory(route('history-c'));
+    const final = await store.readSnapshot();
+    return { firstAbort, secondAbort, delayedParentAbort, unchanged, rawBefore, rawAfterAbort, receipt, checkpoint, afterChildDeletion,
+      retryAfterDelete, final, raw: await readRaw(), exported: JSON.parse(await store.exportBackup()) };
+  });
+  for (const aborted of [evidence.firstAbort, evidence.secondAbort, evidence.delayedParentAbort]) {
+    assert.deepEqual(aborted, { code: 'STORAGE_FAILURE', successfulWrites: 1, aborted: true });
+  }
+  assert.equal(evidence.unchanged, true);
+  assert.deepEqual(evidence.rawAfterAbort, evidence.rawBefore);
+  const expected = [{ id: 'first-linked-screen', kind: 'screen', step: 'fretboard' }];
+  assert.equal(evidence.receipt.linkedRoute.id, 'history-a');
+  assert.deepEqual(evidence.receipt.linkedRoute.result.sessionLinks, expected);
+  assert.deepEqual(evidence.checkpoint.entry.result.sessionLinks, expected);
+  assert.deepEqual(evidence.afterChildDeletion.history.find(entry => entry.id === 'history-a').result.sessionLinks, expected);
+  assert.ok(!evidence.afterChildDeletion.history.some(entry => entry.id === 'first-linked-screen'));
+  assert.equal(evidence.retryAfterDelete.linkedRoute, undefined);
+  assert.deepEqual(evidence.retryAfterDelete.entry.routeRef, { routeId: 'session-history-a', step: 'fretboard' });
+  assert.ok(!evidence.final.history.some(entry => entry.id === 'history-a'));
+  assert.deepEqual(evidence.final.history.find(entry => entry.id === 'history-b').result.sessionLinks, []);
+  assert.deepEqual(evidence.final.history.find(entry => entry.id === 'history-c').result.sessionLinks, [{ id: 'screen-before-parent', kind: 'screen', step: 'fretboard' }]);
+  assert.deepEqual(evidence.raw.history, evidence.final.history);
+  assert.deepEqual(evidence.exported, evidence.final);
+  return { abortAfterSuccessfulPut: true, oldParentOnly: true, checkpointKeepsLink: true, deletedParentNeverRecreated: true, delayedParentLinked: true };
+});
+
+check('native-route-manual-drain-rolls-back-child-draft-and-parent', async ({ page }) => {
+  const evidence = await page.evaluate(async () => {
+    const { store, route, draft, readRaw } = window.p5;
+    const parent = route('manual-parent');
+    const value = { ...draft(), routeRef: { routeId: parent.result.id, step: 'sequence' } };
+    await store.addHistory(parent);
+    await store.upsertPracticeDraft(value);
+    const before = await store.readSnapshot();
+    const input = { draftId: value.id, historyId: 'manual-drain-route', expectedRecordedThroughMs: 0, throughMs: value.totalReferenceMs, editRevision: value.editRevision,
+      comfortableBpm: value.comfortableBpm, note: value.note, occurredAt: value.createdAt, timeZone: value.timeZone };
+    let aborted;
+    try { await store.drainDraft({ ...input, failAfterWrite: 2 }); }
+    catch (error) { aborted = { code: error.code, ...store.getLastTransaction() }; }
+    const unchanged = before === await store.readSnapshot();
+    const rawAfterAbort = await readRaw();
+    const put = IDBObjectStore.prototype.put;
+    let abortedAfterParent;
+    IDBObjectStore.prototype.put = function (...args) {
+      const request = put.apply(this, args);
+      if (this.name === 'history' && args[0]?.id === parent.id) {
+        const transaction = this.transaction;
+        request.addEventListener('success', () => transaction.abort());
+      }
+      return request;
+    };
+    try { await store.drainDraft(input); }
+    catch (error) { abortedAfterParent = { code: error.code, ...store.getLastTransaction() }; }
+    finally { IDBObjectStore.prototype.put = put; }
+    const unchangedAfterParent = before === await store.readSnapshot();
+    const rawAfterParentAbort = await readRaw();
+    await store.addHistory(route('new-manual-parent'));
+    const committed = await store.drainDraft(input);
+    const repeated = await store.drainDraft(input);
+    return { aborted, unchanged, before, rawAfterAbort, abortedAfterParent, unchangedAfterParent, rawAfterParentAbort, committed, repeated, after: await store.readSnapshot(), raw: await readRaw() };
+  });
+  assert.deepEqual(evidence.aborted, { code: 'INJECTED_ABORT', successfulWrites: 2, aborted: true });
+  assert.equal(evidence.unchanged, true);
+  assert.deepEqual(evidence.rawAfterAbort.history, evidence.before.history);
+  assert.deepEqual(evidence.rawAfterAbort.practiceDrafts, evidence.before.practiceDrafts);
+  assert.deepEqual(evidence.abortedAfterParent, { code: 'STORAGE_FAILURE', successfulWrites: 3, aborted: true });
+  assert.equal(evidence.unchangedAfterParent, true);
+  assert.deepEqual(evidence.rawAfterParentAbort, evidence.rawAfterAbort);
+  assert.deepEqual(evidence.committed.linkedRoute.result.sessionLinks, [{ id: 'manual-drain-route', kind: 'manual', step: 'sequence' }]);
+  assert.equal(evidence.repeated.linkedRoute, undefined);
+  assert.deepEqual(evidence.repeated.entry, evidence.committed.entry);
+  assert.equal(evidence.after.history.filter(entry => entry.result.kind === 'manual').length, 1);
+  assert.equal(evidence.committed.entry.result.durationMs, 1200);
+  assert.equal(evidence.after.practiceDrafts[0].recordedThroughMs, 1200);
+  assert.deepEqual(evidence.after.history.find(entry => entry.id === 'new-manual-parent').result.sessionLinks, []);
+  assert.deepEqual(evidence.raw.history, evidence.after.history);
+  assert.deepEqual(evidence.raw.practiceDrafts, evidence.after.practiceDrafts);
+  return { abortAfterTwoAndThreeSuccessfulWrites: true, sameIdOnRetry: true, originalParentOnly: true, oneTimeDebit: true };
 });
 
 check('native-indexeddb-schema-preferences-presets-and-distinct-results', async ({ page }) => {
@@ -162,6 +280,79 @@ check('native-abort-after-successful-put-rolls-back-clears-and-all-stores', asyn
   return outcome;
 });
 
+check('native-prepared-copy-is-parsed-once-and-retries-the-same-candidate-after-abort', async ({ page }) => {
+  await seed(page);
+  const literal = await readFile(new URL('./fixtures/v10-backup.json', import.meta.url), 'utf8');
+  const evidence = await page.evaluate(async json => {
+    const { store, readRaw, createStore } = window.p5;
+    const before = await store.readSnapshot(), rawBefore = await readRaw();
+    const parse = JSON.parse;
+    let parses = 0;
+    JSON.parse = function (value, ...args) { if (value === json) parses++; return parse.call(this, value, ...args); };
+    try {
+      const candidate = store.prepareImport(json);
+      const rawAfterPreview = await readRaw();
+      let foreign, failure, consumed;
+      try { await createStore().restorePrepared(candidate); } catch (error) { foreign = error.code; }
+      try { await store.restorePrepared(candidate, { failAfterWrite: 2 }); } catch (error) { failure = error.code; }
+      const transaction = store.getLastTransaction();
+      const afterAbort = await store.readSnapshot(), rawAfterAbort = await readRaw();
+      const restored = await store.restorePrepared(candidate);
+      const publishedCandidate = restored.snapshot === candidate.snapshot && await store.readSnapshot() === restored.snapshot;
+      try { await store.restorePrepared(candidate); } catch (error) { consumed = error.code; }
+      await store.close();
+      const reopened = await store.readSnapshot({ fresh: true });
+      return { parses, foreign, failure, consumed, transaction, publishedCandidate, cachedUnchanged: before === afterAbort,
+        rawBefore, rawAfterPreview, rawAfterAbort, reopened };
+    } finally { JSON.parse = parse; }
+  }, literal);
+  assert.equal(evidence.parses, 1);
+  assert.equal(evidence.foreign, 'INVALID_BACKUP'); assert.equal(evidence.consumed, 'INVALID_BACKUP');
+  assert.equal(evidence.failure, 'INJECTED_ABORT'); assert.deepEqual(evidence.transaction, { successfulWrites: 2, aborted: true });
+  assert.equal(evidence.cachedUnchanged, true); assert.equal(evidence.publishedCandidate, true);
+  assert.deepEqual(evidence.rawAfterPreview, evidence.rawBefore); assert.deepEqual(evidence.rawAfterAbort, evidence.rawBefore);
+  assert.deepEqual(evidence.reopened, JSON.parse(literal));
+  return { parses: evidence.parses, abortAfter: evidence.transaction.successfulWrites, sameCandidateRetried: true, schema10Reopened: true };
+});
+
+check('native-draft-checkpoint-attempts-other-records-after-abort-and-retries-the-failure', async ({ page }) => {
+  const evidence = await page.evaluate(async () => {
+    const { createPracticeDrafts } = await import('/src/app/practice-drafts.ts');
+    const { createWriteQueue } = await import('/src/app/write-queue.ts');
+    const { store, draft, readRaw } = window.p5;
+    const first = draft('a'), second = draft('b');
+    await store.upsertPracticeDraft(first); await store.upsertPracticeDraft(second);
+    const queue = createWriteQueue(() => {});
+    const drafts = createPracticeDrafts({ getStore: () => store, write: queue.run, onCommit() {}, onEntry() {} });
+    drafts.reload((await store.readSnapshot()).practiceDrafts);
+    drafts.edit('a', 'Пока не сохранено', 65); drafts.edit('b', 'Другая запись сохранилась', 66);
+    const originalPut = IDBObjectStore.prototype.put;
+    let successfulThenAborted = 0;
+    IDBObjectStore.prototype.put = function (...args) {
+      const request = originalPut.apply(this, args);
+      const transaction = this.transaction;
+      if (this.name === 'practiceDrafts' && args[0].id === 'a') request.addEventListener('success', () => { successfulThenAborted++; transaction.abort(); });
+      return request;
+    };
+    try {
+      let failure;
+      try { await drafts.flush(); } catch (error) { failure = error.code; }
+      await queue.flush();
+      const failuresAfterFlush = queue.failureCount, exported = JSON.parse(await store.exportBackup()).practiceDrafts, raw = (await readRaw()).practiceDrafts;
+      IDBObjectStore.prototype.put = originalPut;
+      await queue.retry();
+      const afterRetry = (await readRaw()).practiceDrafts;
+      return { failure, failuresAfterFlush, successfulThenAborted, exported, raw, afterRetry, failuresAfterRetry: queue.failureCount };
+    } finally { IDBObjectStore.prototype.put = originalPut; drafts.dispose(); }
+  });
+  assert.equal(evidence.failure, 'STORAGE_FAILURE'); assert.equal(evidence.successfulThenAborted, 1);
+  assert.equal(evidence.failuresAfterFlush, 1); assert.deepEqual(evidence.exported, evidence.raw);
+  assert.deepEqual(evidence.raw.map(draft => draft.note), ['Нативный черновик', 'Другая запись сохранилась']);
+  assert.deepEqual(evidence.afterRetry.map(draft => draft.note), ['Пока не сохранено', 'Другая запись сохранилась']);
+  assert.equal(evidence.failuresAfterRetry, 0);
+  return evidence;
+});
+
 check('native-project-save-abort-rolls-back-project-and-selection-after-both-puts', async ({ page }) => {
   await seed(page);
   const evidence = await page.evaluate(async () => {
@@ -190,14 +381,15 @@ check('native-project-save-abort-rolls-back-project-and-selection-after-both-put
       return request;
     };
     let failure;
-    try { await store.saveRhythmProject(candidate); }
+    const change = { kind: 'save', project: candidate };
+    try { await store.changeRhythmLibrary(change); }
     catch (error) { failure = { code: error.code, message: error.message }; }
     finally { prototype.put = originalPut; }
     const transaction = store.getLastTransaction();
     const cached = await store.readSnapshot(), rawAfter = await window.p5.readRaw(), fresh = await store.readSnapshot({ fresh: true });
-    await store.saveRhythmProject(candidate);
+    const receipt = await store.changeRhythmLibrary(change);
     const retried = await store.readSnapshot(), rawRetried = await window.p5.readRaw(), freshRetried = await store.readSnapshot({ fresh: true });
-    return { before, rawBefore, failure, observation, transaction, sameCachedReference: before === cached, rawAfter, fresh, retried, rawRetried, freshRetried };
+    return { before, rawBefore, failure, observation, transaction, sameCachedReference: before === cached, rawAfter, fresh, receipt, retried, rawRetried, freshRetried };
   });
   assert.equal(evidence.failure?.code, 'STORAGE_FAILURE');
   assert.deepEqual(evidence.observation, { projectPut: 1, selectionPut: 1, aborted: true });
@@ -206,6 +398,7 @@ check('native-project-save-abort-rolls-back-project-and-selection-after-both-put
   assert.deepEqual(evidence.rawAfter, evidence.rawBefore);
   assert.deepEqual(evidence.fresh, evidence.before);
   assert.equal(evidence.retried.activeRhythmProjectId, 'candidate-rhythm');
+  assert.deepEqual(evidence.receipt, { change: { kind: 'save', project: evidence.retried.rhythmProjects[0] }, activeId: 'candidate-rhythm' });
   assert.deepEqual(evidence.retried.rhythmProjects.map(project => project.id), ['candidate-rhythm', 'previous-rhythm']);
   assert.deepEqual(evidence.retried, evidence.freshRetried);
   assert.equal(evidence.rawRetried.activeRhythmProjectId, evidence.retried.activeRhythmProjectId);
@@ -391,6 +584,8 @@ async function confirmImport(page, value) {
   await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
   await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
 }
+checks.push(...p12CompositionChecks({ confirmImport, uiBackup }));
+
 async function uiRange(page, last = 3) {
   await uiReady(page); await revealControl(page.getByLabel('Первый лад', { exact: true }));
   await page.getByLabel('Тоника', { exact: true }).selectOption('C');
@@ -460,6 +655,106 @@ check('ui-import-preview-cancel-confirm-and-full-replacement', async ({ page, fi
   assert.equal(await page.getByTestId('preset-list').getByText('Устаревший пресет', { exact: true }).count(), 0);
   await page.reload(); await openHistory(page); assert.deepEqual(await uiBackup(page), incoming);
   return { previewDidNotWrite: true, cancelled: true, restored, survivedReload: true };
+}, { scope: 'ui' });
+
+check('ui-draft-abort-still-downloads-confirmed-bytes-and-offers-retry', async ({ page }) => {
+  await uiReady(page); await openHistory(page);
+  const note = page.getByLabel('Заметка к практике', { exact: true });
+  await note.fill('Подтверждённая заметка');
+  async function download() {
+    const pending = page.waitForEvent('download'); await historyAction(page, 'export').click();
+    return readFile(await (await pending).path());
+  }
+  const confirmed = await download();
+  assert.equal(JSON.parse(confirmed).practiceDrafts[0].note, 'Подтверждённая заметка');
+  await page.evaluate(() => {
+    const put = IDBObjectStore.prototype.put;
+    window.storageProbe = { abortedAfterPut: 0, restore() { IDBObjectStore.prototype.put = put; } };
+    IDBObjectStore.prototype.put = function (...args) {
+      const request = put.apply(this, args), transaction = this.transaction;
+      if (this.name === 'practiceDrafts' && args[0].note === 'Изменение после отказа') request.addEventListener('success', () => {
+        window.storageProbe.abortedAfterPut++; transaction.abort();
+      });
+      return request;
+    };
+  });
+  try {
+    await note.fill('Изменение после отказа');
+    const exported = await download();
+    assert.deepEqual(exported, confirmed);
+    await page.getByText('Копия содержит подтверждённые данные. Несохранённые изменения в неё не вошли.', { exact: false }).waitFor();
+    assert.ok(await page.evaluate(() => window.storageProbe.abortedAfterPut) > 0);
+  } finally { await page.evaluate(() => window.storageProbe.restore()); }
+  const details = page.locator('#open-storage-details');
+  if (!await page.locator('#retry-save').isVisible()) await details.click();
+  await page.locator('#retry-save').click();
+  await page.waitForFunction(() => document.querySelector('#retry-save')?.hidden === true);
+  const recovered = await download();
+  assert.equal(JSON.parse(recovered).practiceDrafts[0].note, 'Изменение после отказа');
+  return { confirmedBytesPreserved: true, retryRecoveredNote: true };
+}, { scope: 'ui' });
+
+check('ui-restore-waits-for-successful-preliminary-writes-and-keeps-preview-for-retry', async ({ page }) => {
+  await uiReady(page);
+  const original = await uiBackup(page);
+  await page.evaluate(() => {
+    const put = IDBObjectStore.prototype.put;
+    window.restoreProfileWrites = () => { IDBObjectStore.prototype.put = put; };
+    IDBObjectStore.prototype.put = function (...args) {
+      const request = put.apply(this, args), transaction = this.transaction;
+      if (this.name === 'profile') request.addEventListener('success', () => transaction.abort());
+      return request;
+    };
+  });
+  await page.locator('[data-theme-choice="dark"]').click();
+  await page.locator('#retry-save').waitFor();
+  await upload(page, original);
+  await page.locator('[data-history-confirm]').check();
+  await historyAction(page, 'confirm-restore').click();
+  await page.getByText('Текущие изменения не сохранены. Повтори сохранение перед восстановлением.', { exact: true }).waitFor();
+  assert.equal(await page.getByTestId('backup-preview').count(), 1);
+  assert.deepEqual(await uiBackup(page), original);
+  await page.evaluate(() => window.restoreProfileWrites());
+  await page.locator('#retry-save').click();
+  await page.waitForFunction(() => document.querySelector('#retry-save')?.hidden === true);
+  assert.equal((await uiBackup(page)).profile.theme, 'dark');
+  await historyAction(page, 'confirm-restore').click();
+  await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
+  assert.deepEqual(await uiBackup(page), original);
+  return { restoreBlockedOnFailedProfileWrite: true, samePreviewRetried: true };
+}, { scope: 'ui' });
+
+check('ui-preview-and-cancel-leave-active-practice-and-native-data-untouched', async ({ page }) => {
+  // Isolate the action from the independent five-second automatic checkpoint.
+  await page.addInitScript(() => {
+    const interval = window.setInterval;
+    window.setInterval = function (callback, ms, ...args) {
+      return interval.call(this, ms === 5000 ? () => {} : callback, ms, ...args);
+    };
+  });
+  await page.reload(); await uiReady(page);
+  await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
+  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite');
+  await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
+  const previous = await uiBackup(page);
+  await page.locator('[data-player-action="start"]').click();
+  await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerState === 'running');
+  await page.evaluate(() => {
+    const transaction = IDBDatabase.prototype.transaction;
+    window.storagePreviewWrites = 0;
+    IDBDatabase.prototype.transaction = function (stores, mode, ...args) {
+      if (mode === 'readwrite') window.storagePreviewWrites++;
+      return transaction.call(this, stores, mode, ...args);
+    };
+  });
+  await upload(page, previous);
+  await page.getByTestId('backup-preview').waitFor({ state: 'visible' });
+  await historyAction(page, 'cancel-restore').click();
+  await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
+  assert.equal(await page.evaluate(() => window.storagePreviewWrites), 0);
+  assert.equal(await page.locator('#player-mount').getAttribute('data-player-state'), 'running');
+  await page.locator('[data-player-action="stop"]').click();
+  return { activePracticePreserved: true, attributableReadwriteTransactions: 0 };
 }, { scope: 'ui' });
 
 check('ui-restore-after-nonzero-practice-does-not-add-old-clock-to-imported-draft', async ({ page }) => {

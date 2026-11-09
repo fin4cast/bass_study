@@ -5,10 +5,11 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import * as original from '@coderline/alphatab';
-import { musicBankVendorDir } from '../prepare-music-bank.mjs';
+import { musicBankVendorDir as defaultVendorDir } from '../prepare-music-bank.mjs';
 
 // Подготовку выполняет отдельная команда сборки. Тест не меняет assets:
 // его можно запускать, пока другой процесс читает готовую поставку.
+const musicBankVendorDir = process.env.BASS_REGRESSION_DIST ? resolve(process.env.BASS_REGRESSION_DIST, 'vendor/music-bank') : defaultVendorDir;
 const patched = await import(pathToFileURL(resolve(musicBankVendorDir, 'alphaTab.js')).href);
 const helper = await import(pathToFileURL(resolve(musicBankVendorDir, 'channel-layout.js')).href);
 const soundFont = new Uint8Array(await readFile(resolve(musicBankVendorDir, 'soundfont/sonivox.sf2')));

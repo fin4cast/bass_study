@@ -1,16 +1,14 @@
-import { inspectStaticServer } from './static-server-ownership.mjs';
-import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { browserRun, startBrowserBuild, writeBrowserReport } from './browser-runner.mjs';
+import { mkdir } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 
 export async function runTrainingBrowserChecks(checks) {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-  const origin = 'http://localhost:4173';
-  const resultDir = join(root, 'test-results');
+  const config = browserRun(root);
+  let origin = config.origin;
+  const { resultDir } = config;
   const externalRequests = [];
   const pageErrors = [];
   const report = {
@@ -20,30 +18,14 @@ export async function runTrainingBrowserChecks(checks) {
     networkIsolation: 'Non-loopback HTTP requests from application pages are aborted. Fresh browser context and disabled cache; no Windows NIC change.',
     checks: [], cleanupErrors: [],
   };
-  let server; let externalServer = false;
+  let server;
   let browser;
   let context;
   let page;
   try {
-    const ownership = await inspectStaticServer(origin, join(root, 'dist', 'index.html'), process.argv.includes('--reuse-server'));
-    externalServer = ownership.external; report.staticServer = ownership.evidence;
+    server = await startBrowserBuild(config, report);
+    origin = server.origin;
     await mkdir(resultDir, { recursive: true });
-    if (!externalServer) {
-    server = spawn(process.execPath, [join(root, 'scripts', 'serve.mjs')], { cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    let startup = '';
-    let launchError;
-    server.on('error', error => { launchError = error; });
-    server.stdout.on('data', data => { startup += data; });
-    server.stderr.on('data', data => { startup += data; });
-    let ready = false;
-    for (let index = 0; index < 100; index++) {
-      if (launchError) throw launchError;
-      if (server.exitCode !== null) throw new Error(`Server exited: ${startup}`);
-      try { if ((await fetch(origin, { signal: AbortSignal.timeout(300) })).ok) { ready = true; break; } } catch { /* wait for listener */ }
-      await delay(50);
-    }
-    assert.ok(ready, `Server did not become ready: ${startup}`);
-    }
     browser = await chromium.launch({ channel: 'msedge', headless: true });
     report.browserVersion = browser.version();
     context = await browser.newContext({ viewport: { width: 1280, height: 1000 } });
@@ -88,18 +70,7 @@ export async function runTrainingBrowserChecks(checks) {
     }
     await cleanup('browser-context', async () => { await context?.close(); });
     await cleanup('browser', async () => { await browser?.close(); });
-    await cleanup('local-server', async () => {
-      if (!externalServer && server?.pid && server.exitCode === null) {
-        const exited = new Promise(resolve => server.once('exit', resolve));
-        server.kill(); await exited;
-      }
-    });
-    report.passed = report.checks.filter(item => item.status === 'passed').length;
-    report.failed = report.checks.filter(item => item.status === 'failed').length;
-    report.status = !report.setupError && report.failed === 0 && report.cleanupErrors.length === 0 ? 'passed' : 'failed';
-    await mkdir(resultDir, { recursive: true });
-    await writeFile(join(resultDir, 'p3-edge.json'), JSON.stringify(report, null, 2) + '\n');
-    console.log(`${report.status}: ${report.passed} passed, ${report.failed} failed; report test-results/p3-edge.json`);
-    process.exitCode = report.status === 'passed' ? 0 : 1;
+    await cleanup('local-server', async () => { await server?.close(); });
+    await writeBrowserReport(resultDir, 'p3-edge.json', report, checks.length);
   }
 }

@@ -1,11 +1,8 @@
 @import "../theme.css";
 
 .player-section {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 22px 24px;
+  padding: 18px;
   margin: 19px 0 23px;
-  background: var(--surface);
 }
 
 .player-section[hidden],
@@ -14,22 +11,12 @@
 }
 
 .player-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
   margin-bottom: 20px;
 }
 
 .player-heading .eyebrow {
   margin-bottom: 5px;
   font-size: 12px;
-}
-
-.player-heading h2 {
-  font-size: 19px;
-  font-weight: 550;
-  color: var(--accent-text);
 }
 
 .player-scope {
@@ -54,37 +41,13 @@
   gap: 5px;
 }
 
-.player-field > span,
 .player-group-label {
   font-size: 12px;
   color: var(--accent-text);
 }
 
-.player-field input,
-.player-field select {
-  min-height: 38px;
-  font-size: 12px;
-}
-
 .player-field input {
   width: 78px;
-  padding: 0 8px 0 10px;
-  color: var(--accent-text);
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-}
-
-.player-field input[aria-invalid="true"] {
-  border-color: var(--warning-border);
-  background: var(--surface-raised);
-}
-
-.player-field input:disabled,
-.player-field select:disabled {
-  opacity: .6;
-  color: var(--accent-text);
-  cursor: default;
 }
 
 .player-check {
@@ -185,20 +148,15 @@
   color: var(--accent-text);
 }
 
-.player-error,
+.player-error { margin-top: 16px; }
+
 .player-notice {
   font-size: 12px;
   border-radius: 6px;
   padding: 10px 12px;
   margin-top: 16px;
-  color: var(--danger-text);
-  border: 1px solid var(--danger-border);
-  background: var(--danger-surface);
-}
-
-.player-notice {
   color: var(--warning-text);
-  border-color: var(--border);
+  border: 1px solid var(--border);
   background: var(--surface-raised);
 }
 
@@ -218,13 +176,7 @@
 }
 
 .player-buttons .primary-button {
-  margin-left: 0;
   min-width: 100px;
-}
-
-.player-buttons button:disabled {
-  opacity: .4;
-  cursor: default;
 }
 
 .player-shortcuts {

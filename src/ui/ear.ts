@@ -13,7 +13,7 @@ export interface EarOptions {
   readonly onPreferencesChange?: () => void;
   readonly onSessionChanged?: (session: EarSession) => void;
   readonly onSessionFinished?: (session: EarSession) => void;
-  readonly onBeforeListen?: () => void;
+  readonly onBeforeListen?: () => boolean | void;
 }
 
 const ROOTS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
@@ -64,7 +64,7 @@ export function mountEar(container: HTMLElement, options: EarOptions = {}) {
     } catch (failure) { fail(failure); }
   } });
 
-  container.classList.add('ear-section');
+  container.classList.add('ear-section', 'content-panel');
   const elapsed = () => Math.max(session?.answerState.lastEventMs ?? 0, performance.now() - questionStartedAt);
   const describe = () => `${parseNote(preferences.root).name} · ${preferences.quality === 'major' ? 'мажорное' : 'минорное'} трезвучие`;
 
@@ -125,14 +125,14 @@ export function mountEar(container: HTMLElement, options: EarOptions = {}) {
     const activeListen = state?.activeListen !== null && state?.activeListen !== undefined;
     const readyToAnswer = session?.status === 'active' && !activeListen && !examplePlaying && !needsListen && state?.firstListenCompletedAtMs !== null;
     const reveal = state?.outcome === 'correct' || state?.outcome === 'corrected' || state?.outcome === 'revealed';
-    const summaryMarkup = summary ? `<div class="ear-summary" data-testid="ear-summary"><p class="eyebrow">РЕЗУЛЬТАТ ОТВЕТОВ ПОСЛЕ ПРОСЛУШИВАНИЯ</p><h3 tabindex="-1">${escapeHtml(summaryTitle)}</h3><p>${escapeHtml(summaryContext)} · завершено ${summary.completed} из ${summary.total}. Это выбор ступени на экране, не оценка реальной игры.</p><div class="ear-summary-grid">${([
+    const summaryMarkup = summary ? `<div class="ear-summary" data-testid="ear-summary"><p class="eyebrow">РЕЗУЛЬТАТ ОТВЕТОВ ПОСЛЕ ПРОСЛУШИВАНИЯ</p><h3 class="lesson-result-title" tabindex="-1">${escapeHtml(summaryTitle)}</h3><p>${escapeHtml(summaryContext)} · завершено ${summary.completed} из ${summary.total}. Это выбор ступени на экране, не оценка реальной игры.</p><div class="ear-summary-grid lesson-result-metrics">${([
       ['independentCorrect', 'Самостоятельно'], ['corrected', 'С исправлением'], ['errors', 'Ошибочных ответов'], ['hints', 'Ответов показано'], ['skipped', 'Пропущено'], ['replayCount', 'Полных повторов'],
     ] as const).map(([key, label]) => `<div><strong data-ear-result="${key}">${summary![key]}</strong><span>${label}</span></div>`).join('')}</div><p>Повтор звука учитывается отдельно от показа ответа и ошибки. Полных прослушиваний: ${summary.completedListens}.</p></div>` : '<div class="ear-ready"><span aria-hidden="true">♪</span><div><h3>Сначала услышь опору</h3><p>Тоника → пауза → целевой звук. Затем выбери: тоника, терция или квинта. Карту грифа мы покажем после выхода из задания.</p></div></div>';
-    container.innerHTML = `<div class="ear-heading"><div><p class="eyebrow">СЛУХ В ТОНАЛЬНОСТИ</p><h2>Услышь связь с тоникой.</h2></div><p>Сравни два звука трезвучия.<br>Ответь ступенью, а не названием ноты.</p></div>
-      <div class="ear-settings"><label class="ear-field"><span>Тоника</span><select aria-label="Тоника слухового задания" data-ear-setting="root">${ROOTS.map((root, index) => `<option value="${root}"${parseNote(root).name === parseNote(preferences.root).name ? ' selected' : ''}>${ROOT_NAMES[index]}</option>`).join('')}</select></label><label class="ear-field"><span>Трезвучие</span><select aria-label="Трезвучие для слуха" data-ear-setting="quality"><option value="major"${preferences.quality === 'major' ? ' selected' : ''}>Мажорное · 1–3–5</option><option value="minor"${preferences.quality === 'minor' ? ' selected' : ''}>Минорное · 1–♭3–5</option></select></label><label class="ear-field ear-number-field"><span>Вопросов</span><input type="number" min="1" max="20" step="1" aria-label="Слуховых вопросов" aria-invalid="${invalidCount}" data-ear-setting="count" value="${escapeHtml(count)}"></label><label class="ear-field ear-number-field"><span>Темп прослушивания</span><input type="number" min="60" max="120" step="1" aria-label="Темп прослушивания" aria-invalid="${invalidBpm}" data-ear-setting="bpm" value="${escapeHtml(bpm)}"></label><button class="primary-button" type="button" data-ear-action="start">${session ? 'Начать заново' : 'Начать слуховое занятие'}<span aria-hidden="true">→</span></button></div>
+    container.innerHTML = `<div class="ear-heading panel-heading"><div><p class="eyebrow">СЛУХ В ТОНАЛЬНОСТИ</p><h2>Услышь связь с тоникой.</h2></div><p>Сравни два звука трезвучия.<br>Ответь ступенью, а не названием ноты.</p></div>
+      <div class="ear-settings"><label class="ear-field"><span class="form-label">Тоника</span><select class="form-control" aria-label="Тоника слухового задания" data-ear-setting="root">${ROOTS.map((root, index) => `<option value="${root}"${parseNote(root).name === parseNote(preferences.root).name ? ' selected' : ''}>${ROOT_NAMES[index]}</option>`).join('')}</select></label><label class="ear-field"><span class="form-label">Трезвучие</span><select class="form-control" aria-label="Трезвучие для слуха" data-ear-setting="quality"><option value="major"${preferences.quality === 'major' ? ' selected' : ''}>Мажорное · 1–3–5</option><option value="minor"${preferences.quality === 'minor' ? ' selected' : ''}>Минорное · 1–♭3–5</option></select></label><label class="ear-field ear-number-field"><span class="form-label">Вопросов</span><input class="form-control" type="number" min="1" max="20" step="1" aria-label="Слуховых вопросов" aria-invalid="${invalidCount}" data-ear-setting="count" value="${escapeHtml(count)}"></label><label class="ear-field ear-number-field"><span class="form-label">Темп прослушивания</span><input class="form-control" type="number" min="60" max="120" step="1" aria-label="Темп прослушивания" aria-invalid="${invalidBpm}" data-ear-setting="bpm" value="${escapeHtml(bpm)}"></label><button class="primary-button" type="button" data-ear-action="start">${session ? 'Начать заново' : 'Начать слуховое занятие'}<span aria-hidden="true">→</span></button></div>
       <p class="ear-description">${escapeHtml(describe())}. ${routeContext ? `Общий материал маршрута: опора ${escapeHtml(formatMidi(routeContext.material.referenceMidi, routeContext.material.root))}. Настройки закреплены до выхода из маршрута.` : 'Звуки звучат в фиксированном регистре; фильтры исследовательского грифа на это задание не влияют.'}</p>
       ${exampleMarkup()}
-      ${notice ? `<p class="ear-notice" role="status" data-testid="ear-notice">${escapeHtml(notice)}</p>` : ''}${error ? `<p class="ear-error" role="alert" data-testid="ear-error">${escapeHtml(error)}</p>` : ''}
+      ${notice ? `<p class="ear-notice status-notice" role="status" data-testid="ear-notice">${escapeHtml(notice)}</p>` : ''}${error ? `<p class="status-error" role="alert" data-testid="ear-error">${escapeHtml(error)}</p>` : ''}
       ${session ? `<div class="ear-question" data-testid="ear-question"><div class="ear-progress"><span>Вопрос <strong>${session.questionIndex + 1}</strong> из ${session.questions.length}</span><button class="text-button" type="button" data-ear-action="finish">Завершить занятие</button></div><h3 tabindex="-1" data-testid="ear-prompt">Какая ступень прозвучала после тоники?</h3><div class="ear-sound-path" aria-hidden="true"><span>Тоника</span><i>→</i><span>Пауза</span><i>→</i><span>Целевой звук</span></div><div class="ear-listen-controls"><button class="primary-button" type="button" data-ear-action="listen"${activeListen || terminal ? ' disabled' : ''}><span aria-hidden="true">▶</span>${(state?.listensCompleted ?? 0) > 0 ? 'Послушать ещё раз' : 'Прослушать'}</button><button class="secondary-button" type="button" data-ear-action="stop"${activeListen ? '' : ' disabled'}>Остановить звук</button><span class="ear-listen-status" role="status" data-testid="ear-listen-status">${activeListen ? 'Слушаем… Ответы откроются после окончания звука.' : terminal ? 'Вопрос завершён' : readyToAnswer ? 'Можно выбрать ступень' : 'Сначала прослушай оба звука до конца'}</span></div><div class="ear-answers" role="group" aria-label="Услышанная ступень">${session.currentQuestion.choices.map(choice => `<button class="ear-answer${wrong.has(choice.id) ? ' was-wrong' : ''}${reveal && choice.id === session!.currentQuestion.targetDegree ? ' is-correct' : ''}" type="button" data-ear-choice="${choice.id}"${readyToAnswer ? '' : ' disabled'}><strong>${escapeHtml(choice.label)}</strong><span>${choice.id === '1' ? 'Тоника' : choice.id === '5' ? 'Квинта' : 'Терция'}</span></button>`).join('')}</div><p class="ear-feedback" role="status" aria-live="polite" data-testid="ear-feedback">${escapeHtml(state?.feedback ?? '')}</p><p class="ear-listen-counts">Полных прослушиваний: <strong data-testid="ear-completed-listens">${state?.listensCompleted ?? 0}</strong> · полных повторов: <strong data-testid="ear-replay-count">${Math.max(0, (state?.listensCompleted ?? 0) - 1)}</strong>${state?.listensCancelled ? ` · остановлено: ${state.listensCancelled}` : ''}</p><div class="ear-actions"><div><button class="secondary-button" type="button" data-ear-action="reveal"${terminal ? ' disabled' : ''}>Показать ответ</button><button class="text-button" type="button" data-ear-action="skip"${terminal ? ' disabled' : ''}>Пропустить</button></div>${terminal ? `<button class="primary-button" type="button" data-ear-action="next">${session.questionIndex + 1 === session.questions.length ? 'Посмотреть результат' : 'Следующий вопрос'}<span aria-hidden="true">→</span></button>` : '<span>Повтор звука и показ ответа учитываются по-разному.</span>'}</div></div>` : summaryMarkup}`;
     if (routeContext) container.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-ear-setting]').forEach(input => { input.disabled = true; });
   }
@@ -144,7 +144,7 @@ export function mountEar(container: HTMLElement, options: EarOptions = {}) {
       const example = createEarExample({ ...preferences, referenceMidi: routeContext?.material.referenceMidi }, degree);
       return `<button class="secondary-button" type="button" data-ear-example="${degree}"${examplePlaying ? ' disabled' : ''}>${degree.replace('b', '♭')} · ${degree === '1' ? 'Тоника' : degree === '5' ? 'Квинта' : preferences.quality === 'major' ? 'Большая терция' : 'Малая терция'} · ${escapeHtml(formatMidi(example.targetMidi, example.targetName))}</button>`;
     }).join('') : [...wrong].map(degree => `<button class="secondary-button" type="button" data-ear-example="${degree}"${examplePlaying ? ' disabled' : ''}>Послушать мой выбор: ${degree.replace('b', '♭')}</button>`).join('');
-    return buttons ? `<section class="ear-examples" aria-label="Подписанные образцы без оценки"><h3>${canStudy ? 'Изучи звучание перед проверкой' : 'Сравни свой выбранный вариант'}</h3><p>Опора → пауза → выбранная ступень. Эти образцы не меняют число попыток, повторов или правильных ответов.</p><div class="ear-actions">${buttons}${session?.status === 'review' ? '<button class="secondary-button" type="button" data-ear-review>Послушать текущий ответ</button>' : ''}<button class="text-button" type="button" data-ear-action="stop-example">Остановить образец</button></div><p role="status">${examplePlaying ? 'Слушаем подписанный образец…' : ''}</p></section>` : '';
+    return buttons ? `<section class="ear-examples content-panel-raised" aria-label="Подписанные образцы без оценки"><h3>${canStudy ? 'Изучи звучание перед проверкой' : 'Сравни свой выбранный вариант'}</h3><p>Опора → пауза → выбранная ступень. Эти образцы не меняют число попыток, повторов или правильных ответов.</p><div class="ear-actions">${buttons}${session?.status === 'review' ? '<button class="secondary-button" type="button" data-ear-review>Послушать текущий ответ</button>' : ''}<button class="text-button" type="button" data-ear-action="stop-example">Остановить образец</button></div><p role="status">${examplePlaying ? 'Слушаем подписанный образец…' : ''}</p></section>` : '';
   }
 
   async function example(degree: EarDegree | null) {
@@ -154,7 +154,7 @@ export function mountEar(container: HTMLElement, options: EarOptions = {}) {
     stopAudio('', false);
     needsListen = previousNeedsListen;
     try {
-      options.onBeforeListen?.();
+      if (options.onBeforeListen?.() === false) return;
       const question = degree === null && session ? session.currentQuestion : createEarExample({ ...preferences, referenceMidi: routeContext?.material.referenceMidi }, degree!);
       const plan = getEarAudioEvents(question, getPreferences().bpm);
       const expected = ++token; examplePlaying = true; exampleFocus = degree ?? 'review'; error = ''; notice = ''; render();
@@ -184,7 +184,7 @@ export function mountEar(container: HTMLElement, options: EarOptions = {}) {
     let attemptToken: number | null = null;
     try {
       const next = getPreferences();
-      options.onBeforeListen?.();
+      if (options.onBeforeListen?.() === false) return;
       session = beginEarListen(session, elapsed(), next.bpm);
       const listenId = session.answerState.activeListen!.id;
       const expectedToken = ++token;
@@ -273,6 +273,7 @@ export function mountEar(container: HTMLElement, options: EarOptions = {}) {
 
   render();
   return {
+    routeFocus: () => container.querySelector<HTMLElement>('h2'),
     getPreferences: () => freePreferences ? { ...freePreferences } : getPreferences(),
     startRouteContext(material: RouteMaterial, reference: RouteRef, startNew = false) {
       const same = routeContext?.reference.routeId === reference.routeId;

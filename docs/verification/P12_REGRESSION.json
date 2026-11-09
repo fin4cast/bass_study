@@ -1,0 +1,431 @@
+{
+  "runId": "regression-yigC6Y",
+  "profile": "portable + corpus",
+  "startedAt": "2026-11-09T15:22:06.630Z",
+  "status": "passed",
+  "platform": "win32",
+  "node": "v24.18.0",
+  "commit": "7a75f4c4c4bd53f455d3d1ae3715904c0e33ec4e",
+  "dirty": true,
+  "steps": [
+    {
+      "name": "docs",
+      "status": "passed",
+      "log": "logs/docs.log",
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "types",
+      "status": "passed",
+      "log": "logs/types.log",
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "build",
+      "status": "passed"
+    },
+    {
+      "name": "unit",
+      "status": "passed",
+      "report": "reports/unit.json",
+      "log": "logs/unit.log",
+      "exitCode": 0,
+      "signal": null,
+      "passed": 430,
+      "failed": 0
+    },
+    {
+      "name": "vendor",
+      "status": "passed",
+      "log": "logs/vendor.log",
+      "exitCode": 0,
+      "signal": null,
+      "passed": 3
+    },
+    {
+      "name": "dsp",
+      "status": "passed",
+      "report": "reports/p10-music-bank-channels.json",
+      "log": "logs/dsp.log",
+      "exitCode": 0,
+      "signal": null,
+      "passed": 9,
+      "failed": 0,
+      "pcmTracks": 6
+    },
+    {
+      "name": "browser",
+      "status": "passed",
+      "report": "reports/p2-edge.json",
+      "log": "logs/browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:63555",
+      "fixtureOrigin": null,
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 15,
+      "failed": 0
+    },
+    {
+      "name": "training-browser",
+      "status": "passed",
+      "report": "reports/p3-edge.json",
+      "log": "logs/training-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:63676",
+      "fixtureOrigin": null,
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 22,
+      "failed": 0
+    },
+    {
+      "name": "audio-browser",
+      "status": "passed",
+      "report": "reports/p4-edge.json",
+      "log": "logs/audio-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:63717",
+      "fixtureOrigin": "http://127.0.0.1:63720",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 27,
+      "failed": 0
+    },
+    {
+      "name": "storage-browser",
+      "status": "passed",
+      "report": "reports/p5-edge.json",
+      "log": "logs/storage-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:58750",
+      "fixtureOrigin": "http://127.0.0.1:58753",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 33,
+      "failed": 0
+    },
+    {
+      "name": "release-browser",
+      "status": "passed",
+      "report": "reports/p6-edge.json",
+      "log": "logs/release-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:62492",
+      "fixtureOrigin": "http://127.0.0.1:62495",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 22,
+      "failed": 0
+    },
+    {
+      "name": "ear-browser",
+      "status": "passed",
+      "report": "reports/p7-ear-edge.json",
+      "log": "logs/ear-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:62689",
+      "fixtureOrigin": "http://127.0.0.1:62692",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 23,
+      "failed": 0
+    },
+    {
+      "name": "harmony-browser",
+      "status": "passed",
+      "report": "reports/p7-harmony-edge.json",
+      "log": "logs/harmony-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:50199",
+      "fixtureOrigin": "http://127.0.0.1:50202",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 12,
+      "failed": 0
+    },
+    {
+      "name": "tracks-browser",
+      "status": "passed",
+      "report": "reports/p7-tracks-edge.json",
+      "log": "logs/tracks-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:50253",
+      "fixtureOrigin": "http://127.0.0.1:50256",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 22,
+      "failed": 0
+    },
+    {
+      "name": "notation-browser",
+      "status": "passed",
+      "report": "reports/p7-notation-edge.json",
+      "log": "logs/notation-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:63784",
+      "fixtureOrigin": "http://127.0.0.1:63787",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 13,
+      "failed": 0
+    },
+    {
+      "name": "input-browser",
+      "status": "passed",
+      "report": "reports/p7-input-edge.json",
+      "log": "logs/input-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:63862",
+      "fixtureOrigin": "http://127.0.0.1:63865",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 20,
+      "failed": 0
+    },
+    {
+      "name": "uiux-browser",
+      "status": "passed",
+      "report": "reports/p8-uiux-edge.json",
+      "log": "logs/uiux-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:51430",
+      "fixtureOrigin": "http://127.0.0.1:51433",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    {
+      "name": "design-browser",
+      "status": "passed",
+      "report": "reports/p9-design-edge.json",
+      "log": "logs/design-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:51527",
+      "fixtureOrigin": "http://127.0.0.1:51530",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    {
+      "name": "rhythm-browser",
+      "status": "passed",
+      "report": "reports/p10-rhythm-edge.json",
+      "log": "logs/rhythm-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:55369",
+      "fixtureOrigin": "http://127.0.0.1:55372",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 30,
+      "failed": 0
+    },
+    {
+      "name": "music-bank-browser",
+      "status": "passed",
+      "report": "reports/p10-music-bank-edge.json",
+      "log": "logs/music-bank-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:58842",
+      "fixtureOrigin": "http://127.0.0.1:58845",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 12,
+      "failed": 0
+    },
+    {
+      "name": "music-bank-storage-browser",
+      "status": "passed",
+      "report": "reports/p10-music-bank-storage-edge.json",
+      "log": "logs/music-bank-storage-browser.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "portable",
+      "origin": "http://localhost:63538",
+      "fixtureOrigin": "http://127.0.0.1:63541",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "name": "dsp-corpus",
+      "status": "passed",
+      "report": "reports/corpus/p10-music-bank-channels.json",
+      "log": "logs/dsp-corpus.log",
+      "exitCode": 0,
+      "signal": null,
+      "passed": 22,
+      "failed": 0,
+      "pcmTracks": 65
+    },
+    {
+      "name": "music-bank-corpus",
+      "status": "passed",
+      "report": "reports/corpus/p10-music-bank-edge.json",
+      "log": "logs/music-bank-corpus.log",
+      "exitCode": 0,
+      "signal": null,
+      "browserVersion": "157.0.4341.42",
+      "profile": "corpus",
+      "origin": "http://localhost:56698",
+      "fixtureOrigin": "http://127.0.0.1:56701",
+      "staticServer": {
+        "reuseRequested": false,
+        "owned": true,
+        "mode": "runner-owned",
+        "restartAllowed": true,
+        "shutdownAllowed": true
+      },
+      "passed": 12,
+      "failed": 0
+    },
+    {
+      "name": "provenance",
+      "status": "passed"
+    }
+  ],
+  "inputsSha256": "dc54ba4f95e6eabc9125facd75db6e7fbc322e48b10f888abbb2bede5f416780",
+  "buildSha256": "c4da20842f8461c817b473a4ae709137d7575a83ff1e98b6877411585e4a3864",
+  "edgeVersions": [
+    "157.0.4341.42"
+  ],
+  "browser": {
+    "suites": 16,
+    "passed": 287,
+    "failed": 0,
+    "portable": {
+      "suites": 15,
+      "passed": 275,
+      "failed": 0
+    },
+    "corpus": {
+      "suites": 1,
+      "passed": 12,
+      "failed": 0
+    }
+  },
+  "completedAt": "2026-11-09T15:31:04.836Z"
+}

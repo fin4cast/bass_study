@@ -1,23 +1,26 @@
 import './rhythm.css';
-import { createRhythmPlayer, type RhythmPracticeClock, type RhythmSnapshot } from '../audio/rhythm';
+import { createRhythmPlayer, type RhythmPracticeClock, type RhythmViewSnapshot } from '../audio/rhythm';
 import {
-  DEFAULT_RHYTHM_PREFERENCES, DEFAULT_RHYTHM_VELOCITY, RHYTHM_PATTERN_LENGTHS, RHYTHM_PRESETS, RHYTHM_STEPS_PER_BAR, SOUND_LABELS,
-  createDefaultRhythmProject, createLanes, defaultRhythmAccents, defaultRhythmMeter,
+  DEFAULT_RHYTHM_PREFERENCES, RHYTHM_PATTERN_LENGTHS, RHYTHM_PRESETS, RHYTHM_STEPS_PER_BAR, SOUND_LABELS,
+  createDefaultRhythmProject, defaultRhythmAccents, defaultRhythmMeter,
   validateRhythmPreferences, validateRhythmProject, type RhythmBpmUnit, type RhythmDivision, type RhythmKit,
   type RhythmPatternBars, type RhythmPatternId, type RhythmPlaybackConfig, type RhythmPreferences,
   type RhythmProject, type RhythmSound, type RhythmStep, type RhythmSwingMode,
 } from '../rhythm/model';
+import { applyRhythmProjectEdit, copyRhythmBar, metronomeTempo, playbackForRhythmRun, withProjectTempo, type RhythmBarCopy, type RhythmProjectEdit } from '../rhythm/editor';
 import { confirmAction } from './confirm';
+import { bindPageTabs } from './page-tabs';
+import { allowsTransportShortcut } from './transport-shortcut';
 import { rhythmInstrumentArt } from './rhythm/instrument-art';
 import { bindRhythmDial, paintRhythmDial, rhythmButton, rhythmMarkup } from './rhythm/view';
+import { createRhythmLibrary, type RhythmLibrary, type RhythmLibraryOperation } from './rhythm/library';
 
-export type RhythmLibraryOperation = { readonly kind: 'save'; readonly project: RhythmProject }
-  | { readonly kind: 'select'; readonly id: string | null } | { readonly kind: 'delete'; readonly id: string };
-export interface RhythmLibrary { readonly projects: readonly RhythmProject[]; readonly activeId: string | null }
+export type { RhythmLibrary, RhythmLibraryOperation } from './rhythm/library';
 export interface RhythmOptions {
-  readonly onBeforeStart?: () => void;
+  readonly onBeforeStart?: () => boolean | void;
   readonly onPreferencesChange?: () => void;
-  readonly onLibraryChange?: (operation: RhythmLibraryOperation) => Promise<RhythmLibrary>;
+  readonly onLibraryChange?: (operation: RhythmLibraryOperation, onCommit: (library: RhythmLibrary) => void) => Promise<void>;
+  readonly onLibraryRetry?: () => Promise<boolean>;
   readonly onPracticeEnd?: (practice: RhythmPracticeClock) => void;
   readonly onPracticeChange?: () => void;
 }
@@ -25,7 +28,6 @@ export interface RhythmOptions {
 type Mutable<T> = T extends readonly (infer Item)[] ? Mutable<Item>[] : T extends object ? { -readonly [Key in keyof T]: Mutable<T[Key]> } : T;
 const clone = <T,>(value: T) => structuredClone(value) as Mutable<T>;
 const nextPatternLength = (bars: RhythmPatternBars) => RHYTHM_PATTERN_LENGTHS.find(length => length > bars);
-const PATTERN_IDS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
 const LEVELS = ['Без щелчка', 'Доля', 'Акцент'];
 const KITS: ReadonlyArray<readonly [RhythmKit, string, string]> = [
   ['wood', 'Дерево', 'Мягкий короткий щелчок'], ['classic', 'Классический', 'Чёткий механический пульс'],
@@ -40,15 +42,9 @@ const failureText = (error: unknown) => error instanceof Error ? error.message :
 let instance = 0;
 
 function setMetronomeTempo(metronome: Mutable<RhythmPreferences['metronome']>, bpm: number) {
-  metronome.bpm = bpm;
-  if (metronome.training.rampEnabled) metronome.training.targetBpm = Math.max(metronome.training.targetBpm, bpm);
-}
-
-function withProjectTempo(preferences: RhythmPreferences, project: RhythmProject): RhythmPreferences {
-  if (!project.overlay || project.bpm === preferences.metronome.bpm) return preferences;
-  const next = clone(preferences);
-  setMetronomeTempo(next.metronome, project.bpm);
-  return validateRhythmPreferences(next);
+  const next = metronomeTempo(metronome, bpm);
+  metronome.bpm = next.bpm;
+  metronome.training.targetBpm = next.targetBpm;
 }
 
 export function mountRhythm(container: HTMLElement, options: RhythmOptions = {}) {
@@ -56,20 +52,24 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   const listen = { signal: listener.signal };
   let visible = !container.hidden, disposed = false;
   let preferences = DEFAULT_RHYTHM_PREFERENCES;
-  let library: RhythmLibrary = { projects: [], activeId: null };
   const newProject = (name?: string) => createDefaultRhythmProject(crypto.randomUUID(), name);
   let project = newProject();
   let selectedBar = 0, selectedStep = 0, selectedLane = project.channels[0].id;
   let selectedSound: RhythmSound | null = null;
   let selectedClip: string | null = null;
-  let copiedBar: Map<string, { steps: RhythmStep[]; velocities: number[] }> | null = null;
-  let intent = 0, runIntent = 0, saving = false, libraryCommand = false;
-  let failedWrite: { operation: RhythmLibraryOperation; replace: boolean; notice?: string } | null = null;
-  let snapshot: RhythmSnapshot | null = null, practiceKey = '';
+  let copiedBar: RhythmBarCopy | null = null;
+  let runIntent = 0;
+  let snapshot: RhythmViewSnapshot | null = null, practiceKey = '';
   let presetId: string | null = 'rock';
   let taps: number[] = [];
+  let faderGesture: { readonly pointerId: number; readonly input: HTMLInputElement; readonly value: string; readonly level: string | null } | null = null;
   const inputErrors = new Map<string, string>();
   let audioError = '';
+  const library = createRhythmLibrary({
+    write: options.onLibraryChange, retry: options.onLibraryRetry,
+    onStateChange: syncLibraryState, onSelection: selectLibraryProject, onNotice: status,
+    onFailure: failure => status(`Изменения пока не сохранены. ${failureText(failure)}`),
+  });
 
   container.classList.add('rhythm-view');
   container.dataset.testid = 'rhythm-view';
@@ -84,15 +84,19 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   const velocityScroll = output('velocity').parentElement!;
   const velocityEditor = velocityScroll.closest('details')!;
   const editorScroll = container.querySelector<HTMLElement>('.rhythm-content')!;
-  const pinnedRack = window.matchMedia('(min-width: 1050px) and (min-height: 660px)');
-  const wideSettings = window.matchMedia('(min-width: 1440px) and (min-height: 700px)');
-  const settingsToggle = container.querySelector<HTMLButtonElement>('[data-rhythm-settings-toggle]')!;
+  const grooveDetailScroll = container.querySelector<HTMLElement>('.rhythm-groove-detail-scroll')!;
+  const layoutFlag = (key: string) => getComputedStyle(container).getPropertyValue(key).trim() === '1';
+  const settingsToggle = container.querySelector<HTMLButtonElement>('[data-page-settings-toggle]')!;
   const settingsPanels = Array.from(container.querySelectorAll<HTMLElement>('[data-rhythm-settings-panel]'));
-  let settingsOpen = wideSettings.matches;
+  const viewTabs = bindPageTabs<RhythmPreferences['view']>(container.querySelector<HTMLElement>('.rhythm-tabs')!, {
+    keys: ['metronome', 'rhythm'], select: changeView, signal: listener.signal,
+    canSelect: () => visible && !disposed && !library.locked,
+  });
+  let settingsOpen = layoutFlag('--rhythm-side-panel');
   const activePattern = () => project.patterns.find(pattern => pattern.id === project.activePatternId)!;
   const isRhythm = () => preferences.view === 'rhythm';
   const playing = () => snapshot !== null && STARTED.has(snapshot.state);
-  const canUseAudio = () => visible && !disposed && !document.hidden && !inputErrors.size && !libraryCommand;
+  const canUseAudio = () => visible && !disposed && !document.hidden && !inputErrors.size && !library.locked;
   const config = (): RhythmPlaybackConfig => ({ preferences, ...(isRhythm() ? { project } : {}) });
   function syncSettingsPanel() {
     const panel = settingsPanels.find(item => item.dataset.rhythmSettingsPanel === preferences.view)!;
@@ -104,10 +108,8 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   function setSettingsOpen(open: boolean) {
     settingsOpen = open;
     const panel = syncSettingsPanel();
-    if (!wideSettings.matches) {
-      const scroll = isRhythm() && pinnedRack.matches
-        ? panel.closest<HTMLElement>('.rhythm-groove-detail-scroll') ?? editorScroll
-        : editorScroll;
+    if (!layoutFlag('--rhythm-side-panel')) {
+      const scroll = isRhythm() && layoutFlag('--rhythm-wide') ? grooveDetailScroll : editorScroll;
       if (open) {
         panel.focus({ preventScroll: true });
         scroll.scrollTop += panel.getBoundingClientRect().top - scroll.getBoundingClientRect().top;
@@ -151,8 +153,8 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     container.dataset.rhythmPhase = snapshot?.phase ?? '';
     const configuredBpm = isRhythm() ? project.bpm : preferences.metronome.bpm;
     container.dataset.rhythmBpm = String(active || paused ? snapshot?.bpm ?? configuredBpm : configuredBpm);
-    container.dataset.rhythmLibraryPending = String(saving);
-    container.dataset.rhythmLibraryError = String(!!failedWrite);
+    container.dataset.rhythmLibraryPending = String(library.pending);
+    container.dataset.rhythmLibraryError = String(library.failedKind !== null);
   }
   function paintPosition() {
     const position = snapshot?.position;
@@ -206,8 +208,10 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     onPracticeEnd: options.onPracticeEnd,
     onSnapshot(next) {
       if (disposed) return;
+      const previous = snapshot;
       snapshot = next;
-      syncTransport(); paintPosition();
+      if (previous?.state !== next.state || previous.phase !== next.phase || previous.bpm !== next.bpm || previous.pauseReason !== next.pauseReason) syncTransport();
+      if (previous?.position !== next.position || previous.state !== next.state || previous.bpm !== next.bpm) paintPosition();
       const key = next.runtimeContextKey ?? '';
       if (key !== practiceKey) { practiceKey = key; options.onPracticeChange?.(); }
     },
@@ -216,17 +220,8 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   function pause(reason = 'manual') { if (!disposed) { ++runIntent; player.pause(reason); syncTransport(); } }
   function configForCurrentRun(): RhythmPlaybackConfig {
     const next = config();
-    if (!playing() && snapshot?.state !== 'paused') return next;
-    const effective = snapshot?.effectiveConfig;
-    if (!effective) return next;
     // Длина отсчёта определяет нумерацию шагов уже запущенного прохода.
-    if (next.project && effective.project && next.project.countIn !== effective.project.countIn) {
-      return { ...next, project: { ...next.project, countIn: effective.project.countIn } };
-    }
-    if (!next.project && !effective.project && next.preferences.metronome.countIn !== effective.preferences.metronome.countIn) {
-      return { preferences: { ...next.preferences, metronome: { ...next.preferences.metronome, countIn: effective.preferences.metronome.countIn } } };
-    }
-    return next;
+    return playbackForRhythmRun(next, playing() || snapshot?.state === 'paused' ? snapshot?.effectiveConfig ?? null : null);
   }
   function configure() {
     if (inputErrors.size || disposed) return;
@@ -238,8 +233,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     const expected = ++runIntent;
     audioError = ''; showError();
     try {
-      options.onBeforeStart?.();
-      if (expected !== runIntent || !canUseAudio()) return;
+      if (options.onBeforeStart?.() === false || expected !== runIntent || !canUseAudio()) return;
       if (command === 'start') await player.start(config());
       else if (command === 'resume') await player.resume();
       else { player.configure(config()); await player.preview('accent', preferences.metronome.kit); }
@@ -253,9 +247,25 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     input.setAttribute('aria-valuetext', label);
     input.closest('.rhythm-channel')!.querySelector<HTMLOutputElement>('[data-rhythm-level]')!.value = label;
   }
+  function cancelFader() {
+    const gesture = faderGesture;
+    if (!gesture) return;
+    faderGesture = null;
+    gesture.input.value = gesture.value;
+    if (gesture.level !== null) {
+      gesture.input.setAttribute('aria-valuetext', gesture.level);
+      gesture.input.closest('.rhythm-channel')?.querySelector<HTMLOutputElement>('[data-rhythm-level]')?.replaceChildren(gesture.level);
+    }
+  }
+  function commitFader(input: HTMLInputElement) {
+    if (input.dataset.rhythmVolume) {
+      changeProject({ kind: 'lane-volume', id: input.dataset.rhythmVolume, volume: input.valueAsNumber }, false);
+      paintFader(input);
+    } else applyField(input);
+  }
   function setField(key: string, value: string | number | boolean) {
     const input = field(key);
-    if (inputErrors.has(key)) return;
+    if (inputErrors.has(key) || input === faderGesture?.input) return;
     if (typeof value === 'boolean') input.checked = value;
     else input.value = String(value);
     if (input.hasAttribute('data-rhythm-dial')) paintRhythmDial(input);
@@ -305,12 +315,9 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     const { silentEnabled, rampEnabled, soundBars, silentBars, stepBpm, targetBpm } = metro.training;
     const training = [silentEnabled && `Со звуком: ${soundBars}, без: ${silentBars}`, rampEnabled && `+${stepBpm} BPM до ${targetBpm}`].filter(Boolean);
     output('training-summary').textContent = training.length ? training.join(' · ') : 'Немые такты и рост темпа';
-    for (const control of container.querySelectorAll<HTMLButtonElement>('[data-rhythm-mode]')) {
-      const active = control.dataset.rhythmMode === preferences.view;
-      control.tabIndex = active ? 0 : -1; control.setAttribute('aria-selected', String(active));
-    }
-    for (const panel of container.querySelectorAll<HTMLElement>('[data-rhythm-panel], [data-rhythm-dock]')) {
-      panel.hidden = (panel.dataset.rhythmPanel ?? panel.dataset.rhythmDock) !== preferences.view;
+    viewTabs.setSelected(preferences.view);
+    for (const panel of container.querySelectorAll<HTMLElement>('[data-rhythm-dock]')) {
+      panel.hidden = panel.dataset.rhythmDock !== preferences.view;
     }
     syncSettingsPanel();
     const divisions = metro.meter.denominator === 4 ? ['Четверти', 'Восьмые', 'Триоли', 'Шестнадцатые'] : ['Восьмые', 'Шестнадцатые', 'Триоли', 'Тридцать вторые'];
@@ -355,22 +362,23 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     withFocus(() => output('beats').replaceChildren(...beats)); paintPosition();
   }
   function renderLibrary() {
-    const unavailable = !options.onLibraryChange || saving || !!failedWrite;
+    const unavailable = !options.onLibraryChange || library.pending || library.failedKind !== null;
     const rows = library.projects.map(entry => {
       const row = document.createElement('div'); row.className = 'rhythm-project-row';
       const open = rhythmButton(entry.name, { rhythmOpenProject: entry.id, rhythmFocus: `project-${entry.id}` });
       open.disabled = unavailable; open.setAttribute('aria-pressed', String(entry.id === project.id));
-      const remove = rhythmButton('×', { rhythmDeleteProject: entry.id, rhythmFocus: `delete-${entry.id}` }, `Удалить проект «${entry.name}»`);
+      const remove = rhythmButton('Удалить', { rhythmDeleteProject: entry.id, rhythmFocus: `delete-${entry.id}` }, `Удалить проект «${entry.name}»`);
+      remove.className = 'text-button button-compact';
       remove.disabled = unavailable; row.append(open, remove); return row;
     });
     withFocus(() => output('projects').replaceChildren(...rows));
     output('project-count').textContent = String(rows.length);
     action('new-project').disabled = unavailable;
     action('duplicate-project').disabled = unavailable;
-    action('save-project').disabled = !options.onLibraryChange || saving;
-    action('save-project').textContent = failedWrite ? failedWrite.operation.kind === 'save' ? 'Повторить сохранение' : 'Повторить действие' : 'Сохранить проект';
-    action('retry-project').hidden = !failedWrite;
-    action('retry-project').disabled = saving;
+    action('save-project').disabled = !options.onLibraryChange || library.pending;
+    action('save-project').textContent = library.failedKind === 'save' ? 'Повторить сохранение' : library.failedKind ? 'Повторить действие' : 'Сохранить проект';
+    action('retry-project').hidden = library.failedKind === null;
+    action('retry-project').disabled = library.pending;
     syncTransport();
   }
   function paintSteps() {
@@ -464,6 +472,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     paintSteps(); renderVelocity();
   }
   function renderMixer() {
+    if (faderGesture?.input.dataset.rhythmVolume) cancelFader();
     const channels = project.channels.map(channel => {
       const strip = document.createElement('div'); strip.className = 'rhythm-channel';
       const title = document.createElement('span'); title.className = 'rhythm-channel-name'; title.textContent = channel.name; title.title = channel.name;
@@ -574,58 +583,33 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     inputErrors.clear(); audioError = '';
     setField('project-name', project.name); syncFields(); renderEditor(); renderLibrary(); showError(); configure();
   }
-  function acceptLibrary(next: RhythmLibrary, saveLinkedTempo = false) {
-    stop(); library = next;
-    const active = next.projects.find(item => item.id === next.activeId);
+  function selectLibraryProject(active: RhythmProject | undefined, saveLinkedTempo: boolean) {
+    stop();
     project = active ? validateRhythmProject(active) : newProject();
     const before = preferences;
     preferences = withProjectTempo(preferences, project);
     resetEditing();
     if (saveLinkedTempo && preferences !== before) options.onPreferencesChange?.();
   }
-  function setLibraryBusy(next: boolean, command: boolean) {
-    saving = next; libraryCommand = command;
-    for (const section of container.querySelectorAll<HTMLElement>('.rhythm-constructor, .rhythm-chain-card, .rhythm-project-tools, .rhythm-mix-module, .rhythm-velocity-defaults')) section.inert = command;
+  function syncLibraryState() {
+    if (library.locked) cancelFader();
+    for (const section of container.querySelectorAll<HTMLElement>('.rhythm-constructor, .rhythm-chain-card, .rhythm-project-tools, .rhythm-mix-module, .rhythm-velocity-defaults')) section.inert = library.locked;
     renderLibrary();
   }
-  async function write(operation: RhythmLibraryOperation, replace = false, notice?: string) {
-    if (disposed || !options.onLibraryChange) return;
-    const expected = ++intent;
-    failedWrite = null; setLibraryBusy(true, replace || operation.kind !== 'save');
-    try {
-      const next = await options.onLibraryChange(operation);
-      if (disposed || expected !== intent) return;
-      setLibraryBusy(false, false);
-      if (replace) acceptLibrary(next, true); else { library = next; renderLibrary(); }
-      if (notice) status(notice);
-    } catch (failure) {
-      if (disposed || expected !== intent) return;
-      failedWrite = { operation, replace, notice }; setLibraryBusy(false, false);
-      status(`Изменения пока не сохранены. ${failureText(failure)}`);
-    }
-  }
-  function changeProject(edit: (draft: Mutable<RhythmProject>) => void, paint = true) {
-    if (libraryCommand || disposed) return;
-    const draft = clone(project); edit(draft);
-    draft.updatedAt = new Date(Math.max(Date.now(), Date.parse(draft.updatedAt))).toISOString();
-    project = validateRhythmProject(draft);
+  function changeProject(edit: RhythmProjectEdit, paint = true) {
+    if (library.locked || disposed) return;
+    const result = applyRhythmProjectEdit(project, preferences, edit, Date.now());
     const before = preferences;
-    preferences = withProjectTempo(preferences, project);
+    project = result.project;
+    preferences = result.preferences;
+    selectedLane = result.selectedLane ?? selectedLane;
     configure(); syncFields();
     if (paint) renderEditor();
-    void write({ kind: 'save', project });
+    void library.write({ kind: 'save', project });
     if (preferences !== before) options.onPreferencesChange?.();
   }
   function resizePattern(bars: RhythmPatternBars, nextBar = selectedBar) {
-    changeProject(draft => {
-      const pattern = draft.patterns.find(item => item.id === draft.activePatternId)!;
-      const length = bars * RHYTHM_STEPS_PER_BAR;
-      for (const lane of pattern.lanes) {
-        lane.steps = Array.from({ length }, (_, index) => lane.steps[index] ?? 0);
-        lane.velocities = Array.from({ length }, (_, index) => lane.velocities[index] ?? 0);
-      }
-      pattern.bars = bars;
-    }, false);
+    changeProject({ kind: 'resize', bars }, false);
     selectedBar = nextBar;
     renderEditor();
   }
@@ -635,6 +619,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   }
   function changeView(view: RhythmPreferences['view']) {
     if (view === preferences.view) return;
+    cancelFader();
     stop(); inputErrors.clear(); audioError = ''; taps = [];
     changePreferences(draft => { draft.view = view; }); showError(); syncTransport();
     editorScroll.scrollTop = 0;
@@ -664,12 +649,12 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   }
   function setBpm(bpm: number) {
     inputErrors.delete('bpm'); audioError = '';
-    if (isRhythm() || project.overlay) changeProject(draft => { draft.bpm = bpm; }, false);
+    if (isRhythm() || project.overlay) changeProject({ kind: 'settings', change: { bpm } }, false);
     else changePreferences(draft => { setMetronomeTempo(draft.metronome, bpm); });
     showError(); syncTransport();
   }
   function applyField(input: HTMLInputElement | HTMLButtonElement) {
-    if (disposed || libraryCommand) return;
+    if (disposed || library.locked) return;
     const key = input.dataset.rhythmSetting ?? input.dataset.rhythmChoice;
     const value = input.dataset.rhythmValue ?? input.value;
     if (!key || key === 'project-name') return;
@@ -689,20 +674,18 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
       else if (key === 'master') changePreferences(draft => { draft.master = Number(input.value); });
       else if (key === 'countIn') {
         const value = (input as HTMLInputElement).checked;
-        if (isRhythm()) changeProject(draft => { draft.countIn = value; }, false);
+        if (isRhythm()) changeProject({ kind: 'settings', change: { countIn: value } }, false);
         else changePreferences(draft => { draft.metronome.countIn = value; });
       } else if (key === 'rhythmClick') {
         const overlay = (input as HTMLInputElement).checked;
         if (overlay) inputErrors.delete('bpm');
-        changeProject(draft => {
-          if (overlay && !draft.overlay) draft.bpm = preferences.metronome.bpm;
-          draft.overlay = overlay;
-        }, false);
+        changeProject({ kind: 'overlay', enabled: overlay }, false);
       } else if (key === 'rhythm-swing' || key === 'rhythm-swing-mode') {
-        changeProject(draft => { if (key === 'rhythm-swing') draft.swing = Number(value); else draft.swingMode = value as RhythmSwingMode; }, false);
+        const change = key === 'rhythm-swing' ? { swing: Number(value) } : { swingMode: value as RhythmSwingMode };
+        changeProject({ kind: 'settings', change }, false);
       } else if (key === 'pattern-name') {
         const name = input.value.trim(); if (!name) { setField(key, activePattern().name); return; }
-        changeProject(draft => { draft.patterns.find(pattern => pattern.id === draft.activePatternId)!.name = name; });
+        changeProject({ kind: 'rename-pattern', name });
       } else if (key === 'bars') {
         resizePattern(Number(value) as RhythmPatternBars);
       } else if (key === 'metro-swing-mode' || key === 'metronomeSwing' || ['accentVolume', 'clickVolume', 'subdivisionVolume'].includes(key)) {
@@ -723,20 +706,9 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     } catch (failure) { inputErrors.set(key, failureText(failure)); stop(); }
     showError(); syncTransport();
   }
-  function editLane(id: string, update: (channel: Mutable<RhythmProject['channels'][number]>) => void, paint = false) {
-    changeProject(draft => { const lane = draft.channels.find(channel => channel.id === id); if (lane) update(lane); }, paint);
-  }
-  function defaultStepVelocity(laneId: string, level: RhythmStep) {
-    if (level === 0) return 0;
-    const defaults = project.channels.find(channel => channel.id === laneId)!.velocityDefaults;
-    return (level === 2 ? defaults.accent : defaults.hit) / 100;
-  }
-  function editStep(laneId: string, step: number, level: RhythmStep, velocity = defaultStepVelocity(laneId, level), keepSlider = false) {
+  function editStep(laneId: string, step: number, level: RhythmStep, velocity?: number, keepSlider = false) {
     selectedLane = laneId; selectedStep = step; presetId = null;
-    changeProject(draft => {
-      const lane = draft.patterns.find(item => item.id === draft.activePatternId)!.lanes.find(item => item.channelId === laneId)!;
-      const index = selectedBar * 16 + step; lane.steps[index] = level; lane.velocities[index] = velocity;
-    }, false);
+    changeProject({ kind: 'step', channelId: laneId, bar: selectedBar, step, level, velocity }, false);
     paintSteps();
     for (const name of output('rack').querySelectorAll<HTMLButtonElement>('[data-rhythm-select-lane]')) name.setAttribute('aria-pressed', String(name.dataset.rhythmSelectLane === selectedLane));
     if (keepSlider) paintVelocity(); else renderVelocity();
@@ -753,65 +725,31 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   }
   function loadPreset(id: string) {
     const preset = RHYTHM_PRESETS.find(item => item.id === id); if (!preset) return;
-    const lanes = createLanes(preset.id, activePattern().bars);
     stop(); presetId = id; selectedBar = selectedStep = 0; inputErrors.delete('bpm'); audioError = '';
-    changeProject(draft => {
-      const sources = new Map<string, typeof lanes[number]>();
-      for (const { steps: _steps, velocities: _velocities, ...channel } of lanes) {
-        const existing = draft.channels.find(item => item.sound === channel.sound);
-        if (!existing && draft.channels.length >= 8) continue;
-        const id = existing?.id ?? (draft.channels.some(item => item.id === channel.id) ? crypto.randomUUID() : channel.id);
-        if (!existing) draft.channels.push({ ...channel, id });
-        sources.set(id, lanes.find(item => item.sound === channel.sound)!);
-      }
-      selectedLane = sources.keys().next().value ?? draft.channels[0].id;
-      for (const pattern of draft.patterns) {
-        const active = pattern.id === draft.activePatternId;
-        pattern.lanes = draft.channels.map(channel => {
-          const source = active ? sources.get(channel.id) : pattern.lanes.find(item => item.channelId === channel.id);
-          return { channelId: channel.id, steps: source?.steps ?? Array<RhythmStep>(pattern.bars * 16).fill(0), velocities: source?.velocities ?? Array<number>(pattern.bars * 16).fill(0) };
-        });
-        if (active) pattern.name = preset.name;
-      }
-      draft.bpm = preset.bpm; draft.swing = preset.swing; draft.swingMode = 'eighth';
-    });
+    changeProject({ kind: 'preset', id: preset.id, fallbackIds: Array.from({ length: 8 }, () => crypto.randomUUID()) });
     showError(); syncTransport();
     status(`Основа «${preset.name}» открыта в паттерне ${project.activePatternId}.`);
   }
   function patternAction(duplicate: boolean) {
-    const id = PATTERN_IDS.find(value => !project.patterns.some(pattern => pattern.id === value)); if (!id) return;
+    if (project.patterns.length >= 8) return;
     stop(); selectedBar = selectedStep = 0; presetId = null;
-    changeProject(draft => {
-      const source = draft.patterns.find(item => item.id === draft.activePatternId)!;
-      const pattern = duplicate ? { ...structuredClone(source), id, name: `${source.name.slice(0, 41)} · копия` }
-        : { id, name: `Паттерн ${id}`, bars: 1 as const, lanes: draft.channels.map(channel => ({ channelId: channel.id, steps: Array<RhythmStep>(16).fill(0), velocities: Array<number>(16).fill(0) })) };
-      draft.patterns.push(pattern); draft.activePatternId = id;
-    });
+    changeProject({ kind: 'add-pattern', duplicate });
   }
   function barAction(copy: boolean) {
     if (copy && !copiedBar) {
-      copiedBar = new Map(activePattern().lanes.map(lane => [lane.channelId, { steps: lane.steps.slice(selectedBar * 16, (selectedBar + 1) * 16), velocities: lane.velocities.slice(selectedBar * 16, (selectedBar + 1) * 16) }]));
+      copiedBar = copyRhythmBar(project, selectedBar);
       action('copy-bar').textContent = 'Вставить такт'; status('Такт скопирован. Выбери такт для вставки.'); return;
     }
     const paste = copy ? copiedBar : null;
     if (copy) copiedBar = null;
     presetId = null;
-    changeProject(draft => {
-      for (const lane of draft.patterns.find(pattern => pattern.id === draft.activePatternId)!.lanes) {
-        const source = paste?.get(lane.channelId);
-        if (source) { lane.steps.splice(selectedBar * 16, 16, ...source.steps); lane.velocities.splice(selectedBar * 16, 16, ...source.velocities); }
-        else { lane.steps.fill(0, selectedBar * 16, (selectedBar + 1) * 16); lane.velocities.fill(0, selectedBar * 16, (selectedBar + 1) * 16); }
-      }
-    });
+    changeProject({ kind: 'bar', bar: selectedBar, source: paste });
   }
   function clipAction(id: string, move: string) {
+    if (move !== 'remove' && move !== 'left' && move !== 'right') return;
     const index = project.chain.findIndex(clip => clip.id === id);
     if (index < 0 || move === 'remove' && project.chain.length === 1) return;
-    changeProject(draft => {
-      if (move === 'remove') { draft.chain.splice(index, 1); return; }
-      const target = index + (move === 'left' ? -1 : 1);
-      if (target >= 0 && target < draft.chain.length) [draft.chain[index], draft.chain[target]] = [draft.chain[target], draft.chain[index]];
-    });
+    changeProject({ kind: 'move-clip', id, move });
     const focusClip = move === 'remove' ? project.chain[Math.min(index, project.chain.length - 1)].id : id;
     if (move === 'remove' || document.activeElement === document.body) {
       output('chain').querySelector<HTMLButtonElement>(`[data-rhythm-clip="${CSS.escape(focusClip)}"]`)?.focus();
@@ -822,44 +760,31 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     if (!sound || project.channels.length >= 8 || project.channels.some(channel => channel.sound === sound)) return;
     const id = project.channels.some(channel => channel.id === sound) ? crypto.randomUUID() : sound;
     selectedLane = id;
-    changeProject(draft => {
-      draft.channels.push({
-        id, name: SOUND_LABELS[sound], sound, volume: .65, muted: false, solo: false,
-        velocityDefaults: { ...DEFAULT_RHYTHM_VELOCITY },
-      });
-      for (const pattern of draft.patterns) pattern.lanes.push({ channelId: id, steps: Array<RhythmStep>(pattern.bars * 16).fill(0), velocities: Array<number>(pattern.bars * 16).fill(0) });
-    });
+    changeProject({ kind: 'add-lane', id, sound });
   }
   function nameForProject(fallback: string) { return field('project-name').value.trim() || fallback; }
   async function projectAction(command: 'new-project' | 'duplicate-project' | 'save-project') {
-    if (saving || libraryCommand || (failedWrite && command !== 'save-project')) return;
-    if (failedWrite && command === 'save-project' && failedWrite.replace) {
-      const { operation, replace, notice } = failedWrite;
-      await write(operation, replace, notice); return;
-    }
-    if (failedWrite?.operation.kind === 'delete' && command === 'save-project') {
-      const { operation, replace, notice } = failedWrite;
-      await write(operation, replace, notice); return;
-    }
-    if (command === 'new-project') { await write({ kind: 'save', project: newProject('Новый проект') }, true, 'Создан новый проект.'); return; }
+    if (library.pending || (library.failedKind && command !== 'save-project')) return;
+    if (library.failedKind) { await library.retry(); return; }
+    if (command === 'new-project') { await library.write({ kind: 'save', project: newProject('Новый проект') }, true, 'Создан новый проект.'); return; }
     const draft = clone(project), now = new Date().toISOString();
     draft.name = nameForProject(project.name);
     draft.updatedAt = new Date(Math.max(Date.now(), Date.parse(draft.updatedAt))).toISOString();
     if (command === 'duplicate-project') {
       draft.id = crypto.randomUUID(); draft.createdAt = draft.updatedAt = now;
       if (draft.name === project.name) draft.name = `${project.name.slice(0, 41)} · копия`;
-      await write({ kind: 'save', project: validateRhythmProject(draft) }, true, 'Копия проекта сохранена.');
+      await library.write({ kind: 'save', project: validateRhythmProject(draft) }, true, 'Копия проекта сохранена.');
     } else {
       project = validateRhythmProject(draft); setField('project-name', project.name);
-      await write({ kind: 'save', project }, false, 'Проект сохранён.');
+      await library.write({ kind: 'save', project }, false, 'Проект сохранён.');
     }
   }
   async function deleteProject(id: string) {
-    if (saving || failedWrite || libraryCommand) return;
-    const expected = intent, entry = library.projects.find(item => item.id === id);
+    if (library.pending || library.failedKind) return;
+    const expected = library.revision, entry = library.projects.find(item => item.id === id);
     if (!entry || !await confirmAction({ title: 'Удалить проект?', message: `«${entry.name}» будет удалён из библиотеки.`, confirmLabel: 'Удалить проект' })) return;
-    if (disposed || !visible || expected !== intent) return;
-    await write({ kind: 'delete', id }, id === project.id, 'Проект удалён.');
+    if (disposed || !visible || expected !== library.revision) return;
+    await library.write({ kind: 'delete', id }, id === project.id, 'Проект удалён.');
   }
 
   function runAction(name: string) {
@@ -884,7 +809,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
       case 'copy-bar': case 'clear-bar': barAction(name === 'copy-bar'); break;
       case 'add-lane': addLane(); break;
       case 'accent-step': toggleStepAccent(selectedLane, selectedStep); break;
-      case 'add-clip': if (project.chain.length < 8) changeProject(draft => { draft.chain.push({ id: crypto.randomUUID(), patternId: draft.activePatternId }); }); break;
+      case 'add-clip': if (project.chain.length < 8) changeProject({ kind: 'add-clip', id: crypto.randomUUID() }); break;
       case 'retry-project': void projectAction('save-project').catch(failure => status(failureText(failure))); break;
       case 'new-project': case 'duplicate-project': case 'save-project': void projectAction(name).catch(failure => status(failureText(failure))); break;
     }
@@ -901,12 +826,8 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
       renderChain();
     }
     else if (data.rhythmClipSelect && button.getAttribute('aria-pressed') !== 'true') {
-      changeProject(draft => {
-        const clip = draft.chain.find(item => item.id === data.rhythmClipSelect);
-        if (clip) clip.patternId = data.rhythmValue as RhythmPatternId;
-      });
-    } else if (data.rhythmMode) changeView(data.rhythmMode as RhythmPreferences['view']);
-    else if (data.rhythmDivision) changePreferences(draft => {
+      changeProject({ kind: 'assign-clip', id: data.rhythmClipSelect, patternId: data.rhythmValue as RhythmPatternId });
+    } else if (data.rhythmDivision) changePreferences(draft => {
       const metro = draft.metronome, division = Number(data.rhythmDivision) as RhythmDivision, before = metro.division;
       metro.substeps = Array.from({ length: metro.meter.beats * (division - 1) }, (_, index) => {
         const beat = Math.floor(index / (division - 1)), sub = index % (division - 1);
@@ -918,44 +839,44 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     }, true);
     else if (data.rhythmSubIndex !== undefined) changePreferences(draft => { const index = Number(data.rhythmSubIndex); draft.metronome.substeps[index] = !draft.metronome.substeps[index]; }, true);
     else if (data.rhythmKit) changePreferences(draft => { draft.metronome.kit = data.rhythmKit as RhythmKit; });
-    else if (data.rhythmScope && data.rhythmScope !== project.scope) changeProject(draft => { draft.scope = data.rhythmScope as RhythmProject['scope']; });
+    else if (data.rhythmScope && data.rhythmScope !== project.scope) changeProject({ kind: 'settings', change: { scope: data.rhythmScope as RhythmProject['scope'] } });
     else if (data.rhythmRepeat && data.rhythmRepeat !== project.repeat) {
-      changeProject(draft => { draft.repeat = data.rhythmRepeat as RhythmProject['repeat']; }, false); renderChain();
+      changeProject({ kind: 'settings', change: { repeat: data.rhythmRepeat as RhythmProject['repeat'] } }, false); renderChain();
     }
     else if (data.rhythmPreset) loadPreset(data.rhythmPreset);
     else if (data.rhythmPattern && data.rhythmPattern !== project.activePatternId) {
-      selectedBar = selectedStep = 0; presetId = null; changeProject(draft => { draft.activePatternId = data.rhythmPattern as RhythmPatternId; });
+      selectedBar = selectedStep = 0; presetId = null; changeProject({ kind: 'settings', change: { activePatternId: data.rhythmPattern as RhythmPatternId } });
     } else if (data.rhythmBar !== undefined) { selectedBar = Number(data.rhythmBar); renderEditor(); }
     else if (data.rhythmStep !== undefined && data.rhythmChannel) {
       const step = Number(data.rhythmStep), lane = activePattern().lanes.find(item => item.channelId === data.rhythmChannel)!;
       editStep(lane.channelId, step, lane.steps[selectedBar * 16 + step] ? 0 : 1);
     } else if (data.rhythmSelectLane) { selectedLane = data.rhythmSelectLane; renderRack(); }
-    else if (data.rhythmMute) editLane(data.rhythmMute, channel => { channel.muted = !channel.muted; }, true);
-    else if (data.rhythmSolo) editLane(data.rhythmSolo, channel => { channel.solo = !channel.solo; }, true);
+    else if (data.rhythmMute) changeProject({ kind: 'lane-toggle', id: data.rhythmMute, control: 'muted' });
+    else if (data.rhythmSolo) changeProject({ kind: 'lane-toggle', id: data.rhythmSolo, control: 'solo' });
     else if (data.rhythmClipAction && data.rhythmClipId) clipAction(data.rhythmClipId, data.rhythmClipAction);
-    else if (data.rhythmOpenProject && !saving && !failedWrite && data.rhythmOpenProject !== project.id) void write({ kind: 'select', id: data.rhythmOpenProject }, true, 'Проект открыт.');
+    else if (data.rhythmOpenProject && !library.pending && !library.failedKind && data.rhythmOpenProject !== project.id) void library.write({ kind: 'select', id: data.rhythmOpenProject }, true, 'Проект открыт.');
     else if (data.rhythmDeleteProject) void deleteProject(data.rhythmDeleteProject);
   }
   container.addEventListener('click', event => {
     const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button') : null;
-    if (!button || button.disabled || disposed) return;
+    if (!button || button.disabled || disposed || button.dataset.rhythmMode) return;
     if (button === settingsToggle || button.hasAttribute('data-rhythm-settings-close')) {
       setSettingsOpen(button === settingsToggle && !settingsOpen);
       return;
     }
-    if (libraryCommand && button.dataset.rhythmAction !== 'stop' && button.dataset.rhythmAction !== 'pause') return;
+    if (library.locked && button.dataset.rhythmAction !== 'stop' && button.dataset.rhythmAction !== 'pause') return;
     try { click(button); }
     catch (failure) { stop(); audioError = failureText(failure); showError(); }
   }, listen);
   rack.addEventListener('contextmenu', event => {
     const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-rhythm-step]') : null;
-    if (!button || !visible || !isRhythm() || disposed || libraryCommand) return;
+    if (!button || !visible || !isRhythm() || disposed || library.locked) return;
     event.preventDefault();
     accentFromRack(button);
   }, listen);
   for (const [input, kind] of [[newHitVelocity, 'hit'], [newAccentVelocity, 'accent']] as const) {
     input.addEventListener('change', () => {
-      if (disposed || libraryCommand) return;
+      if (disposed || library.locked) return;
       const channel = project.channels.find(item => item.id === selectedLane)!;
       const previous = channel.velocityDefaults[kind];
       if (!input.validity.valid) {
@@ -963,15 +884,32 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
         return;
       }
       const value = input.valueAsNumber;
-      if (value !== previous) editLane(channel.id, draft => { draft.velocityDefaults[kind] = value; });
+      if (value !== previous) changeProject({ kind: 'lane-default', id: channel.id, control: kind, value }, false);
     }, listen);
   }
+  container.addEventListener('pointerdown', event => {
+    const input = event.target;
+    if (event.button !== 0 || !event.isPrimary || !visible || disposed || library.locked ||
+      !(input instanceof HTMLInputElement) || !input.classList.contains('rhythm-fader')) return;
+    cancelFader();
+    faderGesture = { pointerId: event.pointerId, input, value: input.value, level: input.getAttribute('aria-valuetext') };
+  }, listen);
+  document.addEventListener('pointerup', event => {
+    const gesture = faderGesture;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    faderGesture = null;
+    if (gesture.input.value !== gesture.value) commitFader(gesture.input);
+  }, listen);
+  document.addEventListener('pointercancel', event => {
+    if (event.pointerId === faderGesture?.pointerId) cancelFader();
+  }, listen);
+  window.addEventListener('blur', cancelFader, listen);
   container.addEventListener('input', event => {
     const input = event.target;
-    if (!(input instanceof HTMLInputElement) || disposed || libraryCommand) return;
-    if (input.dataset.rhythmVolume) {
-      editLane(input.dataset.rhythmVolume, channel => { channel.volume = Number(input.value); });
-      paintFader(input);
+    if (!(input instanceof HTMLInputElement) || disposed || library.locked) return;
+    if (input.classList.contains('rhythm-fader')) {
+      if (faderGesture?.input === input) paintFader(input);
+      else commitFader(input);
     }
     else if (input.dataset.rhythmVelocity !== undefined) {
       const step = Number(input.dataset.rhythmVelocity);
@@ -983,7 +921,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   }, listen);
   container.addEventListener('change', event => {
     const input = event.target;
-    if (!(input instanceof HTMLInputElement) || disposed || libraryCommand) return;
+    if (!(input instanceof HTMLInputElement) || disposed || library.locked) return;
     if (['checkbox', 'text'].includes(input.type) && input.dataset.rhythmSetting !== 'groups') applyField(input);
   }, listen);
   const followRackScroll = () => {
@@ -1004,14 +942,10 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   }
   container.addEventListener('keydown', event => {
     const target = event.target;
-    if (!(target instanceof HTMLButtonElement) || !visible || disposed || libraryCommand) return;
+    if (!(target instanceof HTMLButtonElement) || !visible || disposed || library.locked) return;
     if (target.dataset.rhythmStep !== undefined && event.shiftKey && event.key === 'Enter') {
       event.preventDefault();
       if (!event.repeat) accentFromRack(target);
-    } else if (target.dataset.rhythmMode && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
-      event.preventDefault();
-      const next = event.key === 'Home' ? 'metronome' : event.key === 'End' ? 'rhythm' : isRhythm() ? 'metronome' : 'rhythm';
-      changeView(next); container.querySelector<HTMLButtonElement>(`[data-rhythm-mode="${next}"]`)?.focus();
     } else if ((target.dataset.rhythmChoice || target.dataset.rhythmClipSelect) && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
       const keys = Array.from(target.closest('.rhythm-segment')?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []);
       const index = keys.indexOf(target);
@@ -1029,47 +963,32 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     }
   }, listen);
   document.addEventListener('keydown', event => {
-    if (!visible || disposed || document.hidden || event.defaultPrevented || event.repeat || event.ctrlKey || event.altKey || event.metaKey || document.querySelector('dialog[open]')) return;
-    if (event.target instanceof Element && event.target.closest('input,select,textarea,button,a,summary,[contenteditable], [role="button"]')) return;
+    if (!visible || disposed || !allowsTransportShortcut(event, container)) return;
     if (event.code === 'Space' && event.target instanceof Element && event.target.matches('[role="region"][tabindex], .rhythm-rack-scroll, .rhythm-side-scroll')) return;
     if (event.key === 'Escape') { stop(); event.preventDefault(); }
     else if (event.code === 'Space') { event.preventDefault(); if (playing()) pause(); else void sound(snapshot?.state === 'paused' ? 'resume' : 'start'); }
   }, listen);
   document.addEventListener('visibilitychange', () => {
-    if (visible && document.hidden) pause('hidden');
+    if (visible && document.hidden) { cancelFader(); pause('hidden'); }
     syncTransport();
   }, listen);
 
-  function applyLibrary(next: RhythmLibrary) {
-    if (disposed) return;
-    ++intent; failedWrite = null; setLibraryBusy(false, false); acceptLibrary(next);
-  }
-  function confirmLibrary(next: RhythmLibrary) {
-    if (disposed) return;
-    const active = next.projects.find(item => item.id === next.activeId);
-    const deleted = failedWrite?.operation.kind === 'delete' && !next.projects.some(item => item.id === (failedWrite?.operation as { id: string }).id);
-    if (next.activeId !== library.activeId && next.activeId !== project.id) {
-      ++intent; failedWrite = null; setLibraryBusy(false, false); acceptLibrary(next, true);
-    }
-    else if (active && JSON.stringify(active) === JSON.stringify(project) || deleted) {
-      ++intent; library = next; failedWrite = null; setLibraryBusy(false, false); status('Проект сохранён.');
-    }
-    else { library = next; renderLibrary(); }
-  }
   function applyPreferences(next: RhythmPreferences) {
     if (disposed) return;
+    cancelFader();
     const checked = withProjectTempo(validateRhythmPreferences(next), project);
     stop(); preferences = checked; inputErrors.clear(); audioError = ''; taps = [];
     syncFields(); renderBeats(); syncTransport(); showError(); configure();
   }
   function setVisible(next: boolean) {
-    if (disposed) return;
-    if (visible && !next) pause('module');
+    if (disposed || next === visible) return;
+    if (!next) { cancelFader(); pause('module'); }
     visible = next; container.hidden = !next; syncTransport();
   }
   function dispose() {
     if (disposed) return;
-    ++intent; ++runIntent; disposed = true;
+    cancelFader();
+    library.dispose(); ++runIntent; disposed = true;
     listener.abort(); void player.dispose(); container.replaceChildren(); container.classList.remove('rhythm-view');
   }
   for (const [id, name, description] of KITS) {
@@ -1082,7 +1001,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   }
   setField('project-name', project.name); syncFields(); renderBeats(); renderEditor(); renderLibrary(); configure(); syncTransport();
   return {
-    getPreferences: () => preferences, applyPreferences, applyLibrary, confirmLibrary,
+    getPreferences: () => preferences, applyPreferences, applyLibrary: library.apply,
     getPractice: () => player.getPractice(), setVisible, pause, stop, dispose,
   };
 }

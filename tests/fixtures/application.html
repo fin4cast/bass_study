@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>Изолированные составы тренажёра</title>
+<div id="app"></div>
+<script type="module">
+  import '/src/styles.css';
+  import { mountApplication } from '/src/app/application.ts';
+  import { APP_SECTIONS } from '/src/app/page-frame.ts';
+
+  const omitted = new URL(location.href).searchParams.get('omit');
+  if (omitted !== 'input' && omitted !== 'ear') throw new Error('Неизвестный тестовый состав.');
+  mountApplication(document.getElementById('app'), APP_SECTIONS.filter(section => section !== omitted));
+</script>
+</html>

@@ -32,7 +32,8 @@
     "test:uiux": "node tests/uiux-browser.mjs",
     "test:design": "node tests/design-browser.mjs",
     "test:music-bank": "node tests/music-bank-browser.mjs",
-    "test:rhythm": "node tests/rhythm-browser.mjs"
+    "test:rhythm": "node tests/rhythm-browser.mjs",
+    "test:regression": "node scripts/test-regression.mjs"
   },
   "devDependencies": {
     "playwright": "1.65.0",

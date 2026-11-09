@@ -1,22 +1,22 @@
+import { browserRun, startBrowserBuild, writeBrowserReport, startBrowserFixture } from './browser-runner.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
-import { createServer } from 'vite';
 
 const loopback = url => ['localhost', '127.0.0.1', '[::1]'].includes(new URL(url).hostname);
 
 export async function runTracksBrowserChecks(checks, suite = {}) {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-  const origin = 'http://localhost:4173';
-  const fixtureOrigin = 'http://127.0.0.1:4193';
-  const fixtureUrl = `${fixtureOrigin}/tests/fixtures/tracks.html`;
-  const resultDir = join(root, 'test-results');
-  const reuseRequested = process.argv.includes('--reuse-server');
+  const config = browserRun(root);
+  let origin = config.origin;
+  let fixtureOrigin = null;
+  let fixtureUrl;
+  const { resultDir, reuseRequested } = config;
   const report = {
     generatedAt: new Date().toISOString(), platform: process.platform, architecture: process.arch,
     node: process.version, browserChannel: 'msedge', browserVersion: null, origin, fixtureOrigin,
@@ -25,7 +25,7 @@ export async function runTracksBrowserChecks(checks, suite = {}) {
     staticServer: { reuseRequested, owned: false, mode: 'not-started' },
     checks: [], externalRequests: [], pageErrors: [], cleanupErrors: [],
   };
-  let server, fixtureServer, browser, temporary; let externalServer = false; let nativeSequence = 0;
+  let server, fixtureServer, browser, temporary; let nativeSequence = 0;
   const contexts = new Set();
   async function cleanup(name, operation) {
     try { await operation(); }
@@ -100,39 +100,13 @@ export async function runTracksBrowserChecks(checks, suite = {}) {
     }
   }
   try {
-    const expectedIndex = await readFile(join(root, 'dist', 'index.html'));
-    let existing;
-    try { existing = await fetch(origin, { signal: AbortSignal.timeout(500), redirect: 'error' }); } catch { /* no usable HTTP listener */ }
-    if (existing) {
-      assert.ok(reuseRequested, `Port already occupied: ${origin}; explicit --reuse-server is required`);
-      assert.equal(existing.status, 200, 'Existing server must return the built index directly');
-      assert.ok(Buffer.from(await existing.arrayBuffer()).equals(expectedIndex), 'Existing server index differs from root/dist/index.html; refusing reuse');
-      externalServer = true;
-      report.staticServer = { reuseRequested, owned: false, mode: 'external-reused', indexVerifiedByteForByte: true, restartAllowed: false, shutdownAllowed: false };
-    }
-    for (const url of [fixtureOrigin]) {
-      try { await fetch(url, { signal: AbortSignal.timeout(500) }); throw new Error(`Port already occupied: ${url}`); }
-      catch (error) { if (error.message.startsWith('Port already occupied:')) throw error; }
-    }
+    server = await startBrowserBuild(config, report);
+    origin = server.origin;
     await mkdir(resultDir, { recursive: true });
     temporary = await mkdtemp(join(tmpdir(), 'bass-study-tracks-'));
-    fixtureServer = await createServer({ configFile: false, root, server: { host: '127.0.0.1', port: 4193, strictPort: true }, clearScreen: false, logLevel: 'warn' });
-    await fixtureServer.listen();
-    if (!externalServer) {
-    server = spawn(process.execPath, [join(root, 'scripts', 'serve.mjs')], { cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    let startup = '', launchError;
-    server.on('error', error => { launchError = error; });
-    server.stdout.on('data', data => { startup += data; }); server.stderr.on('data', data => { startup += data; });
-    let ready = false;
-    for (let attempt = 0; attempt < 100; attempt++) {
-      if (launchError) throw launchError;
-      if (server.exitCode !== null) throw new Error(`Static server exited: ${startup}`);
-      try { if ((await fetch(origin, { signal: AbortSignal.timeout(300) })).ok) { ready = true; break; } } catch { /* listener starting */ }
-      await delay(50);
-    }
-    assert.ok(ready, `Static server did not become ready: ${startup}`);
-    report.staticServer = { reuseRequested, owned: true, mode: 'runner-owned', restartAllowed: true, shutdownAllowed: true };
-    }
+    fixtureServer = await startBrowserFixture(root, config, 4193, report);
+    fixtureOrigin = report.fixtureOrigin;
+    fixtureUrl = `${fixtureOrigin}/tests/fixtures/tracks.html`;
     browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--mute-audio'] });
     report.browserVersion = browser.version();
     for (const { name, scope, run } of checks) {
@@ -158,9 +132,7 @@ export async function runTracksBrowserChecks(checks, suite = {}) {
     for (const context of contexts) await cleanup('remaining-context', () => context.close());
     await cleanup('browser', async () => { await browser?.close(); });
     await cleanup('fixture-server', async () => { await fixtureServer?.close(); });
-    await cleanup('static-server', async () => {
-      if (!externalServer && server?.pid && server.exitCode === null) { const done = new Promise(resolve => server.once('exit', resolve)); server.kill(); await done; }
-    });
+    await cleanup('static-server', async () => { await server?.close(); });
     await cleanup('isolated-profile', async () => {
       if (!temporary) return;
       const parentPath = await realpath(tmpdir()); const target = await realpath(temporary);
@@ -168,13 +140,6 @@ export async function runTracksBrowserChecks(checks, suite = {}) {
       assert.ok(inside.startsWith('bass-study-tracks-') && !inside.includes(sep) && !inside.startsWith('..'), 'Temporary profile escaped the intended temp directory');
       await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 });
     });
-    report.passed = report.checks.filter(check => check.status === 'passed').length;
-    report.failed = report.checks.filter(check => check.status === 'failed').length;
-    report.status = !report.setupError && report.failed === 0 && report.cleanupErrors.length === 0 ? 'passed' : 'failed';
-    await mkdir(resultDir, { recursive: true });
-    const reportFile = suite.reportFile ?? 'p7-tracks-edge.json';
-    await writeFile(join(resultDir, reportFile), JSON.stringify(report, null, 2) + '\n');
-    console.log(`${report.status}: ${report.passed} passed, ${report.failed} failed; report test-results/${reportFile}`);
-    process.exitCode = report.status === 'passed' ? 0 : 1;
+    await writeBrowserReport(resultDir, suite.reportFile ?? 'p7-tracks-edge.json', report, checks.length);
   }
 }

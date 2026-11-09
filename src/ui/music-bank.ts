@@ -1,16 +1,22 @@
 import './music-bank.css';
-import { loadAlphaTab, musicBankAssets, type AlphaTabModule } from '../music-bank/engine';
+import { loadAlphaTab, type AlphaTabModule } from '../music-bank/engine';
+import { createScorePlayer, destroyScorePlayer, type BankApi, type BankScore, type ScorePosition, type ScoreTransport } from '../music-bank/score-player';
 import {
   DEFAULT_MUSIC_BANK_PREFERENCES, MUSIC_BANK_LIMITS, musicBankSha256,
   validateMusicBankPreferences, type MusicBankPreferences, type MusicBankTrackPreferences,
 } from '../music-bank/model';
 import { createMusicBankCatalog, searchMusicBankCatalog, type MusicBankCatalogEntry } from '../music-bank/catalog';
+import type { PageHeightObservation } from '../app/page-layout';
+import { allowsTransportShortcut } from './transport-shortcut';
 
-type BankApi = InstanceType<AlphaTabModule['AlphaTabApi']>;
-type BankScore = NonNullable<BankApi['score']>;
+interface PendingEngine {
+  host: HTMLElement;
+  player: ReturnType<typeof createScorePlayer> | null;
+}
 export interface MusicBankOptions {
+  readonly observeHeight: (host: HTMLElement, measure: (available: number) => void) => PageHeightObservation;
   readonly preferences?: MusicBankPreferences | null;
-  readonly onBeforePlay?: () => void;
+  readonly onBeforePlay?: () => boolean | void;
   readonly onPreferencesChange?: (preferences: MusicBankPreferences | null) => void;
 }
 let instance = 0;
@@ -22,7 +28,7 @@ function timeLabel(ms: number) {
 }
 
 /** A-local studio. Files/catalogue and the audio engine never enter preferences. */
-export function mountMusicBank(container: HTMLElement, options: MusicBankOptions = {}) {
+export function mountMusicBank(container: HTMLElement, options: MusicBankOptions) {
   const id = `music-bank-${++instance}`;
   const abort = new AbortController();
   const listen = { signal: abort.signal };
@@ -31,26 +37,33 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
   let api: BankApi | null = null;
   let score: BankScore | null = null;
   let disposed = false, visible = false, bound = false, loading = false;
-  let intent = 0, epoch = 0, rendered = false, midi = false, engineError = '', rangeInvalid = false;
-  let transportState: 'stopped' | 'paused' | 'playing' = 'stopped';
+  let intent = 0, engineError = '', rangeInvalid = false;
+  let pendingEngine: PendingEngine | null = null;
+  let transportState: ScoreTransport = 'stopped';
   let catalogue: readonly MusicBankCatalogEntry[] = [], cataloguePage = 0;
-  let heightFrame = 0, layoutFrame = 0, notifiedInitialLoad = false;
+  let layoutFrame = 0;
   container.classList.add('music-bank');
   container.dataset.testid = 'music-bank';
   container.hidden = true;
   container.innerHTML = `
-    <header class="mb-heading"><div class="mb-song-copy"><span class="mb-eyebrow">ИГРА С АНСАМБЛЕМ</span><h2 data-mb="title">Табулатура и ноты</h2><p data-mb="song-info">Открой партитуру и выбери свой состав.</p></div>
-      <div class="mb-file-actions"><label class="mb-button">Открыть файл<input data-mb="file" data-music-bank-file type="file" class="mb-sr-only" aria-label="Открыть музыкальный файл"></label><label class="mb-button">Выбрать папку<input data-mb="folder" data-music-bank-folder type="file" webkitdirectory multiple class="mb-sr-only" aria-label="Выбрать папку с партитурами"></label><button type="button" data-mb="cancel" hidden>Отменить загрузку</button></div></header>
-    <details class="mb-catalogue" data-mb="catalogue"><summary>Файлы папки <span data-mb="catalogue-count">не выбраны</span></summary><div class="mb-catalogue-body"><div class="mb-catalogue-tools"><label class="mb-search">Поиск по названию или пути<input type="search" data-mb="search" placeholder="Исполнитель или песня" autocomplete="off"></label><span data-mb="catalogue-notice"></span></div><div class="mb-file-list" data-mb="file-list" role="list" aria-label="Файлы выбранной папки"></div><div class="mb-pagination"><button type="button" data-mb="previous">← Назад</button><span data-mb="page-count"></span><button type="button" data-mb="next">Далее →</button></div></div></details>
-    <section class="mb-transport" aria-label="Проигрывание"><div class="mb-transport-line"><div class="mb-playback"><button type="button" class="mb-primary" data-mb="play" disabled>▶ Старт</button><button type="button" data-mb="pause" disabled>Пауза</button><button type="button" data-mb="stop" disabled>Стоп</button></div><label class="mb-inline-field">Скорость<select data-mb="speed"><option value="0.25">25%</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></label><label class="mb-master">Громкость<input data-mb="master" type="range" min="0" max="1" step="0.05"></label><output class="mb-time" data-mb="position">0:00 / 0:00</output></div>
-      <label class="mb-seek"><span class="mb-sr-only">Позиция в песне</span><input data-mb="seek" type="range" min="0" max="1" step="0.05" value="0" disabled></label>
-      <div class="mb-range"><span class="mb-range-caption">Фрагмент · такты</span><label class="mb-sr-only" for="${id}-from">Первый такт</label><input id="${id}-from" data-mb="from" type="number" min="1" value="1" disabled><span>—</span><label class="mb-sr-only" for="${id}-to">Последний такт</label><input id="${id}-to" data-mb="to" type="number" min="1" value="4" disabled><button type="button" data-mb="apply-range" disabled>Выбрать</button><label class="mb-check"><input data-mb="loop" type="checkbox" aria-label="Повторять фрагмент партитуры" disabled>Повтор</label><button type="button" class="mb-text-button" data-mb="full-range" disabled>Вся песня</button><span class="mb-current-bar" data-mb="current-bar"></span></div><p class="mb-range-description" data-mb="range-description"></p></section>
-    <div class="mb-work"><section class="mb-sheet" aria-label="Партитура"><div class="mb-sheet-toolbar"><span class="mb-sheet-label" data-mb="sheet-label">Партитура</span><div class="mb-sheet-options"><label class="mb-check"><input data-mb="staff" type="checkbox">Ноты</label><label class="mb-check"><input data-mb="tab" type="checkbox">TAB</label><label class="mb-check mb-follow"><input data-mb="follow" type="checkbox">Следовать</label><button type="button" data-mb="toggle-mixer" aria-controls="${id}-mixer" aria-expanded="true">Микшер</button></div></div><div id="${id}-sheet" class="mb-sheet-scroll" data-mb="sheet-scroll" tabindex="0" aria-label="Прокрутка партитуры"><div class="mb-score" data-mb="score"></div><div class="mb-score-empty" data-mb="empty"><span aria-hidden="true">♫</span><h3 data-mb="empty-heading">Музыка начинается с выбора</h3><p data-mb="empty-copy">Открой файл Guitar Pro. Звук синтезируется по нотам и не является записью исполнителя.</p></div></div></section>
-      <aside id="${id}-mixer" class="mb-mixer" data-mb="mixer" aria-label="Микшер инструментов"><div class="mb-mixer-heading"><div><span class="mb-eyebrow">СОСТАВ АНСАМБЛЯ</span><h3>Инструменты <span data-mb="track-count"></span></h3></div><button type="button" class="mb-text-button mb-close" data-mb="close-mixer" aria-label="Свернуть микшер">×</button></div><p class="mb-mixer-hint">Показывай одни партии, слушай другие.</p><div class="mb-mixer-scroll"><table class="mb-mixer-table"><thead class="mb-sr-only"><tr><th>Инструмент</th><th>Показывать</th><th>Звучит</th><th>Solo</th><th>Громкость</th></tr></thead><tbody data-mb="tracks"></tbody></table><p data-mb="mixer-empty">Партии появятся после выбора файла.</p></div></aside></div>
-    <footer class="mb-footer"><p data-mb="status" role="status" aria-live="polite"></p><p data-mb="error" role="alert" hidden></p><p class="mb-source-note">Файлы выбираются заново после открытия страницы. Каталог и звук не входят в резервную копию.</p></footer>`;
+    <div class="studio-file-row">
+      <p data-mb="song-info"></p>
+      <div class="studio-file-actions">
+        <label class="primary-button button-compact">Открыть файл<input data-mb="file" data-music-bank-file type="file" class="mb-sr-only" aria-label="Открыть музыкальный файл"></label>
+        <label class="secondary-button button-compact">Выбрать папку<input data-mb="folder" data-music-bank-folder type="file" webkitdirectory multiple class="mb-sr-only" aria-label="Выбрать папку с партитурами"></label>
+        <button type="button" class="text-button button-compact" data-mb="cancel" hidden>Отменить загрузку</button>
+      </div>
+    </div>
+    <details class="mb-catalogue" data-mb="catalogue"><summary class="section-disclosure">Файлы папки <span data-mb="catalogue-count">не выбраны</span></summary><div class="mb-catalogue-body"><div class="mb-catalogue-tools"><label class="mb-search form-label">Поиск по названию или пути<input type="search" class="form-control" data-mb="search" placeholder="Исполнитель или песня" autocomplete="off"></label><span data-mb="catalogue-notice"></span></div><div class="mb-file-list" data-mb="file-list" role="list" aria-label="Файлы выбранной папки"></div><div class="mb-pagination"><button type="button" data-mb="previous">← Назад</button><span data-mb="page-count"></span><button type="button" data-mb="next">Далее →</button></div></div></details>
+    <section class="mb-transport content-panel content-panel-raised" aria-label="Проигрывание"><div class="mb-transport-line"><div class="studio-playback"><button type="button" class="primary-button button-compact" data-mb="play" disabled>Старт<span aria-hidden="true">▶</span></button><button type="button" class="secondary-button button-compact" data-mb="pause" disabled>Пауза</button><button type="button" class="secondary-button button-compact" data-mb="stop" disabled>Стоп</button></div><label class="mb-inline-field form-label">Скорость<select class="form-control form-control-compact" data-mb="speed"><option value="0.25">25%</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></label><label class="mb-master">Громкость<input data-mb="master" type="range" min="0" max="1" step="0.05"></label></div>
+      <div class="studio-timeline"><label><span class="mb-sr-only">Позиция в песне</span><input data-mb="seek" type="range" min="0" max="1" step="0.05" value="0" disabled></label><output data-mb="position">0:00 / 0:00</output></div>
+      <div class="mb-range"><span class="mb-range-caption">Фрагмент · такты</span><label class="mb-sr-only" for="${id}-from">Первый такт</label><input id="${id}-from" data-mb="from" type="number" class="form-control form-control-compact" min="1" value="1" disabled><span>—</span><label class="mb-sr-only" for="${id}-to">Последний такт</label><input id="${id}-to" data-mb="to" type="number" class="form-control form-control-compact" min="1" value="4" disabled><button type="button" data-mb="apply-range" disabled>Выбрать</button><label class="mb-check"><input data-mb="loop" type="checkbox" aria-label="Повторять фрагмент партитуры" disabled>Повтор</label><button type="button" class="text-button button-compact" data-mb="full-range" disabled>Вся песня</button><span class="mb-current-bar" data-mb="current-bar"></span></div><p class="mb-range-description" data-mb="range-description"></p></section>
+    <div class="mb-work"><section class="mb-sheet content-panel" aria-label="Партитура"><div class="mb-sheet-toolbar"><span class="mb-sheet-label" data-mb="sheet-label">Партитура</span><div class="mb-sheet-options"><label class="mb-check"><input data-mb="staff" type="checkbox">Ноты</label><label class="mb-check"><input data-mb="tab" type="checkbox">TAB</label><label class="mb-check mb-follow"><input data-mb="follow" type="checkbox">Следовать</label><button type="button" data-mb="toggle-mixer" aria-controls="${id}-mixer" aria-expanded="true">Микшер</button></div></div><div id="${id}-sheet" class="mb-sheet-scroll" data-mb="sheet-scroll" tabindex="0" aria-label="Прокрутка партитуры"><div class="mb-score" data-mb="score"></div><div class="mb-score-empty studio-empty" data-mb="empty"><span aria-hidden="true">♫</span><h3 data-mb="empty-heading">Музыка начинается с выбора</h3><p data-mb="empty-copy">Открой файл Guitar Pro. Звук синтезируется по нотам и не является записью исполнителя.</p></div></div></section>
+      <aside id="${id}-mixer" class="mb-mixer content-panel content-panel-raised" data-mb="mixer" aria-label="Микшер инструментов"><div class="mb-mixer-heading panel-heading"><div><span class="mb-eyebrow">СОСТАВ АНСАМБЛЯ</span><h2>Инструменты <span data-mb="track-count"></span></h2></div><button type="button" class="text-button button-compact mb-close" data-mb="close-mixer" aria-label="Свернуть микшер">×</button></div><p class="mb-mixer-hint">Показывай одни партии, слушай другие.</p><div class="mb-mixer-scroll"><table class="mb-mixer-table"><thead class="mb-sr-only"><tr><th>Инструмент</th><th>Показывать</th><th>Звучит</th><th>Solo</th><th>Громкость</th></tr></thead><tbody data-mb="tracks"></tbody></table><p data-mb="mixer-empty">Партии появятся после выбора файла.</p></div></aside></div>
+    <footer class="mb-footer"><p class="studio-status" data-mb="status" role="status" aria-live="polite"></p><p class="status-error" data-mb="error" role="alert" hidden></p><p class="mb-source-note">Файлы выбираются заново после открытия страницы. Каталог и звук не входят в резервную копию.</p></footer>`;
 
   function element<T extends HTMLElement = HTMLElement>(name: string) { return container.querySelector<T>(`[data-mb="${name}"]`)!; }
-  const surface = element('score');
+  let surface = element('score');
   const sheet = element('sheet-scroll');
   const fileInput = element<HTMLInputElement>('file'), folderInput = element<HTMLInputElement>('folder');
   const status = element('status'), errorOutput = element('error');
@@ -63,7 +76,7 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     if (save) notify();
   }
   function getPreferences(): MusicBankPreferences { return validateMusicBankPreferences(preferences); }
-  function ready() { return !!api && !!score && bound && rendered && midi && api.isReadyForPlayback && !engineError; }
+  function ready() { return !!api && !!score && bound && api.isReadyForPlayback && !engineError; }
   function controls() {
     const canUse = ready() && !loading && visible && !document.hidden;
     for (const name of ['play', 'pause', 'stop', 'seek', 'from', 'to', 'apply-range', 'full-range', 'loop']) {
@@ -72,8 +85,11 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     // A pending intent must always have an accessible cancellation control.
     element<HTMLButtonElement>('cancel').hidden = !loading;
     element<HTMLButtonElement>('stop').disabled = !canUse && !loading;
+    for (const name of ['speed', 'master', 'staff', 'tab', 'follow', 'toggle-mixer', 'close-mixer']) {
+      element<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>(name).disabled = loading;
+    }
     for (const control of container.querySelectorAll<HTMLInputElement>('[data-control]')) control.disabled = loading || !bound;
-    surface.setAttribute('aria-busy', String(loading || bound && (!rendered || !midi)));
+    surface.setAttribute('aria-busy', String(loading));
     container.dataset.musicBankReady = String(ready() && !loading && !rangeInvalid);
     container.dataset.musicBankState = loading ? 'loading' : engineError ? 'error' : !bound ? preferences.file ? 'missing' : 'empty' : transportState;
     container.dataset.musicBankTrackCount = String(preferences.tracks.length);
@@ -120,20 +136,14 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     });
   }
   function measureHeight() {
-    if (disposed || !visible || heightFrame) return;
-    heightFrame = requestAnimationFrame(() => {
-      heightFrame = 0;
-      if (disposed || !visible) return;
-      // Scrolling to history must not resize the score area above it.
-      const top = Math.max(0, container.getBoundingClientRect().top + window.scrollY);
-      const height = `${Math.max(360, Math.floor(innerHeight - top - 16))}px`;
-      if (container.style.getPropertyValue('--mb-height') !== height) container.style.setProperty('--mb-height', height);
-    });
+    heightObservation.refresh();
   }
-  function scoreHeading() {
+  function updateScoreInfo() {
     const file = preferences.file;
-    element('title').textContent = file ? `${file.artist ? `${file.artist} — ` : ''}${file.title || file.name}` : 'Табулатура и ноты';
-    element('song-info').textContent = file ? `${file.trackCount} партий · ${file.barCount} тактов · ${file.name}` : 'Открой партитуру и выбери свой состав.';
+    const info = element('song-info');
+    const label = file ? `${file.artist ? `${file.artist} — ` : ''}${file.title || file.name}` : '';
+    info.textContent = file ? `${label} · ${file.trackCount} партий · ${file.barCount} тактов · ${file.name}` : 'Открой партитуру и выбери свой состав.';
+    info.title = file ? info.textContent : '';
   }
   function empty(heading: string, copy: string) {
     surface.hidden = true; element('empty').hidden = false;
@@ -157,15 +167,16 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
       api.updateSettings(); api.renderTracks(displayed);
     }
   }
-  function applyMix() {
-    if (!api || !score) return;
-    for (const track of score.tracks) {
-      const settings = preferences.tracks[track.index];
-      api.changeTrackMute([track], !settings.audible);
-      api.changeTrackSolo([track], settings.solo);
-      api.changeTrackVolume([track], settings.volume);
+  function applyMix(player = api, material = score, settings = preferences) {
+    if (!player || !material) return;
+    for (const track of material.tracks) {
+      const mix = settings.tracks[track.index];
+      player.changeTrackMute([track], !mix.audible);
+      player.changeTrackSolo([track], mix.solo);
+      player.changeTrackVolume([track], mix.volume);
     }
-    api.masterVolume = preferences.master; api.playbackSpeed = preferences.speed;
+    player.masterVolume = settings.master;
+    player.playbackSpeed = settings.speed;
   }
   function renderMixer() {
     const body = element<HTMLTableSectionElement>('tracks'); body.replaceChildren();
@@ -205,37 +216,50 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     element('track-count').textContent = preferences.tracks.length ? String(preferences.tracks.length) : '';
     element('mixer-empty').hidden = preferences.tracks.length > 0;
   }
-  function resources() {
-    if (!api || !alphaTab) return;
+  function setResources(player: BankApi, module: AlphaTabModule) {
     const style = getComputedStyle(container);
     const color = (name: string, fallback: string) => {
       const value = style.getPropertyValue(name).trim() || fallback;
-      return alphaTab!.model.Color.fromJson(value) ?? alphaTab!.model.Color.fromJson(fallback)!;
+      return module.model.Color.fromJson(value) ?? module.model.Color.fromJson(fallback)!;
     };
-    const rendering = api.settings.display.resources;
+    const rendering = player.settings.display.resources;
     rendering.mainGlyphColor = color('--notation-ink', '#27372e');
     rendering.scoreInfoColor = rendering.mainGlyphColor;
     rendering.secondaryGlyphColor = color('--text-secondary', '#637168');
     rendering.staffLineColor = color('--border-strong', '#74836d');
     rendering.barSeparatorColor = rendering.staffLineColor;
     rendering.barNumberColor = color('--accent-text', '#345d42');
-    api.updateSettings(); if (score && api.score === score && !surface.hidden) api.render();
+    player.updateSettings();
+  }
+  function resources() {
+    if (!api || !alphaTab) return;
+    setResources(api, alphaTab);
+    if (score && api.score === score && !surface.hidden) api.render();
+  }
+  function discardPending() {
+    const pending = pendingEngine;
+    pendingEngine = null;
+    if (pending) {
+      pending.player?.cancelPreparation();
+      destroyScorePlayer(pending.player?.api ?? null);
+      pending.host.remove();
+    }
   }
   function clearEngine() {
-    ++epoch; const previous = api; api = null; score = null; bound = false; rendered = false; midi = false;
+    const previous = api; api = null; score = null; bound = false;
     transportState = 'stopped';
-    if (previous) { previous.stop(); previous.destroy(); }
+    destroyScorePlayer(previous);
     surface.replaceChildren();
   }
-  function applyRange(seek = false): boolean {
-    if (!api || !score) return false;
-    const range = preferences.range;
-    if (!range) { api.playbackRange = null; api.isLooping = preferences.loop; return true; }
-    const bars = api.tickCache?.masterBars ?? [];
+  function applyRange(seek = false, player = api, settings = preferences): boolean {
+    if (!player) return false;
+    const range = settings.range;
+    if (!range) { player.playbackRange = null; player.isLooping = settings.loop; return true; }
+    const bars = player.tickCache?.masterBars ?? [];
     const first = bars.find(bar => bar.masterBar.index === range.fromBar - 1), last = bars.find(bar => bar.masterBar.index === range.toBar - 1);
     if (!first || !last || last.end <= first.start) return false;
-    api.playbackRange = { startTick: first.start, endTick: last.end }; api.isLooping = preferences.loop;
-    if (seek) api.tickPosition = first.start;
+    player.playbackRange = { startTick: first.start, endTick: last.end }; player.isLooping = settings.loop;
+    if (seek) player.tickPosition = first.start;
     return true;
   }
   function invalidateRange() {
@@ -247,74 +271,83 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     rangeDescription(); controls();
     message('Воспроизведение приостановлено.', 'Недопустимый диапазон. Прежний фрагмент и повтор сняты. Исправь такты или выбери всю песню.');
   }
-  function accepted(candidate: BankScore, next: MusicBankPreferences, module: AlphaTabModule) {
-    clearEngine(); preferences = next; alphaTab = module;
-    engineError = ''; rangeInvalid = false; notifiedInitialLoad = false;
-    score = candidate; bound = true; rendered = false; midi = false; loading = false;
-    const assets = musicBankAssets();
-    surface.hidden = false; element('empty').hidden = true;
-    const current = new module.AlphaTabApi(surface, {
-      core: { scriptFile: assets.moduleUrl, fontDirectory: assets.fontDirectory, engine: 'svg' },
-      display: { staveProfile: preferences.notation.staff ? preferences.notation.tab ? module.StaveProfile.ScoreTab : module.StaveProfile.Score : module.StaveProfile.Tab },
-      player: { playerMode: module.PlayerMode.EnabledSynthesizer, soundFont: assets.soundFont, enableCursor: true,
-        enableUserInteraction: true, scrollElement: `#${id}-sheet`, scrollOffsetY: -12,
-        scrollMode: preferences.follow ? module.ScrollMode.Continuous : module.ScrollMode.Off }
-    });
-    api = current; const currentEpoch = epoch;
-    const isCurrent = () => !disposed && api === current && epoch === currentEpoch && current.score === candidate;
-    function settled() {
-      if (!isCurrent()) return;
-      if (ready() && !notifiedInitialLoad) {
-        notifiedInitialLoad = true; renderNotation(true);
-        if (!rangeInvalid) message('Партитура открыта. Выбирай любые партии для чтения и звучания.');
-        notify();
-      }
-      controls();
-    }
-    current.error.on(error => {
-      if (!isCurrent()) return;
-      engineError = failureText(error); current.pause(); controls();
-      message('Не удалось подготовить партитуру.', `${engineError} Выбери файл повторно, чтобы попробовать ещё раз.`);
-    });
-    current.renderFinished.on(() => { if (isCurrent()) { rendered = true; settled(); } });
-    current.midiLoaded.on(() => {
-      if (!isCurrent()) return;
-      applyMix(); midi = true;
-      if (!applyRange(true)) { rangeInvalid = true; message('Партитура открыта.', 'Сохранённый фрагмент отсутствует в порядке исполнения. Выбери другой фрагмент или всю песню.'); }
-      settled();
-    });
-    current.playerReady.on(() => {
-      // alphaTab applies source volumes after raising playerReady. Reapply the
-      // complete visible mixer after that handler, including default/false values.
-      queueMicrotask(() => { if (isCurrent()) { applyMix(); settled(); } });
-    });
-    current.playerPositionChanged.on(event => {
-      if (!isCurrent()) return;
-      const seek = element<HTMLInputElement>('seek'); seek.max = String(Math.max(0, event.endTime / 1000)); seek.value = String(event.currentTime / 1000);
+  function stage(candidate: BankScore, next: MusicBankPreferences, module: AlphaTabModule, active: () => boolean) {
+    const host = document.createElement('div');
+    host.className = 'mb-score mb-score-staging';
+    host.inert = true;
+    host.setAttribute('aria-hidden', 'true');
+    sheet.append(host);
+    const staged: PendingEngine = { host, player: null };
+    pendingEngine = staged;
+    const isPending = () => active() && pendingEngine === staged;
+    const isCurrent = () => !disposed && staged.player !== null && api === staged.player.api;
+    let position: ScorePosition | null = null;
+    function showPosition(event: ScorePosition) {
+      const seek = element<HTMLInputElement>('seek');
+      seek.max = String(Math.max(0, event.endTime / 1000));
+      seek.value = String(event.currentTime / 1000);
       element('position').textContent = `${timeLabel(event.currentTime)} / ${timeLabel(event.endTime)}`;
+    }
+    function fail(error: unknown) {
+      if (!isPending()) return;
+      discardPending(); loading = false; controls();
+      message(preferences.file ? 'Прежняя партитура и её настройки сохранены.' : 'Файл не открыт.',
+        failureText(error) || 'Не удалось загрузить звуковой банк. Выбери файл повторно.');
+    }
+    function settled() {
+      if (!isPending()) return;
+      let validRange: boolean;
+      try {
+        // The global theme can change while the candidate is waiting for its SoundFont.
+        setResources(current, module);
+        applyMix(current, candidate, next);
+        validRange = applyRange(true, current, next);
+      }
+      catch (failure) { fail(failure); return; }
+      if (!isPending()) return;
+      pendingEngine = null;
+      const previous = api;
+      api = current; score = candidate; alphaTab = module; preferences = next;
+      bound = true; loading = false; transportState = 'stopped'; engineError = ''; rangeInvalid = !validRange;
+      host.inert = false;
+      host.removeAttribute('aria-hidden');
+      host.classList.remove('mb-score-staging');
+      host.dataset.mb = 'score';
+      surface.replaceWith(host);
+      surface = host;
+      destroyScorePlayer(previous);
+      updateScoreInfo(); synchronizeFields(); renderMixer();
+      element('current-bar').textContent = ''; element('position').textContent = '0:00 / 0:00';
+      element<HTMLInputElement>('seek').value = '0';
+      if (position) showPosition(position);
+      for (const name of ['from', 'to']) element(name).removeAttribute('aria-invalid');
+      renderNotation(true); scheduleLayout();
+      message('Партитура открыта. Выбирай любые партии для чтения и звучания.',
+        rangeInvalid ? 'Сохранённый фрагмент отсутствует в порядке исполнения. Выбери другой фрагмент или всю песню.' : '');
+      controls(); notify();
+    }
+    staged.player = createScorePlayer(host, sheet, module, next, {
+      ready: settled,
+      error(error) {
+        if (isPending()) { fail(error); return; }
+        if (!isCurrent()) return;
+        engineError = failureText(error); current.pause(); controls();
+        message('Не удалось подготовить партитуру.', `${engineError} Выбери файл повторно, чтобы попробовать ещё раз.`);
+      },
+      position(event) { if (isPending()) position = event; else if (isCurrent()) showPosition(event); },
+      bar(index) { if (isCurrent()) element('current-bar').textContent = `Такт ${index + 1} из ${candidate.masterBars.length}`; },
+      transport(state) { if (isCurrent()) { transportState = state; controls(); } },
     });
-    current.playedBeatChanged.on(beat => {
-      if (!isCurrent()) return;
-      element('current-bar').textContent = `Такт ${beat.voice.bar.index + 1} из ${candidate.masterBars.length}`;
-    });
-    current.playerStateChanged.on(event => {
-      if (!isCurrent()) return;
-      transportState = event.state === 1 ? 'playing' : event.stopped ? 'stopped' : 'paused'; controls();
-    });
-    scoreHeading(); synchronizeFields(); renderMixer();
-    element('current-bar').textContent = ''; element('position').textContent = '0:00 / 0:00';
-    for (const name of ['from', 'to']) element(name).removeAttribute('aria-invalid');
-    resources();
-    const shown = candidate.tracks.filter(track => preferences.tracks[track.index].visible && (preferences.notation.staff || preferences.notation.tab && track.staves.some(staff => staff.isStringed)));
-    // A fresh player also resets previous-channel overrides explicitly before MIDI generation.
-    current.player?.resetChannelStates();
-    current.renderScore(candidate, shown.length ? shown.map(track => track.index) : [0]);
+    const current = staged.player.api;
+    setResources(current, module);
+    const shown = candidate.tracks.filter(track => next.tracks[track.index].visible && (next.notation.staff || next.notation.tab && track.staves.some(staff => staff.isStringed)));
+    staged.player.prepare(candidate, shown.map(track => track.index));
     controls();
   }
   async function openFile(file: File, relativePath: string | null = null) {
     if (disposed || !visible || document.hidden) return;
     const request = ++intent;
-    let replaced = false;
+    discardPending();
     const active = () => !disposed && visible && !document.hidden && request === intent;
     api?.pause(); loading = true; message(`Читаем «${file.name}»…`); controls();
     try {
@@ -339,16 +372,11 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
       const next = validateMusicBankPreferences({ ...preferences, file: descriptor, tracks,
         range: sameFile ? preferences.range : null, loop: sameFile ? preferences.loop : false });
       if (!active()) return;
-      replaced = true; accepted(candidate, next, module);
+      stage(candidate, next, module, active);
     } catch (failure) {
       if (!active()) return;
-      loading = false;
+      discardPending(); loading = false;
       const text = failureText(failure);
-      if (replaced) {
-        clearEngine(); engineError = text; scoreHeading(); synchronizeFields(); renderMixer();
-        empty('Не удалось подготовить партитуру', 'Выбери исходный файл повторно, чтобы попробовать ещё раз.');
-        message('Проигрывание недоступно.', text); controls(); return;
-      }
       const unsupported = /No compatible importer|Unsupported version|unsupported format/iu.test(text);
       message(preferences.file ? 'Прежняя партитура и её настройки сохранены.' : 'Файл не открыт.',
         unsupported ? `Этот формат файла не поддерживается. Старый GTP v1.04 открыть нельзя. ${text}` : text);
@@ -357,6 +385,7 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
   }
   function cancelLoad(showNotice = true) {
     const pending = loading; ++intent; loading = false;
+    discardPending();
     controls(); if (pending && showNotice) message('Загрузка отменена. Прежняя партитура и её настройки сохранены.');
   }
   function stop() {
@@ -366,7 +395,7 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
   function play() {
     if (!ready() || loading || rangeInvalid || disposed || !visible || document.hidden) return;
     const current = api!;
-    options.onBeforePlay?.();
+    if (options.onBeforePlay?.() === false) return;
     if (disposed || !visible || document.hidden || current !== api) return;
     applyMix();
     if (!current.play()) message('Проигрыватель ещё не готов. Нажми «Старт» повторно.');
@@ -411,7 +440,7 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
   element('cancel').addEventListener('click', () => cancelLoad(), listen);
   element('play').addEventListener('click', play, listen);
   element('pause').addEventListener('click', () => { api?.pause(); controls(); }, listen);
-  element('stop').addEventListener('click', stop, listen);
+  element('stop').addEventListener('click', () => { if (loading) cancelLoad(); else stop(); }, listen);
   element('speed').addEventListener('change', () => {
     updatePreferences({ speed: Number(element<HTMLSelectElement>('speed').value) });
     if (api) api.playbackSpeed = preferences.speed;
@@ -456,7 +485,7 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     if (event.key === 'Escape' && preferences.mixerOpen && container.clientWidth <= 900 && element('mixer').contains(target)) {
       setMixer(false, true); event.preventDefault(); return;
     }
-    if (target.closest('input,select,textarea,button,a,summary,[contenteditable="true"]')) return;
+    if (!allowsTransportShortcut(event, container)) return;
     if (event.key === 'Escape') { stop(); event.preventDefault(); return; }
     if (event.code !== 'Space') return;
     event.preventDefault(); if (api?.playerState === 1) api.pause(); else play();
@@ -467,35 +496,35 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     cancelLoad(false); api?.pause(); controls();
     if (bound) message('Пауза: вкладка скрыта. Для продолжения нажми «Старт».');
   }, listen);
-  window.addEventListener('resize', measureHeight, listen);
-  const resize = new ResizeObserver(measureHeight); resize.observe(container);
-  const layoutHost = container.closest('.app-content');
-  if (layoutHost) resize.observe(layoutHost);
+  const heightObservation = options.observeHeight(container, available => {
+    const height = `${Math.max(360, available)}px`;
+    if (container.style.getPropertyValue('--mb-height') !== height) container.style.setProperty('--mb-height', height);
+  });
   const observer = new MutationObserver(resources); observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
   function applyPreferences(next: MusicBankPreferences | null) {
     const checked = validateMusicBankPreferences(next ?? DEFAULT_MUSIC_BANK_PREFERENCES);
     cancelLoad(false); clearEngine(); preferences = checked; engineError = ''; rangeInvalid = false;
-    synchronizeFields(); scoreHeading(); renderMixer();
+    synchronizeFields(); updateScoreInfo(); renderMixer();
     empty(checked.file ? 'Нужен исходный файл' : 'Музыка начинается с выбора', checked.file
       ? `Выбери «${checked.file.name}» заново. Совпадение проверяется по содержимому; сохранённый микшер и фрагмент вернутся.`
       : 'Открой файл Guitar Pro. Звук синтезируется по нотам и не является записью исполнителя.');
     message(checked.file ? 'Настройки восстановлены. Для запуска выбери исходный файл.' : 'Выбери файл. Звук начнётся только по кнопке «Старт».'); controls();
   }
   function setVisible(next: boolean) {
-    if (disposed) return;
+    if (disposed || visible === next) return;
     visible = next; container.hidden = !next;
     if (!next) { stop(); return; }
     measureHeight(); controls(); scheduleLayout();
   }
   function dispose() {
     if (disposed) return;
-    disposed = true; ++intent; loading = false; clearEngine();
-    abort.abort(); resize.disconnect(); observer.disconnect();
-    cancelAnimationFrame(heightFrame); cancelAnimationFrame(layoutFrame);
+    disposed = true; ++intent; loading = false; discardPending(); clearEngine();
+    abort.abort(); heightObservation.dispose(); observer.disconnect();
+    cancelAnimationFrame(layoutFrame);
     catalogue = []; container.replaceChildren(); container.classList.remove('music-bank', 'mb-mixer-collapsed');
     container.style.removeProperty('--mb-height');
   }
   catalogueView(); applyPreferences(options.preferences ?? null);
-  return { setVisible, stop, applyPreferences, getPreferences, dispose };
+  return { setVisible, stop, cancelPending() { if (loading) cancelLoad(); }, applyPreferences, getPreferences, dispose };
 }

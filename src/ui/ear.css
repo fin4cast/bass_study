@@ -1,21 +1,12 @@
 @import "../theme.css";
 
-.ear-section { margin: 20px 0; padding: 25px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
-.ear-section[hidden] { display: none; }
-.ear-heading { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-bottom: 23px; }
-.ear-heading .eyebrow { font-size: 12px; margin-bottom: 7px; }
-.ear-heading h2 { margin: 0; font-size: 23px; font-weight: 550; color: var(--accent-text); }
-.ear-heading > p { margin: 0; font-size: 12px; line-height: 1.7; color: var(--text-secondary); }
+.ear-section { padding: 18px; }
+.ear-heading { margin-bottom: 20px; }
 .ear-settings { display: flex; flex-wrap: wrap; gap: 13px; align-items: end; }
 .ear-field { display: flex; flex-direction: column; gap: 6px; }
-.ear-field > span { font-size: 12px; color: var(--text-secondary); }
-.ear-field select, .ear-field input { min-height: 39px; font-size: 12px; }
-.ear-number-field input { width: 90px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); color: var(--accent-text); }
-.ear-field input[aria-invalid=true] { border-color: var(--warning-border); background: var(--surface); }
+.ear-number-field input { width: 90px; }
 .ear-description { margin: 14px 0 22px; font-size: 12px; color: var(--text-secondary); line-height: 1.7; }
-.ear-error, .ear-notice { margin: 14px 0; padding: 12px 14px; border-radius: 6px; font-size: 12px; line-height: 1.6; }
-.ear-error { color: var(--danger-text); background: var(--danger-surface); }
-.ear-notice { color: var(--accent-text); background: var(--surface-raised); }
+.ear-notice { margin: 14px 0; }
 .ear-question, .ear-summary { padding-top: 22px; border-top: 1px solid var(--border); }
 .ear-progress { display: flex; gap: 15px; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text-secondary); }
 .ear-question h3 { margin: 20px 0; font-size: 23px; color: var(--accent-text); font-weight: 550; }
@@ -41,20 +32,16 @@
 .ear-ready > span { font-size: 40px; color: var(--accent-text); }
 .ear-ready h3 { font-size: 16px; color: var(--accent-text); margin: 0 0 9px; }
 .ear-ready p, .ear-summary > p { font-size: 12px; line-height: 1.8; color: var(--accent-text); max-width: 700px; }
-.ear-summary h3 { color: var(--accent-text); font-size: 21px; }
 .ear-summary-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin: 20px 0; }
-.ear-summary-grid > div { padding: 15px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 6px; }
-.ear-summary-grid strong { display: block; color: var(--accent-text); font: 25px Consolas, monospace; margin-bottom: 7px; }
-.ear-summary-grid span { font-size: 12px; color: var(--text-secondary); }
 .ear-section :focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
-@media (max-width: 760px) { .ear-section { padding: 19px; } .ear-heading { align-items: start; flex-direction: column; gap: 12px; } .ear-heading h2 { font-size: 21px; } .ear-settings { gap: 11px; } .ear-settings > .primary-button { min-height: 40px; } .ear-summary-grid { grid-template-columns: repeat(3, 1fr); } .ear-question h3 { font-size: 20px; } .ear-sound-path { gap: 8px; } .ear-sound-path span { padding: 9px 10px; } }
+@media (max-width: 760px) { .ear-settings { gap: 11px; } .ear-summary-grid { grid-template-columns: repeat(3, 1fr); } .ear-question h3 { font-size: 20px; } .ear-sound-path { gap: 8px; } .ear-sound-path span { padding: 9px 10px; } }
 @media (max-width: 420px) { .ear-answers { grid-template-columns: repeat(3, 1fr); gap: 8px; } .ear-answer { padding: 16px 8px; } .ear-summary-grid { grid-template-columns: repeat(2, 1fr); } .ear-sound-path { gap: 5px; font-size: 12px; } .ear-sound-path span { padding: 8px; } }
 
 .ear-answer:disabled { opacity: 1; color: var(--disabled-text); background: var(--disabled-surface); }
 .ear-answer.is-correct:disabled { background: var(--success-surface); color: var(--success-text); border-color: var(--success-text); }
 .ear-answer.was-wrong { background: var(--danger-surface); color: var(--danger-text); border-color: var(--danger-border); }
 
-.ear-examples { margin: 17px 0; padding: 15px 17px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-muted); }
+.ear-examples { margin: 17px 0; padding: 16px; }
 .ear-examples h3 { margin: 0 0 7px; font-size: 16px; color: var(--accent-text); }
 .ear-examples p { font-size: 13px; line-height: 1.65; color: var(--text-secondary); }
 .ear-examples .ear-actions { margin-top: 12px; justify-content: flex-start; }

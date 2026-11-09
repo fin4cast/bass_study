@@ -6,7 +6,8 @@ interface Options {
   onChoice(choice: 'guided' | 'free', completed: boolean): void;
   onMaterial(): void;
   onPosition(id: string): void;
-  onBeforeListen(): void;
+  onBeforeListen(): boolean | void;
+  onClose?(): void;
 }
 
 /** Guided actions deliberately have no quiz session, answers, or history score. */
@@ -21,18 +22,19 @@ export function mountIntroduction(container: HTMLElement, options: Options) {
     '<h3>4. Сравни звучание</h3><p>Сначала звучит опорная C2, затем выбранная ступень. Подписанные образцы не являются ответами на слуховой вопрос.</p><div class="introduction-examples"><button type="button" data-intro-example="1">C2 → C2 · тоника</button><button type="button" data-intro-example="3">C2 → E2 · большая терция</button><button type="button" data-intro-example="5">C2 → G2 · квинта</button></div><p>Для самостоятельной практики открой «Задания» либо начни общий маршрут 3 + 3 + 4 минуты.</p>',
   ];
   function render() {
-    container.innerHTML = guided ? `<div class="introduction-card"><div class="section-title"><h2 tabindex="-1">Введение: ${step + 1} из 4</h2><button type="button" class="text-button" data-intro="close">Закрыть введение</button></div>${steps[step]}<p data-intro-audio role="status"></p><div class="introduction-actions"><button type="button" data-intro="back"${step === 0 ? ' disabled' : ''}>Назад</button><button type="button" class="primary-button" data-intro="next">${step === 3 ? 'Перейти к практике' : 'Дальше'}</button></div></div>`
-      : '<div class="introduction-card"><h2 tabindex="-1">С чего начнём?</h2><p>Ты знаешь струны и названия нот. Выбери короткое знакомство с тоникой, ступенями и формой или сразу исследуй гриф.</p><div class="introduction-actions"><button type="button" class="primary-button" data-intro="guided">Пройти введение · 4 шага</button><button type="button" class="secondary-button" data-intro="free">Свободная практика</button></div><p>Введение всегда доступно из шапки.</p></div>';
+    container.innerHTML = guided ? `<div class="introduction-card content-panel"><div class="panel-heading"><h2 tabindex="-1">Введение: ${step + 1} из 4</h2><button type="button" class="text-button" data-intro="close">Закрыть введение</button></div>${steps[step]}<p data-intro-audio role="status"></p><div class="introduction-actions"><button type="button" class="secondary-button" data-intro="back"${step === 0 ? ' disabled' : ''}>Назад</button><button type="button" class="primary-button" data-intro="next">${step === 3 ? 'Перейти к практике' : 'Дальше'}</button></div></div>`
+      : '<div class="introduction-card content-panel"><div class="panel-heading"><h2 tabindex="-1">С чего начнём?</h2></div><p>Ты знаешь струны и названия нот. Выбери короткое знакомство с тоникой, ступенями и формой или сразу исследуй гриф.</p><div class="introduction-actions"><button type="button" class="primary-button" data-intro="guided">Пройти введение · 4 шага</button><button type="button" class="secondary-button" data-intro="free">Свободная практика</button></div><p>Введение всегда доступно из шапки.</p></div>';
     if (step === 2) container.querySelector('[data-intro-found]')!.textContent = `Изучено позиций: ${found.size} из 3.`;
   }
   const stop = () => { generation++; cue.stop(); };
-  const close = () => { stop(); container.hidden = true; document.getElementById('open-introduction')?.focus(); };
+  const close = () => { stop(); container.hidden = true; options.onClose?.(); document.getElementById('open-introduction')?.focus(); };
   container.addEventListener('click', event => {
     const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button') : null;
     if (!target) return;
     if (target.dataset.introPosition) { found.add(target.dataset.introPosition); container.querySelector('[data-intro-found]')!.textContent = `Изучено позиций: ${found.size} из 3.`; options.onPosition(target.dataset.introPosition); return; }
     if (target.dataset.introExample) {
-      stop(); options.onBeforeListen();
+      if (options.onBeforeListen() === false) return;
+      stop();
       const run = generation;
       const plan = getEarAudioEvents(createEarExample({ root: 'C', quality: 'major', referenceMidi: 36 }, target.dataset.introExample as EarDegree), 60);
       void cue.play({ bpm: plan.bpm, totalBeats: plan.totalBeats, notes: plan.events.filter(event => event.midi !== null).map(event => ({ midi: event.midi!, beat: event.atBeat, durationBeats: event.durationBeats })) })
