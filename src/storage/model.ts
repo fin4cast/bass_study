@@ -5,13 +5,14 @@ import {
   type QuizResult, type QuizSession, type SequencePattern, type TrainingScope,
   INTERVAL_DEGREES, createIntervalTarget, type IntervalDegree,
 } from '../training';
-import { createManualPracticeResult, type ManualPracticeResult } from '../training/results';
+import { createManualPracticeResult, manualTempoBounds, type ManualPracticeResult } from '../training/results';
 import { beginEarListen, cancelEarListen, collectEarResults, completeEarListen, createEarQuestion, revealEarAnswer, skipEarQuestion, startEarSession, submitEarAnswer,
   type EarDegree, type EarQuality, type EarSession, type SavedEarResult } from '../ear';
 import { getRouteResult, replayRouteResult, type RouteEvent, type RouteResult } from '../route';
 import { DEFAULT_HARMONY_PREFERENCES, type HarmonyPreferences } from '../harmony';
 import { validateTracksManifest, type TracksManifest } from '../tracks';
 import { validateMusicBankPreferences, type MusicBankPreferences } from '../music-bank/model';
+import { validateRhythmPlaybackConfig, validateRhythmPreferences, validateRhythmProject, type RhythmPreferences, type RhythmProject } from '../rhythm/model';
 import { createBoxSelection, getBoxInstance, validateBoxSelection as validateDomainBoxSelection, type BoxSelection } from '../music/boxes';
 import type { StoredPracticeMaterial, PracticeMaterial } from '../training/results';
 import { DEFAULT_PROFILE, type GlobalProfile, type PracticeDraft, type DrainDraftRequest } from './contracts';
@@ -25,6 +26,7 @@ export interface AppPreferences {
   readonly musicBank: MusicBankPreferences | null;
   readonly input: { readonly deviceId: string };
   readonly harmony: HarmonyPreferences;
+  readonly rhythm: RhythmPreferences | null;
   readonly ear: { readonly root: string; readonly quality: EarQuality; readonly count: number; readonly bpm: number };
   readonly study: { readonly root: string; readonly structureId: StructureId; readonly labelMode: LabelMode; readonly strings: readonly StringId[]; readonly fretMin: number; readonly fretMax: number; readonly box: BoxSelection | null; readonly showFingers: boolean };
   readonly training: { readonly mode: 'study' | 'quiz' | 'sequence'; readonly quizMode: QuizMode; readonly scope: TrainingScope; readonly intervalDegree: IntervalDegree; readonly count: number; readonly pattern: SequencePattern; readonly sequenceScope: TrainingScope; readonly reviewPositionIds: readonly string[]; readonly questionPolicy: 'random-v1' | 'triad-6-v1' | 'shape-6-v1' };
@@ -58,15 +60,17 @@ export interface EarHistoryEntry extends HistoryEnvelope { readonly result: EarH
 export interface RouteHistoryEntry extends HistoryEnvelope { readonly result: RouteResult }
 export type HistoryEntry = ScreenHistoryEntry | ManualHistoryEntry | EarHistoryEntry | RouteHistoryEntry;
 export interface StudySnapshot {
-  readonly format: 'bass-study-backup'; readonly schemaVersion: 7; readonly preferences: AppPreferences;
+  readonly format: 'bass-study-backup'; readonly schemaVersion: 8; readonly preferences: AppPreferences;
   readonly profile: GlobalProfile; readonly practiceDrafts: readonly PracticeDraft[];
   readonly presets: readonly Preset[]; readonly history: readonly HistoryEntry[];
+  readonly rhythmProjects: readonly RhythmProject[]; readonly activeRhythmProjectId: string | null;
 }
 
 export class StudyStorageError extends Error {
   constructor(public readonly code: string, message: string) { super(message); this.name = 'StudyStorageError'; }
 }
 export const MAX_BACKUP_BYTES = 67_108_864;
+export const STUDY_SCHEMA_VERSION = 8;
 
 const ROOT_IDS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const LEGACY_MODES = ['name-note', 'find-note', 'find-all', 'find-degree'] as const;
@@ -97,6 +101,16 @@ function recordContext<T>(label: string, operation: () => T): T {
     if (error instanceof StudyStorageError) throw new StudyStorageError(error.code, `${label}: ${error.message}`);
     throw error;
   }
+}
+function rhythmData<T>(label: string, operation: () => T): T {
+  try { return operation(); }
+  catch (failure) { return invalid(`${label}: ${failure instanceof Error ? failure.message : String(failure)}`); }
+}
+export function validateStoredRhythmProject(value: unknown): RhythmProject {
+  return rhythmData('Проект ритма', () => validateRhythmProject(value));
+}
+export function validateRhythmProjectId(value: unknown): string {
+  return text(value, 'ID проекта ритма');
 }
 function object(value: unknown, keys: readonly string[], label: string): Data {
   if (!value || typeof value !== 'object' || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) invalid(`${label}: нужен обычный объект данных.`);
@@ -165,7 +179,7 @@ export function originalLocalDate(occurredAt: string, timeZone: string): string 
 
 export const DEFAULT_PREFERENCES: AppPreferences = immutable({
   tracks: null, musicBank: null, input: { deviceId: '' },
-  harmony: DEFAULT_HARMONY_PREFERENCES,
+  harmony: DEFAULT_HARMONY_PREFERENCES, rhythm: null,
   activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 },
   study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12,
     box: createBoxSelection({ root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a', anchorString: 'E', anchorFret: 5 }), showFingers: false },
@@ -186,7 +200,7 @@ function positionIds(value: unknown, label: string, allowEmpty: boolean): string
 function position(id: string) { const [string, fret] = id.split(':'); return getPosition(string as StringId, Number(fret)); }
 
 export function validatePreferences(value: unknown): AppPreferences {
-  const data = object(value, ['activeModule', 'ear', 'harmony', 'tracks', 'musicBank', 'input', 'study', 'training', 'player'], 'Настройки');
+  const data = object(value, ['activeModule', 'ear', 'harmony', 'rhythm', 'tracks', 'musicBank', 'input', 'study', 'training', 'player'], 'Настройки');
   const input = object(data.input, ['deviceId'], 'Настройки аудиовхода');
   let tracks: TracksManifest | null = null;
   if (data.tracks !== null) {
@@ -198,6 +212,7 @@ export function validatePreferences(value: unknown): AppPreferences {
     try { musicBank = validateMusicBankPreferences(data.musicBank); }
     catch (failure) { invalid(`Настройки раздела «Табулатура и ноты»: ${failure instanceof Error ? failure.message : String(failure)}`); }
   }
+  const rhythm = data.rhythm === null ? null : rhythmData('Настройки метронома и ритма', () => validateRhythmPreferences(data.rhythm));
   const ear = object(data.ear, ['root', 'quality', 'count', 'bpm'], 'Настройки слуха');
   const harmony = object(data.harmony, ['bpm', 'countIn', 'repeat', 'bassVolume', 'padVolume', 'clickVolume', 'bassMuted', 'padMuted', 'clickMuted'], 'Настройки сопровождения');
   const study = object(data.study, ['root', 'structureId', 'labelMode', 'strings', 'fretMin', 'fretMax', 'box', 'showFingers'], 'Настройки грифа');
@@ -222,7 +237,7 @@ export function validatePreferences(value: unknown): AppPreferences {
   if (ladderStart > ladderEnd) invalid('Конечный темп лестницы ниже начального.');
   return immutable({
     activeModule: oneOf(data.activeModule, ['foundation', 'ear', 'route', 'harmony', 'tracks', 'input'] as const, 'Раздел'),
-    tracks, musicBank, input: { deviceId: text(input.deviceId, 'Устройство аудиовхода', 2048, true) },
+    tracks, musicBank, rhythm, input: { deviceId: text(input.deviceId, 'Устройство аудиовхода', 2048, true) },
     harmony: { bpm: number(harmony.bpm, 40, 220, 'Темп сопровождения'), countIn: boolean(harmony.countIn, 'Отсчёт сопровождения'), repeat: oneOf(harmony.repeat, ['once', 'infinite'] as const, 'Повтор сопровождения'),
       bassVolume: number(harmony.bassVolume, 0, 100, 'Громкость басового рисунка'), padVolume: number(harmony.padVolume, 0, 100, 'Громкость гармонии'), clickVolume: number(harmony.clickVolume, 0, 100, 'Громкость клика сопровождения'),
       bassMuted: boolean(harmony.bassMuted, 'Отключение басового рисунка'), padMuted: boolean(harmony.padMuted, 'Отключение гармонии'), clickMuted: boolean(harmony.clickMuted, 'Отключение клика сопровождения') },
@@ -273,11 +288,17 @@ export function validateRouteRef(value: unknown): import('../route').RouteRef | 
   return immutable({ routeId: text(data.routeId, 'ID маршрута', 160), step: oneOf(data.step, ['fretboard', 'ear', 'sequence'] as const, 'Блок маршрута') });
 }
 
-export function validatePracticeMaterial(value: unknown, area?: QuestionContext, allowLegacy = false): StoredPracticeMaterial {
+export function validatePracticeMaterial(value: unknown, area?: QuestionContext | null, allowLegacy = false): StoredPracticeMaterial {
   if (!value || typeof value !== 'object' || Array.isArray(value)) invalid('Отсутствует материал практики.');
   const descriptor = Object.getOwnPropertyDescriptor(value, 'kind');
   if (!descriptor || !Object.hasOwn(descriptor, 'value')) invalid('Вид материала должен быть обычным полем.');
   const kind = descriptor.value;
+  if (kind === 'rhythm') {
+    const data = object(value, ['kind', 'playback'], 'Материал метронома и ритма');
+    if (area) invalid('Материал метронома и ритма не имеет контекста грифа.');
+    return immutable({ kind, playback: rhythmData('Конфигурация проигрывания', () => validateRhythmPlaybackConfig(data.playback)) });
+  }
+  if (area === null) invalid('Для этого материала нужен исходный контекст грифа.');
   if (kind === 'legacy-unknown') { object(value, ['kind'], 'Старый материал'); if (!allowLegacy) invalid('Новый черновик требует известного материала.'); return immutable({ kind }); }
   if (kind === 'harmony') {
     const data = object(value, ['kind', 'patternId'], 'Сопровождение');
@@ -301,20 +322,33 @@ export function validatePracticeMaterial(value: unknown, area?: QuestionContext,
     duration: oneOf(data.duration, DURATIONS as readonly ('quarter' | 'eighth' | 'sixteenth')[], 'Длительность практики'), fragment: { from, toExclusive } });
 }
 
+function manualBpm(value: unknown, material: StoredPracticeMaterial, label: string): number {
+  const [min, max] = manualTempoBounds(material);
+  return number(value, min, max, label);
+}
+
 export function validatePracticeDraft(value: unknown): PracticeDraft {
   const data = object(value, ['id', 'createdAt', 'updatedAt', 'timeZone', 'localDate', 'context', 'material', 'routeRef', 'totalReferenceMs', 'recordedThroughMs', 'suggestedBpm', 'comfortableBpm', 'note', 'editRevision'], 'Черновик практики');
   const createdAt = utc(data.createdAt, 'Начало черновика');
   const timeZone = text(data.timeZone, 'Часовой пояс черновика', 100);
   const localDate = originalLocalDate(createdAt, timeZone);
   if (data.localDate !== localDate) invalid('Локальная дата черновика не соответствует исходному поясу.');
-  const area = context(data.context);
+  const area = data.context === null ? null : context(data.context);
   const totalReferenceMs = number(data.totalReferenceMs, 0, Number.MAX_SAFE_INTEGER, 'Накопленное время', false);
   const recordedThroughMs = number(data.recordedThroughMs, 0, totalReferenceMs, 'Сохранённое время', false);
   const material = validatePracticeMaterial(data.material, area) as PracticeMaterial;
+  const routeRef = validateRouteRef(data.routeRef);
+  if (material.kind === 'rhythm' && routeRef !== null) invalid('Практика метронома и ритма не относится к маршруту.');
   if (material.kind === 'fretboard' && totalReferenceMs !== 0) invalid('Изучение грифа не измеряет время проигрывания эталона.');
   return immutable({ id: text(data.id, 'ID черновика', 160), createdAt, updatedAt: utc(data.updatedAt, 'Обновление черновика'), timeZone, localDate,
-    context: area, material, routeRef: validateRouteRef(data.routeRef), totalReferenceMs, recordedThroughMs,
-    suggestedBpm: number(data.suggestedBpm, 40, 220, 'Предлагаемый темп'), comfortableBpm: number(data.comfortableBpm, 40, 220, 'Комфортный темп'), note: text(data.note, 'Заметка', 2000, true), editRevision: number(data.editRevision, 0, Number.MAX_SAFE_INTEGER, 'Версия заметки') });
+    context: area, material, routeRef, totalReferenceMs, recordedThroughMs,
+    suggestedBpm: manualBpm(data.suggestedBpm, material, 'Предлагаемый темп'), comfortableBpm: manualBpm(data.comfortableBpm, material, 'Комфортный темп'), note: text(data.note, 'Заметка', 2000, true), editRevision: number(data.editRevision, 0, Number.MAX_SAFE_INTEGER, 'Версия заметки') });
+}
+
+export function validatePreviousPracticeDraft(value: unknown): PracticeDraft {
+  const draft = validatePracticeDraft(value);
+  if (draft.material.kind === 'rhythm') invalid('Черновики метронома и ритма поддерживаются с версии 8.');
+  return draft;
 }
 
 /** Merge only monotonic progress/newer edits; stale checkpoints cannot undo a drain. */
@@ -507,10 +541,13 @@ export function validateHistoryEntry(value: unknown, legacy = false): HistoryEnt
   if (kind === 'manual') {
     const result = object(raw.result, ['kind', 'source', 'comfortableBpm', 'durationMs', 'note', 'context', ...(legacy ? [] : ['material'])], 'Ручная отметка');
     if (result.source !== 'self-report') invalid('Ручная отметка должна быть явно помечена как самооценка.');
+    const area = legacy ? legacyContext(result.context) : result.context === null ? null : context(result.context);
+    const material = legacy ? { kind: 'legacy-unknown' as const } : validatePracticeMaterial(result.material, area, true);
+    if (material.kind === 'rhythm' && routeRef !== null) invalid('Практика метронома и ритма не относится к маршруту.');
     const manual = createManualPracticeResult({
-      context: legacy ? legacyContext(result.context) : context(result.context), comfortableBpm: number(result.comfortableBpm, 40, 220, 'Комфортный темп'),
+      context: area, comfortableBpm: manualBpm(result.comfortableBpm, material, 'Комфортный темп'),
       durationMs: number(result.durationMs, 0, Number.MAX_SAFE_INTEGER, 'Длительность занятия', false), note: text(result.note, 'Заметка', 2000, true),
-      material: legacy ? { kind: 'legacy-unknown' } : validatePracticeMaterial(result.material, context(result.context), true),
+      material,
     });
     return immutable({ ...envelope, result: manual });
   }
@@ -536,18 +573,22 @@ export function validateHistoryEntry(value: unknown, legacy = false): HistoryEnt
 }
 
 export function validateSnapshot(value: unknown): StudySnapshot {
-  const raw = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history', 'profile', 'practiceDrafts'], 'Резервная копия');
+  const raw = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history', 'profile', 'practiceDrafts', 'rhythmProjects', 'activeRhythmProjectId'], 'Резервная копия');
   if (raw.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
-  if (raw.schemaVersion !== 7) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  if (raw.schemaVersion !== STUDY_SCHEMA_VERSION) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
   // Import bytes are bounded by parseBackup; ordinary native writes must never make
   // an otherwise valid database unreadable merely by exceeding an arbitrary count.
   const presets = array(raw.presets, Number.MAX_SAFE_INTEGER, 'Пресеты').map((value, index) => recordContext(`Пресет №${index + 1}`, () => validatePreset(value)));
   const history = array(raw.history, Number.MAX_SAFE_INTEGER, 'История').map(item => validateHistoryEntry(item));
   const practiceDrafts = array(raw.practiceDrafts, Number.MAX_SAFE_INTEGER, 'Черновики').map(validatePracticeDraft);
+  const rhythmProjects = array(raw.rhythmProjects, Number.MAX_SAFE_INTEGER, 'Проекты ритма').map((item, index) => recordContext(`Проект ритма №${index + 1}`, () => validateStoredRhythmProject(item)));
+  const activeRhythmProjectId = raw.activeRhythmProjectId === null ? null : validateRhythmProjectId(raw.activeRhythmProjectId);
   if (new Set(presets.map(item => item.id)).size !== presets.length || new Set(history.map(item => item.id)).size !== history.length) invalid('ID пресетов или истории повторяются.');
   const byId = (a: { id: string }, b: { id: string }) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   if (new Set(practiceDrafts.map(item => item.id)).size !== practiceDrafts.length) invalid('ID черновиков повторяются.');
-  return immutable({ format: 'bass-study-backup', schemaVersion: 7, preferences: recordContext('Текущие настройки (preferences/current)', () => validatePreferences(raw.preferences)), profile: validateProfile(raw.profile), practiceDrafts: practiceDrafts.sort(byId), presets: presets.sort(byId), history: history.sort(byId) });
+  if (new Set(rhythmProjects.map(item => item.id)).size !== rhythmProjects.length) invalid('ID проектов ритма повторяются.');
+  if (activeRhythmProjectId !== null && !rhythmProjects.some(item => item.id === activeRhythmProjectId)) invalid('Выбранный проект ритма отсутствует в библиотеке.');
+  return immutable({ format: 'bass-study-backup', schemaVersion: STUDY_SCHEMA_VERSION, preferences: recordContext('Текущие настройки (preferences/current)', () => validatePreferences(raw.preferences)), profile: validateProfile(raw.profile), practiceDrafts: practiceDrafts.sort(byId), presets: presets.sort(byId), history: history.sort(byId), rhythmProjects: rhythmProjects.sort(byId), activeRhythmProjectId });
 }
 
 /** Exact schema-1 records are validated before adding schema-2 defaults. */
@@ -608,13 +649,27 @@ export function migrateV5HistoryEntry(value: unknown): HistoryEntry { return val
 /** Версия 6 уже содержит профиль/черновики; меняются только настройки. */
 export function migrateV6Preferences(value: unknown): AppPreferences {
   const data = object(value, ['activeModule', 'ear', 'harmony', 'tracks', 'input', 'study', 'training', 'player'], 'Настройки версии 6');
-  return validatePreferences({ ...data, musicBank: null });
+  return migrateV7Preferences({ ...data, musicBank: null });
 }
 export function migrateV6Preset(value: unknown): Preset {
   const data = object(value, ['id', 'name', 'createdAt', 'preferences'], 'Пресет версии 6');
   return validatePreset({ ...data, preferences: migrateV6Preferences(data.preferences) });
 }
-export function migrateV6HistoryEntry(value: unknown): HistoryEntry { return validateHistoryEntry(value); }
+export function migrateV6HistoryEntry(value: unknown): HistoryEntry { return migrateV7HistoryEntry(value); }
+
+export function migrateV7Preferences(value: unknown): AppPreferences {
+  const data = object(value, ['activeModule', 'ear', 'harmony', 'tracks', 'musicBank', 'input', 'study', 'training', 'player'], 'Настройки версии 7');
+  return validatePreferences({ ...data, rhythm: null });
+}
+export function migrateV7Preset(value: unknown): Preset {
+  const data = object(value, ['id', 'name', 'createdAt', 'preferences'], 'Пресет версии 7');
+  return validatePreset({ ...data, preferences: migrateV7Preferences(data.preferences) });
+}
+export function migrateV7HistoryEntry(value: unknown): HistoryEntry {
+  const entry = validateHistoryEntry(value);
+  if (entry.result.kind === 'manual' && entry.result.material.kind === 'rhythm') invalid('История метронома и ритма поддерживается с версии 8.');
+  return entry;
+}
 
 export function migrateV1Preset(value: unknown): Preset {
   const data = object(value, ['id', 'name', 'createdAt', 'preferences'], 'Пресет версии 1');
@@ -635,12 +690,17 @@ export function migrateV1HistoryEntry(value: unknown): HistoryEntry {
 
 export function migrateBackup(value: unknown): StudySnapshot {
   const version = value && typeof value === 'object' ? Object.getOwnPropertyDescriptor(value, 'schemaVersion')?.value : undefined;
-  if (version !== undefined && ![1, 2, 3, 4, 5, 6, 7].includes(version)) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
-  if (version === 7) return validateSnapshot(value);
-  if (version === 6) {
-    const previous = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history', 'profile', 'practiceDrafts'], 'Резервная копия версии 6');
-    return validateSnapshot({ ...previous, schemaVersion: 7, preferences: recordContext('Текущие настройки (preferences/current)', () => migrateV6Preferences(previous.preferences)),
-      presets: array(previous.presets, Number.MAX_SAFE_INTEGER, 'Пресеты версии 6').map((value, index) => recordContext(`Пресет №${index + 1}`, () => migrateV6Preset(value))) });
+  if (version !== undefined && ![1, 2, 3, 4, 5, 6, 7, STUDY_SCHEMA_VERSION].includes(version)) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
+  if (version === STUDY_SCHEMA_VERSION) return validateSnapshot(value);
+  if (version === 6 || version === 7) {
+    const previous = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history', 'profile', 'practiceDrafts'], `Резервная копия версии ${version}`);
+    const migratePreferences = version === 6 ? migrateV6Preferences : migrateV7Preferences;
+    const migratePreset = version === 6 ? migrateV6Preset : migrateV7Preset;
+    return validateSnapshot({ ...previous, schemaVersion: STUDY_SCHEMA_VERSION, rhythmProjects: [], activeRhythmProjectId: null,
+      preferences: recordContext('Текущие настройки (preferences/current)', () => migratePreferences(previous.preferences)),
+      presets: array(previous.presets, Number.MAX_SAFE_INTEGER, `Пресеты версии ${version}`).map((value, index) => recordContext(`Пресет №${index + 1}`, () => migratePreset(value))),
+      history: array(previous.history, Number.MAX_SAFE_INTEGER, 'Старая история').map(migrateV7HistoryEntry),
+      practiceDrafts: array(previous.practiceDrafts, Number.MAX_SAFE_INTEGER, 'Старые черновики').map(validatePreviousPracticeDraft) });
   }
   const data = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history'], 'Резервная копия');
   if (data.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
@@ -650,19 +710,24 @@ export function migrateBackup(value: unknown): StudySnapshot {
     : data.schemaVersion === 3 ? { preferences: migrateV3Preferences, preset: migrateV3Preset, history: migrateV3HistoryEntry }
     : data.schemaVersion === 4 ? { preferences: migrateV4Preferences, preset: migrateV4Preset, history: migrateV4HistoryEntry }
     : { preferences: migrateV5Preferences, preset: migrateV5Preset, history: migrateV5HistoryEntry };
-  return validateSnapshot({ ...data, schemaVersion: 7, profile: DEFAULT_PROFILE, practiceDrafts: [], preferences: recordContext('Текущие настройки (preferences/current)', () => migrations.preferences(data.preferences)),
+  return validateSnapshot({ ...data, schemaVersion: STUDY_SCHEMA_VERSION, rhythmProjects: [], activeRhythmProjectId: null, profile: DEFAULT_PROFILE, practiceDrafts: [], preferences: recordContext('Текущие настройки (preferences/current)', () => migrations.preferences(data.preferences)),
     presets: array(data.presets, Number.MAX_SAFE_INTEGER, 'Старые пресеты').map((value, index) => recordContext(`Пресет №${index + 1}`, () => migrations.preset(value))),
     history: array(data.history, Number.MAX_SAFE_INTEGER, 'Старая история').map(migrations.history) });
 }
 
-export function parseBackup(json: string): StudySnapshot {
+function readBackupJson(json: string): unknown {
   if (typeof json !== 'string' || json.length > MAX_BACKUP_BYTES || new TextEncoder().encode(json).byteLength > MAX_BACKUP_BYTES) throw new StudyStorageError('INVALID_BACKUP', 'Нужен JSON-файл размером не более 64 МиБ.');
-  let value: unknown;
-  try { value = JSON.parse(json); } catch { throw new StudyStorageError('INVALID_BACKUP', 'Не удалось прочитать JSON резервной копии.'); }
-  return migrateBackup(value);
+  try { return JSON.parse(json); } catch { throw new StudyStorageError('INVALID_BACKUP', 'Не удалось прочитать JSON резервной копии.'); }
+}
+export function parseBackup(json: string): StudySnapshot { return migrateBackup(readBackupJson(json)); }
+export function previewImport(json: string) {
+  const value = readBackupJson(json);
+  const snapshot = migrateBackup(value);
+  return { snapshot, sourceSchemaVersion: (value as { schemaVersion: number }).schemaVersion, presets: snapshot.presets.length, history: snapshot.history.length,
+    rhythmProjects: snapshot.rhythmProjects.length, requiresConfirmation: true as const, replacement: 'full' as const };
 }
 
-export function emptySnapshot(): StudySnapshot { return validateSnapshot({ format: 'bass-study-backup', schemaVersion: 7, profile: DEFAULT_PROFILE, practiceDrafts: [], preferences: DEFAULT_PREFERENCES, presets: [], history: [] }); }
+export function emptySnapshot(): StudySnapshot { return validateSnapshot({ format: 'bass-study-backup', schemaVersion: STUDY_SCHEMA_VERSION, profile: DEFAULT_PROFILE, practiceDrafts: [], preferences: DEFAULT_PREFERENCES, presets: [], history: [], rhythmProjects: [], activeRhythmProjectId: null }); }
 
 function envelope(metadata: HistoryMetadata) {
   return { id: metadata.id, occurredAt: metadata.occurredAt, timeZone: metadata.timeZone, localDate: originalLocalDate(metadata.occurredAt, metadata.timeZone), routeRef: metadata.routeRef ?? null };
@@ -705,7 +770,7 @@ export function applyDraftDrain(draftValue: PracticeDraft, request: DrainDraftRe
   number(request.editRevision, 0, draft.editRevision, 'Версия сохраняемой заметки');
   if (request.failAfterWrite !== undefined && request.failAfterWrite !== 1 && request.failAfterWrite !== 2) invalid('Неизвестная точка отказа сохранения черновика.');
   const entry = makeManualHistory(createManualPracticeResult({ context: draft.context, material: draft.material,
-    comfortableBpm: number(request.comfortableBpm, 40, 220, 'Сохраняемый темп'), durationMs: through - baseline, note: text(request.note, 'Сохраняемая заметка', 2000, true) }),
+    comfortableBpm: manualBpm(request.comfortableBpm, draft.material, 'Сохраняемый темп'), durationMs: through - baseline, note: text(request.note, 'Сохраняемая заметка', 2000, true) }),
   { id: text(request.historyId, 'ID ручной отметки', 160), occurredAt: request.occurredAt, timeZone: request.timeZone, routeRef: draft.routeRef });
   if (existing) {
     if (!same(validateHistoryEntry(existing), entry)) throw new StudyStorageError('SAVE_CONFLICT', 'Этот ID уже принадлежит другой записи. Черновик не изменён.');

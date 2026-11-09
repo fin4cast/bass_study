@@ -201,7 +201,7 @@ check('ui-local-file-selection-shows-shared-material-and-clear-scope-limits', 'u
   assert.equal(await page.locator('[data-track-id]').count(), 2); assert.equal(await page.locator('[data-track-bound="true"]').count(), 2);
   assert.match(await page.getByTestId('tracks-rate-warning').innerText(), /исходная высота.*B исключается.*тишиной/);
   assert.equal(await page.getByLabel('Начало фрагмента A', { exact: true }).inputValue(), '0'); assert.equal(await page.getByLabel('Конец фрагмента B', { exact: true }).inputValue(), '2');
-  const copy = await exportUi(page); assert.equal(copy.schemaVersion, 7); assert.equal(copy.preferences.activeModule, 'tracks'); assert.equal(copy.preferences.tracks.tracks.length, 2);
+  const copy = await exportUi(page); assert.equal(copy.schemaVersion, 8); assert.equal(copy.preferences.activeModule, 'tracks'); assert.equal(copy.preferences.tracks.tracks.length, 2);
   assert.ok(await page.getByTestId('manual-unavailable').isVisible());
   assert.ok(await page.locator('[data-history-action="save-manual"]').isHidden());
   return { loadStatus: await page.getByTestId('tracks-load-status').innerText(), manifest: copy.preferences.tracks, externalUploadRequests: 0 };

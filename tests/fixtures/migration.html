@@ -22,17 +22,19 @@
   async function rawRead() {
     const db = await requestValue(indexedDB.open('bass-study'));
     try {
-      const names = ['preferences', 'presets', 'history', ...(['profile', 'practiceDrafts'].filter(name => db.objectStoreNames.contains(name)))];
+      const names = ['preferences', 'presets', 'history', ...(['profile', 'practiceDrafts', 'rhythmProjects'].filter(name => db.objectStoreNames.contains(name)))];
       const transaction = db.transaction(names, 'readonly');
       const done = complete(transaction);
-      const [preferences, presets, history, profile, practiceDrafts] = await Promise.all([
+      const [preferences, presets, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId] = await Promise.all([
         requestValue(transaction.objectStore('preferences').get('current')),
         requestValue(transaction.objectStore('presets').getAll()),
         requestValue(transaction.objectStore('history').getAll()),
         names.includes('profile') ? requestValue(transaction.objectStore('profile').get('current')) : Promise.resolve(undefined),
         names.includes('practiceDrafts') ? requestValue(transaction.objectStore('practiceDrafts').getAll()) : Promise.resolve(undefined),
+        names.includes('rhythmProjects') ? requestValue(transaction.objectStore('rhythmProjects').getAll()) : Promise.resolve(undefined),
+        names.includes('rhythmProjects') ? requestValue(transaction.objectStore('preferences').get('rhythm-selection')) : Promise.resolve(undefined),
       ]);
-      await done; return { version: db.version, preferences, presets, history, ...(profile ? { profile, practiceDrafts } : {}) };
+      await done; return { version: db.version, preferences, presets, history, ...(profile ? { profile, practiceDrafts } : {}), ...(rhythmProjects ? { rhythmProjects, activeRhythmProjectId: activeRhythmProjectId ?? null } : {}) };
     } finally { db.close(); }
   }
   async function seedLegacy(version = 1, { invalid = false } = {}) {

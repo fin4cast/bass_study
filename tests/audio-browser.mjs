@@ -41,6 +41,7 @@ async function stateIs(page, state) {
   await page.waitForFunction(state => document.querySelector('#player-mount')?.dataset.playerState === state, state, { polling: 20, timeout: 7000 });
 }
 async function setupUi(page, { last = 3, bpm = 120, repeat = 'infinite', countIn = false, duration = 'quarter' } = {}) {
+  if (!await page.locator('#study-settings').isVisible()) await page.locator('#toggle-study-settings').click();
   if (!await page.locator('#area-settings').evaluate(element => element.open)) await page.locator('#area-settings > summary').click();
   await page.getByLabel('Тоника', { exact: true }).selectOption('C');
   await page.getByLabel('Структура', { exact: true }).selectOption('major');
@@ -274,7 +275,7 @@ check('ui-count-in-locks-structural-controls-and-manual-tempo-remains-available'
   await setupUi(page, { countIn: true }); await action(page, 'start').click(); await stateIs(page, 'running');
   assert.equal(await player(page).getAttribute('data-player-phase'), 'count-in');
   assert.equal(await page.locator('.is-playing').count(), 0); assert.match(await page.getByTestId('player-current-note').innerText(), /1.*2.*3.*4/);
-  for (const label of ['Длительность нот', 'Повтор', 'Первая нота фрагмента', 'Последняя нота фрагмента', 'Отсчёт перед стартом', 'Показывать пульс', 'Метроном']) assert.ok(await page.getByLabel(label, { exact: true }).isDisabled(), label);
+  for (const label of ['Длительность нот', 'Повтор', 'Первая нота фрагмента', 'Последняя нота фрагмента', 'Отсчёт перед стартом', 'Показывать пульс', 'Метроном']) assert.ok(await player(page).getByLabel(label, { exact: true }).isDisabled(), label);
   assert.ok(await page.getByLabel('Темп, BPM', { exact: true }).isEnabled()); assert.ok(await page.getByLabel('Громкость баса', { exact: true }).isEnabled());
   await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerPhase === 'practice');
   await page.getByLabel('Темп, BPM', { exact: true }).fill('150'); await page.getByLabel('Темп, BPM', { exact: true }).press('Tab');
@@ -315,7 +316,7 @@ check('ui-metronome-modes-subdivision-and-live-volume-controls', 'ui', async ({ 
   await page.getByLabel('Рисунок метронома', { exact: true }).selectOption('gap-2-2');
   assert.ok(await page.getByLabel('Деление метронома', { exact: true }).isEnabled());
   await page.getByLabel('Деление метронома', { exact: true }).selectOption('sixteenth');
-  await page.getByLabel('Метроном', { exact: true }).uncheck(); assert.ok(await page.getByLabel('Рисунок метронома', { exact: true }).isDisabled());
+  await player(page).getByLabel('Метроном', { exact: true }).uncheck(); assert.ok(await page.getByLabel('Рисунок метронома', { exact: true }).isDisabled());
   await action(page, 'start').click(); await stateIs(page, 'running');
   for (const label of ['Громкость баса', 'Громкость метронома']) { await page.getByLabel(label, { exact: true }).fill('0'); await page.getByLabel(label, { exact: true }).dispatchEvent('input'); }
   assert.deepEqual(await page.locator('[data-player-output]').allTextContents(), ['0%', '0%']);

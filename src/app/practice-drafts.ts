@@ -1,9 +1,9 @@
 import type { HistoryMetadata, PracticeDraft, DrainDraftRequest, RouteRef } from '../storage';
 import type { QuestionContext } from '../training';
-import type { PracticeMaterial } from '../training/results';
+import { manualTempoBounds, type PracticeMaterial } from '../training/results';
 
 export interface PracticeBinding {
-  readonly context: QuestionContext;
+  readonly context: QuestionContext | null;
   readonly material: PracticeMaterial;
   readonly routeRef: RouteRef | null;
   readonly label: string;
@@ -32,7 +32,7 @@ function stable(value: unknown): unknown {
   if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, stable((value as Record<string, unknown>)[key])]));
   return value;
 }
-const keyOf = (context: QuestionContext, material: PracticeMaterial, routeRef: RouteRef | null, day: string) => JSON.stringify(stable({ context: { ...context, positionIds: [...context.positionIds].sort() }, material, routeRef, day }));
+const keyOf = (context: QuestionContext | null, material: PracticeMaterial, routeRef: RouteRef | null, day: string) => JSON.stringify(stable({ context: context && { ...context, positionIds: [...context.positionIds].sort() }, material, routeRef, day }));
 
 /** Owns durable, ungraded practice. Audio clocks remain owned by the players. */
 export function createPracticeDrafts(options: Options) {
@@ -58,22 +58,23 @@ export function createPracticeDrafts(options: Options) {
         ? { note: current.note, comfortableBpm: current.comfortableBpm, editRevision: current.editRevision } : {}) });
   }
 
-  function capture(force = false): PracticeDraft | null {
-    if (disposed || !binding || !binding.context.positionIds.length) return null;
-    const clock = binding.readClock();
-    const runtime = clock.runtimeContextKey ?? binding.material.kind;
+  function capture(force = false, source = binding): PracticeDraft | null {
+    if (disposed || !source || (source.material.kind !== 'rhythm' && !source.context?.positionIds.length)) return null;
+    const clock = source.readClock();
+    const runtime = clock.runtimeContextKey ?? source.material.kind;
     const elapsed = Math.max(0, Math.round(clock.durationMs));
     const previous = clocks.get(runtime) ?? 0;
     const delta = Math.max(0, elapsed - previous);
-    clocks.set(runtime, elapsed);
+    // Reading the live rhythm clock can synchronously capture the end of the same epoch.
+    clocks.set(runtime, source.material.kind === 'rhythm' ? Math.max(previous, elapsed) : elapsed);
     const date = now(); const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const day = localDay(date, timeZone);
-    const key = keyOf(binding.context, binding.material, binding.routeRef, day);
+    const key = keyOf(source.context, source.material, source.routeRef, day);
     let draft = [...records.values()].find(value => !retired.has(value.id) && keyOf(value.context, value.material, value.routeRef, value.localDate) === key);
     if (!draft && !force && !delta) { currentId = null; return null; }
     if (!draft) {
       draft = { id: `draft-${crypto.randomUUID()}`, createdAt: date.toISOString(), updatedAt: date.toISOString(), timeZone, localDate: day,
-        context: clone(binding.context), material: clone(binding.material), routeRef: clone(binding.routeRef), totalReferenceMs: 0, recordedThroughMs: 0,
+        context: clone(source.context), material: clone(source.material), routeRef: clone(source.routeRef), totalReferenceMs: 0, recordedThroughMs: 0,
         suggestedBpm: clock.comfortableBpm, comfortableBpm: clock.comfortableBpm, note: '', editRevision: 0 };
     }
     if (delta) draft = { ...draft, totalReferenceMs: draft.totalReferenceMs + delta, suggestedBpm: clock.comfortableBpm, updatedAt: date.toISOString() };
@@ -103,7 +104,8 @@ export function createPracticeDrafts(options: Options) {
     const draft = id ? records.get(id) : capture(true);
     if (!draft) throw new Error('Выбери доступный материал для ручной практики.');
     if (retired.has(draft.id)) throw new Error('Этот черновик ожидает удаления. При ошибке повтори удаление.');
-    if (!Number.isInteger(comfortableBpm) || comfortableBpm < 40 || comfortableBpm > 220) throw new RangeError('Укажи комфортный темп от 40 до 220 BPM.');
+    const [minBpm, maxBpm] = manualTempoBounds(draft.material);
+    if (!Number.isInteger(comfortableBpm) || comfortableBpm < minBpm || comfortableBpm > maxBpm) throw new RangeError(`Укажи комфортный темп от ${minBpm} до ${maxBpm} BPM.`);
     if (note.length > 2000) throw new RangeError('Заметка должна содержать не больше 2000 символов.');
     const updated = { ...draft, note, comfortableBpm, editRevision: draft.editRevision + 1, updatedAt: now().toISOString() };
     records.set(updated.id, updated);
@@ -141,7 +143,8 @@ export function createPracticeDrafts(options: Options) {
   }
 
   return {
-    capture,
+    capture(force = false) { return capture(force); },
+    captureClosed(source: PracticeBinding) { capture(false, source); },
     bind(next: PracticeBinding | null) { capture(); binding = next; currentId = null; capture(); },
     current(force = false) { return capture(force); },
     get(id: string) { const value = records.get(id); return value ? clone(value) : null; },

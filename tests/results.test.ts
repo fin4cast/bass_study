@@ -17,10 +17,10 @@ describe('ручная отметка игры отделена от экран�
     const mutable = { ...context, positionIds: ids };
     const result = createManualPracticeResult({ context: mutable, comfortableBpm: 80, durationMs: 0 });
     ids.push('E:12'); mutable.root = 'C';
-    expect(result.context.root).toBe('A');
-    expect(result.context.positionIds).toEqual(['E:0']);
+    expect(result.context?.root).toBe('A');
+    expect(result.context?.positionIds).toEqual(['E:0']);
     expect(result.note).toBe('');
-    expect(Object.isFrozen(result.context.positionIds)).toBe(true);
+    expect(Object.isFrozen(result.context?.positionIds)).toBe(true);
   });
 
   it('не принимает недостоверные параметры темпа, времени и заметки', () => {

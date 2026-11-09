@@ -13,7 +13,8 @@ const OPEN_MIDI = { E: 28, A: 33, D: 38, G: 43 };
 const midiForId = id => { const [string, fret] = id.split(':'); return OPEN_MIDI[string] + Number(fret); };
 
 function expectedMigration(literal) {
-  const expected = structuredClone(literal); expected.schemaVersion = 7;
+  const expected = structuredClone(literal); expected.schemaVersion = 8;
+  expected.rhythmProjects = []; expected.activeRhythmProjectId = null;
   if (literal.schemaVersion === 1) {
     expected.preferences.training.intervalDegree = '#4';
     for (const preset of expected.presets) preset.preferences.training.intervalDegree = '#4';
@@ -23,7 +24,7 @@ function expectedMigration(literal) {
     if (literal.schemaVersion <= 2) { preferences.activeModule = 'foundation'; preferences.ear = { root: 'A', quality: 'minor', count: 10, bpm: 80 }; }
     if (literal.schemaVersion <= 3) preferences.harmony = { bpm: 80, countIn: true, repeat: 'once', bassVolume: 70, padVolume: 45, clickVolume: 50, bassMuted: false, padMuted: false, clickMuted: false };
     if (literal.schemaVersion <= 4) { preferences.tracks = null; preferences.input = { deviceId: '' }; }
-    preferences.musicBank = null; preferences.study.box = null; preferences.study.showFingers = false; preferences.training.questionPolicy = 'random-v1';
+    preferences.musicBank = null; preferences.rhythm = null; preferences.study.box = null; preferences.study.showFingers = false; preferences.training.questionPolicy = 'random-v1';
   }
   expected.profile = { theme: 'system', onboarding: { version: 1, choice: null, completed: false } }; expected.practiceDrafts = [];
   for (const entry of expected.history) {
@@ -96,11 +97,12 @@ function scientificMidi(text) {
   return 12 * (Number(match[3]) + 1) + naturals[match[1]] + alteration;
 }
 
-check('genuine-v1-indexeddb-upgrades-all-stores-to-v6-preserving-events-and-original-dates', async ({ page }) => {
+check('genuine-v1-indexeddb-upgrades-all-stores-to-v8-preserving-events-and-original-dates', async ({ page }) => {
   const seeded = await page.evaluate(() => window.p6.seedV1()); assert.equal(seeded.raw.version, 1);
   const upgraded = await page.evaluate(async () => { const store = await window.p6.loadCurrent(); await store.open(); return store.readSnapshot(); });
   assert.deepEqual(upgraded, expectedMigration(seeded.literal));
-  const raw = await page.evaluate(() => window.p6.rawRead()); assert.equal(raw.version, 7);
+  const raw = await page.evaluate(() => window.p6.rawRead()); assert.equal(raw.version, 8);
+  assert.deepEqual(raw.rhythmProjects, []); assert.equal(raw.activeRhythmProjectId, null);
   assert.equal(upgraded.history.find(entry => entry.id === 'legacy-screen').localDate, '2026-11-07');
   assert.equal(upgraded.history.find(entry => entry.id === 'legacy-manual').localDate, '2026-11-09');
   await page.reload(); await page.waitForFunction(() => window.p6?.ready);
@@ -120,7 +122,7 @@ check('bad-v1-record-aborts-entire-native-upgrade-and-preserves-version-one', as
   return { failure, originalVersion: seeded.raw.version, preserved: after };
 });
 
-check('legacy-json-preview-and-restore-migrate-to-version-six', async ({ page }) => {
+check('legacy-json-preview-and-restore-migrate-to-version-eight', async ({ page }) => {
   const literal = await page.evaluate(() => window.p6.readV1Backup());
   const result = await page.evaluate(async literal => {
     const store = await window.p6.loadCurrent(); const preview = store.previewImport(JSON.stringify(literal));
@@ -128,12 +130,12 @@ check('legacy-json-preview-and-restore-migrate-to-version-six', async ({ page })
     const afterCancel = await store.readSnapshot(); await store.restore(JSON.stringify(literal), { confirmed: true });
     return { preview, before, cancel, afterCancel, restored: await store.readSnapshot() };
   }, literal);
-  assert.equal(result.preview.snapshot.schemaVersion, 7); assert.equal(result.preview.requiresConfirmation, true);
+  assert.equal(result.preview.snapshot.schemaVersion, 8); assert.equal(result.preview.sourceSchemaVersion, 1); assert.equal(result.preview.requiresConfirmation, true);
   assert.deepEqual(result.cancel, { status: 'cancelled' }); assert.deepEqual(result.afterCancel, result.before);
   assert.deepEqual(result.restored, expectedMigration(literal)); return result;
 });
 
-check('genuine-v2-indexeddb-and-literal-json-migrate-to-v6-without-changing-old-results', async ({ page }) => {
+check('genuine-v2-indexeddb-and-literal-json-migrate-to-v8-without-changing-old-results', async ({ page }) => {
   const seeded = await page.evaluate(() => window.p6.seedLegacy(2)); assert.equal(seeded.raw.version, 2);
   const result = await page.evaluate(async literal => {
     const store = await window.p6.loadCurrent(); await store.open();
@@ -142,7 +144,7 @@ check('genuine-v2-indexeddb-and-literal-json-migrate-to-v6-without-changing-old-
     return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
   }, seeded.literal);
   const expected = expectedMigration(seeded.literal);
-  assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected); assert.equal(result.raw.version, 7);
+  assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected); assert.equal(result.raw.version, 8);
   assert.deepEqual(result.restored.history, expectedMigration(seeded.literal).history); return { seededVersion: 2, ...result };
 });
 
@@ -155,7 +157,7 @@ check('genuine-v3-native-and-json-upgrade-preserve-screen-manual-ear-route-recor
     return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
   }, seeded.literal);
   const expected = expectedMigration(seeded.literal); assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected);
-  assert.deepEqual(result.restored.history, expectedMigration(seeded.literal).history); assert.equal(result.raw.version, 7); return { seededVersion: 3, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
+  assert.deepEqual(result.restored.history, expectedMigration(seeded.literal).history); assert.equal(result.raw.version, 8); return { seededVersion: 3, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
 });
 
 check('genuine-v4-native-and-json-upgrade-preserve-harmony-and-all-four-history-kinds', async ({ page }) => {
@@ -168,11 +170,11 @@ check('genuine-v4-native-and-json-upgrade-preserve-harmony-and-all-four-history-
   }, seeded.literal);
   const expected = expectedMigration(seeded.literal); assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected);
   assert.deepEqual(result.restored.history, expectedMigration(seeded.literal).history); assert.deepEqual(result.restored.preferences.harmony, seeded.literal.preferences.harmony);
-  assert.equal(result.raw.version, 7); return { seededVersion: 4, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
+  assert.equal(result.raw.version, 8); return { seededVersion: 4, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
 });
 
 for (const version of [5]) {
-  check('genuine-v5-native-and-json-upgrade-to-v6-preserves-legacy-material-as-unknown', async ({ page }) => {
+  check('genuine-v5-native-and-json-upgrade-to-v8-preserves-legacy-material-as-unknown', async ({ page }) => {
     const seeded = await page.evaluate(version => window.p6.seedLegacy(version), version);
     const result = await page.evaluate(async literal => {
       const store = await window.p6.loadCurrent(); const native = await store.readSnapshot({ fresh: true });
@@ -181,7 +183,7 @@ for (const version of [5]) {
     }, seeded.literal);
     const expected = expectedMigration(seeded.literal);
     assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected);
-    assert.equal(result.raw.version, 7); assert.deepEqual(result.raw.profile, expected.profile); assert.deepEqual(result.raw.practiceDrafts, []);
+    assert.equal(result.raw.version, 8); assert.deepEqual(result.raw.profile, expected.profile); assert.deepEqual(result.raw.practiceDrafts, []);
     return result;
   });
   check('bad-v5-native-record-rolls-back-new-stores-and-keeps-v5-data', async ({ page }) => {

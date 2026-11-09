@@ -31,7 +31,8 @@
     "start": "node scripts/serve.mjs",
     "test:uiux": "node tests/uiux-browser.mjs",
     "test:design": "node tests/design-browser.mjs",
-    "test:music-bank": "node tests/music-bank-browser.mjs"
+    "test:music-bank": "node tests/music-bank-browser.mjs",
+    "test:rhythm": "node tests/rhythm-browser.mjs"
   },
   "devDependencies": {
     "playwright": "1.65.0",

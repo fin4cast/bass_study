@@ -1,5 +1,11 @@
 import type { QuestionContext, QuizResult } from './index';
 import type { BoxSelection } from '../music/boxes';
+import type { RhythmPlaybackConfig } from '../rhythm/model';
+
+export interface RhythmPracticeMaterial {
+  readonly kind: 'rhythm';
+  readonly playback: RhythmPlaybackConfig;
+}
 
 export type PracticeMaterial = {
   readonly kind: 'sequence';
@@ -9,8 +15,26 @@ export type PracticeMaterial = {
   readonly fragment: { readonly from: number; readonly toExclusive: number };
   readonly box: BoxSelection | null;
 } | { readonly kind: 'fretboard'; readonly box: BoxSelection | null }
-  | { readonly kind: 'harmony'; readonly patternId: 'CFGC-1-3-5-3-v1' };
+  | { readonly kind: 'harmony'; readonly patternId: 'CFGC-1-3-5-3-v1' }
+  | RhythmPracticeMaterial;
 export type StoredPracticeMaterial = PracticeMaterial | { readonly kind: 'legacy-unknown' };
+
+export function manualTempoBounds(material?: StoredPracticeMaterial): readonly [number, number] {
+  return material?.kind === 'rhythm' ? [30, 240] : [40, 220];
+}
+
+export function rhythmPracticeLabel(material: RhythmPracticeMaterial): string {
+  const { preferences, project } = material.playback;
+  if (preferences.view === 'metronome') {
+    const { meter, bpm, bpmUnit } = preferences.metronome;
+    const unit = { quarter: '♩', eighth: '♪', 'dotted-quarter': '♩.' }[bpmUnit];
+    return `Метроном · ${meter.beats}/${meter.denominator} · ${unit} = ${bpm}`;
+  }
+  if (!project) return 'Ритм-секция';
+  const pattern = project.patterns.find(item => item.id === project.activePatternId);
+  const scope = project.scope === 'chain' ? 'Цепочка' : pattern?.name ?? 'Паттерн';
+  return `Ритм-секция · ${project.name} · ${scope} · ${project.bpm} BPM`;
+}
 function freezeMaterial<T>(value: T): T {
   if (value && typeof value === 'object') { Object.values(value).forEach(freezeMaterial); Object.freeze(value); }
   return value;
@@ -23,22 +47,24 @@ export interface ManualPracticeResult {
   readonly comfortableBpm: number;
   readonly durationMs: number;
   readonly note: string;
-  readonly context: QuestionContext;
+  readonly context: QuestionContext | null;
   readonly material: StoredPracticeMaterial;
 }
 
 export type TrainingResult = QuizResult | ManualPracticeResult;
 
 export function createManualPracticeResult(input: {
-  context: QuestionContext;
+  context: QuestionContext | null;
   comfortableBpm: number;
   durationMs: number;
   note?: string;
   material?: StoredPracticeMaterial;
 }): ManualPracticeResult {
-  if (!Number.isInteger(input.comfortableBpm) || input.comfortableBpm < 40 || input.comfortableBpm > 220) {
-    throw new RangeError('Комфортный темп должен быть целым числом от 40 до 220 BPM.');
+  const [minBpm, maxBpm] = manualTempoBounds(input.material);
+  if (!Number.isInteger(input.comfortableBpm) || input.comfortableBpm < minBpm || input.comfortableBpm > maxBpm) {
+    throw new RangeError(`Комфортный темп должен быть целым числом от ${minBpm} до ${maxBpm} BPM.`);
   }
+  if ((input.context === null) !== (input.material?.kind === 'rhythm')) throw new RangeError('Контекст должен соответствовать материалу ручной практики.');
   if (!Number.isFinite(input.durationMs) || input.durationMs < 0) throw new RangeError('Продолжительность занятия должна быть неотрицательной.');
   if (input.material?.kind === 'fretboard' && input.durationMs !== 0) throw new RangeError('Изучение грифа не измеряет длительность воспроизведения.');
   const note = input.note ?? '';
@@ -49,7 +75,7 @@ export function createManualPracticeResult(input: {
     comfortableBpm: input.comfortableBpm,
     durationMs: input.durationMs,
     note,
-    context: Object.freeze({ ...input.context, positionIds: Object.freeze([...input.context.positionIds]) }),
+    context: input.context === null ? null : Object.freeze({ ...input.context, positionIds: Object.freeze([...input.context.positionIds]) }),
     material: freezeMaterial(structuredClone(input.material ?? { kind: 'legacy-unknown' as const })),
   });
 }

@@ -280,29 +280,41 @@ check('default-box-and-quiz-use-exact-positions-interval-explicitly-uses-chromat
 });
 
 check('draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deletion', async ({ page }) => {
-  await ready(page); await module(page, 'harmony'); await history(page);
+  await ready(page); await module(page, 'harmony');
+  await page.locator('[data-rhythm-setting="bpm"]:visible').fill('80'); await page.locator('[data-rhythm-setting="bpm"]:visible').press('Tab');
+  await page.locator('[data-rhythm-action="start"]').click();
+  await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState === 'running');
+  await new Promise(resolve => setTimeout(resolve, 360));
+  await page.locator('[data-rhythm-action="pause"]').click(); await history(page);
   const note = page.getByLabel('Заметка к практике', { exact: true });
   await note.fill('Сохранить эту заметку после reload'); await page.getByLabel('Комфортный темп', { exact: true }).fill('');
   await note.fill('Сохранить эту заметку после reload, даже при пустом BPM');
   const drafts = await waitRaw(page, 'practiceDrafts', values => values.some(draft => draft.note.endsWith('пустом BPM')));
   assert.equal(drafts.find(draft => draft.note.endsWith('пустом BPM')).comfortableBpm, 80);
   await page.reload(); await ready(page); await history(page);
+  const picker = page.getByLabel('Черновики ручной практики', { exact: true });
+  await picker.selectOption(await picker.locator('option').last().getAttribute('value'));
   assert.equal(await note.inputValue(), 'Сохранить эту заметку после reload, даже при пустом BPM');
   await page.getByLabel('Комфортный темп', { exact: true }).fill('90');
   await page.locator('[data-history-action="save-manual"]').dblclick({ delay: 10 });
   const entries = await waitRaw(page, 'history', values => values.some(entry => entry.result.kind === 'manual'));
   assert.equal(entries.filter(entry => entry.result.kind === 'manual').length, 1);
-  assert.equal(entries[0].result.material.kind, 'harmony'); assert.equal(entries[0].result.comfortableBpm, 90);
-  assert.match(await page.locator('[data-history-kind="manual"]').innerText(), /Аккомпанемент C–F–G–C/);
+  assert.equal(entries[0].result.material.kind, 'rhythm'); assert.equal(entries[0].result.comfortableBpm, 90);
+  assert.match(await page.locator('[data-history-kind="manual"]').innerText(), /Метроном/);
   await page.locator('[data-delete-history]').first().click();
   await page.getByRole('dialog').getByRole('button', { name: 'Отмена', exact: true }).click(); assert.equal((await raw(page, 'history')).length, 1);
   await page.locator('[data-delete-history]').first().click(); await page.getByRole('dialog').getByRole('button', { name: 'Удалить', exact: true }).click();
   await waitRaw(page, 'history', values => values.length === 0);
+  await page.locator('.history-drawer > summary').click(); await module(page, 'harmony');
+  await page.locator('[data-rhythm-action="start"]').click();
+  await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmPhase === 'practice');
+  await new Promise(resolve => setTimeout(resolve, 360));
+  await page.locator('[data-rhythm-action="pause"]').click(); await history(page);
   await note.fill('Удалить только этот черновик'); await waitRaw(page, 'practiceDrafts', values => values.some(draft => draft.note === 'Удалить только этот черновик'));
   const drawer = page.locator('.history-drawer'); await drawer.locator(':scope > summary').click(); await history(page);
   await page.locator('[data-history-action="delete-draft"]').click(); await page.getByRole('dialog').getByRole('button', { name: 'Удалить черновик', exact: true }).click();
   await waitRaw(page, 'practiceDrafts', values => values.length === 0);
-  return { invalidBpmDidNotBlockNote: true, restoredNote: true, oneManualEntry: true, materialPreserved: 'harmony', deletionRequiredConfirmation: true };
+  return { invalidBpmDidNotBlockNote: true, restoredNote: true, oneManualEntry: true, materialPreserved: 'rhythm', deletionRequiredConfirmation: true };
 });
 
 check('six-modules-errors-and-empty-states-have-computed-light-and-dark-contrast', async ({ page, context, origin }) => {
@@ -315,7 +327,7 @@ check('six-modules-errors-and-empty-states-have-computed-light-and-dark-contrast
     await page.getByLabel('Количество вопросов', { exact: true }).fill('0'); await page.locator('[data-training-action="start"]').click(); evidence.push(await contrast(page, `${choice}:quiz-error`)); await page.getByLabel('Количество вопросов', { exact: true }).fill('10'); await page.getByLabel('Количество вопросов', { exact: true }).press('Tab');
     await module(page, 'ear'); await page.getByLabel('Слуховых вопросов', { exact: true }).fill('21'); await page.locator('[data-ear-action="start"]').click(); evidence.push(await contrast(page, `${choice}:ear-error`)); await page.getByLabel('Слуховых вопросов', { exact: true }).fill('10'); await page.getByLabel('Слуховых вопросов', { exact: true }).press('Tab');
     await module(page, 'route'); evidence.push(await contrast(page, `${choice}:route-ready`));
-    await module(page, 'harmony'); await page.getByLabel('Темп сопровождения', { exact: true }).fill('300'); await page.locator('[data-harmony-action="start"]').click(); evidence.push(await contrast(page, `${choice}:harmony-error`)); await page.getByLabel('Темп сопровождения', { exact: true }).fill('80'); await page.getByLabel('Темп сопровождения', { exact: true }).press('Tab');
+    await module(page, 'harmony'); await page.locator('[data-rhythm-setting="bpm"]:visible').fill('300'); await page.locator('[data-rhythm-setting="bpm"]:visible').press('Tab'); await page.locator('[data-rhythm-output="error"]').waitFor(); evidence.push(await contrast(page, `${choice}:rhythm-error`)); await page.locator('[data-rhythm-setting="bpm"]:visible').fill('80'); await page.locator('[data-rhythm-setting="bpm"]:visible').press('Tab');
     await module(page, 'tracks'); evidence.push(await contrast(page, `${choice}:tracks-empty`));
     await module(page, 'input'); evidence.push(await contrast(page, `${choice}:input-disconnected`));
     const cdp = await context.newCDPSession(page), { targetInfo } = await cdp.send('Target.getTargetInfo');
@@ -394,7 +406,7 @@ check('meaningful-SVG-labels-fingers-focus-notation-and-TAB-masks-have-actual-co
 });
 
 check('history-keyboard-focus-survives-four-rerender-actions-and-save-validation-error', async ({ page }) => {
-  await ready(page); await module(page, 'harmony'); await history(page);
+  await ready(page); await module(page, 'foundation'); await page.locator('[data-training-mode="study"]').click(); await history(page);
   const note = page.getByLabel('Заметка к практике', { exact: true });
   for (let index = 0; index < 11; index++) {
     await note.fill(`Запись для проверки фокуса ${index + 1}`); await page.locator('[data-history-action="save-manual"]').click();
@@ -404,7 +416,7 @@ check('history-keyboard-focus-survives-four-rerender-actions-and-save-validation
   assert.equal(await page.evaluate(() => document.activeElement.id), 'history-heading');
   await page.locator('[data-history-action="refresh-draft"]').focus(); await page.keyboard.press('Enter');
   assert.equal(await page.evaluate(() => document.activeElement.dataset.historyAction), 'refresh-draft');
-  await note.fill('Черновик прежнего материала'); await module(page, 'foundation');
+  await note.fill('Черновик прежнего материала'); await page.locator('[data-training-mode="sequence"]').click();
   await page.locator('[data-history-action="use-current-draft"]').focus(); await page.keyboard.press('Enter');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'manual-heading');
   const copy = await exportUi(page); await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name: 'focus-preview.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(copy)) });

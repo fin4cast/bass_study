@@ -51,14 +51,15 @@
         const request = indexedDB.open('bass-study'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
       });
       try {
-        const transaction = db.transaction(['preferences', 'presets', 'history', 'profile', 'practiceDrafts'], 'readonly');
+        const transaction = db.transaction(['preferences', 'presets', 'history', 'profile', 'practiceDrafts', 'rhythmProjects'], 'readonly');
         const complete = new Promise((resolve, reject) => { transaction.oncomplete = resolve; transaction.onabort = () => reject(transaction.error); });
         const get = request => new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
-        const [preferences, presets, history, profile, practiceDrafts] = await Promise.all([
+        const [preferences, presets, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId] = await Promise.all([
           get(transaction.objectStore('preferences').get('current')), get(transaction.objectStore('presets').getAll()), get(transaction.objectStore('history').getAll()),
           get(transaction.objectStore('profile').get('current')), get(transaction.objectStore('practiceDrafts').getAll()),
+          get(transaction.objectStore('rhythmProjects').getAll()), get(transaction.objectStore('preferences').get('rhythm-selection')),
         ]);
-        await complete; return { version: db.version, preferences: preferences ?? null, presets, history, profile, practiceDrafts };
+        await complete; return { version: db.version, preferences: preferences ?? null, presets, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId: activeRhythmProjectId ?? null };
       } finally { db.close(); }
     }
     window.p5 = { store, seed, seedSnapshot, screen, manual, draft, emptySnapshot, readRaw, createStore: createStudyStore, defaults: DEFAULT_PREFERENCES, ready: true };

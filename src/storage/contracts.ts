@@ -14,7 +14,7 @@ export interface PracticeDraft {
   readonly updatedAt: string;
   readonly timeZone: string;
   readonly localDate: string;
-  readonly context: QuestionContext;
+  readonly context: QuestionContext | null;
   readonly material: PracticeMaterial;
   readonly routeRef: RouteRef | null;
   readonly totalReferenceMs: number;

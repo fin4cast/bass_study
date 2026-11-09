@@ -1,9 +1,11 @@
 import {
-  MAX_BACKUP_BYTES, StudyStorageError, emptySnapshot, parseBackup, validateHistoryEntry,
+  MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError, emptySnapshot, previewImport, validateHistoryEntry,
   validatePreferences, validatePreset,
   validateProfile, validatePracticeDraft, mergePracticeDraft, applyDraftDrain,
+  validateRhythmProjectId, validateStoredRhythmProject,
   type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
 } from './model';
+import type { RhythmProject } from '../rhythm/model';
 
 /** Volatile fallback, chosen explicitly by the application after initial IndexedDB failure. */
 export function createMemoryStudyStore() {
@@ -21,12 +23,8 @@ export function createMemoryStudyStore() {
   function remember(kind: 'presets' | 'history' | 'practiceDrafts', value: Preset | HistoryEntry | PracticeDraft) {
     snapshot = Object.freeze({ ...snapshot, [kind]: Object.freeze([...snapshot[kind].filter(item => item.id !== value.id), value].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) });
   }
-  function previewImport(json: string) {
-    const imported = parseBackup(json);
-    return { snapshot: imported, presets: imported.presets.length, history: imported.history.length, requiresConfirmation: true as const, replacement: 'full' as const };
-  }
   return {
-    open: () => enqueue(() => ({ name: 'bass-study-memory', version: 7 })),
+    open: () => enqueue(() => ({ name: 'bass-study-memory', version: STUDY_SCHEMA_VERSION })),
     readSnapshot: (_options: { fresh?: boolean } = {}) => enqueue(() => snapshot),
     async saveProfile(profile: GlobalProfile) { const validated = validateProfile(profile); return enqueue(() => { snapshot = Object.freeze({ ...snapshot, profile: validated }); }); },
     async upsertPracticeDraft(draft: PracticeDraft) { const validated = validatePracticeDraft(draft); return enqueue(() => { const merged = mergePracticeDraft(snapshot.practiceDrafts.find(item => item.id === validated.id), validated); remember('practiceDrafts', merged); return merged; }); },
@@ -57,6 +55,29 @@ export function createMemoryStudyStore() {
       return enqueue(() => remember('history', validated));
     },
     deleteHistory: (id: string) => enqueue(() => remove('history', id)),
+    async saveRhythmProject(project: RhythmProject) {
+      const validated = validateStoredRhythmProject(project);
+      return enqueue(() => {
+        const rhythmProjects = [...snapshot.rhythmProjects.filter(item => item.id !== validated.id), validated].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+        snapshot = Object.freeze({ ...snapshot, rhythmProjects: Object.freeze(rhythmProjects), activeRhythmProjectId: validated.id });
+        return validated;
+      });
+    },
+    async selectRhythmProject(id: string | null) {
+      const validated = id === null ? null : validateRhythmProjectId(id);
+      return enqueue(() => {
+        if (validated !== null && !snapshot.rhythmProjects.some(project => project.id === validated)) throw new StudyStorageError('MISSING_RHYTHM_PROJECT', 'Проект ритма отсутствует.');
+        snapshot = Object.freeze({ ...snapshot, activeRhythmProjectId: validated });
+      });
+    },
+    async deleteRhythmProject(id: string) {
+      const validated = validateRhythmProjectId(id);
+      return enqueue(() => {
+        const rhythmProjects = Object.freeze(snapshot.rhythmProjects.filter(project => project.id !== validated));
+        const activeRhythmProjectId = snapshot.activeRhythmProjectId === validated ? null : snapshot.activeRhythmProjectId;
+        snapshot = Object.freeze({ ...snapshot, rhythmProjects, activeRhythmProjectId });
+      });
+    },
     exportBackup: () => enqueue(() => {
       const json = JSON.stringify(snapshot);
       if (new TextEncoder().encode(json).byteLength > MAX_BACKUP_BYTES) throw new StudyStorageError('BACKUP_TOO_LARGE', 'Копия превышает предел 64 МиБ. Для такого объёма нужен расширенный формат архива.');

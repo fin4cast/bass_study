@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPracticeDrafts, type PracticeBinding } from '../src/app/practice-drafts';
 import { createWriteQueue } from '../src/app/write-queue';
 import { createMemoryStudyStore, type DrainDraftRequest, type PracticeDraft } from '../src/storage';
+import { DEFAULT_RHYTHM_PREFERENCES, createDefaultRhythmProject } from '../src/rhythm/model';
 
 const area = { root: 'C', structureId: 'major-triad' as const, scope: 'structure' as const, positionIds: ['E:8', 'A:7', 'A:10', 'D:10'] };
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
@@ -38,6 +39,34 @@ describe('durable practice draft coordinator', () => {
     expect(data.practiceDrafts.find(item => item.id === first.id)?.totalReferenceMs).toBe(700);
     expect(data.practiceDrafts.find(item => item.id === second.id)).toMatchObject({ totalReferenceMs: 250, material: { kind: 'harmony' } });
     expect(data.history).toEqual([]); f.manager.dispose();
+  });
+
+  it('retains each closed rhythm epoch even if a live read crosses two edits', async () => {
+    const f = fixture();
+    const project = createDefaultRhythmProject();
+    const binding = (bpm: number, epoch: string, durationMs: number): PracticeBinding => ({
+      context: null, routeRef: null, label: 'Ритм-секция',
+      material: { kind: 'rhythm', playback: { preferences: { ...DEFAULT_RHYTHM_PREFERENCES, view: 'rhythm' }, project: { ...project, bpm } } },
+      readClock: () => ({ runtimeContextKey: epoch, durationMs, comfortableBpm: bpm }),
+    });
+    const initial = binding(120, 'rhythm:1:1', 0);
+    let advance = false;
+    f.manager.bind({ ...initial, readClock() {
+      if (advance) {
+        advance = false;
+        f.manager.captureClosed(binding(120, 'rhythm:1:1', 930));
+        f.manager.captureClosed(binding(130, 'rhythm:1:2', 70));
+      }
+      return initial.readClock();
+    } });
+    advance = true;
+    f.manager.capture();
+    f.manager.captureClosed(binding(120, 'rhythm:1:1', 930));
+    f.manager.bind(binding(140, 'rhythm:1:3', 200));
+    await f.manager.flush();
+    const { practiceDrafts } = await f.store.readSnapshot();
+    expect(practiceDrafts.map(draft => [draft.comfortableBpm, draft.totalReferenceMs]).sort()).toEqual([[120, 930], [130, 70], [140, 200]]);
+    f.manager.dispose();
   });
 
   it('does not merge practice across a local calendar day and preserves the original date', async () => {

@@ -224,7 +224,7 @@ check('ui-ear-preferences-and-three-route-links-persist-without-fret-filter-depe
 
 check('ui-ear-history-filter-counts-reload-and-backup-replacement-stay-separate', 'ui', async ({ page }) => {
   await configure(page); await start(page); const oracle = await fullListen(page); await choice(page, oracle.degree).click(); await action(page, 'next').click();
-  const exported = await exportUi(page); assert.equal(exported.schemaVersion, 7); assert.equal(exported.history[0].result.kind, 'ear');
+  const exported = await exportUi(page); assert.equal(exported.schemaVersion, 8); assert.equal(exported.history[0].result.kind, 'ear');
   assert.match(await page.getByTestId('ear-history-summary').innerText(), /Слух — отдельно/); assert.match(await page.getByTestId('ear-history-summary').innerText(), /1 самостоятельных/);
   await page.getByLabel('Тип записей истории', { exact: true }).selectOption('screen'); assert.equal(await page.getByTestId('history-list').locator('[data-history-entry]').count(), 0);
   await page.getByLabel('Тип записей истории', { exact: true }).selectOption('ear'); assert.equal(await page.getByTestId('history-list').locator('[data-history-kind="ear"]').count(), 1);

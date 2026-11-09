@@ -1,20 +1,27 @@
 import {
-  DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, StudyStorageError, parseBackup, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
+  DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError, previewImport, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
   migrateV1Preferences, migrateV1Preset, migrateV1HistoryEntry,
   migrateV2Preferences, migrateV2Preset, migrateV2HistoryEntry,
   migrateV3Preferences, migrateV3Preset, migrateV3HistoryEntry,
   migrateV4Preferences, migrateV4Preset, migrateV4HistoryEntry,
   migrateV5Preferences, migrateV5Preset, migrateV5HistoryEntry,
   migrateV6Preferences, migrateV6Preset, migrateV6HistoryEntry,
-  DEFAULT_PROFILE, validateProfile, validatePracticeDraft, mergePracticeDraft, applyDraftDrain,
+  migrateV7Preferences, migrateV7Preset, migrateV7HistoryEntry,
+  DEFAULT_PROFILE, validateProfile, validatePracticeDraft, validatePreviousPracticeDraft, mergePracticeDraft, applyDraftDrain,
+  validateRhythmProjectId, validateStoredRhythmProject,
   type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
 } from './model';
+import type { RhythmProject } from '../rhythm/model';
 
 export * from './model';
 export { createMemoryStudyStore } from './memory';
 export const STUDY_DB_NAME = 'bass-study';
-export const STUDY_DB_VERSION = 7;
-const STORES = ['preferences', 'presets', 'history', 'profile', 'practiceDrafts'] as const;
+export const STUDY_DB_VERSION = STUDY_SCHEMA_VERSION;
+const STORES = ['preferences', 'presets', 'history', 'profile', 'practiceDrafts', 'rhythmProjects'] as const;
+const RHYTHM_SELECTION_KEY = 'rhythm-selection';
+type RhythmProjectMutation = { readonly kind: 'save'; readonly project: RhythmProject }
+  | { readonly kind: 'select'; readonly id: string | null }
+  | { readonly kind: 'delete'; readonly id: string };
 
 function storageError(error: unknown): StudyStorageError {
   if (error instanceof StudyStorageError) return error;
@@ -56,8 +63,9 @@ export function createStudyStore() {
         if (!db.objectStoreNames.contains('history')) db.createObjectStore('history', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('profile')) db.createObjectStore('profile');
         if (!db.objectStoreNames.contains('practiceDrafts')) db.createObjectStore('practiceDrafts', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('rhythmProjects')) db.createObjectStore('rhythmProjects', { keyPath: 'id' });
         if (event.oldVersion < 6) request.transaction!.objectStore('profile').put(DEFAULT_PROFILE, 'current');
-        if (event.oldVersion >= 1 && event.oldVersion <= 6) {
+        if (event.oldVersion >= 1 && event.oldVersion < STUDY_DB_VERSION) {
           const transaction = request.transaction!;
           const migrations = event.oldVersion === 1
             ? { preferences: migrateV1Preferences, presets: migrateV1Preset, history: migrateV1HistoryEntry }
@@ -65,7 +73,8 @@ export function createStudyStore() {
             : event.oldVersion === 3 ? { preferences: migrateV3Preferences, presets: migrateV3Preset, history: migrateV3HistoryEntry }
             : event.oldVersion === 4 ? { preferences: migrateV4Preferences, presets: migrateV4Preset, history: migrateV4HistoryEntry }
             : event.oldVersion === 5 ? { preferences: migrateV5Preferences, presets: migrateV5Preset, history: migrateV5HistoryEntry }
-            : { preferences: migrateV6Preferences, presets: migrateV6Preset, history: migrateV6HistoryEntry };
+            : event.oldVersion === 6 ? { preferences: migrateV6Preferences, presets: migrateV6Preset, history: migrateV6HistoryEntry }
+            : { preferences: migrateV7Preferences, presets: migrateV7Preset, history: migrateV7HistoryEntry };
           let aborted = false;
           for (const name of ['preferences', 'presets', 'history'] as const) {
             let recordNumber = 0;
@@ -75,7 +84,11 @@ export function createStudyStore() {
               const cursor = cursorRequest.result;
               if (!cursor) return;
               recordNumber++;
-              try { cursor.update(migrations[name](cursor.value)); cursor.continue(); }
+              try {
+                const record = migrations[name](cursor.value);
+                if (name !== 'history' || event.oldVersion < 6) cursor.update(record);
+                cursor.continue();
+              }
               catch (error) {
                 const record = name === 'preferences'
                   ? cursor.key === 'current' ? 'Текущие настройки (preferences/current)' : `Запись настроек №${recordNumber} (preferences)`
@@ -86,14 +99,14 @@ export function createStudyStore() {
               }
             };
           }
-          // Версия 6 уже владеет этими данными: проверить, не перезаписывая.
-          if (event.oldVersion === 6) for (const name of ['profile', 'practiceDrafts'] as const) {
+          // Профиль и черновики существуют с версии 6, их достаточно проверить.
+          if (event.oldVersion >= 6) for (const name of ['profile', 'practiceDrafts'] as const) {
             const cursorRequest = transaction.objectStore(name).openCursor();
             cursorRequest.onsuccess = () => {
               if (aborted) return;
               const cursor = cursorRequest.result;
               if (!cursor) return;
-              try { if (name === 'profile') validateProfile(cursor.value); else validatePracticeDraft(cursor.value); cursor.continue(); }
+              try { if (name === 'profile') validateProfile(cursor.value); else validatePreviousPracticeDraft(cursor.value); cursor.continue(); }
               catch (error) { aborted = true; migrationFailure = error; transaction.abort(); }
             };
           }
@@ -138,14 +151,17 @@ export function createStudyStore() {
     if (fresh) cachedSnapshot = null;
     const transaction = db.transaction([...STORES], 'readonly');
     const done = completion(transaction);
-    const [preferences, presets, history, profile, practiceDrafts] = await Promise.all([
+    const [preferences, presets, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId] = await Promise.all([
       requestValue<unknown>(transaction.objectStore('preferences').get('current')),
       requestValue<unknown[]>(transaction.objectStore('presets').getAll()),
       requestValue<unknown[]>(transaction.objectStore('history').getAll()),
       requestValue<unknown>(transaction.objectStore('profile').get('current')),
-      requestValue<unknown[]>(transaction.objectStore('practiceDrafts').getAll()), done,
+      requestValue<unknown[]>(transaction.objectStore('practiceDrafts').getAll()),
+      requestValue<unknown[]>(transaction.objectStore('rhythmProjects').getAll()),
+      requestValue<unknown>(transaction.objectStore('preferences').get(RHYTHM_SELECTION_KEY)), done,
     ]);
-    const snapshot = validateSnapshot({ format: 'bass-study-backup', schemaVersion: 7, preferences: preferences ?? DEFAULT_PREFERENCES, presets, history, profile: profile ?? DEFAULT_PROFILE, practiceDrafts });
+    const snapshot = validateSnapshot({ format: 'bass-study-backup', schemaVersion: STUDY_DB_VERSION, preferences: preferences ?? DEFAULT_PREFERENCES, presets, history, profile: profile ?? DEFAULT_PROFILE, practiceDrafts,
+      rhythmProjects, activeRhythmProjectId: activeRhythmProjectId ?? null });
     if (database === db) cachedSnapshot = snapshot;
     return snapshot;
   }
@@ -172,9 +188,58 @@ export function createStudyStore() {
     if (cachedSnapshot && database === db) cachedSnapshot = Object.freeze({ ...cachedSnapshot, [name]: Object.freeze(cachedSnapshot[name].filter(item => item.id !== id)) });
   }
 
-  function previewImport(json: string) {
-    const snapshot = parseBackup(json);
-    return { snapshot, presets: snapshot.presets.length, history: snapshot.history.length, requiresConfirmation: true as const, replacement: 'full' as const };
+  async function mutateRhythmProjects(change: RhythmProjectMutation): Promise<void> {
+    const db = await getDatabase();
+    const transaction = db.transaction(['preferences', 'rhythmProjects'], 'readwrite');
+    lastTransaction = { successfulWrites: 0, aborted: false };
+    const done = completion(transaction, true);
+    const preferences = transaction.objectStore('preferences');
+    const projects = transaction.objectStore('rhythmProjects');
+    const observe = (request: IDBRequest) => request.addEventListener('success', () => { lastTransaction.successfulWrites++; });
+    let activeRhythmProjectId: string | null;
+    try {
+      switch (change.kind) {
+        case 'save':
+          activeRhythmProjectId = change.project.id;
+          observe(projects.put(change.project));
+          observe(preferences.put(activeRhythmProjectId, RHYTHM_SELECTION_KEY));
+          break;
+        case 'select':
+          activeRhythmProjectId = change.id;
+          if (change.id === null) observe(preferences.delete(RHYTHM_SELECTION_KEY));
+          else {
+            if (await requestValue(projects.getKey(change.id)) === undefined) throw new StudyStorageError('MISSING_RHYTHM_PROJECT', 'Проект ритма отсутствует.');
+            observe(preferences.put(change.id, RHYTHM_SELECTION_KEY));
+          }
+          break;
+        case 'delete': {
+          const selection = await requestValue<unknown>(preferences.get(RHYTHM_SELECTION_KEY));
+          activeRhythmProjectId = selection == null ? null : validateRhythmProjectId(selection);
+          observe(projects.delete(change.id));
+          if (change.id === activeRhythmProjectId) {
+            observe(preferences.delete(RHYTHM_SELECTION_KEY));
+            activeRhythmProjectId = null;
+          }
+          break;
+        }
+      }
+      await done;
+    } catch (failure) {
+      try { transaction.abort(); } catch { /* Already closed by IndexedDB. */ }
+      await done.catch(() => {});
+      throw storageError(failure);
+    }
+    if (!cachedSnapshot || database !== db) return;
+    let rhythmProjects = cachedSnapshot.rhythmProjects;
+    if (change.kind === 'delete') rhythmProjects = Object.freeze(rhythmProjects.filter(project => project.id !== change.id));
+    if (change.kind === 'save') {
+      rhythmProjects = Object.freeze([...rhythmProjects.filter(project => project.id !== change.project.id), change.project].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    }
+    if (activeRhythmProjectId !== null && !rhythmProjects.some(project => project.id === activeRhythmProjectId)) {
+      cachedSnapshot = null;
+      return;
+    }
+    cachedSnapshot = Object.freeze({ ...cachedSnapshot, rhythmProjects, activeRhythmProjectId });
   }
 
   async function mutateDraft(id: string, update: (current: PracticeDraft | undefined) => PracticeDraft): Promise<PracticeDraft> {
@@ -237,6 +302,18 @@ export function createStudyStore() {
     deletePreset: (id: string) => enqueue(() => remove('presets', id)),
     async addHistory(entry: HistoryEntry) { const validated = validateHistoryEntry(entry); return enqueue(async () => { await write('history', validated); rememberRecord('history', validated); }); },
     deleteHistory: (id: string) => enqueue(() => remove('history', id)),
+    async saveRhythmProject(project: RhythmProject) {
+      const validated = validateStoredRhythmProject(project);
+      return enqueue(async () => { await mutateRhythmProjects({ kind: 'save', project: validated }); return validated; });
+    },
+    async selectRhythmProject(id: string | null) {
+      const validated = id === null ? null : validateRhythmProjectId(id);
+      return enqueue(() => mutateRhythmProjects({ kind: 'select', id: validated }));
+    },
+    async deleteRhythmProject(id: string) {
+      const validated = validateRhythmProjectId(id);
+      return enqueue(() => mutateRhythmProjects({ kind: 'delete', id: validated }));
+    },
     exportBackup: () => enqueue(async () => {
       const json = JSON.stringify(await read());
       if (new TextEncoder().encode(json).byteLength > MAX_BACKUP_BYTES) throw new StudyStorageError('BACKUP_TOO_LARGE', 'Копия превышает предел 64 МиБ. Данные в базе сохранены; для такого объёма нужен расширенный формат архива.');
@@ -246,7 +323,7 @@ export function createStudyStore() {
     async restore(json: string, options: { confirmed: boolean; failAfterWrite?: number }) {
       const { snapshot } = previewImport(json);
       if (!options?.confirmed) return { status: 'cancelled' as const };
-      const totalWrites = 2 + snapshot.presets.length + snapshot.history.length + snapshot.practiceDrafts.length;
+      const totalWrites = 2 + snapshot.presets.length + snapshot.history.length + snapshot.practiceDrafts.length + snapshot.rhythmProjects.length + Number(snapshot.activeRhythmProjectId !== null);
       if (options.failAfterWrite !== undefined && (!Number.isInteger(options.failAfterWrite) || options.failAfterWrite < 1 || options.failAfterWrite > totalWrites)) {
         throw new StudyStorageError('INVALID_DATA', 'Некорректная точка тестового отказа транзакции.');
       }
@@ -261,6 +338,8 @@ export function createStudyStore() {
         snapshot.presets.forEach(preset => writes.push(transaction.objectStore('presets').put(preset)));
         snapshot.history.forEach(entry => writes.push(transaction.objectStore('history').put(entry)));
         snapshot.practiceDrafts.forEach(draft => writes.push(transaction.objectStore('practiceDrafts').put(draft)));
+        snapshot.rhythmProjects.forEach(project => writes.push(transaction.objectStore('rhythmProjects').put(project)));
+        if (snapshot.activeRhythmProjectId !== null) writes.push(transaction.objectStore('preferences').put(snapshot.activeRhythmProjectId, RHYTHM_SELECTION_KEY));
         writes.forEach(request => request.addEventListener('success', () => {
           lastTransaction.successfulWrites++;
           if (lastTransaction.successfulWrites === options.failAfterWrite) { injectedAbort = true; transaction.abort(); }

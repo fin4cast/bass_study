@@ -1,0 +1,95 @@
+{
+  "generatedAt": "2026-11-09T07:17:43.071Z",
+  "head": "8883ccec336e0087476b8a5f078c390132a971d9",
+  "uncommittedWorkingCopy": true,
+  "finalBuild": [
+    {
+      "file": "dist/index.html",
+      "bytes": 1570,
+      "sha256": "2b4f49bf2f974acbb0e1d4067e9dcd39bdafb772c11fbe4aabd8f89b2395f721"
+    },
+    {
+      "file": "dist/assets/index-xOs_IV1g.js",
+      "bytes": 732906,
+      "sha256": "36da95352c7f26f17db95d66c89e973b51f41fdc1a4972f703c057b5e73aed1a"
+    },
+    {
+      "file": "dist/assets/index-gVABZtHp.css",
+      "bytes": 135931,
+      "sha256": "fdd283ffbc152793c4a8f379b39e5c3e5b665835d0d2c32f5ede70eea1e21574"
+    }
+  ],
+  "regressionBuild": [
+    {
+      "file": "dist/index.html",
+      "bytes": 1570,
+      "sha256": "a1a170616f2d6b118a2fac3a2cb0365941bc88b3990f5ae033fcf9e97c24d588"
+    },
+    {
+      "file": "dist/assets/index-BO329w65.js",
+      "bytes": 729832,
+      "sha256": "67826f95309c7cd11fe8ef017d25fd89149da0fc077d1cc0802fc88834c93aae"
+    },
+    {
+      "file": "dist/assets/index-gVABZtHp.css",
+      "bytes": 135931,
+      "sha256": "fdd283ffbc152793c4a8f379b39e5c3e5b665835d0d2c32f5ede70eea1e21574"
+    }
+  ],
+  "unit": {
+    "passed": 405,
+    "failed": 0,
+    "skipped": 0,
+    "suites": 76
+  },
+  "browser": {
+    "runners": 15,
+    "passed": 250,
+    "failed": 0,
+    "finalRhythm": 19,
+    "regression": 231
+  },
+  "files": [
+    {
+      "source": "test-results/p10-rhythm-unit.json",
+      "file": "docs/verification/P10_RHYTHM_UNIT.json",
+      "bytes": 206026,
+      "sha256": "b3cd616e292fdff7da5d79e573a0ec35ce976bad2965c3088a655b86ddd33b32"
+    },
+    {
+      "source": "test-results/p10-rhythm-edge.json",
+      "file": "docs/verification/P10_RHYTHM_EDGE.json",
+      "bytes": 11869,
+      "sha256": "bbeb4f9fa941e38597980d510f3c7f7fc036ecb42c65623d7e7a0f69615bb8de"
+    },
+    {
+      "source": "test-results/p10-rhythm-metronome-light.png",
+      "file": "docs/verification/P10-rhythm-metronome-light.png",
+      "bytes": 95675,
+      "sha256": "96b4680cc8f174aead382f5f6c2af1dcf69fadd90d41c043d6592a1dae547f01"
+    },
+    {
+      "source": "test-results/p10-rhythm-metronome-dark.png",
+      "file": "docs/verification/P10-rhythm-metronome-dark.png",
+      "bytes": 95143,
+      "sha256": "4ec7290ea7e53a5577c7a10dd8d005e1cd06adc96c364a6b283b754f14867ffa"
+    },
+    {
+      "source": "test-results/p10-rhythm-rhythm-light.png",
+      "file": "docs/verification/P10-rhythm-rhythm-light.png",
+      "bytes": 108002,
+      "sha256": "99ee58ddfb40b67d720d67a020515d50c073ea44f03aa9b346ed2d1751495efd"
+    },
+    {
+      "source": "test-results/p10-rhythm-rhythm-dark.png",
+      "file": "docs/verification/P10-rhythm-rhythm-dark.png",
+      "bytes": 107074,
+      "sha256": "abdb68df24abae930432283e4927c48393dfb9fd301044a57fac90de82fee627"
+    },
+    {
+      "file": "docs/verification/P10_RHYTHM_REGRESSION.json",
+      "bytes": 46657,
+      "sha256": "887bdc7bf4400587579c745a97d8e5e8cfe96aa31e3aa27e0672dff1f0933f46"
+    }
+  ]
+}

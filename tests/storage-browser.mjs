@@ -48,7 +48,8 @@ check('native-v6-draft-drain-aborts-after-real-history-put-and-retries-once', as
 });
 
 check('native-indexeddb-schema-preferences-presets-and-distinct-results', async ({ page }) => {
-  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 7); assert.deepEqual(empty.presets, []); assert.deepEqual(empty.history, []);
+  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 8); assert.deepEqual(empty.presets, []); assert.deepEqual(empty.history, []);
+  assert.deepEqual(empty.rhythmProjects, []); assert.equal(empty.activeRhythmProjectId, null);
   const state = await seed(page);
   assert.equal(state.format, 'bass-study-backup'); assert.equal(state.preferences.player.bpm, 96);
   assert.deepEqual(state.presets.map(item => item.name), ['Нижняя струна', 'Исходная область']);
@@ -63,7 +64,7 @@ check('native-indexeddb-schema-preferences-presets-and-distinct-results', async 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => { const db = request.result; const result = { name: db.name, version: db.version, stores: [...db.objectStoreNames] }; db.close(); resolve(result); };
   }));
-  assert.deepEqual(schema, { name: 'bass-study', version: 7, stores: ['history', 'practiceDrafts', 'preferences', 'presets', 'profile'] });
+  assert.deepEqual(schema, { name: 'bass-study', version: 8, stores: ['history', 'practiceDrafts', 'preferences', 'presets', 'profile', 'rhythmProjects'] });
   return { schema, state };
 });
 
@@ -120,7 +121,7 @@ check('native-cancel-and-validation-refusals-never-change-existing-data', async 
     const mutations = [
       ['broken-json', '{broken', 'INVALID_BACKUP'],
       ['unknown-format', JSON.stringify({ ...clone(), format: 'another-app' }), 'UNSUPPORTED_FORMAT'],
-      ['future-version', JSON.stringify({ ...clone(), schemaVersion: 8 }), 'UNSUPPORTED_VERSION'],
+      ['future-version', JSON.stringify({ ...clone(), schemaVersion: 9 }), 'UNSUPPORTED_VERSION'],
       ['wrong-bpm-type', (() => { const value = clone(); value.preferences.player.bpm = '96'; return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['duplicate-presets', (() => { const value = clone(); value.presets.push(value.presets[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['duplicate-history', (() => { const value = clone(); value.history.push(value.history[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
@@ -159,6 +160,57 @@ check('native-abort-after-successful-put-rolls-back-clears-and-all-stores', asyn
   assert.equal(outcome.cacheReferenceUnchanged, true); assert.deepEqual(outcome.after, before); assert.deepEqual(outcome.freshAfter, before); assert.deepEqual(outcome.rawAfter, outcome.rawBefore);
   await page.reload(); await page.waitForFunction(() => window.p5?.ready); assert.deepEqual(await snapshot(page), before);
   return outcome;
+});
+
+check('native-project-save-abort-rolls-back-project-and-selection-after-both-puts', async ({ page }) => {
+  await seed(page);
+  const evidence = await page.evaluate(async () => {
+    const { createDefaultRhythmProject } = await import('/src/rhythm/model.ts');
+    const store = window.p5.store;
+    const date = '2026-11-08T22:30:00.000Z';
+    const previous = createDefaultRhythmProject('previous-rhythm', 'Прежний ритм', date);
+    const candidate = createDefaultRhythmProject('candidate-rhythm', 'Новый ритм', date);
+    await store.saveRhythmProject(previous);
+    const before = await store.readSnapshot(), rawBefore = await window.p5.readRaw();
+    const observation = { projectPut: 0, selectionPut: 0, aborted: false };
+    const prototype = IDBObjectStore.prototype, originalPut = prototype.put;
+    prototype.put = function (...args) {
+      const request = originalPut.apply(this, args);
+      if (this.transaction.db.name !== 'bass-study') return request;
+      if (this.name === 'rhythmProjects' && args[0]?.id === candidate.id) {
+        request.addEventListener('success', () => { observation.projectPut++; });
+      }
+      if (this.name === 'preferences' && args[0] === candidate.id && args[1] === 'rhythm-selection') {
+        request.addEventListener('success', () => {
+          observation.selectionPut++;
+          this.transaction.abort();
+          observation.aborted = true;
+        });
+      }
+      return request;
+    };
+    let failure;
+    try { await store.saveRhythmProject(candidate); }
+    catch (error) { failure = { code: error.code, message: error.message }; }
+    finally { prototype.put = originalPut; }
+    const transaction = store.getLastTransaction();
+    const cached = await store.readSnapshot(), rawAfter = await window.p5.readRaw(), fresh = await store.readSnapshot({ fresh: true });
+    await store.saveRhythmProject(candidate);
+    const retried = await store.readSnapshot(), rawRetried = await window.p5.readRaw(), freshRetried = await store.readSnapshot({ fresh: true });
+    return { before, rawBefore, failure, observation, transaction, sameCachedReference: before === cached, rawAfter, fresh, retried, rawRetried, freshRetried };
+  });
+  assert.equal(evidence.failure?.code, 'STORAGE_FAILURE');
+  assert.deepEqual(evidence.observation, { projectPut: 1, selectionPut: 1, aborted: true });
+  assert.deepEqual(evidence.transaction, { successfulWrites: 2, aborted: true });
+  assert.equal(evidence.sameCachedReference, true);
+  assert.deepEqual(evidence.rawAfter, evidence.rawBefore);
+  assert.deepEqual(evidence.fresh, evidence.before);
+  assert.equal(evidence.retried.activeRhythmProjectId, 'candidate-rhythm');
+  assert.deepEqual(evidence.retried.rhythmProjects.map(project => project.id), ['candidate-rhythm', 'previous-rhythm']);
+  assert.deepEqual(evidence.retried, evidence.freshRetried);
+  assert.equal(evidence.rawRetried.activeRhythmProjectId, evidence.retried.activeRhythmProjectId);
+  assert.deepEqual(evidence.rawRetried.rhythmProjects, evidence.retried.rhythmProjects);
+  return evidence;
 });
 
 check('native-real-browser-quota-refusal-preserves-last-confirmed-commit-and-recovers', async ({ page, cdp, fixtureOrigin }) => {
@@ -360,7 +412,7 @@ check('ui-settings-reload-presets-apply-delete-and-download-export', async ({ pa
   await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
   await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill('Мой нижний участок'); await historyAction(page, 'save-preset').click();
   await page.getByTestId('preset-list').getByText('Мой нижний участок', { exact: true }).waitFor();
-  const exported = await uiBackup(page); assert.equal(exported.schemaVersion, 7); assert.equal(exported.presets.length, 1);
+  const exported = await uiBackup(page); assert.equal(exported.schemaVersion, 8); assert.equal(exported.presets.length, 1);
   assert.deepEqual(exported.preferences.study, { root: 'C', structureId: 'major', labelMode: 'degrees', strings: ['E'], fretMin: 0, fretMax: 3, box: null, showFingers: false });
   assert.equal(exported.preferences.player.bpm, 96); assert.equal(exported.preferences.player.countIn, false);
   await page.reload(); await openHistory(page);
@@ -434,7 +486,7 @@ check('ui-invalid-import-shows-error-and-preserves-valid-data', async ({ page, f
   const incoming = await fixtureBackup(page, fixtureUrl); await confirmImport(page, incoming); const before = await uiBackup(page);
   const mutations = [
     ['broken.json', '{broken'],
-    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 8 })],
+    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 9 })],
     ['corrupt.json', (() => { const value = structuredClone(incoming); value.history[1].result.questions[0].errors = 0; return JSON.stringify(value); })()],
   ];
   const errors = [];

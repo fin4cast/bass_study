@@ -7,7 +7,9 @@ import { mountTraining } from './ui/training';
 import { mountPlayer } from './ui/player';
 import { mountHistory } from './ui/history';
 import { mountEar } from './ui/ear';
-import { mountHarmony } from './ui/harmony';
+import { mountRhythm, type RhythmLibrary, type RhythmLibraryOperation } from './ui/rhythm';
+import { DEFAULT_RHYTHM_PREFERENCES } from './rhythm/model';
+import type { RhythmPracticeClock } from './audio/rhythm';
 import { mountNotation } from './ui/notation';
 import { mountTracks } from './ui/tracks';
 import { mountMusicBank } from './ui/music-bank';
@@ -17,14 +19,14 @@ import type { EarSession } from './ear';
 import type { RouteResult } from './route';
 import { createWriteQueue } from './app/write-queue';
 import { createThemeController } from './app/theme';
-import { createPracticeDrafts } from './app/practice-drafts';
+import { createPracticeDrafts, type PracticeBinding } from './app/practice-drafts';
 import { mountIntroduction } from './ui/introduction';
 import { getBoxCatalogue, getBoxInstance, type BoxSelection, type BoxInstance } from './music/boxes';
 import { createRouteMaterial, createFreeRouteMaterial, type RouteSession } from './route';
 import { acquireWriterLease } from './app/writer-lock';
 import type { QuizSession } from './training';
-import { createStudyStore, createMemoryStudyStore, DEFAULT_PREFERENCES, DEFAULT_PROFILE, makeScreenHistory, makeEarHistory, makeRouteHistory, validatePreferences, type AppPreferences, type HistoryMetadata, type GlobalProfile, type PracticeDraft } from './storage';
-import type { PracticeMaterial } from './training/results';
+import { createStudyStore, createMemoryStudyStore, DEFAULT_PREFERENCES, DEFAULT_PROFILE, makeScreenHistory, makeEarHistory, makeRouteHistory, validatePreferences, type AppPreferences, type HistoryMetadata, type GlobalProfile, type PracticeDraft, type StudySnapshot } from './storage';
+import { rhythmPracticeLabel, type PracticeMaterial, type RhythmPracticeMaterial } from './training/results';
 import {
   STRUCTURES,
   annotatePositions,
@@ -60,7 +62,7 @@ app.innerHTML = `
   <div class="app-shell">
     <header class="site-header">
       <a class="brand" href="#" aria-label="bass.study — к началу страницы"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>bass<span class="brand-dot">.</span>study</a>
-      <nav class="module-navigation" aria-label="Раздел тренажёра"><button type="button" data-app-module="foundation" aria-pressed="true" aria-current="page" disabled>Гриф и практика</button><button type="button" data-app-module="ear" aria-pressed="false" disabled>Слух</button><button type="button" data-app-module="harmony" aria-pressed="false" disabled>Аккомпанемент</button><button type="button" data-app-module="tracks" aria-pressed="false" disabled>Табулатура и ноты</button><button type="button" data-app-module="input" aria-pressed="false" disabled>Аудиовход</button><button type="button" data-app-module="route" aria-pressed="false" disabled>Маршрут занятия</button></nav>
+      <nav class="module-navigation" aria-label="Раздел тренажёра"><button type="button" data-app-module="foundation" aria-pressed="true" aria-current="page" disabled>Гриф и практика</button><button type="button" data-app-module="ear" aria-pressed="false" disabled>Слух</button><button type="button" data-app-module="harmony" aria-pressed="false" disabled>Метроном и ритм</button><button type="button" data-app-module="tracks" aria-pressed="false" disabled>Табулатура и ноты</button><button type="button" data-app-module="input" aria-pressed="false" disabled>Аудиовход</button><button type="button" data-app-module="route" aria-pressed="false" disabled>Маршрут занятия</button></nav>
       <div class="nav-secondary">
         <button type="button" id="open-history" class="text-button" aria-expanded="false" disabled>Мои занятия</button>
         <button type="button" id="open-introduction" class="text-button" disabled>Введение</button>
@@ -83,7 +85,7 @@ app.innerHTML = `
 
       <div id="route-session-mount"></div>
       <section id="ear-mount" aria-label="Слуховые задания" hidden></section>
-      <section id="harmony-mount" aria-label="Аккомпанемент" hidden></section>
+      <section id="harmony-mount" aria-label="Метроном и ритм" hidden></section>
       <section id="tracks-mount" aria-label="Табулатура и ноты" hidden><div class="bank-view-tabs" role="tablist" aria-label="Материал раздела «Табулатура и ноты»"><button id="bank-scores-tab" type="button" role="tab" data-bank-view="scores" aria-selected="true" aria-controls="music-bank-mount">Партитуры</button><button id="bank-audio-tab" type="button" role="tab" data-bank-view="audio" aria-selected="false" aria-controls="legacy-tracks-mount">Аудиозаписи</button></div><div id="music-bank-mount" role="tabpanel" aria-labelledby="bank-scores-tab"></div><div id="legacy-tracks-mount" role="tabpanel" aria-labelledby="bank-audio-tab" hidden></div></section>
       <section id="input-mount" aria-label="Диагностический аудиовход" hidden></section>
       <section id="route-mount" aria-label="Маршрут занятия" hidden></section>
@@ -151,7 +153,7 @@ let training: ReturnType<typeof mountTraining> | undefined;
 let sequencePlayer: ReturnType<typeof mountPlayer> | undefined;
 let history: ReturnType<typeof mountHistory> | undefined;
 let ear: ReturnType<typeof mountEar> | undefined;
-let accompaniment: ReturnType<typeof mountHarmony> | undefined;
+let rhythm: ReturnType<typeof mountRhythm> | undefined;
 let notation: ReturnType<typeof mountNotation> | undefined;
 let tracks: ReturnType<typeof mountTracks> | undefined;
 let musicBank: ReturnType<typeof mountMusicBank> | undefined;
@@ -221,13 +223,25 @@ const drafts = createPracticeDrafts({ getStore: () => store, write: (operation, 
   onChange() { history?.updatePracticeContext(); showPersistenceStatus(); },
 });
 getDraftPending = () => drafts.hasPendingChanges();
+function rhythmPracticeBinding(practice: RhythmPracticeClock, readClock: PracticeBinding['readClock'] = () => practice): PracticeBinding {
+  const material: RhythmPracticeMaterial = { kind: 'rhythm', playback: practice.playback };
+  return { context: null, material, routeRef: null, label: rhythmPracticeLabel(material), readClock };
+}
 function syncPracticeBinding() {
   if (applyingPreferences) return;
-  let next: import('./app/practice-drafts').PracticeBinding | null = null;
+  let next: PracticeBinding | null = null;
+  let runtimeKey: string | undefined;
   const box = state.box ? getBoxInstance(state.box) : null;
-  if (activeModule === 'harmony') next = { context: { root: 'C', structureId: 'major', scope: 'structure', positionIds: getPositions({ strings: ['E', 'A', 'D', 'G'], fretMin: 0, fretMax: 12 }).map(position => position.id), box: null },
-    material: { kind: 'harmony', patternId: 'CFGC-1-3-5-3-v1' }, routeRef: null, label: 'Аккомпанемент C–F–G–C · основной тон–3–5–3', readClock: () => accompaniment?.getPracticeDraft() ?? { durationMs: 0, comfortableBpm: 80 } };
-  else if (activeModule === 'foundation' && rangeIsValid() && foundationMode !== 'quiz') {
+  if (activeModule === 'harmony') {
+    const practice = rhythm?.getPractice();
+    if (practice) {
+      runtimeKey = practice.runtimeContextKey;
+      next = rhythmPracticeBinding(practice, () => {
+        const live = rhythm?.getPractice();
+        return live?.runtimeContextKey === practice.runtimeContextKey ? live : practice;
+      });
+    }
+  } else if (activeModule === 'foundation' && rangeIsValid() && foundationMode !== 'quiz') {
     const sequence = training?.getCurrentSequence();
     const player = currentPlayerPreferences();
     const material: PracticeMaterial = foundationMode === 'sequence' && sequence ? { kind: 'sequence', pattern: training?.getPreferences().pattern ?? 'ascending', routePositionIds: sequence.notes.map(position => position.id), duration: player.duration,
@@ -236,23 +250,44 @@ function syncPracticeBinding() {
       routeRef: route?.getSession()?.status !== 'finished' ? training?.getRouteRef() ?? null : null, label: foundationMode === 'sequence' ? 'Последовательность на грифе' : 'Изучение грифа',
       readClock: foundationMode === 'sequence' ? () => sequencePlayer?.getPracticeDraft() ?? { durationMs: 0, comfortableBpm: 80 } : () => ({ durationMs: 0, comfortableBpm: player.bpm }) };
   }
-  const key = next ? JSON.stringify({ context: next.context, material: next.material, routeRef: next.routeRef }) : '';
+  const key = runtimeKey ?? (next ? JSON.stringify({ context: next.context, material: next.material, routeRef: next.routeRef }) : '');
   if (key !== bindingKey) { drafts.bind(next); bindingKey = key; void drafts.flush().catch(() => {}); }
 }
 function currentPlayerPreferences() { try { return sequencePlayer?.getPreferences() ?? DEFAULT_PREFERENCES.player; } catch { return lastValidPreferences.player; } }
 function draftView(value: PracticeDraft | null) {
+  if (!value && activeModule === 'harmony') return { context: null, durationMs: 0, comfortableBpm: rhythm?.getPreferences().metronome.bpm ?? 92, note: '', label: 'Метроном и ритм', available: false };
   return value ? { id: value.id, createdAt: value.createdAt, timeZone: value.timeZone, context: value.context, material: value.material, routeRef: value.routeRef, durationMs: value.totalReferenceMs - value.recordedThroughMs, comfortableBpm: value.comfortableBpm, note: value.note,
-    label: value.material.kind === 'harmony' ? 'Аккомпанемент C–F–G–C · основной тон–3–5–3' : value.material.kind === 'sequence' ? 'Последовательность на грифе' : 'Изучение грифа', available: true }
-    : { context: { root: structure.root, structureId: structure.id, scope: 'structure' as const, positionIds: rangeIsValid() ? (state.box ? getBoxInstance(state.box).positions : positions).map(position => position.id) : [], box: state.box }, durationMs: 0, comfortableBpm: currentPlayerPreferences().bpm, note: '', label: foundationMode === 'study' ? 'Изучение грифа' : 'Последовательность на грифе', available: activeModule === 'harmony' || (activeModule === 'foundation' && foundationMode !== 'quiz') };
+    label: value.material.kind === 'rhythm' ? rhythmPracticeLabel(value.material) : value.material.kind === 'harmony' ? 'Аккомпанемент C–F–G–C · основной тон–3–5–3' : value.material.kind === 'sequence' ? 'Последовательность на грифе' : 'Изучение грифа', available: true }
+    : { context: { root: structure.root, structureId: structure.id, scope: 'structure' as const, positionIds: rangeIsValid() ? (state.box ? getBoxInstance(state.box).positions : positions).map(position => position.id) : [], box: state.box }, durationMs: 0, comfortableBpm: currentPlayerPreferences().bpm, note: '', label: foundationMode === 'study' ? 'Изучение грифа' : 'Последовательность на грифе', available: activeModule === 'foundation' && foundationMode !== 'quiz' };
 }
 async function flushAll() { await drafts.flush(); await writes.flush(); }
 function leaveRoute() { drafts.capture(); route?.stop(); training?.clearRouteContext(); ear?.clearRouteContext(); syncPracticeBinding(); }
+
+function rhythmLibrary(snapshot: StudySnapshot): RhythmLibrary {
+  return { projects: snapshot.rhythmProjects, activeId: snapshot.activeRhythmProjectId };
+}
+
+async function changeRhythmLibrary(operation: RhythmLibraryOperation): Promise<RhythmLibrary> {
+  if (retiring || main.inert || !writerLease?.acquired) throw new Error('Эта вкладка не может сохранить проект ритма.');
+  const key = 'rhythm-library';
+  const generation = writes.supersede(key);
+  const command = structuredClone(operation);
+  return writes.run(async () => {
+    if (command.kind === 'save') await store.saveRhythmProject(command.project);
+    else if (command.kind === 'select') await store.selectRhythmProject(command.id);
+    else await store.deleteRhythmProject(command.id);
+    const snapshot = await store.readSnapshot();
+    if (!retiring) void history?.refresh();
+    return rhythmLibrary(snapshot);
+  }, key, generation);
+}
 
 function getPreferences(): AppPreferences {
   const value = validatePreferences({
     activeModule,
     ear: activeModule === 'ear' ? ear?.getPreferences() ?? DEFAULT_PREFERENCES.ear : lastValidPreferences.ear,
-    harmony: activeModule === 'harmony' ? accompaniment?.getPreferences() ?? DEFAULT_PREFERENCES.harmony : lastValidPreferences.harmony,
+    harmony: lastValidPreferences.harmony,
+    rhythm: rhythm?.getPreferences() ?? lastValidPreferences.rhythm,
     tracks: activeModule === 'tracks' ? tracks?.getPreferences() ?? null : lastValidPreferences.tracks,
     musicBank: activeModule === 'tracks' ? musicBank?.getPreferences() ?? null : lastValidPreferences.musicBank,
     input: activeModule === 'input' ? inputMonitor?.getPreferences() ?? DEFAULT_PREFERENCES.input : lastValidPreferences.input,
@@ -344,13 +379,13 @@ function updateModuleVisibility() {
   inputMonitor?.setVisible(activeModule === 'input');
   byId('route-mount').hidden = activeModule !== 'route';
   ear?.setVisible(activeModule === 'ear');
-  accompaniment?.setVisible(activeModule === 'harmony');
+  rhythm?.setVisible(activeModule === 'harmony');
   document.querySelectorAll<HTMLElement>('[data-app-module]').forEach(button => { const selected = button.dataset.appModule === activeModule; button.setAttribute('aria-pressed', String(selected)); if (selected) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current'); });
   document.querySelector<HTMLElement>('.intro')!.hidden = foundation || (activeModule === 'tracks' && bankView === 'scores');
   byId('study-context').hidden = foundationMode === 'quiz';
   byId('structure-heading').textContent = foundationMode === 'quiz' ? 'Задания на грифе' : `${structure.root} · ${structure.name}`;
-  byId('page-title').textContent = ({ foundation: 'Гриф и практика', ear: 'Слух', harmony: 'Аккомпанемент', tracks: 'Табулатура и ноты', input: 'Аудиовход', route: 'Маршрут занятия' })[activeModule];
-  document.querySelector<HTMLElement>('.intro-copy > p')!.textContent = ({ foundation: 'Найди ноты и ступени в выбранной области грифа E–A–D–G.', ear: 'Сравни тонику и целевой звук, затем выбери ступень.', harmony: 'Слушай C–F–G–C и играй своё сопровождение.', tracks: 'Читай ноты и TAB, выбирай любые звучащие партии и повторяй фрагменты.', input: 'Проверь уровень и частоту сигнала; это диагностика без оценки исполнения.', route: 'Один музыкальный материал: 3 минуты грифа, 3 минуты слуха и 4 минуты практики.' })[activeModule];
+  byId('page-title').textContent = ({ foundation: 'Гриф и практика', ear: 'Слух', harmony: 'Метроном и ритм', tracks: 'Табулатура и ноты', input: 'Аудиовход', route: 'Маршрут занятия' })[activeModule];
+  document.querySelector<HTMLElement>('.intro-copy > p')!.textContent = ({ foundation: 'Найди ноты и ступени в выбранной области грифа E–A–D–G.', ear: 'Сравни тонику и целевой звук, затем выбери ступень.', harmony: 'Настрой пульс или собери свой рисунок ударных.', tracks: 'Читай ноты и TAB, выбирай любые звучащие партии и повторяй фрагменты.', input: 'Проверь уровень и частоту сигнала; это диагностика без оценки исполнения.', route: 'Один музыкальный материал: 3 минуты грифа, 3 минуты слуха и 4 минуты практики.' })[activeModule];
 }
 
 function switchModule(next: AppPreferences['activeModule']) {
@@ -359,7 +394,7 @@ function switchModule(next: AppPreferences['activeModule']) {
   if (!routeNavigation) { route?.pause(); training?.clearRouteContext(); ear?.clearRouteContext(); }
   if (activeModule === 'foundation') { training?.finishCurrentSession('Занятие остановлено при смене раздела'); sequencePlayer?.stop(); }
   if (activeModule === 'ear') ear?.finishCurrentSession('Слуховое занятие остановлено при смене раздела');
-  if (activeModule === 'harmony') accompaniment?.stop();
+  if (activeModule === 'harmony') rhythm?.pause('module');
   if (activeModule === 'tracks') tracks?.stop(); musicBank?.stop();
   if (activeModule === 'input') inputMonitor?.stop();
   activeModule = next;
@@ -399,7 +434,7 @@ function openRouteStep(step: RouteStep, session: RouteSession | null, initial: b
   if (heading) { updateRouteInset(); heading.tabIndex = -1; heading.focus({ preventScroll: true }); heading.scrollIntoView({ block: 'start' }); }
 }
 
-function applyPreferences(preferences: AppPreferences) {
+function applyPreferences(preferences: AppPreferences, source: 'preset' | 'restore' = 'restore') {
   const value = validatePreferences(preferences);
   lastValidPreferences = value;
   drafts.capture();
@@ -409,7 +444,7 @@ function applyPreferences(preferences: AppPreferences) {
   preferenceIssue = '';
   training?.finishCurrentSession('Занятие остановлено перед применением настроек');
   ear?.finishCurrentSession('Слуховое занятие остановлено перед применением настроек');
-  accompaniment?.stop();
+  rhythm?.stop();
   tracks?.stop(); musicBank?.stop();
   inputMonitor?.stop();
   sequencePlayer?.stop();
@@ -428,7 +463,7 @@ function applyPreferences(preferences: AppPreferences) {
     sequencePlayer?.refreshContext();
     sequencePlayer?.applyPreferences(value.player);
     ear?.applyPreferences(value.ear);
-    accompaniment?.applyPreferences(value.harmony);
+    if (source !== 'preset' || value.rhythm) rhythm?.applyPreferences(value.rhythm ?? DEFAULT_RHYTHM_PREFERENCES);
     tracks?.applyPreferences(value.tracks);
     musicBank?.applyPreferences(value.musicBank);
     bankView = value.musicBank?.file ? 'scores' : value.tracks ? 'audio' : 'scores';
@@ -714,7 +749,7 @@ training = mountTraining(byId('training-mount'), () => ({ positions: rangeIsVali
 });
 let lastPlaybackState = 'stopped';
 sequencePlayer = mountPlayer(byId('player-mount'), () => training?.getCurrentSequence()?.notes ?? [], {
-  onBeforeStart() { introduction?.stop(); accompaniment?.stop(); tracks?.stop(); musicBank?.stop(); inputMonitor?.stop(); ear?.pauseListening(); syncPracticeBinding(); },
+  onBeforeStart() { introduction?.stop(); rhythm?.pause('audio-owner'); tracks?.stop(); musicBank?.stop(); inputMonitor?.stop(); ear?.pauseListening(); syncPracticeBinding(); },
   onPreferencesChange() {
     drafts.capture();
     if (getDraftPending() !== draftStatusDirty) showPersistenceStatus();
@@ -762,22 +797,32 @@ ear = mountEar(byId('ear-mount'), {
   onPreferencesChange: savePreferences,
   onSessionChanged: persistEarSession,
   onSessionFinished() { if (currentEarHistoryId) liveSessionFinishes.delete(currentEarHistoryId); currentEarHistoryId = null; },
-  onBeforeListen() { introduction?.stop(); sequencePlayer?.stop(); accompaniment?.stop(); tracks?.stop(); musicBank?.stop(); inputMonitor?.stop(); },
+  onBeforeListen() { introduction?.stop(); sequencePlayer?.stop(); rhythm?.pause('audio-owner'); tracks?.stop(); musicBank?.stop(); inputMonitor?.stop(); },
 });
 ear.setVisible(false);
-accompaniment = mountHarmony(byId('harmony-mount'), {
+rhythm = mountRhythm(byId('harmony-mount'), {
   onPreferencesChange: savePreferences,
-  onBeforeStart() { introduction?.stop(); sequencePlayer?.stop(); ear?.pauseListening('Открыто сопровождение.'); tracks?.stop(); musicBank?.stop(); inputMonitor?.stop(); syncPracticeBinding(); },
+  onLibraryChange: changeRhythmLibrary,
+  onBeforeStart() {
+    if (retiring || main.inert || document.hidden || activeModule !== 'harmony' || !writerLease?.acquired) throw new Error('Открой раздел «Метроном и ритм», чтобы запустить звук.');
+    introduction?.stop(); sequencePlayer?.stop(); ear?.pauseListening('Открыт раздел «Метроном и ритм».');
+    tracks?.stop(); musicBank?.stop(); inputMonitor?.stop();
+  },
+  onPracticeEnd(practice) {
+    drafts.captureClosed(rhythmPracticeBinding(practice));
+    void drafts.flush().catch(() => {});
+  },
+  onPracticeChange: syncPracticeBinding,
 });
-accompaniment.setVisible(false);
+rhythm.setVisible(false);
 tracks = mountTracks(byId('legacy-tracks-mount'), {
   onPreferencesChange: savePreferences,
-  onBeforePlay() { introduction?.stop(); sequencePlayer?.stop(); accompaniment?.stop(); ear?.pauseListening('Открыты аудиодорожки.'); inputMonitor?.stop(); },
+  onBeforePlay() { introduction?.stop(); sequencePlayer?.stop(); rhythm?.pause('audio-owner'); ear?.pauseListening('Открыты аудиодорожки.'); inputMonitor?.stop(); },
 });
 tracks.setVisible(false);
 musicBank = mountMusicBank(byId('music-bank-mount'), {
   onPreferencesChange: savePreferences,
-  onBeforePlay() { introduction?.stop(); sequencePlayer?.stop(); accompaniment?.stop(); tracks?.stop(); ear?.pauseListening('Открыт раздел «Табулатура и ноты».'); inputMonitor?.stop(); },
+  onBeforePlay() { introduction?.stop(); sequencePlayer?.stop(); rhythm?.pause('audio-owner'); tracks?.stop(); ear?.pauseListening('Открыт раздел «Табулатура и ноты».'); inputMonitor?.stop(); },
 });
 musicBank.setVisible(false);
 function selectBankView(next: 'scores' | 'audio') {
@@ -795,14 +840,14 @@ for (const button of document.querySelectorAll<HTMLButtonElement>('[data-bank-vi
 }
 inputMonitor = mountInput(byId('input-mount'), {
   onPrefsChange: savePreferences,
-  onBeforeStart() { introduction?.stop(); sequencePlayer?.stop(); accompaniment?.stop(); tracks?.stop(); musicBank?.stop(); ear?.pauseListening('Открыт аудиовход.'); },
+  onBeforeStart() { introduction?.stop(); sequencePlayer?.stop(); rhythm?.pause('audio-owner'); tracks?.stop(); musicBank?.stop(); ear?.pauseListening('Открыт аудиовход.'); },
 });
 inputMonitor.setVisible(false);
 route = mountRoute(byId('route-mount'), byId('route-session-mount'), {
   onBeforeStart() { drafts.capture(); training?.finishCurrentSession(); ear?.finishCurrentSession(); training?.clearRouteContext(); ear?.clearRouteContext(); introduction?.stop(); sequencePlayer?.stop(); },
   getFreeMaterial: () => { if (!rangeIsValid()) throw new Error('Сначала исправь диапазон грифа.'); return createFreeRouteMaterial({ box: state.box, root: state.root, structureId: state.structureId, referencePositionIds: positions.map(position => position.id), pattern: training!.getPreferences().pattern, scope: training!.getSequenceScope(), player: sequencePlayer!.getPreferences() }); },
   onGo: openRouteStep,
-  onPause() { sequencePlayer?.stop(); accompaniment?.stop(); tracks?.stop(); musicBank?.stop(); inputMonitor?.stop(); ear?.pauseListening('Активный таймер приостановлен.'); },
+  onPause() { sequencePlayer?.stop(); rhythm?.pause('audio-owner'); tracks?.stop(); musicBank?.stop(); inputMonitor?.stop(); ear?.pauseListening('Активный таймер приостановлен.'); },
   onSessionChanged: persistRouteSession,
   onSessionFinished() { training?.clearRouteContext(); ear?.clearRouteContext(); syncPracticeBinding(); },
 });
@@ -814,7 +859,7 @@ function updateRouteInset() {
 const routeInsetObserver = new ResizeObserver(updateRouteInset); routeInsetObserver.observe(byId('route-session-mount'));
 introduction = mountIntroduction(byId('onboarding-mount'), { onChoice(choice, completed) { setProfile({ ...profile, onboarding: { version: 1, choice, completed } }); },
   onMaterial() { const material = createRouteMaterial(); const box = getBoxInstance(material.box!); applyPreferences({ ...lastValidPreferences, activeModule: 'foundation', study: { ...lastValidPreferences.study, root: 'C', structureId: 'major-triad', strings: STRING_ORDER.filter(string => box.positions.some(position => position.string === string)), fretMin: Math.min(lastValidPreferences.study.fretMin, box.window.fretMin), fretMax: Math.max(lastValidPreferences.study.fretMax, box.window.fretMax), box: material.box }, training: { ...lastValidPreferences.training, mode: 'study', reviewPositionIds: [], questionPolicy: 'random-v1' } }); savePreferences(); },
-  onPosition(id) { selectPosition(id, true); }, onBeforeListen() { sequencePlayer?.stop(); accompaniment?.stop(); tracks?.stop(); musicBank?.stop(); inputMonitor?.stop(); ear?.pauseListening(); },
+  onPosition(id) { selectPosition(id, true); }, onBeforeListen() { sequencePlayer?.stop(); rhythm?.pause('audio-owner'); tracks?.stop(); musicBank?.stop(); inputMonitor?.stop(); ear?.pauseListening(); },
 });
 byId('open-introduction').addEventListener('click', () => introduction?.open());
 document.querySelectorAll<HTMLElement>('[data-app-module]').forEach(button => button.addEventListener('click', () => switchModule(button.dataset.appModule as AppPreferences['activeModule'])));
@@ -829,7 +874,7 @@ history = mountHistory(byId('history-mount'), {
     previewImport: value => store.previewImport(value),
   },
   getPreferences,
-  applyPreferences: async value => { await flushAll(); applyPreferences(value); savePreferences(); await writes.flush(); },
+  applyPreferences: async (value, source) => { await flushAll(); applyPreferences(value, source); savePreferences(); await writes.flush(); },
   runWrite: operation => retiring ? Promise.reject(new Error('Эта страница закрывается; дождись сохранения и открой занятие снова.')) : writes.run(operation),
   flush: flushAll,
   isPersistent: () => persistent,
@@ -837,7 +882,7 @@ history = mountHistory(byId('history-mount'), {
   getPracticeDrafts: () => drafts.all().map(value => draftView(value)),
   editPracticeDraft: (id, note, bpm) => draftView(drafts.edit(id, note, bpm)),
   savePracticeDraft: async (id, note, bpm) => { await drafts.save(id, note, bpm); },
-  deletePracticeDraft: async id => { if (drafts.current()?.id === id) { sequencePlayer?.stop(); accompaniment?.stop(); } drafts.capture(); await drafts.remove(id); },
+  deletePracticeDraft: async id => { if (drafts.current()?.id === id) { sequencePlayer?.stop(); rhythm?.stop(); } drafts.capture(); await drafts.remove(id); },
   async deleteHistory(id) { liveSessionFinishes.get(id)?.(); deletedHistoryIds.add(id); const generation = writes.supersede(`history:${id}`); await writes.run(() => store.deleteHistory(id), `history:${id}`, generation); liveSessionFinishes.delete(id); },
   async deletePreset(id) { const generation = writes.supersede(`preset:${id}`); await writes.run(() => store.deletePreset(id), `preset:${id}`, generation); },
   onRepeatErrors(ids, context) {
@@ -858,7 +903,7 @@ history = mountHistory(byId('history-mount'), {
     main.setAttribute('aria-busy', 'true');
     try {
       sequencePlayer?.stop();
-      accompaniment?.stop();
+      rhythm?.stop();
       route?.stop();
       ear?.finishCurrentSession('Слуховое занятие остановлено перед восстановлением'); tracks?.stop(); musicBank?.stop(); inputMonitor?.stop();
       training?.finishCurrentSession('Занятие остановлено перед восстановлением');
@@ -870,13 +915,23 @@ history = mountHistory(byId('history-mount'), {
       if (retiring) throw new Error('Страница закрывается; настройки будут прочитаны при следующем запуске.');
       writes.clearFailures();
       drafts.reload(snapshot.practiceDrafts); bindingKey = '';
+      rhythm?.applyLibrary(rhythmLibrary(snapshot));
       profile = snapshot.profile; theme.setPreference(profile.theme, { notify: false }); if (persistent) theme.confirmPreference(profile.theme);
       applyPreferences(snapshot.preferences);
       return snapshot;
     } finally { main.inert = retiring || !writerLease?.acquired; main.setAttribute('aria-busy', String(main.inert)); enableHeader(!main.inert); }
   },
 });
-byId('retry-save').addEventListener('click', () => { if (!retiring) void writes.retry().then(() => { if (!writes.failureCount) history?.clearActionError(); return history?.refresh(); }); });
+byId('retry-save').addEventListener('click', () => {
+  if (retiring) return;
+  void writes.retry().then(async () => {
+    if (!writes.failureCount && !retiring) {
+      rhythm?.confirmLibrary(rhythmLibrary(await store.readSnapshot()));
+      history?.clearActionError();
+    }
+    await history?.refresh();
+  }).catch(() => {});
+});
 byId('retry-tab').addEventListener('click', () => location.reload());
 const historyDrawer = byId('history-mount').querySelector<HTMLDetailsElement>('.history-drawer')!;
 byId('open-history').addEventListener('click', () => {
@@ -917,6 +972,7 @@ async function initialize() {
   if (retiring) return;
   profile = snapshot.profile; theme.setPreference(profile.theme, { notify: false }); if (persistent) theme.confirmPreference(profile.theme);
   drafts.reload(snapshot.practiceDrafts); bindingKey = '';
+  rhythm?.applyLibrary(rhythmLibrary(snapshot));
   applyPreferences(snapshot.preferences);
   writes.clearFailures();
   await history?.refresh();
@@ -939,13 +995,14 @@ function retire() {
   enableHeader(false);
   routeInsetObserver.disconnect();
   sequencePlayer?.stop();
-  accompaniment?.stop();
+  rhythm?.stop();
   tracks?.stop(); musicBank?.stop();
   inputMonitor?.stop();
   route?.stop();
   ear?.stop('Страница закрывается');
   introduction?.stop(); drafts.capture();
   retiring = true;
+  rhythm?.dispose();
   musicBank?.dispose();
   clearInterval(draftCheckpoint);
   retirement = (async () => { try { await flushAll(); await store.close(); } finally { drafts.dispose(); theme.dispose(); writerLease?.release(); } })();
@@ -955,4 +1012,4 @@ window.addEventListener('pagehide', () => { void retire(); });
 const draftCheckpoint = setInterval(() => { if (!retiring && !main.inert) void drafts.flush().catch(() => {}); }, 5000);
 document.addEventListener('visibilitychange', () => { if (document.hidden && !retiring) void drafts.flush().catch(() => {}); });
 window.addEventListener('pageshow', event => { if (event.persisted) location.reload(); });
-if (import.meta.hot) import.meta.hot.dispose(() => { void retire(); introduction?.dispose(); sequencePlayer?.dispose(); training?.dispose(); ear?.dispose(); accompaniment?.dispose(); notation?.dispose(); tracks?.dispose(); void inputMonitor?.dispose(); route?.dispose(); history?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { void retire(); introduction?.dispose(); sequencePlayer?.dispose(); training?.dispose(); ear?.dispose(); rhythm?.dispose(); notation?.dispose(); tracks?.dispose(); void inputMonitor?.dispose(); route?.dispose(); history?.dispose(); });
