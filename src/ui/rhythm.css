@@ -35,11 +35,13 @@
   --rack-min: calc(var(--rack-label) + 4 * var(--rack-gap) + 368px + 12 * var(--pad-gap));
   --rhythm-field-inset: 8px;
   --rhythm-field-height: calc(var(--ruler-size) + 4 * (var(--rack-lane-height) + var(--rack-row-gap)) + 2 * var(--rhythm-field-inset));
+  --rhythm-deck-height: 40px;
+  --rhythm-stage-size: calc(var(--rhythm-field-height) + 174px);
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  padding-block: 13px 12px;
+  padding-block: var(--study-block-inset, 18px) 12px;
   gap: 9px;
   color: var(--rhythm-ink);
   container-type: inline-size;
@@ -92,7 +94,16 @@
 .rhythm-settings-lamp { width: 7px; height: 7px; border: 1px solid currentColor; border-radius: 50%; }
 .rhythm-settings-toggle[aria-expanded="true"] .rhythm-settings-lamp { background: currentColor; }
 
-.rhythm-view .rhythm-content { min-width: 0; min-height: 0; flex: 1 1 auto; }
+.rhythm-view .rhythm-content {
+  flex: none;
+  min-width: 0;
+  block-size: var(--rhythm-stage-size);
+  overflow: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--rhythm-edge) var(--rhythm-paper);
+}
 .rhythm-view :is(.rhythm-metro, .rhythm-groove) { display: grid; align-items: start; min-width: 0; }
 .rhythm-view .rhythm-workspace { display: grid; min-width: 0; min-height: 0; gap: 6px 16px; }
 .rhythm-view .rhythm-side-scroll {
@@ -100,10 +111,12 @@
   min-height: 0;
   border-inline-start: 0;
   border-block-start: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 7px;
+  padding: 10px 12px;
   scrollbar-width: thin;
   scrollbar-color: var(--rhythm-edge) var(--surface-raised);
 }
+.rhythm-view .rhythm-side-scroll > .section-title { margin-bottom: 6px; }
 .rhythm-view .rhythm-side-scroll:focus-visible { outline-offset: -2px; }
 .rhythm-view button.rhythm-settings-close {
   flex-shrink: 0;
@@ -116,15 +129,18 @@
 }
 .rhythm-view .rhythm-side-scroll .learning-help { margin-block: 0; }
 .rhythm-view .rhythm-side-scroll .learning-help > summary { min-height: 30px; }
-.rhythm-view .rhythm-side-scroll :is(.rhythm-control, .rhythm-choice) { gap: 7px; }
+.rhythm-view .rhythm-side-scroll :is(.rhythm-control, .rhythm-choice) { gap: 4px; }
 .rhythm-view .rhythm-side-scroll :is(.rhythm-control, .rhythm-choice) > span { font-weight: 400; }
 .rhythm-view .rhythm-side-scroll .rhythm-control input {
   width: 100%;
-  min-height: 36px;
+  min-height: 32px;
   font-size: 14px;
 }
 .rhythm-view .rhythm-groove-tools { display: grid; align-content: start; gap: 5px; min-width: 0; padding-inline: 1px; }
-.rhythm-view .rhythm-playback-settings { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+.rhythm-view .rhythm-groove-extras { display: flex; flex-wrap: wrap; gap: 5px 14px; min-width: 0; }
+.rhythm-view .rhythm-groove-extras > details { max-width: 100%; }
+.rhythm-view .rhythm-groove-extras > details[open] { flex: 0 0 100%; }
+.rhythm-view .rhythm-playback-settings { display: grid; gap: 5px; padding-top: 8px; border-top: 1px solid var(--border); }
 .rhythm-view :is(.rhythm-choice, .rhythm-control) { display: grid; gap: 4px; min-width: 0; }
 .rhythm-view :is(.rhythm-choice, .rhythm-control) > span { color: var(--rhythm-muted); font-size: 12px; font-weight: 500; }
 .rhythm-view .rhythm-control input { min-width: 0; font-variant-numeric: tabular-nums; }
@@ -143,8 +159,8 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 7px 16px;
-  min-height: 49px;
-  padding: 6px 12px;
+  min-height: var(--rhythm-deck-height);
+  padding: 3px 10px;
   border-bottom: 1px solid transparent;
   background: transparent;
 }
@@ -312,13 +328,25 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
-  gap: 12px 18px;
-  margin-top: 12px;
+  gap: 8px;
+  padding-block: 8px 2px;
 }
-.rhythm-view .rhythm-sounds { border: 0; }
-.rhythm-view .rhythm-sounds > button { min-height: 29px; margin-top: 5px; border-color: var(--rhythm-line); color: var(--accent-text); }
+.rhythm-view .rhythm-metro-secondary > :is(.rhythm-sounds, .rhythm-training) {
+  min-width: 0;
+  min-height: 48px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--rhythm-line);
+  border-radius: 6px;
+  background: var(--rhythm-recess);
+}
+.rhythm-view .rhythm-sounds { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 5px; }
+.rhythm-view .rhythm-sounds:has(details[open]) { grid-template-columns: minmax(0, 1fr); }
+.rhythm-view .rhythm-sounds > details { margin: 0; padding: 0; border: 0; background: transparent; }
+.rhythm-view .rhythm-sounds > button { min-height: 28px; padding: 2px 6px; border-color: var(--rhythm-line); color: var(--accent-text); font-size: 12px; }
+.rhythm-view .rhythm-metro-secondary summary { min-height: 28px; align-content: center; font-size: 13px; line-height: 1.25; }
 .rhythm-view .rhythm-metro-secondary summary strong { font-weight: 500; }
-.rhythm-view .rhythm-metro-secondary summary .rhythm-muted { margin-inline-start: auto; font-weight: 400; text-align: end; }
+.rhythm-view .rhythm-metro-secondary summary .rhythm-muted { margin-inline-start: 8px; font-weight: 400; }
 .rhythm-view .rhythm-kit-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(116px, 100%), 1fr));
@@ -362,7 +390,7 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  min-height: 36px;
+  min-height: var(--rack-lane-height);
   padding: 2px 5px;
   border: 0;
   border-left: 2px solid transparent;
@@ -467,8 +495,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.rhythm-view .rhythm-editor { display: grid; gap: 12px; }
-.rhythm-view .rhythm-editor-pattern { display: grid; gap: 8px; }
+.rhythm-view .rhythm-editor { display: grid; gap: 8px; }
+.rhythm-view .rhythm-editor-pattern { display: grid; gap: 6px; }
 .rhythm-view .rhythm-editor-pattern .rhythm-name { display: grid; gap: 7px; }
 .rhythm-view .rhythm-editor-sounds > .rhythm-utility { margin-top: 5px; }
 .rhythm-view .rhythm-action-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
@@ -501,7 +529,7 @@
 .rhythm-view .rhythm-chain-heading .rhythm-scope { display: flex; align-items: center; gap: 6px; }
 .rhythm-view .rhythm-chain-card .rhythm-card-heading { gap: 0 4px; }
 .rhythm-view .rhythm-chain-card .rhythm-card-heading button { min-height: 23px; padding: 0 4px; font-size: 15px; }
-.rhythm-view .rhythm-chain { display: flex; gap: 4px; overflow-x: auto; padding: 4px; scrollbar-color: var(--rhythm-edge) var(--rhythm-paper); }
+.rhythm-view .rhythm-chain { display: flex; gap: 4px; overflow-x: auto; padding: 2px 3px; scrollbar-color: var(--rhythm-edge) var(--rhythm-paper); }
 .rhythm-view button.rhythm-clip {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
@@ -533,38 +561,62 @@
 
 @container (max-width: 680px) {
   .rhythm-view .rhythm-bar-controls { padding-inline-start: 0; border-inline-start: 0; }
-  .rhythm-view .rhythm-metro-secondary { grid-template-columns: minmax(0, 1fr); }
+}
+
+@container (max-width: 500px) {
+  .rhythm-view .rhythm-sounds { grid-template-columns: minmax(0, 1fr); }
 }
 /* Compact controls below the playing surface. */
 .rhythm-view .rhythm-transport {
+  --rhythm-photo-glass: url('/images/rhythm-panel/glass.webp');
+  --rhythm-photo-knob: url('/images/rhythm-panel/knob.webp');
+  --rhythm-photo-fader: url('/images/rhythm-panel/fader.webp');
+  --rhythm-photo-start: url('/images/rhythm-panel/start.webp');
+  --rhythm-photo-stop: url('/images/rhythm-panel/stop.webp');
+  --rhythm-photo-pause: url('/images/rhythm-panel/pause.webp');
+  --rhythm-photo-count: url('/images/rhythm-panel/count-in.webp');
+  --rhythm-photo-wood: url('/images/rhythm-panel/wood.webp');
   --amp-ink: var(--text-primary);
-  --amp-muted: var(--text-secondary);
+  --amp-muted: light-dark(#4f564a, #d2cbbb);
   --amp-focus: var(--focus-ring);
-  --amp-divider: var(--border);
-  --amp-recess: var(--surface-muted);
-  --amp-key: var(--surface-input);
+  --amp-divider: light-dark(#bcad98, #6b6255);
+  --amp-recess: light-dark(#5d5549, #181b17);
+  --amp-key: light-dark(#f1ebdf, #46443b);
   --amp-key-ink: var(--text-primary);
-  --amp-dial-size: calc(71px + .076 * var(--rhythm-room));
-  --amp-fader-height: calc(clamp(56px, 5.8cqw, 66px) + .11 * var(--rhythm-room));
-  --amp-channel-width: clamp(72px, 8.35cqw, calc(92px + .038 * var(--rhythm-room)));
-  --amp-cap-width: calc(27px + .018 * var(--rhythm-room));
-  --amp-cap-height: calc(15px + .009 * var(--rhythm-room));
-  --amp-label-size: calc(12px + min(1px, .006 * var(--rhythm-room)));
+  --amp-plate: light-dark(#dfd6c6, #34352f);
+  --amp-plate-top: light-dark(#ede7da, #42413a);
+  --amp-dial-size: 63px;
+  --amp-fader-height: 74px;
+  --amp-cap-width: 40px;
+  --amp-cap-height: 17px;
+  --amp-label-size: 11px;
+  --amp-wood-height: 13px;
   position: relative;
   flex: none;
-  padding: calc(10px + .011 * var(--rhythm-room)) 14px calc(7px + .007 * var(--rhythm-room));
-  border: 1px solid transparent;
-  border-top-color: var(--amp-divider);
-  border-radius: 0;
-  background-color: var(--surface-raised);
+  padding-block: 7px calc(6px + var(--amp-wood-height));
+  border: 1px solid var(--amp-divider);
+  border-radius: 8px;
+  background: linear-gradient(165deg, var(--amp-plate-top), var(--amp-plate));
+  box-shadow: inset 0 1px #ffffff26, 0 2px 6px var(--shadow);
   color: var(--amp-ink);
 }
 
+.rhythm-view .rhythm-transport::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--amp-wood-height);
+  border-top: 1px solid #4027196b;
+  border-radius: 0 0 7px 7px;
+  background: #59402c var(--rhythm-photo-wood) center / cover;
+  box-shadow: inset 0 1px 2px #281b1666;
+  pointer-events: none;
+  content: "";
+}
+
 .rhythm-view .rhythm-transport-line {
-  --amp-module-inset: clamp(9px, 1.25cqw, 16px);
-  --amp-swing-width: calc(var(--amp-dial-size) - 12px + 2 * var(--amp-module-inset) + 1px);
+  --amp-module-inset: 9px;
   display: grid;
-  grid-template-columns: minmax(max-content, 1.08fr) minmax(var(--amp-swing-width), .48fr) minmax(156px, .87fr) minmax(0, 2fr);
+  grid-template-columns: minmax(132px, 1.08fr) minmax(152px, 1.12fr) minmax(115px, .95fr) minmax(0, 3.3fr);
   align-items: stretch;
 }
 
@@ -578,50 +630,80 @@
   border-inline-start: 1px solid var(--amp-divider);
 }
 
-.rhythm-view .rhythm-tempo,
-.rhythm-view .rhythm-swing-dock,
-.rhythm-view .rhythm-play-module {
-  display: flex;
-  align-items: center;
+.rhythm-view .rhythm-tempo {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 5px;
+}
+
+.rhythm-view .rhythm-tempo > * {
+  width: 100%;
+  max-width: 180px;
+}
+
+.rhythm-view .rhythm-dial-bank {
+  display: grid;
+  grid-template-columns: repeat(2, var(--amp-dial-size));
+  align-content: center;
   justify-content: center;
-  gap: 9px;
+  justify-items: center;
+  gap: 8px;
 }
 
 .rhythm-view .rhythm-bpm-display {
   display: grid;
-  justify-items: center;
+  justify-items: start;
   align-content: center;
-  min-width: 92px;
-  min-height: 77px;
-  padding: 3px 5px 5px;
-  border: 1px solid transparent;
+  gap: 3px;
+  min-width: 0;
+  min-height: 66px;
+  padding: 5px 7px;
+  border: 1px solid #101610;
   border-radius: 6px;
-  background-color: transparent;
-  color: var(--amp-muted);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: .05em;
+  background: #18231b var(--rhythm-photo-glass) center / cover;
+  box-shadow: inset 0 2px 6px #000a, 0 1px #fff5;
+  color: #ffdba0;
+}
+
+.rhythm-view .rhythm-bpm-caption,
+.rhythm-view .rhythm-bpm-unit {
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .08em;
+  white-space: nowrap;
+}
+
+.rhythm-view .rhythm-bpm-caption { text-transform: uppercase; }
+.rhythm-view .rhythm-bpm-caption:has([data-rhythm-output="linked-tempo"]:not([hidden])) .rhythm-bpm-caption-default { display: none; }
+.rhythm-view .rhythm-bpm-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  white-space: nowrap;
 }
 
 .rhythm-view .rhythm-bpm-display input {
-  width: 3.1ch;
+  width: 3.2ch;
   min-height: 0;
   padding: 0;
   border-color: transparent;
   background-color: transparent;
-  color: var(--amp-ink);
+  color: inherit;
   appearance: textfield;
-  font-size: clamp(36px, 4.6cqw, 59px);
-  font-weight: 650;
+  font: 700 32px/1 Consolas, 'Courier New', monospace;
   font-variant-numeric: tabular-nums;
-  line-height: 1;
   letter-spacing: -.045em;
-  text-align: center;
+  text-align: left;
+  text-shadow: 0 0 8px #ffac4d45;
 }
 
 .rhythm-view .rhythm-bpm-display input::-webkit-inner-spin-button { appearance: none; }
-.rhythm-view .rhythm-bpm-display input[aria-invalid="true"] { border-color: var(--danger-border); background-color: var(--danger-surface); }
-.rhythm-view .rhythm-tempo-nudges { display: grid; gap: 5px; }
+.rhythm-view .rhythm-bpm-display input[aria-invalid="true"] { border-color: var(--danger-border); background-color: var(--danger-surface); color: var(--danger-text); text-shadow: none; }
+@supports (field-sizing: content) {
+  .rhythm-view .rhythm-bpm-display input { field-sizing: content; width: auto; min-width: 1ch; max-width: 3.2ch; }
+}
+.rhythm-view .rhythm-tempo-nudges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
 
 .rhythm-view .rhythm-transport button {
   min-height: 27px;
@@ -633,6 +715,13 @@
   color: var(--amp-key-ink);
   font-weight: 600;
 }
+
+.rhythm-view .rhythm-tempo-nudges button {
+  min-height: 25px;
+  min-width: 0;
+  padding-inline: 1px;
+}
+.rhythm-view .rhythm-tempo-nudges button[data-rhythm-action="tap"] { font-size: 10px; letter-spacing: .04em; }
 
 .rhythm-view .rhythm-transport button:hover:not(:disabled) { background-color: var(--surface-hover); }
 .rhythm-view .rhythm-transport button:active:not(:disabled) { box-shadow: inset 0 1px 2px var(--shadow); }
@@ -656,59 +745,42 @@
 }
 
 .rhythm-view .rhythm-dial {
-  --dial-size: calc(var(--amp-dial-size) - 12px);
   display: grid;
-  grid-template-columns: var(--dial-size);
+  grid-template-columns: var(--amp-dial-size);
   justify-items: center;
   align-items: center;
   flex: none;
   gap: 3px;
-  color: var(--amp-muted);
+  color: var(--amp-ink);
   font-size: var(--amp-label-size);
-  font-weight: 500;
+  font-weight: 650;
   text-align: center;
 }
 
-.rhythm-view .rhythm-tempo .rhythm-dial { --dial-size: var(--amp-dial-size); }
-
 .rhythm-view .rhythm-dial-scale {
   display: grid;
-  grid-area: 1 / 1;
+  grid-area: 2 / 1;
   place-items: center;
-  width: var(--dial-size);
-  height: var(--dial-size);
+  width: var(--amp-dial-size);
+  height: var(--amp-dial-size);
   pointer-events: none;
   background: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='%2374836d' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M50 2v6' transform='rotate(-135 50 50)'/%3E%3Cpath d='M50 2v3' transform='rotate(-112.5 50 50)'/%3E%3Cpath d='M50 2v3' transform='rotate(-90 50 50)'/%3E%3Cpath d='M50 2v6' transform='rotate(-67.5 50 50)'/%3E%3Cpath d='M50 2v3' transform='rotate(-45 50 50)'/%3E%3Cpath d='M50 2v3' transform='rotate(-22.5 50 50)'/%3E%3Cpath d='M50 2v6'/%3E%3Cpath d='M50 2v3' transform='rotate(22.5 50 50)'/%3E%3Cpath d='M50 2v3' transform='rotate(45 50 50)'/%3E%3Cpath d='M50 2v6' transform='rotate(67.5 50 50)'/%3E%3Cpath d='M50 2v3' transform='rotate(90 50 50)'/%3E%3Cpath d='M50 2v3' transform='rotate(112.5 50 50)'/%3E%3Cpath d='M50 2v6' transform='rotate(135 50 50)'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 .rhythm-view .rhythm-dial-face {
-  position: relative;
-  width: calc(var(--dial-size) - 16px);
+  width: calc(var(--amp-dial-size) - 10px);
   aspect-ratio: 1;
-  border: 1px solid var(--border-strong);
   border-radius: 50%;
-  background-color: var(--amp-key);
-  box-shadow: inset 0 -2px var(--amp-divider), 0 1px 2px var(--shadow);
+  background: #353530 var(--rhythm-photo-knob) center / contain no-repeat;
+  box-shadow: 0 2px 3px #231b1480;
   transform: rotate(var(--dial-angle, 0deg));
-}
-
-.rhythm-view .rhythm-dial-face::after {
-  position: absolute;
-  top: 5px;
-  left: 50%;
-  width: 3px;
-  height: 27%;
-  border-radius: 2px;
-  background-color: var(--selection);
-  transform: translateX(-50%);
-  content: "";
 }
 
 .rhythm-view .rhythm-dial > input[type="range"] {
   position: relative;
-  grid-area: 1 / 1;
-  width: var(--dial-size);
-  height: var(--dial-size);
+  grid-area: 2 / 1;
+  width: var(--amp-dial-size);
+  height: var(--amp-dial-size);
   opacity: 0;
   cursor: ns-resize;
   touch-action: none;
@@ -722,67 +794,164 @@
 .rhythm-view .rhythm-dial:has(input:disabled) .rhythm-dial-scale { opacity: .52; }
 .rhythm-view .rhythm-dial:has(input:disabled) > input { cursor: default; }
 
-.rhythm-view .rhythm-swing-dock,
-.rhythm-view .rhythm-play-module {
-  flex-direction: column;
-  gap: 4px;
+.rhythm-view :is(.rhythm-tempo-dial, .rhythm-swing-dock) {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
 }
 
-.rhythm-view .rhythm-swing-dock output { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.rhythm-view .rhythm-swing-unavailable { display: grid; justify-items: center; gap: 3px; color: var(--amp-muted); font-size: 12px; }
-.rhythm-view .rhythm-swing-unavailable [aria-hidden="true"] { color: var(--amp-ink); font-size: 16px; font-weight: 650; }
-.rhythm-view .rhythm-play-module > .rhythm-check { color: var(--amp-muted); font-size: var(--amp-label-size); white-space: nowrap; }
+.rhythm-view :is(.rhythm-tempo-limits, .rhythm-swing-dock output) {
+  min-height: 15px;
+  font-size: var(--amp-label-size);
+  line-height: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.rhythm-view .rhythm-tempo-limits { display: flex; gap: 10px; color: var(--amp-muted); }
+.rhythm-view .rhythm-swing-dock output { font-weight: 650; }
+.rhythm-view .rhythm-play-module {
+  display: grid;
+  grid-template-rows: 25px auto auto;
+  align-content: center;
+  gap: 3px;
+}
+
+.rhythm-view .rhythm-play-module > :is(.rhythm-position, .rhythm-play-buttons, .rhythm-count-in) {
+  width: 100%;
+  max-width: 152px;
+  justify-self: center;
+}
+.rhythm-view :is(.rhythm-count-in, .rhythm-overlay-switch) {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.rhythm-view :is(.rhythm-count-in, .rhythm-overlay-switch) > input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.rhythm-view :is(.rhythm-count-in, .rhythm-overlay-switch):has(input:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.rhythm-view .rhythm-count-in {
+  min-height: 32px;
+  padding: 3px 5px;
+  border: 1px solid var(--amp-divider);
+  background: var(--amp-key);
+  color: var(--amp-ink);
+  font-size: var(--amp-label-size);
+  white-space: nowrap;
+}
+.rhythm-view .rhythm-count-in-caption { display: grid; line-height: 1.12; font-weight: 650; }
+.rhythm-view .rhythm-count-in-caption .rhythm-switch-value { font-size: 10px; font-weight: 500; }
+.rhythm-view .rhythm-count-in-track {
+  width: 30px;
+  height: 16px;
+  flex: none;
+  background: var(--rhythm-photo-count) center / contain no-repeat;
+  filter: grayscale(1) brightness(.86);
+}
+.rhythm-view .rhythm-count-in:has(input:checked) { border-color: var(--selection); }
+.rhythm-view .rhythm-count-in input:checked + .rhythm-count-in-track { filter: brightness(1.25); }
+.rhythm-view .rhythm-overlay-switch {
+  width: fit-content;
+  min-height: 34px;
+  padding: 2px 6px 2px 2px;
+  color: var(--rhythm-ink);
+}
+.rhythm-view .rhythm-overlay-switch-face {
+  width: 28px;
+  height: 29px;
+  flex: none;
+  background: url('/images/rhythm-panel/overlay-off.webp') center / contain no-repeat;
+}
+.rhythm-view .rhythm-overlay-switch input:checked + .rhythm-overlay-switch-face { background-image: url('/images/rhythm-panel/overlay-on.webp'); }
+.rhythm-view .rhythm-switch-value {
+  display: inline-grid;
+  color: var(--amp-muted, var(--rhythm-muted));
+  font-size: .92em;
+}
+.rhythm-view .rhythm-switch-value > span { grid-area: 1 / 1; }
+.rhythm-view .rhythm-switch-value > span:last-child,
+.rhythm-view :is(.rhythm-count-in, .rhythm-overlay-switch):has(input:checked) .rhythm-switch-value > span:first-child { visibility: hidden; }
+.rhythm-view :is(.rhythm-count-in, .rhythm-overlay-switch):has(input:checked) .rhythm-switch-value > span:last-child {
+  visibility: visible;
+  color: var(--amp-ink, var(--rhythm-ink));
+  font-weight: 650;
+}
+@media (pointer: coarse) {
+  .rhythm-view :is(.rhythm-count-in, .rhythm-overlay-switch) { min-height: 44px; }
+}
 .rhythm-view .rhythm-play-buttons {
   display: grid;
-  grid-template-columns: 53px 47px 34px;
-  gap: 5px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
   align-items: center;
 }
 
 .rhythm-view .rhythm-play-buttons button {
   min-width: 0;
-  min-height: calc(39px + min(4px, .02 * var(--rhythm-room)));
+  min-height: 39px;
   padding: 0;
   font-size: 17px;
   white-space: nowrap;
 }
 
-.rhythm-view .rhythm-play-buttons :is(.rhythm-primary, [data-rhythm-action="pause"]):not(:disabled) {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--text-inverse);
-  box-shadow: inset 0 -2px var(--shadow);
-}
-
-.rhythm-view .rhythm-play-buttons :is(.rhythm-primary, [data-rhythm-action="pause"]):hover:not(:disabled) { background: var(--accent-hover); }
-.rhythm-view .rhythm-play-buttons button[data-rhythm-action="tap"] {
-  min-height: 26px;
-  border-color: var(--amp-divider);
-  background-color: transparent;
+.rhythm-view .rhythm-play-buttons button.rhythm-photo-key {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 1px;
+  border-color: transparent;
+  background: transparent;
   box-shadow: none;
-  color: var(--accent-text);
-  font-size: var(--amp-label-size);
-  letter-spacing: .04em;
+  color: var(--amp-ink);
+  font-size: 11px;
+  line-height: 1.2;
 }
 
-.rhythm-view .rhythm-play-buttons button[data-rhythm-action="tap"]:hover:not(:disabled) { background-color: var(--surface-hover); }
+.rhythm-view .rhythm-key-face {
+  display: grid;
+  place-items: center;
+  width: min(100%, 47px);
+  height: 24px;
+  background: var(--rhythm-photo-start) center / contain no-repeat;
+  color: transparent;
+  font-size: 13px;
+  filter: drop-shadow(0 1px 1px #0006);
+}
+.rhythm-view [data-rhythm-action="stop"] .rhythm-key-face { background-image: var(--rhythm-photo-stop); }
+.rhythm-view [data-rhythm-action="pause"] .rhythm-key-face { background-image: var(--rhythm-photo-pause); color: #fff6e2; }
+.rhythm-view .rhythm-photo-key:active:not(:disabled) .rhythm-key-face { transform: translateY(1px); }
 
 .rhythm-view .rhythm-position {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  min-height: 2.8em;
+  display: grid;
+  grid-template-columns: 6px minmax(0, 1fr);
+  grid-template-rows: repeat(2, 12px);
+  gap: 0 5px;
+  align-items: center;
   width: 100%;
-  gap: 6px;
   color: var(--amp-muted);
-  font-size: var(--amp-label-size);
+  font-size: 10px;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
+.rhythm-view .rhythm-position-phase { grid-column: 2; grid-row: 1; }
+.rhythm-view .rhythm-position-detail { grid-column: 1 / -1; grid-row: 2; }
+.rhythm-view .rhythm-position > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .rhythm-view .rhythm-position::before {
-  width: 7px;
-  height: 7px;
-  flex: none;
+  grid-area: 1 / 1;
+  width: 6px;
+  height: 6px;
   border: 1px solid var(--border-strong);
   border-radius: 50%;
   background-color: transparent;
@@ -801,150 +970,167 @@
 }
 
 .rhythm-view .rhythm-mix-module {
-  position: relative;
+  --amp-mixer-face: light-dark(#e4dacb, #32332d);
+  --amp-mixer-master: light-dark(#dcd0bc, #3d3e36);
+  --amp-scale-ink: light-dark(#807660, #a29b87);
+  --amp-strip-rule: light-dark(#b9aa936e, #8c826260);
+  --amp-strip-height: calc(52px + var(--amp-fader-height));
   display: grid;
-  justify-items: center;
-  align-items: center;
-  padding-block: 3px 0;
+  align-content: center;
+  gap: 3px;
 }
 
 .rhythm-view .rhythm-mix-module h2 {
-  position: absolute;
-  top: -6px;
-  z-index: 1;
-  padding-inline: 7px;
-  background-color: transparent;
   color: var(--amp-ink);
-  font-size: var(--amp-label-size);
-  font-weight: 600;
-  line-height: 1.05;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .09em;
+  line-height: 15px;
+  text-transform: uppercase;
 }
 
 .rhythm-view .rhythm-mix-board {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(58px, 19%, 104px);
   gap: 4px;
-  width: min(100%, calc(4 * var(--amp-channel-width) + 76px));
   min-width: 0;
-  padding: 3px 3px 1px;
-  border: 1px solid transparent;
+  padding: 1px 3px;
+  border: 1px solid var(--amp-divider);
+  border-radius: 6px;
+  background-color: var(--amp-mixer-face);
 }
 
 .rhythm-view .rhythm-mix-channels {
   display: flex;
-  flex: 1 1 auto;
-  align-items: start;
-  height: calc(var(--amp-fader-height) + 72px);
+  justify-content: safe center;
+  block-size: calc(var(--amp-strip-height) + 8px);
   min-width: 0;
   overflow: auto hidden;
-  padding: 1px 3px;
-  scrollbar-color: var(--border-strong) var(--amp-recess);
+  scrollbar-color: var(--amp-scale-ink) var(--amp-mixer-face);
   scrollbar-width: thin;
 }
 
-.rhythm-view .rhythm-mix-channels[data-rhythm-dock="metronome"] { justify-content: space-between; }
-
 .rhythm-view .rhythm-channel {
   display: grid;
-  grid-template-rows: 28px var(--amp-fader-height) 13px 19px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-rows: 28px var(--amp-fader-height) 20px;
   gap: 2px;
   justify-items: center;
   align-items: center;
-  align-content: start;
-  flex: 0 0 var(--amp-channel-width);
+  flex: 0 0 clamp(70px, 25%, 154px);
+  block-size: var(--amp-strip-height);
   min-width: 0;
+  max-width: 154px;
   margin: 0;
-  padding-inline: 2px;
+  padding-inline: 3px;
   color: var(--amp-muted);
-  font-size: var(--amp-label-size);
+  font-size: 12px;
   font-weight: 500;
   line-height: 1;
   text-align: center;
 }
 
-.rhythm-view .rhythm-mix-module:has(.rhythm-mix-channels > .rhythm-channel:nth-child(6)) {
-  --amp-channel-width: 72px;
+.rhythm-view .rhythm-mix-channels .rhythm-channel + .rhythm-channel {
+  border-inline-start: 1px solid var(--amp-strip-rule);
 }
 
-.rhythm-view .rhythm-mix-board:has(.rhythm-mix-channels > .rhythm-channel:nth-child(5)) { width: 100%; }
-
 .rhythm-view .rhythm-master {
-  flex-basis: 58px;
-  margin-block: 1px;
-  padding-inline-start: 6px;
+  border-radius: 0 4px 4px 0;
   border-inline-start: 1px solid var(--amp-divider);
+  background-color: var(--amp-mixer-master);
 }
 
 .rhythm-view .rhythm-channel-name {
   display: -webkit-box;
-  align-self: end;
+  grid-column: 1 / -1;
   max-width: 100%;
+  padding-block-end: 1px;
   overflow: hidden;
+  color: var(--amp-ink);
+  font-weight: 600;
   text-overflow: ellipsis;
   text-wrap: balance;
   line-height: 14px;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
-.rhythm-view .rhythm-channel output { color: var(--amp-ink); font-variant-numeric: tabular-nums; }
-.rhythm-view .rhythm-fader-slot { display: grid; place-items: center; }
+.rhythm-view .rhythm-channel output { grid-area: 3 / 2; color: var(--amp-ink); font-weight: 650; font-variant-numeric: tabular-nums; }
+.rhythm-view .rhythm-fader-slot { display: grid; grid-area: 2 / 1 / 3 / -1; place-items: center; }
+
+.rhythm-view .rhythm-fader-slot::before {
+  grid-area: 1 / 1;
+  width: 44px;
+  height: calc(var(--amp-fader-height) - var(--amp-cap-height));
+  background-color: var(--amp-scale-ink);
+  mask: center / 100% 100% no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 100' preserveAspectRatio='none'%3E%3Cpath d='M1 1h14m14 0h14M8 17h7m14 0h7M5 34h10m14 0h10M1 50h14m14 0h14M5 66h10m14 0h10M8 83h7m14 0h7M1 99h14m14 0h14' fill='none' stroke='black' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  pointer-events: none;
+  content: "";
+}
 
 .rhythm-view input.rhythm-fader {
-  width: calc(42px + .018 * var(--rhythm-room));
+  position: relative;
+  grid-area: 1 / 1;
+  width: 48px;
   height: var(--amp-fader-height);
   appearance: none;
   writing-mode: vertical-lr;
   direction: rtl;
-  background: center / 36px calc(100% - var(--amp-cap-height)) no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 100' preserveAspectRatio='none'%3E%3Cpath d='M2 1h10m12 0h10M8 17h4m12 0h4M5 34h7m12 0h7M2 50h10m12 0h10M5 66h7m12 0h7M8 83h4m12 0h4M2 99h10m12 0h10' fill='none' stroke='%2374836d' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  background: transparent;
   cursor: ns-resize;
 }
 
 .rhythm-view input.rhythm-fader::-webkit-slider-runnable-track {
-  width: 7px;
-  border: 1px solid var(--border-strong);
+  width: 8px;
+  border: 1px solid var(--amp-scale-ink);
   border-radius: 4px;
   background-color: var(--amp-recess);
+  box-shadow: inset 1px 0 2px #0006;
 }
 
 .rhythm-view input.rhythm-fader::-moz-range-track {
-  width: 7px;
-  border: 1px solid var(--border-strong);
+  width: 8px;
+  border: 1px solid var(--amp-scale-ink);
   border-radius: 4px;
   background-color: var(--amp-recess);
+  box-shadow: inset 1px 0 2px #0006;
 }
 
 .rhythm-view input.rhythm-fader::-webkit-slider-thumb {
   width: var(--amp-cap-width);
   height: var(--amp-cap-height);
-  margin-left: calc((5px - var(--amp-cap-width)) / 2);
+  margin-left: calc((6px - var(--amp-cap-width)) / 2);
   appearance: none;
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  background-color: var(--accent);
-  box-shadow: inset 0 -2px var(--shadow);
+  border: 0;
+  background: var(--rhythm-photo-fader) center / contain no-repeat;
+  filter: drop-shadow(0 1px 1px #0009);
 }
 
 .rhythm-view input.rhythm-fader::-moz-range-thumb {
   width: var(--amp-cap-width);
   height: var(--amp-cap-height);
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  background-color: var(--accent);
-  box-shadow: inset 0 -2px var(--shadow);
+  border: 0;
+  background: var(--rhythm-photo-fader) center / contain no-repeat;
+  filter: drop-shadow(0 1px 1px #0009);
 }
 
-.rhythm-view .rhythm-channel-keys { display: flex; justify-content: center; gap: 3px; }
+.rhythm-view .rhythm-channel-keys { display: contents; }
 
 .rhythm-view .rhythm-channel-keys button {
-  min-width: 22px;
-  min-height: 19px;
-  padding: 1px 3px;
+  grid-row: 3;
+  min-width: 19px;
+  min-height: 20px;
+  padding: 1px 2px;
   border-color: var(--amp-divider);
   background-color: var(--amp-key);
   box-shadow: none;
   color: var(--amp-ink);
-  font-size: var(--amp-label-size);
+  font-size: 10px;
+  line-height: 1;
 }
+.rhythm-view .rhythm-channel-keys .rhythm-lane-mute { grid-column: 1; justify-self: end; }
+.rhythm-view .rhythm-channel-keys .rhythm-lane-solo { grid-column: 3; justify-self: start; }
 
+.rhythm-view .rhythm-mix-board :is(button, input):focus-visible { outline-offset: -1px; }
 .rhythm-view .rhythm-channel-keys button:hover:not(:disabled) { background-color: var(--surface-hover); }
 .rhythm-view .rhythm-channel-keys .rhythm-lane-solo[aria-pressed="true"] {
   border-color: var(--accent);
@@ -963,11 +1149,11 @@
   font-size: 12px;
 }
 
-.rhythm-view .rhythm-transport-options:not(:has(.rhythm-muted:not([hidden]), .rhythm-error:not([hidden]), .rhythm-status:not(:empty), button:not([hidden]))) {
+.rhythm-view .rhythm-transport-options:not(:has(.rhythm-error:not([hidden]), .rhythm-status:not(:empty), button:not([hidden]))) {
   position: absolute;
 }
 
-.rhythm-view .rhythm-transport-options :is(.rhythm-muted, .rhythm-status) {
+.rhythm-view .rhythm-transport-options .rhythm-status {
   min-height: 0;
   margin: 0;
   color: inherit;
@@ -976,51 +1162,20 @@
 
 .rhythm-view .rhythm-transport-options .rhythm-error { flex-basis: 100%; color: var(--danger-text); }
 
-@media (min-width: 821px) and (min-height: 600px) {
-  .app-content:has(#harmony-mount:not([hidden])):not(:has(#history-mount:not([hidden]), #onboarding-mount:not([hidden]))) {
-    display: flex;
-    flex-direction: column;
-    height: calc(100dvh - var(--rhythm-stage-margin, 34px));
-  }
-
-  .app-content:has(#harmony-mount:not([hidden])):not(:has(#history-mount:not([hidden]), #onboarding-mount:not([hidden]))) > main {
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
+@media (width < 1050px), (height < 660px) {
+  /* Short layouts scroll as a page; don't leave an empty frame after the controls. */
+  .app-shell:has(#harmony-mount:not([hidden])):not(:has(#history-mount:not([hidden]), #onboarding-mount:not([hidden]))) {
     min-height: 0;
+    & > .site-header {
+      @media (min-width: 621px) {
+        position: static;
+        align-self: stretch;
+        min-height: 0;
+        max-height: none;
+        .sidebar-art { flex-basis: 0; }
+      }
+    }
   }
-
-  .app-content:has(#harmony-mount:not([hidden])):not(:has(#history-mount:not([hidden]), #onboarding-mount:not([hidden]))) #harmony-mount {
-    display: flex;
-    flex: 1 1 auto;
-    min-height: 0;
-  }
-
-  .app-content:has(#harmony-mount:not([hidden])):not(:has(#history-mount:not([hidden]), #onboarding-mount:not([hidden]))) .rhythm-view {
-    flex: 1 1 auto;
-  }
-
-  .app-content:has(#harmony-mount:not([hidden])):not(:has(#history-mount:not([hidden]), #onboarding-mount:not([hidden]))) .rhythm-content {
-    overflow: var(--rhythm-content-overflow, auto);
-    overscroll-behavior-y: contain;
-    scrollbar-color: var(--rhythm-edge) var(--rhythm-paper);
-    scrollbar-width: thin;
-    scrollbar-gutter: var(--rhythm-content-gutter, stable);
-    padding-block: 3px 4px;
-  }
-}
-
-@media (max-width: 950px), (max-height: 800px) {
-  .app-shell:has(#harmony-mount:not([hidden])) { --rhythm-stage-margin: 26px; }
-}
-
-@media (min-width: 1050px) {
-  .rhythm-view { gap: 7px; }
-}
-
-@media (min-width: 1050px) and (max-height: 760px) {
-  .rhythm-view .rhythm-deck-header { min-height: 43px; padding-block: 4px; }
-  .rhythm-view .rhythm-rack-scroll { padding-block-end: 6px; }
 }
 
 @media (min-width: 821px) and (min-height: 801px) {
@@ -1032,23 +1187,52 @@
 }
 
 @media (min-width: 1050px) and (min-height: 660px) {
-  .rhythm-view .rhythm-content {
+  /* The rhythm workspace keeps its frame when history is appended below it. */
+  .app-content #harmony-mount.rhythm-view { block-size: var(--study-content-height); }
+  .app-content:has(#harmony-mount:not([hidden])):not(:has(#history-mount:not([hidden]), #onboarding-mount:not([hidden]))) {
     display: flex;
     flex-direction: column;
-    --rhythm-content-overflow: clip;
-    --rhythm-content-gutter: auto;
+    block-size: var(--study-content-height);
+    & > main { flex: 1; min-block-size: 0; }
+    & #harmony-mount { block-size: 100%; }
+  }
+  .rhythm-view { gap: 7px; }
+  .rhythm-view .rhythm-content {
+    flex: 1 0 0px;
+    min-block-size: 275px;
+    block-size: auto;
+    container: rhythm-stage / size;
+    overflow: clip;
+    scrollbar-gutter: auto;
   }
 
   .rhythm-view :is(.rhythm-metro, .rhythm-groove) {
-    flex: 1 1 auto;
+    block-size: 100%;
     min-height: 0;
     grid-template-rows: minmax(0, 1fr);
     align-items: stretch;
   }
 
-  .rhythm-view .rhythm-workspace { grid-template-rows: auto minmax(0, 1fr); }
+  .rhythm-view .rhythm-metro .rhythm-workspace { grid-template-rows: minmax(0, 1fr); }
+  .rhythm-view .rhythm-groove .rhythm-workspace { grid-template-rows: auto minmax(0, 1fr); }
   .rhythm-view :is(.rhythm-groove-detail-scroll, .rhythm-metro .rhythm-side-scroll) { min-height: 0; overflow-y: auto; }
-  .rhythm-view .rhythm-pulse { align-self: start; overflow: hidden; }
+
+  .rhythm-view .rhythm-pulse {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    block-size: 100cqh;
+    overflow: hidden;
+  }
+  .rhythm-view .rhythm-metro-secondary {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    align-content: start;
+    align-items: stretch;
+    overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--rhythm-edge) var(--rhythm-paper);
+  }
+  .rhythm-view .rhythm-sounds:has(details[open]) > button { justify-self: start; }
+  .rhythm-view .rhythm-training-fields fieldset { align-content: start; }
 
   .rhythm-view :is(.rhythm-pulse, .rhythm-rack-scroll, .rhythm-groove-detail-scroll) {
     scrollbar-width: thin;
@@ -1057,8 +1241,20 @@
   }
 }
 
+@media (1050px <= width < 1440px) and (height >= 660px), (width >= 1440px) and (660px <= height < 700px) {
+  .rhythm-view .rhythm-content { overflow: hidden; scrollbar-gutter: stable; }
+  .rhythm-view .rhythm-content:has(.rhythm-metro .rhythm-side-scroll:not([hidden])) { overflow: auto; }
+  .rhythm-view .rhythm-metro { block-size: auto; grid-template-rows: auto; }
+  .rhythm-view .rhythm-metro .rhythm-workspace { grid-template-rows: auto; }
+}
+
+@media (min-width: 1050px) and (660px <= height <= 740px) {
+  .rhythm-view .rhythm-rack-scroll { padding-block-end: 4px; }
+}
+
 @media (min-width: 1440px) and (min-height: 700px) {
   .rhythm-view .rhythm-workspace:has(.rhythm-side-scroll:not([hidden])) { grid-template-columns: minmax(0, 1fr) 280px; }
+  .rhythm-view .rhythm-constructor { grid-column: 1; }
   .rhythm-view .rhythm-groove-detail-scroll { display: contents; }
   .rhythm-view .rhythm-groove-tools { grid-column: 1; grid-row: 2; min-height: 0; overflow-y: auto; }
   .rhythm-view .rhythm-side-scroll {
@@ -1073,7 +1269,15 @@
     scrollbar-gutter: stable;
   }
   .rhythm-view .rhythm-groove-tools { scrollbar-color: var(--rhythm-edge) var(--rhythm-paper); }
-  .rhythm-view :is(.rhythm-metro-parameters, .rhythm-metro-secondary) { grid-template-columns: minmax(0, 1fr); }
+  .rhythm-view .rhythm-metro-parameters { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (min-width: 1440px) and (min-height: 900px) {
+  .rhythm-view .rhythm-metro-secondary > :is(.rhythm-sounds, .rhythm-training) { padding: 9px 12px; }
+  .rhythm-view .rhythm-training-fields fieldset { flex: 1 0 155px; }
+  .rhythm-view .rhythm-training-fields fieldset > label { flex: 1 0 100%; justify-content: space-between; }
+  .rhythm-view .rhythm-velocity-cell { height: clamp(72px, 13cqh, 120px); }
+  .rhythm-view .rhythm-velocity-track { height: calc(100% - 6px); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1085,45 +1289,102 @@
   to { opacity: 1; }
 }
 
-@container (max-width: 850px) {
-  .rhythm-view .rhythm-transport {
-    --amp-dial-size: 68px;
-    padding-inline: 8px;
+@container (min-width: 1000px) {
+  .rhythm-view .rhythm-bpm-display { padding-inline: 10px; }
+  .rhythm-view .rhythm-bpm-display input { font-size: 38px; }
+  .rhythm-view .rhythm-bpm-readout {
+    justify-self: stretch;
+    justify-content: space-between;
   }
+}
+
+@container (max-width: 850px) {
   .rhythm-view .rhythm-transport-line {
     --amp-module-inset: 7px;
-    grid-template-columns: max-content var(--amp-swing-width) 146px minmax(0, 1fr);
+    grid-template-columns: 114px 146px 108px minmax(0, 1fr);
   }
-  .rhythm-view .rhythm-bpm-display { min-width: 72px; min-height: 70px; }
-  .rhythm-view .rhythm-play-buttons { grid-template-columns: repeat(2, 37px) 43px; }
+  .rhythm-view .rhythm-dial-bank { gap: 5px; }
+  .rhythm-view .rhythm-bpm-display { padding-inline: 5px; }
+  .rhythm-view .rhythm-bpm-display input { font-size: 28px; }
+  .rhythm-view :is(.rhythm-bpm-caption, .rhythm-bpm-unit) { font-size: 9px; }
 }
 
 @container (max-width: 640px) {
   .rhythm-view .rhythm-velocity-defaults > strong { flex-basis: 100%; }
-  .rhythm-view .rhythm-transport-line { grid-template-columns: max-content var(--amp-swing-width) minmax(0, 1fr); }
+}
+
+@container (max-width: 705px) {
+  .rhythm-view .rhythm-transport {
+    --amp-fader-height: 64px;
+    --amp-cap-width: 35px;
+    --amp-cap-height: 15px;
+  }
+  .rhythm-view .rhythm-transport-line { grid-template-columns: minmax(95px, 1fr) minmax(130px, 1.3fr) minmax(95px, 1fr); }
   .rhythm-view .rhythm-transport-line > .rhythm-mix-module {
     grid-column: 1 / -1;
-    margin-top: 5px;
-    padding-inline: 0;
+    margin-top: 8px;
+    padding-top: 7px;
+    border-block-start: 1px solid var(--amp-divider);
     border-inline-start: 0;
   }
+  .rhythm-view :is(.rhythm-bpm-display, .rhythm-tempo-nudges),
+  .rhythm-view .rhythm-play-module > :is(.rhythm-position, .rhythm-play-buttons, .rhythm-count-in) {
+    width: 100%;
+    max-width: 114px;
+    justify-self: center;
+  }
+  .rhythm-view .rhythm-dial-bank { justify-content: center; grid-template-columns: repeat(2, var(--amp-dial-size)); }
 }
 
 @container (max-width: 420px) {
-  .rhythm-view .rhythm-transport { --amp-dial-size: 46px; }
+  .rhythm-view .rhythm-transport { --amp-dial-size: 51px; }
   .rhythm-view .rhythm-transport-line {
-    --amp-module-inset: 3px;
-    --amp-swing-width: 46px;
-    grid-template-columns: minmax(121px, 1fr) var(--amp-swing-width) minmax(90px, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(116px, 1.3fr);
   }
-  .rhythm-view .rhythm-tempo { gap: 3px; }
-  .rhythm-view .rhythm-bpm-display { min-width: 0; min-height: 52px; padding-inline: 0; font-size: 9px; }
-  .rhythm-view .rhythm-bpm-display input { width: 2.85ch; font-size: 27px; }
-  .rhythm-view .rhythm-tempo-nudges button { width: 18px; min-height: 22px; padding-inline: 0; }
-  .rhythm-view .rhythm-play-buttons { grid-template-columns: 29px 27px 24px; gap: 3px; }
-  .rhythm-view .rhythm-play-buttons button { min-height: 34px; font-size: 13px; }
-  .rhythm-view .rhythm-play-buttons button[data-rhythm-action="tap"] { min-height: 23px; font-size: 8px; }
-  .rhythm-view .rhythm-play-module > .rhythm-check { white-space: normal; }
+  .rhythm-view .rhythm-bpm-display { min-height: 55px; }
+  .rhythm-view .rhythm-bpm-display input { font-size: 26px; }
+  .rhythm-view .rhythm-transport-line > .rhythm-play-module {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: 24px auto;
+    gap: 2px 8px;
+    align-items: center;
+    margin-top: 6px;
+    padding-top: 4px;
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--amp-divider);
+  }
+  .rhythm-view .rhythm-play-module > .rhythm-position { grid-column: 1 / -1; max-width: none; }
+}
+
+@media (max-height: 740px) {
+  .rhythm-view .rhythm-transport {
+    --amp-fader-height: 64px;
+    --amp-cap-width: 35px;
+    --amp-cap-height: 15px;
+  }
+}
+
+@media (max-width: 820px), (max-height: 599px) {
+  .rhythm-view .rhythm-content { --rhythm-stage-size: calc(var(--rhythm-field-height) + 64px); }
+
+  @container (max-width: 480px) {
+    .rhythm-view .rhythm-content {
+      /* The groove header can wrap over two rows on a narrow screen. */
+      --rhythm-stage-size: calc(var(--rhythm-field-height) + 83px);
+    }
+  }
+}
+
+@media (forced-colors: active) {
+  .rhythm-view .rhythm-transport::after { display: none; }
+  .rhythm-view .rhythm-bpm-display { border-color: CanvasText; }
+  .rhythm-view .rhythm-play-buttons button.rhythm-photo-key { border-color: ButtonText; }
+  .rhythm-view .rhythm-key-face { background: none; color: ButtonText; }
+  .rhythm-view .rhythm-dial-face { border: 1px solid CanvasText; }
+  .rhythm-view .rhythm-dial-face::after { display: block; width: 2px; height: 30%; margin: 4px auto 0; background: CanvasText; content: ""; }
+  .rhythm-view input.rhythm-fader::-webkit-slider-thumb { border: 2px solid CanvasText; }
+  .rhythm-view input.rhythm-fader::-moz-range-thumb { border: 2px solid CanvasText; }
 }
 
 @media (any-hover: none) {

@@ -124,7 +124,8 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     heightFrame = requestAnimationFrame(() => {
       heightFrame = 0;
       if (disposed || !visible) return;
-      const top = Math.max(0, container.getBoundingClientRect().top);
+      // Scrolling to history must not resize the score area above it.
+      const top = Math.max(0, container.getBoundingClientRect().top + window.scrollY);
       const height = `${Math.max(360, Math.floor(innerHeight - top - 16))}px`;
       if (container.style.getPropertyValue('--mb-height') !== height) container.style.setProperty('--mb-height', height);
     });

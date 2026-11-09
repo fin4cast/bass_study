@@ -98,9 +98,66 @@ check('actual-picker-keyboard-focus-and-history-navigation', async ({ page }) =>
   await root.click(); await page.locator('[data-label-mode="degrees"]').click(); assert.equal(await page.locator('[data-label-mode="degrees"]').getAttribute('aria-pressed'), 'true');
   await page.locator('#close-study-settings').click(); assert.equal(await page.locator('#study-settings').isVisible(), false); assert.equal(await page.locator('#toggle-study-settings').evaluate(element => element === document.activeElement), true);
   await page.locator('#toggle-study-settings').click(); assert.equal(await page.locator('#study-settings').isVisible(), true);
-  await page.locator('#open-history').click(); assert.equal(await page.locator('.history-drawer').evaluate(element => element.open), true); assert.equal(await page.locator('#history-mount').isVisible(), true);
-  await page.locator('.history-drawer > summary').click(); await page.locator('#history-mount').waitFor({ state: 'hidden' }); assert.equal(await page.locator('#history-mount').isVisible(), false); assert.equal(await page.locator('#open-history').getAttribute('aria-expanded'), 'false');
-  return { pickerGrid: 12, focusPreserved: true, firstOutsideClickApplied: true, settingsCollapsible: true, historyViaNavigation: true };
+  const historyButton = page.locator('#open-history');
+  const drawer = page.locator('.history-drawer');
+  const historySummary = drawer.locator(':scope > summary');
+  const introductionButton = page.locator('#open-introduction');
+  const introductionHeading = page.locator('#onboarding-mount h2');
+  const activeModule = () => page.locator('.module-navigation [aria-current="page"]').getAttribute('data-app-module');
+  const assertNavigationTarget = async locator => {
+    const frame = await locator.evaluate(element => {
+      const { top, bottom } = element.getBoundingClientRect();
+      const scroller = document.scrollingElement;
+      const minReachableTop = top + scroller.scrollTop - (scroller.scrollHeight - scroller.clientHeight);
+      return { top, bottom, minReachableTop, viewportHeight: innerHeight, focused: element === document.activeElement };
+    });
+    assert.ok(frame.focused && frame.top >= -1 && frame.bottom <= frame.viewportHeight + 1
+      && frame.top <= Math.max(40, frame.minReachableTop + 2), `Navigation target in viewport: ${JSON.stringify(frame)}`);
+    return frame;
+  };
+  const openHistoryFrom = async module => {
+    await historyButton.click();
+    await page.getByRole('textbox', { name: 'Название пресета', exact: true }).waitFor();
+    await page.waitForFunction(() => document.activeElement === document.querySelector('.history-drawer > summary'));
+    assert.equal(await drawer.evaluate(element => element.open), true);
+    assert.equal(await activeModule(), module);
+    return assertNavigationTarget(historySummary);
+  };
+  const closeHistory = async () => {
+    await historySummary.click();
+    await page.locator('#history-mount').waitFor({ state: 'hidden' });
+    assert.equal(await historyButton.getAttribute('aria-expanded'), 'false');
+  };
+  await page.locator('[data-app-module="ear"]').click();
+  assert.equal(await page.getByTestId('history-body').locator(':scope > *').count(), 0);
+  const historyFromEar = await openHistoryFrom('ear');
+  await introductionButton.click();
+  assert.equal(await activeModule(), 'ear');
+  const introductionFromHistory = await assertNavigationTarget(introductionHeading);
+  assert.equal(await page.locator('#history-mount').isHidden(), true);
+  await page.setViewportSize({ width: 1782, height: 1220 });
+  const tracksButton = page.locator('[data-app-module="tracks"]');
+  await tracksButton.click();
+  await introductionButton.click();
+  assert.equal(await introductionHeading.isVisible(), true);
+  const firstHistoryFrame = await openHistoryFrom('tracks');
+  assert.equal(await page.locator('#onboarding-mount').isHidden(), true);
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const historyFromTracks = await assertNavigationTarget(historySummary);
+  assert.ok(historyFromTracks.top <= 40 && Math.abs(historyFromTracks.top - firstHistoryFrame.top) <= 2,
+    `History stays at the top after the score layout settles: ${JSON.stringify({ firstHistoryFrame, historyFromTracks })}`);
+  await tracksButton.click();
+  assert.equal(await activeModule(), 'tracks');
+  assert.equal(await page.locator('#history-mount').isHidden(), true);
+  const tracksAfterHistory = await page.locator('#music-bank-mount [data-mb="title"]').evaluate(heading => {
+    const { top, bottom } = heading.getBoundingClientRect();
+    return { top, bottom, scroll: window.scrollY, viewportHeight: innerHeight };
+  });
+  assert.ok(tracksAfterHistory.scroll <= 1 && tracksAfterHistory.top >= 0 && tracksAfterHistory.bottom <= tracksAfterHistory.viewportHeight,
+    `Returning directly to the selected section shows its heading: ${JSON.stringify(tracksAfterHistory)}`);
+  await openHistoryFrom('tracks');
+  await closeHistory();
+  return { pickerGrid: 12, focusPreserved: true, firstOutsideClickApplied: true, settingsCollapsible: true, historyViaNavigation: true, historyFromEar, historyFromTracks, introductionFromHistory, tracksAfterHistory };
 });
 
 check('quiz-hides-explorer-information-in-rendered-and-accessible-view', async ({ page }) => {

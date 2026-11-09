@@ -1,0 +1,2046 @@
+{
+  "generatedAt": "2026-11-09T12:00:34.942Z",
+  "platform": "win32",
+  "architecture": "x64",
+  "node": "v24.18.0",
+  "browserChannel": "msedge",
+  "browserVersion": "157.0.4341.42",
+  "origin": "http://localhost:4173",
+  "fixtureOrigin": "http://127.0.0.1:4193",
+  "scope": "Product rhythm in Edge: VIS-05 r2 controls and layout, isolated offline PCM, live signal, native visibility, schema 10 migration and restore.",
+  "networkIsolation": "Fresh Edge contexts with cache disabled; non-loopback page HTTP requests aborted. No user profile or Windows network adapter change.",
+  "staticServer": {
+    "reuseRequested": true,
+    "owned": false,
+    "mode": "external-reused",
+    "indexVerifiedByteForByte": true,
+    "restartAllowed": false,
+    "shutdownAllowed": false
+  },
+  "checks": [
+    {
+      "name": "offline-click-subdivisions-and-silent-bar-boundary-use-real-isolated-pcm",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 346,
+      "evidence": {
+        "sources": [
+          "accent",
+          "click",
+          "subdivision"
+        ],
+        "strong": 0,
+        "ordinary": 0,
+        "beforeOffbeat": 0,
+        "offbeat": 0.03685668483376503,
+        "beforeBoundary": 0.0023045772686600685,
+        "silent": 0,
+        "nextOffbeat": 0.03616427630186081
+      }
+    },
+    {
+      "name": "offline-rhythm-lanes-velocity-and-mute-preserve-the-other-lane-waveform",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 304,
+      "evidence": {
+        "finishAt": 4,
+        "firstPeak": 0.27756214141845703,
+        "quietPeak": 0.06939053535461426,
+        "mutedPeak": 0,
+        "countInLanePeak": 0,
+        "otherMaxDifference": 0,
+        "soloSignal": 0.06939053535461426,
+        "otherSilentInSolo": true
+      }
+    },
+    {
+      "name": "offline-ramp-counts-silent-practice-bars-and-holds-target-tempo",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 234,
+      "evidence": {
+        "frames": [
+          {
+            "time": 0,
+            "bpm": 120,
+            "phase": "count-in",
+            "peak": 0.12930716574192047
+          },
+          {
+            "time": 1,
+            "bpm": 120,
+            "phase": "practice",
+            "peak": 0.12930716574192047
+          },
+          {
+            "time": 2,
+            "bpm": 140,
+            "phase": "practice",
+            "peak": 0
+          },
+          {
+            "time": 2.8571428571428568,
+            "bpm": 150,
+            "phase": "practice",
+            "peak": 0.1354466676712036
+          },
+          {
+            "time": 3.6571428571428566,
+            "bpm": 150,
+            "phase": "practice",
+            "peak": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "offline-overlay-inherits-accents-and-triplets-on-the-project-clock",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 249,
+      "evidence": {
+        "frameTimes": [
+          0,
+          0.17,
+          0.34,
+          0.42000000000000004,
+          0.5,
+          0.67,
+          0.8400000000000001,
+          0.92,
+          1,
+          1.17,
+          1.3399999999999999,
+          1.42,
+          1.5,
+          1.67,
+          1.8399999999999999,
+          1.92
+        ],
+        "clickTimes": [
+          [
+            "accent",
+            0
+          ],
+          [
+            "subdivision",
+            0.3333333333333333
+          ],
+          [
+            "subdivision",
+            0.6666666666666666
+          ],
+          [
+            "click",
+            1
+          ],
+          [
+            "subdivision",
+            1.6666666666666667
+          ]
+        ],
+        "beforeTriplet": 0,
+        "triplet": 0.046878233551979065,
+        "finishAt": 2
+      }
+    },
+    {
+      "name": "live-overlay-pause-keeps-a-future-click-inside-the-current-groove-step",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 1287,
+      "evidence": {
+        "first": 0.035,
+        "step": 1,
+        "paused": 0.5813333333333334,
+        "resumed": 0.6163333333333334,
+        "cancelled": [
+          0.7016666666666667
+        ],
+        "actual": [
+          0.7366666666666668
+        ]
+      }
+    },
+    {
+      "name": "live-fractional-count-in-pause-resumes-tail-and-remaining-interval",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 1016,
+      "evidence": {
+        "firstAt": 0.035,
+        "pausedAt": 0.12,
+        "resumedAt": 0.32566666666666666,
+        "secondAt": 0.7406666666666667,
+        "silence": 0,
+        "activeMsWhileCounting": 0,
+        "phase": "count-in",
+        "firstAttacks": 1,
+        "continuations": 2
+      }
+    },
+    {
+      "name": "live-step-edit-and-tempo-edit-use-different-boundaries-and-seal-practice",
+      "scope": "api",
+      "status": "passed",
+      "durationMs": 1565,
+      "evidence": {
+        "queued": "queued",
+        "lastScheduled": 3,
+        "firstEdit": {
+          "type": "frame",
+          "time": 0.28500000000000003,
+          "frameIndex": 4,
+          "position": {
+            "phase": "practice",
+            "bar": 1,
+            "absoluteBar": 1,
+            "patternBar": 1,
+            "patternId": "A",
+            "clipId": null,
+            "beat": 2,
+            "step": 4,
+            "subdivision": 0,
+            "silent": false
+          },
+          "bpm": 240,
+          "source": null,
+          "sound": null,
+          "velocity": null,
+          "continuation": false,
+          "runId": 1,
+          "epoch": 1,
+          "cancelled": false
+        },
+        "tempoEdit": {
+          "type": "frame",
+          "time": 1.0350000000000001,
+          "frameIndex": 16,
+          "position": {
+            "phase": "practice",
+            "bar": 1,
+            "absoluteBar": 2,
+            "patternBar": 1,
+            "patternId": "A",
+            "clipId": null,
+            "beat": 1,
+            "step": 0,
+            "subdivision": 0,
+            "silent": false
+          },
+          "bpm": 200,
+          "source": null,
+          "sound": null,
+          "velocity": null,
+          "continuation": false,
+          "runId": 1,
+          "epoch": 2,
+          "cancelled": false
+        },
+        "oldTempo": 240,
+        "oldVelocity": 1,
+        "sealedDurations": [
+          250,
+          750
+        ],
+        "runId": 1,
+        "initialRun": 1
+      }
+    },
+    {
+      "name": "product-meter-group-tempo-unit-offbeats-and-invalid-range",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2700,
+      "evidence": {
+        "defaultFourBeats": true,
+        "defaultCoverage": {
+          "count": 4,
+          "rows": 1,
+          "width": 0.9837232960325534,
+          "height": 0.9398496240601504,
+          "keyWidth": 1
+        },
+        "meter": {
+          "beats": 7,
+          "denominator": 8,
+          "groups": [
+            3,
+            2,
+            2
+          ]
+        },
+        "independentlySavedSubsteps": 7,
+        "invalidContextStops": true,
+        "denseMeter": {
+          "beats": 12,
+          "subdivisions": 36,
+          "groupStarts": [
+            1,
+            4,
+            7,
+            10
+          ],
+          "fieldSizeStable": true
+        },
+        "meterCoverage": [
+          {
+            "count": 12,
+            "rows": 1,
+            "width": 0.9837232960325534,
+            "height": 0.9398496240601504,
+            "keyWidth": 1
+          },
+          {
+            "count": 2,
+            "rows": 1,
+            "width": 0.9837232960325534,
+            "height": 0.9398496240601504,
+            "keyWidth": 1
+          },
+          {
+            "count": 3,
+            "rows": 1,
+            "width": 0.9837232960325534,
+            "height": 0.9398496240601504,
+            "keyWidth": 1
+          },
+          {
+            "count": 4,
+            "rows": 1,
+            "width": 0.9837232960325534,
+            "height": 0.9398496240601504,
+            "keyWidth": 1
+          },
+          {
+            "count": 5,
+            "rows": 1,
+            "width": 0.9837232960325534,
+            "height": 0.9398496240601504,
+            "keyWidth": 1
+          },
+          {
+            "count": 6,
+            "rows": 1,
+            "width": 0.9837232960325534,
+            "height": 0.9398496240601504,
+            "keyWidth": 1
+          },
+          {
+            "count": 7,
+            "rows": 1,
+            "width": 0.9837232960325534,
+            "height": 0.9398496240601504,
+            "keyWidth": 1
+          },
+          {
+            "count": 8,
+            "rows": 1,
+            "width": 0.9837232960325534,
+            "height": 0.9398496240601504,
+            "keyWidth": 1
+          },
+          {
+            "count": 9,
+            "rows": 1,
+            "width": 0.9837232960325534,
+            "height": 0.9398496240601504,
+            "keyWidth": 1
+          },
+          {
+            "count": 10,
+            "rows": 1,
+            "width": 0.9837232960325534,
+            "height": 0.9398496240601504,
+            "keyWidth": 1
+          },
+          {
+            "count": 11,
+            "rows": 1,
+            "width": 0.9837232960325534,
+            "height": 0.9398496240601504,
+            "keyWidth": 1
+          }
+        ],
+        "keyboardFocusVisible": true
+      }
+    },
+    {
+      "name": "product-linked-bpm-edits-in-both-tabs-and-survives-reload",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1810,
+      "evidence": {
+        "adoptedMetronomeBpm": 111,
+        "editsFromBothTabs": [
+          121,
+          135
+        ],
+        "persistedBpm": 135,
+        "afterUnlink": {
+          "rhythm": 100,
+          "metronome": 135
+        }
+      }
+    },
+    {
+      "name": "product-count-in-is-independent-and-applies-only-on-fresh-start",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1639,
+      "evidence": {
+        "switchOperableByKeyboard": true,
+        "independentSettings": true,
+        "preservedCountInAndPausedPractice": true,
+        "freshStartsUseNewSetting": true
+      }
+    },
+    {
+      "name": "live-product-pause-owner-switch-and-explicit-resume",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2665,
+      "evidence": {
+        "initialContexts": 1,
+        "rhythmContexts": 1,
+        "liveSignal": true,
+        "pausedSilence": true,
+        "noAutomaticResume": true
+      }
+    },
+    {
+      "name": "leaving-section-cancels-audition-waiting-for-audio-context",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 1972,
+      "evidence": {
+        "latePreviewSilent": true,
+        "selectedSound": "Классический",
+        "previewFromCollapsedSounds": true
+      }
+    },
+    {
+      "name": "project-steps-and-full-chain-survive-reload-and-export",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 5895,
+      "evidence": {
+        "project": "85158397-2d5a-48be-8a1f-c77bba19fa7c",
+        "patterns": 3,
+        "clips": 7,
+        "emptyBarsAddedWithSettingsClosed": [
+          2,
+          3,
+          4
+        ],
+        "copiedVelocity": 0.73,
+        "barClampedAfterResize": true,
+        "copiedAndClearedBar": true,
+        "persistedPatternBars": 3,
+        "keyboardChoices": true,
+        "singleClipEditor": true,
+        "exactReload": true,
+        "legacyPreviewReadOnly": true,
+        "exactUiRestore": true,
+        "lowerLibraryPreset": "funk"
+      }
+    },
+    {
+      "name": "manual-note-keeps-rhythm-material-and-time-after-changing-project",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2159,
+      "evidence": {
+        "draftId": "draft-21c2c6d3-ddd3-4bf4-983e-1a69cf2dd944",
+        "originalProject": "ecf1639c-2bce-4d33-957f-20a36f2241ea",
+        "currentProject": "c14d29cc-36fb-4579-90ae-57989fa21272",
+        "durationMs": 477
+      }
+    },
+    {
+      "name": "product-layout-keeps-transport-and-local-grid-in-two-themes",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 20937,
+      "evidence": {
+        "samples": [
+          {
+            "theme": "light",
+            "width": 1366,
+            "height": 768,
+            "mode": "metronome",
+            "shell": {
+              "x": 16,
+              "y": 12,
+              "width": 1334,
+              "height": 643
+            },
+            "sidebar": {
+              "x": 17,
+              "y": 13,
+              "width": 190,
+              "height": 641
+            },
+            "heading": {
+              "x": 228,
+              "y": 25.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 228,
+              "y": 488,
+              "width": 1101,
+              "height": 154
+            },
+            "gap": 12,
+            "stageGap": 7,
+            "contentSeparation": null,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": false,
+            "contrastField": {
+              "width": 1079,
+              "height": 266
+            },
+            "metroTools": {
+              "fieldGap": 0,
+              "dockGap": 27
+            },
+            "accentKeyHeight": 250,
+            "meterCoverage": {
+              "count": 4,
+              "rows": 1,
+              "width": 0.9850327408793265,
+              "height": 0.9398496240601504,
+              "keyWidth": 1
+            },
+            "editorsKeepDock": true
+          },
+          {
+            "theme": "light",
+            "width": 1366,
+            "height": 768,
+            "mode": "rhythm",
+            "shell": {
+              "x": 16,
+              "y": 12,
+              "width": 1334,
+              "height": 643
+            },
+            "sidebar": {
+              "x": 17,
+              "y": 13,
+              "width": 190,
+              "height": 641
+            },
+            "heading": {
+              "x": 228,
+              "y": 25.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 228,
+              "y": 488,
+              "width": 1101,
+              "height": 154
+            },
+            "gap": 8,
+            "stageGap": 7,
+            "contentSeparation": 6,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": false,
+            "contrastField": {
+              "width": 1079,
+              "height": 196
+            },
+            "stepPad": {
+              "width": 46.234375,
+              "height": 27
+            },
+            "editorsKeepGrid": true,
+            "editorsKeepDock": true,
+            "editorScrollDistances": [
+              600
+            ]
+          },
+          {
+            "theme": "light",
+            "width": 1280,
+            "height": 720,
+            "mode": "metronome",
+            "shell": {
+              "x": 16,
+              "y": 12,
+              "width": 1248,
+              "height": 643
+            },
+            "sidebar": {
+              "x": 17,
+              "y": 13,
+              "width": 190,
+              "height": 641
+            },
+            "heading": {
+              "x": 228,
+              "y": 25.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 228,
+              "y": 488,
+              "width": 1015,
+              "height": 154
+            },
+            "gap": 12,
+            "stageGap": 7,
+            "contentSeparation": null,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": false,
+            "contrastField": {
+              "width": 993,
+              "height": 266
+            },
+            "metroTools": {
+              "fieldGap": 0,
+              "dockGap": 27
+            },
+            "accentKeyHeight": 250,
+            "meterCoverage": {
+              "count": 4,
+              "rows": 1,
+              "width": 0.9837232960325534,
+              "height": 0.9398496240601504,
+              "keyWidth": 1
+            }
+          },
+          {
+            "theme": "light",
+            "width": 1280,
+            "height": 720,
+            "mode": "rhythm",
+            "shell": {
+              "x": 16,
+              "y": 12,
+              "width": 1248,
+              "height": 643
+            },
+            "sidebar": {
+              "x": 17,
+              "y": 13,
+              "width": 190,
+              "height": 641
+            },
+            "heading": {
+              "x": 228,
+              "y": 25.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 228,
+              "y": 488,
+              "width": 1015,
+              "height": 154
+            },
+            "gap": 8,
+            "stageGap": 7,
+            "contentSeparation": 6,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": false,
+            "contrastField": {
+              "width": 993,
+              "height": 196
+            },
+            "stepPad": {
+              "width": 42.625,
+              "height": 27
+            }
+          },
+          {
+            "theme": "light",
+            "width": 1440,
+            "height": 900,
+            "mode": "metronome",
+            "shell": {
+              "x": 16,
+              "y": 16,
+              "width": 1408,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 17,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 228,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 228,
+              "y": 498,
+              "width": 1175,
+              "height": 154
+            },
+            "gap": 12,
+            "stageGap": 7,
+            "contentSeparation": 16,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 867,
+              "height": 266
+            },
+            "metroTools": {
+              "fieldGap": 0,
+              "dockGap": 27
+            },
+            "accentKeyHeight": 250,
+            "meterCoverage": {
+              "count": 4,
+              "rows": 1,
+              "width": 0.9813302217036173,
+              "height": 0.9398496240601504,
+              "keyWidth": 1
+            }
+          },
+          {
+            "theme": "light",
+            "width": 1440,
+            "height": 900,
+            "mode": "rhythm",
+            "shell": {
+              "x": 16,
+              "y": 16,
+              "width": 1408,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 17,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 228,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 228,
+              "y": 498,
+              "width": 1175,
+              "height": 154
+            },
+            "gap": 8,
+            "stageGap": 7,
+            "contentSeparation": 6,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 867,
+              "height": 196
+            },
+            "stepPad": {
+              "width": 35.8125,
+              "height": 27
+            }
+          },
+          {
+            "theme": "light",
+            "width": 1890,
+            "height": 1000,
+            "mode": "metronome",
+            "shell": {
+              "x": 145,
+              "y": 16,
+              "width": 1600,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 146,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 357,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 357,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "gap": 12,
+            "stageGap": 7,
+            "contentSeparation": 16,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 1059,
+              "height": 266
+            },
+            "metroTools": {
+              "fieldGap": 0,
+              "dockGap": 27
+            },
+            "accentKeyHeight": 250,
+            "meterCoverage": {
+              "count": 4,
+              "rows": 1,
+              "width": 0.9847473784556721,
+              "height": 0.9398496240601504,
+              "keyWidth": 1
+            }
+          },
+          {
+            "theme": "light",
+            "width": 1890,
+            "height": 1000,
+            "mode": "rhythm",
+            "shell": {
+              "x": 145,
+              "y": 16,
+              "width": 1600,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 146,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 357,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 357,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "gap": 8,
+            "stageGap": 7,
+            "contentSeparation": 6,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 1059,
+              "height": 196
+            },
+            "stepPad": {
+              "width": 47.8125,
+              "height": 27
+            }
+          },
+          {
+            "theme": "light",
+            "width": 2048,
+            "height": 1000,
+            "mode": "metronome",
+            "shell": {
+              "x": 224,
+              "y": 16,
+              "width": 1600,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 225,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 436,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 436,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "gap": 12,
+            "stageGap": 7,
+            "contentSeparation": 16,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 1059,
+              "height": 266
+            },
+            "metroTools": {
+              "fieldGap": 0,
+              "dockGap": 27
+            },
+            "accentKeyHeight": 250,
+            "meterCoverage": {
+              "count": 4,
+              "rows": 1,
+              "width": 0.9847473784556721,
+              "height": 0.9398496240601504,
+              "keyWidth": 1
+            },
+            "editorsKeepDock": true
+          },
+          {
+            "theme": "light",
+            "width": 2048,
+            "height": 1000,
+            "mode": "rhythm",
+            "shell": {
+              "x": 224,
+              "y": 16,
+              "width": 1600,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 225,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 436,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 436,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "gap": 8,
+            "stageGap": 7,
+            "contentSeparation": 6,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 1059,
+              "height": 196
+            },
+            "stepPad": {
+              "width": 47.8125,
+              "height": 27
+            },
+            "editorsKeepGrid": true,
+            "editorsKeepDock": true,
+            "editorScrollDistances": [
+              198,
+              126
+            ]
+          },
+          {
+            "theme": "light",
+            "width": 1782,
+            "height": 1220,
+            "mode": "metronome",
+            "shell": {
+              "x": 91,
+              "y": 16,
+              "width": 1600,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 92,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 303,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 303,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "gap": 12,
+            "stageGap": 7,
+            "contentSeparation": 16,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 1059,
+              "height": 266
+            },
+            "metroTools": {
+              "fieldGap": 0,
+              "dockGap": 27
+            },
+            "accentKeyHeight": 250,
+            "meterCoverage": {
+              "count": 4,
+              "rows": 1,
+              "width": 0.9847473784556721,
+              "height": 0.9398496240601504,
+              "keyWidth": 1
+            }
+          },
+          {
+            "theme": "light",
+            "width": 1782,
+            "height": 1220,
+            "mode": "rhythm",
+            "shell": {
+              "x": 91,
+              "y": 16,
+              "width": 1600,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 92,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 303,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 303,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "gap": 8,
+            "stageGap": 7,
+            "contentSeparation": 6,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 1059,
+              "height": 196
+            },
+            "stepPad": {
+              "width": 47.8125,
+              "height": 27
+            }
+          },
+          {
+            "theme": "dark",
+            "width": 1366,
+            "height": 768,
+            "mode": "metronome",
+            "shell": {
+              "x": 16,
+              "y": 12,
+              "width": 1334,
+              "height": 643
+            },
+            "sidebar": {
+              "x": 17,
+              "y": 13,
+              "width": 190,
+              "height": 641
+            },
+            "heading": {
+              "x": 228,
+              "y": 25.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 228,
+              "y": 488,
+              "width": 1101,
+              "height": 154
+            },
+            "gap": 12,
+            "stageGap": 7,
+            "contentSeparation": null,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": false,
+            "contrastField": {
+              "width": 1079,
+              "height": 266
+            },
+            "metroTools": {
+              "fieldGap": 0,
+              "dockGap": 27
+            },
+            "accentKeyHeight": 250,
+            "meterCoverage": {
+              "count": 4,
+              "rows": 1,
+              "width": 0.9850327408793265,
+              "height": 0.9398496240601504,
+              "keyWidth": 1
+            },
+            "editorsKeepDock": true
+          },
+          {
+            "theme": "dark",
+            "width": 1366,
+            "height": 768,
+            "mode": "rhythm",
+            "shell": {
+              "x": 16,
+              "y": 12,
+              "width": 1334,
+              "height": 643
+            },
+            "sidebar": {
+              "x": 17,
+              "y": 13,
+              "width": 190,
+              "height": 641
+            },
+            "heading": {
+              "x": 228,
+              "y": 25.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 228,
+              "y": 488,
+              "width": 1101,
+              "height": 154
+            },
+            "gap": 8,
+            "stageGap": 7,
+            "contentSeparation": 6,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": false,
+            "contrastField": {
+              "width": 1079,
+              "height": 196
+            },
+            "stepPad": {
+              "width": 46.234375,
+              "height": 27
+            },
+            "editorsKeepGrid": true,
+            "editorsKeepDock": true,
+            "editorScrollDistances": [
+              600
+            ]
+          },
+          {
+            "theme": "dark",
+            "width": 1280,
+            "height": 720,
+            "mode": "metronome",
+            "shell": {
+              "x": 16,
+              "y": 12,
+              "width": 1248,
+              "height": 643
+            },
+            "sidebar": {
+              "x": 17,
+              "y": 13,
+              "width": 190,
+              "height": 641
+            },
+            "heading": {
+              "x": 228,
+              "y": 25.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 228,
+              "y": 488,
+              "width": 1015,
+              "height": 154
+            },
+            "gap": 12,
+            "stageGap": 7,
+            "contentSeparation": null,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": false,
+            "contrastField": {
+              "width": 993,
+              "height": 266
+            },
+            "metroTools": {
+              "fieldGap": 0,
+              "dockGap": 27
+            },
+            "accentKeyHeight": 250,
+            "meterCoverage": {
+              "count": 4,
+              "rows": 1,
+              "width": 0.9837232960325534,
+              "height": 0.9398496240601504,
+              "keyWidth": 1
+            }
+          },
+          {
+            "theme": "dark",
+            "width": 1280,
+            "height": 720,
+            "mode": "rhythm",
+            "shell": {
+              "x": 16,
+              "y": 12,
+              "width": 1248,
+              "height": 643
+            },
+            "sidebar": {
+              "x": 17,
+              "y": 13,
+              "width": 190,
+              "height": 641
+            },
+            "heading": {
+              "x": 228,
+              "y": 25.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 228,
+              "y": 488,
+              "width": 1015,
+              "height": 154
+            },
+            "gap": 8,
+            "stageGap": 7,
+            "contentSeparation": 6,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": false,
+            "contrastField": {
+              "width": 993,
+              "height": 196
+            },
+            "stepPad": {
+              "width": 42.625,
+              "height": 27
+            }
+          },
+          {
+            "theme": "dark",
+            "width": 1440,
+            "height": 900,
+            "mode": "metronome",
+            "shell": {
+              "x": 16,
+              "y": 16,
+              "width": 1408,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 17,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 228,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 228,
+              "y": 498,
+              "width": 1175,
+              "height": 154
+            },
+            "gap": 12,
+            "stageGap": 7,
+            "contentSeparation": 16,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 867,
+              "height": 266
+            },
+            "metroTools": {
+              "fieldGap": 0,
+              "dockGap": 27
+            },
+            "accentKeyHeight": 250,
+            "meterCoverage": {
+              "count": 4,
+              "rows": 1,
+              "width": 0.9813302217036173,
+              "height": 0.9398496240601504,
+              "keyWidth": 1
+            }
+          },
+          {
+            "theme": "dark",
+            "width": 1440,
+            "height": 900,
+            "mode": "rhythm",
+            "shell": {
+              "x": 16,
+              "y": 16,
+              "width": 1408,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 17,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 228,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 228,
+              "y": 498,
+              "width": 1175,
+              "height": 154
+            },
+            "gap": 8,
+            "stageGap": 7,
+            "contentSeparation": 6,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 867,
+              "height": 196
+            },
+            "stepPad": {
+              "width": 35.8125,
+              "height": 27
+            }
+          },
+          {
+            "theme": "dark",
+            "width": 1890,
+            "height": 1000,
+            "mode": "metronome",
+            "shell": {
+              "x": 145,
+              "y": 16,
+              "width": 1600,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 146,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 357,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 357,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "gap": 12,
+            "stageGap": 7,
+            "contentSeparation": 16,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 1059,
+              "height": 266
+            },
+            "metroTools": {
+              "fieldGap": 0,
+              "dockGap": 27
+            },
+            "accentKeyHeight": 250,
+            "meterCoverage": {
+              "count": 4,
+              "rows": 1,
+              "width": 0.9847473784556721,
+              "height": 0.9398496240601504,
+              "keyWidth": 1
+            }
+          },
+          {
+            "theme": "dark",
+            "width": 1890,
+            "height": 1000,
+            "mode": "rhythm",
+            "shell": {
+              "x": 145,
+              "y": 16,
+              "width": 1600,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 146,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 357,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 357,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "gap": 8,
+            "stageGap": 7,
+            "contentSeparation": 6,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 1059,
+              "height": 196
+            },
+            "stepPad": {
+              "width": 47.8125,
+              "height": 27
+            }
+          },
+          {
+            "theme": "dark",
+            "width": 2048,
+            "height": 1000,
+            "mode": "metronome",
+            "shell": {
+              "x": 224,
+              "y": 16,
+              "width": 1600,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 225,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 436,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 436,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "gap": 12,
+            "stageGap": 7,
+            "contentSeparation": 16,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 1059,
+              "height": 266
+            },
+            "metroTools": {
+              "fieldGap": 0,
+              "dockGap": 27
+            },
+            "accentKeyHeight": 250,
+            "meterCoverage": {
+              "count": 4,
+              "rows": 1,
+              "width": 0.9847473784556721,
+              "height": 0.9398496240601504,
+              "keyWidth": 1
+            },
+            "editorsKeepDock": true
+          },
+          {
+            "theme": "dark",
+            "width": 2048,
+            "height": 1000,
+            "mode": "rhythm",
+            "shell": {
+              "x": 224,
+              "y": 16,
+              "width": 1600,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 225,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 436,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 436,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "gap": 8,
+            "stageGap": 7,
+            "contentSeparation": 6,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 1059,
+              "height": 196
+            },
+            "stepPad": {
+              "width": 47.8125,
+              "height": 27
+            },
+            "editorsKeepGrid": true,
+            "editorsKeepDock": true,
+            "editorScrollDistances": [
+              198,
+              126
+            ]
+          },
+          {
+            "theme": "dark",
+            "width": 1782,
+            "height": 1220,
+            "mode": "metronome",
+            "shell": {
+              "x": 91,
+              "y": 16,
+              "width": 1600,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 92,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 303,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 303,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "gap": 12,
+            "stageGap": 7,
+            "contentSeparation": 16,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 1059,
+              "height": 266
+            },
+            "metroTools": {
+              "fieldGap": 0,
+              "dockGap": 27
+            },
+            "accentKeyHeight": 250,
+            "meterCoverage": {
+              "count": 4,
+              "rows": 1,
+              "width": 0.9847473784556721,
+              "height": 0.9398496240601504,
+              "keyWidth": 1
+            }
+          },
+          {
+            "theme": "dark",
+            "width": 1782,
+            "height": 1220,
+            "mode": "rhythm",
+            "shell": {
+              "x": 91,
+              "y": 16,
+              "width": 1600,
+              "height": 649
+            },
+            "sidebar": {
+              "x": 92,
+              "y": 17,
+              "width": 190,
+              "height": 647
+            },
+            "heading": {
+              "x": 303,
+              "y": 35.796875,
+              "width": 219.921875,
+              "height": 32.390625
+            },
+            "dock": {
+              "x": 303,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "gap": 8,
+            "stageGap": 7,
+            "contentSeparation": 6,
+            "bottomInset": 12,
+            "faderHeight": 61,
+            "settingsInitiallyOpen": true,
+            "contrastField": {
+              "width": 1059,
+              "height": 196
+            },
+            "stepPad": {
+              "width": 47.8125,
+              "height": 27
+            }
+          }
+        ],
+        "settingsChecks": [
+          {
+            "theme": "light",
+            "width": 1366,
+            "startsOpen": false,
+            "fieldWidthBefore": 1079,
+            "fieldWidthAfter": 1079,
+            "sharedState": true,
+            "focusRestored": true
+          },
+          {
+            "theme": "light",
+            "width": 2048,
+            "startsOpen": true,
+            "fieldWidthBefore": 1059,
+            "fieldWidthAfter": 1355,
+            "sharedState": true,
+            "focusRestored": true
+          },
+          {
+            "theme": "dark",
+            "width": 1366,
+            "startsOpen": false,
+            "fieldWidthBefore": 1079,
+            "fieldWidthAfter": 1079,
+            "sharedState": true,
+            "focusRestored": true
+          },
+          {
+            "theme": "dark",
+            "width": 2048,
+            "startsOpen": true,
+            "fieldWidthBefore": 1059,
+            "fieldWidthAfter": 1355,
+            "sharedState": true,
+            "focusRestored": true
+          }
+        ],
+        "shellAndNavigationMatchFretboard": true,
+        "compactStage": true,
+        "sharedHeadingTypography": true,
+        "underlinedTabs": true,
+        "playbackControlsGrouped": true,
+        "dockAlignedToWorkspace": true,
+        "dockMatchesAcrossTabs": true,
+        "dockMatchesAcrossThemes": true,
+        "contrastFieldAlignment": true,
+        "dockStableWhenEditorsOpen": true,
+        "defaultGridAndChainFit": true,
+        "allClipsReachable": true,
+        "instrumentNamesFit": true,
+        "narrow": {
+          "rack": 456,
+          "content": 606,
+          "offset": 80,
+          "page": 500,
+          "viewport": 500
+        }
+      }
+    },
+    {
+      "name": "product-photo-panel-uses-local-images-and-keeps-shared-controls-compact",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 3945,
+      "evidence": {
+        "samples": [
+          {
+            "theme": "light",
+            "mode": "metronome",
+            "dock": {
+              "x": 228,
+              "y": 488,
+              "width": 1101,
+              "height": 154
+            },
+            "exactBpm": 113,
+            "reference": {
+              "tempoWidth": 132,
+              "dialBankWidth": 148,
+              "playWidth": 115,
+              "dialWidth": 63,
+              "faderHeight": 61
+            }
+          },
+          {
+            "theme": "light",
+            "mode": "rhythm",
+            "dock": {
+              "x": 228,
+              "y": 488,
+              "width": 1101,
+              "height": 154
+            },
+            "exactBpm": 127,
+            "reference": {
+              "tempoWidth": 132,
+              "dialBankWidth": 148,
+              "playWidth": 115,
+              "dialWidth": 63,
+              "faderHeight": 61
+            }
+          },
+          {
+            "theme": "dark",
+            "mode": "metronome",
+            "dock": {
+              "x": 228,
+              "y": 488,
+              "width": 1101,
+              "height": 154
+            },
+            "exactBpm": 113,
+            "reference": {
+              "tempoWidth": 132,
+              "dialBankWidth": 148,
+              "playWidth": 115,
+              "dialWidth": 63,
+              "faderHeight": 61
+            }
+          },
+          {
+            "theme": "dark",
+            "mode": "rhythm",
+            "dock": {
+              "x": 228,
+              "y": 488,
+              "width": 1101,
+              "height": 154
+            },
+            "exactBpm": 127,
+            "reference": {
+              "tempoWidth": 132,
+              "dialBankWidth": 148,
+              "playWidth": 115,
+              "dialWidth": 63,
+              "faderHeight": 61
+            }
+          }
+        ],
+        "wide": [
+          {
+            "mode": "metronome",
+            "dock": {
+              "x": 436,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "reference": {
+              "tempoWidth": 132,
+              "dialBankWidth": 148,
+              "playWidth": 115,
+              "dialWidth": 63,
+              "faderHeight": 61
+            }
+          },
+          {
+            "mode": "rhythm",
+            "dock": {
+              "x": 436,
+              "y": 498,
+              "width": 1367,
+              "height": 154
+            },
+            "reference": {
+              "tempoWidth": 132,
+              "dialBankWidth": 148,
+              "playWidth": 115,
+              "dialWidth": 63,
+              "faderHeight": 61
+            }
+          }
+        ],
+        "narrow": [
+          {
+            "width": 320,
+            "dock": {
+              "top": 771.390625,
+              "height": 338.96875
+            }
+          },
+          {
+            "width": 500,
+            "dock": {
+              "top": 689.59375,
+              "height": 273.1875
+            }
+          },
+          {
+            "width": 621,
+            "dock": {
+              "top": 401,
+              "height": 338.96875
+            }
+          }
+        ],
+        "localPhotos": {
+          "/images/rhythm-panel/glass.webp": {
+            "width": 324,
+            "height": 81
+          },
+          "/images/rhythm-panel/knob.webp": {
+            "width": 328,
+            "height": 328
+          },
+          "/images/rhythm-panel/fader.webp": {
+            "width": 144,
+            "height": 60
+          },
+          "/images/rhythm-panel/start.webp": {
+            "width": 296,
+            "height": 137
+          },
+          "/images/rhythm-panel/stop.webp": {
+            "width": 296,
+            "height": 134
+          },
+          "/images/rhythm-panel/count-in.webp": {
+            "width": 182,
+            "height": 87
+          },
+          "/images/rhythm-panel/wood.webp": {
+            "width": 960,
+            "height": 96
+          },
+          "/images/rhythm-panel/overlay-off.webp": {
+            "width": 172,
+            "height": 200
+          },
+          "/images/rhythm-panel/overlay-on.webp": {
+            "width": 172,
+            "height": 200
+          },
+          "/images/rhythm-panel/pause.webp": {
+            "width": 258,
+            "height": 129
+          }
+        },
+        "stableDock": true,
+        "independentCountSwitch": true
+      }
+    },
+    {
+      "name": "product-amplifier-dials-faders-and-playhead-use-real-rhythm-state",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 2599,
+      "evidence": {
+        "exactTempo": 135,
+        "swing": 51,
+        "verticalFader": true,
+        "savedMix": true,
+        "keyboardVelocity": "73%",
+        "mouseVelocity": "8%",
+        "audioPositionColumn": true,
+        "pausedColumn": "0",
+        "cursorOffset": 0.0002500000000509317,
+        "eightLanes": {
+          "mixerChannels": 8,
+          "steps": 128,
+          "fieldScroll": 152,
+          "fieldSizeStable": true,
+          "pinnedTransport": true
+        }
+      }
+    },
+    {
+      "name": "product-keyboard-tabs-and-grid-do-not-intercept-transport-shortcuts",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 976,
+      "evidence": {
+        "arrowTab": true,
+        "stepToggle": true,
+        "inputGuard": true,
+        "transportShortcuts": true
+      }
+    },
+    {
+      "name": "product-step-accents-use-project-owned-channel-defaults",
+      "scope": "ui",
+      "status": "passed",
+      "durationMs": 3451,
+      "evidence": {
+        "cleanDefaults": [
+          72,
+          100
+        ],
+        "trackDefaults": {
+          "kick": [
+            61,
+            82
+          ],
+          "snare": [
+            74,
+            89
+          ]
+        },
+        "otherProjectKickDefaults": [
+          67,
+          93
+        ],
+        "cloneCopiesDefaults": true,
+        "editedAccentVelocity": 88,
+        "existingHitsUnchanged": true,
+        "gesturesWithEditorClosed": true,
+        "keyboardAccent": true,
+        "rackContextMenuAllowed": true,
+        "survivesReload": true,
+        "exactUiRestore": true
+      }
+    },
+    {
+      "name": "native-real-hidden-tab-pauses-until-explicit-resume",
+      "scope": "native",
+      "status": "passed",
+      "durationMs": 1710,
+      "evidence": {
+        "actualDocumentHidden": true,
+        "noAutomaticResume": true
+      }
+    },
+    {
+      "name": "native-upgrade-seven-to-ten-keeps-legacy-history-and-drafts",
+      "scope": "native",
+      "status": "passed",
+      "durationMs": 2620,
+      "evidence": {
+        "version": 10,
+        "historyPreserved": 4,
+        "draftsPreserved": 1,
+        "savedLegacyDuration": 1645,
+        "legacyPresetPreservesRhythm": true
+      }
+    },
+    {
+      "name": "native-upgrade-v8-to-v10-keeps-rhythm-projects-and-practice",
+      "scope": "native",
+      "status": "passed",
+      "durationMs": 1536,
+      "evidence": {
+        "fromVersion": 8,
+        "version": 10,
+        "activeRhythmProjectId": "v8-rhythm-selected",
+        "projectsPreserved": 2,
+        "historyAndDraftDefaults": {
+          "hit": 72,
+          "accent": 100
+        }
+      }
+    },
+    {
+      "name": "native-upgrade-v9-to-v10-keeps-rhythm-projects-and-practice",
+      "scope": "native",
+      "status": "passed",
+      "durationMs": 2464,
+      "evidence": {
+        "fromVersion": 9,
+        "version": 10,
+        "activeRhythmProjectId": "v9-rhythm-selected",
+        "projectsPreserved": 2,
+        "historyAndDraftDefaults": {
+          "hit": 72,
+          "accent": 100
+        },
+        "abortAfterPutRolledBack": true,
+        "nativeBrowserDefaultsSeededOnce": true,
+        "legacyJsonUsesFactoryDefaults": true
+      }
+    },
+    {
+      "name": "native-upgrade-abort-after-successful-cursor-update-retains-version-seven",
+      "scope": "native",
+      "status": "passed",
+      "durationMs": 1433,
+      "evidence": {
+        "successfulCursorUpdate": 1,
+        "databaseVersionAfterAbort": 7
+      }
+    },
+    {
+      "name": "native-project-restore-validates-chain-and-rolls-back-after-project-and-selection-put",
+      "scope": "native",
+      "status": "passed",
+      "durationMs": 1442,
+      "evidence": {
+        "invalidChainRejected": true,
+        "successfulWritesBeforeAbort": 12,
+        "retryCommitted": true
+      }
+    }
+  ],
+  "externalRequests": [],
+  "pageErrors": [],
+  "cleanupErrors": [],
+  "passed": 25,
+  "failed": 0,
+  "status": "passed"
+}

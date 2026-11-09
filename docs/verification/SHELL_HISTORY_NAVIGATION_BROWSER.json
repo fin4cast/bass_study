@@ -1,0 +1,361 @@
+{
+  "build": [
+    "index-eF6IDWAC.js",
+    "index-DrgYBKqG.css"
+  ],
+  "origin": "http://localhost:4173",
+  "browserVersion": "157.0.4341.42",
+  "total": 68,
+  "reports": [
+    {
+      "suite": "design",
+      "generatedAt": "2026-11-09T13:46:14.819Z",
+      "passed": 8,
+      "failed": 0,
+      "staticServer": {
+        "reuseRequested": true,
+        "owned": false,
+        "mode": "external-reused",
+        "indexVerifiedByteForByte": true,
+        "shutdownAllowed": false
+      },
+      "checks": [
+        {
+          "name": "approved-default-and-both-themes-at-five-widths",
+          "status": "passed"
+        },
+        {
+          "name": "octave-semantics-independent-layers-and-shared-tonic",
+          "status": "passed"
+        },
+        {
+          "name": "view-range-does-not-clip-exact-training-material-and-survives-reload",
+          "status": "passed"
+        },
+        {
+          "name": "actual-picker-keyboard-focus-and-history-navigation",
+          "status": "passed"
+        },
+        {
+          "name": "quiz-hides-explorer-information-in-rendered-and-accessible-view",
+          "status": "passed"
+        },
+        {
+          "name": "explicit-route-start-repairs-invalid-display-before-quiz",
+          "status": "passed"
+        },
+        {
+          "name": "notation-explicitly-reveals-offscreen-form-position-without-changing-material",
+          "status": "passed"
+        },
+        {
+          "name": "default-desktop-fits-height-and-scroll-follows-explicit-disclosure",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "suite": "uiux",
+      "generatedAt": "2026-11-09T13:46:37.155Z",
+      "passed": 10,
+      "failed": 0,
+      "staticServer": {
+        "reuseRequested": true,
+        "owned": false,
+        "mode": "external-reused",
+        "indexVerifiedByteForByte": true,
+        "shutdownAllowed": false
+      },
+      "checks": [
+        {
+          "name": "themes-preserve-running-sequence-focus-and-authoritative-profile",
+          "status": "passed"
+        },
+        {
+          "name": "imported-system-profile-survives-binary-chooser-and-corrupt-first-frame-cache",
+          "status": "passed"
+        },
+        {
+          "name": "guided-four-steps-do-not-create-graded-history-and-choice-survives-reload",
+          "status": "passed"
+        },
+        {
+          "name": "free-practice-choice-does-not-reopen-start-question-after-reload-or-restore",
+          "status": "passed"
+        },
+        {
+          "name": "default-box-and-quiz-use-exact-positions-interval-explicitly-uses-chromatic-area",
+          "status": "passed"
+        },
+        {
+          "name": "draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deletion",
+          "status": "passed"
+        },
+        {
+          "name": "six-modules-errors-and-empty-states-have-computed-light-and-dark-contrast",
+          "status": "passed"
+        },
+        {
+          "name": "meaningful-SVG-labels-fingers-focus-notation-and-TAB-masks-have-actual-contrast",
+          "status": "passed"
+        },
+        {
+          "name": "history-keyboard-focus-survives-four-rerender-actions-and-save-validation-error",
+          "status": "passed"
+        },
+        {
+          "name": "laptop-widths-show-board-by-500px-and-narrow-layout-uses-local-scroll",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "suite": "rhythm",
+      "generatedAt": "2026-11-09T13:47:09.480Z",
+      "passed": 25,
+      "failed": 0,
+      "staticServer": {
+        "reuseRequested": true,
+        "owned": false,
+        "mode": "external-reused",
+        "indexVerifiedByteForByte": true,
+        "restartAllowed": false,
+        "shutdownAllowed": false
+      },
+      "checks": [
+        {
+          "name": "offline-click-subdivisions-and-silent-bar-boundary-use-real-isolated-pcm",
+          "status": "passed"
+        },
+        {
+          "name": "offline-rhythm-lanes-velocity-and-mute-preserve-the-other-lane-waveform",
+          "status": "passed"
+        },
+        {
+          "name": "offline-ramp-counts-silent-practice-bars-and-holds-target-tempo",
+          "status": "passed"
+        },
+        {
+          "name": "offline-overlay-inherits-accents-and-triplets-on-the-project-clock",
+          "status": "passed"
+        },
+        {
+          "name": "live-overlay-pause-keeps-a-future-click-inside-the-current-groove-step",
+          "status": "passed"
+        },
+        {
+          "name": "live-fractional-count-in-pause-resumes-tail-and-remaining-interval",
+          "status": "passed"
+        },
+        {
+          "name": "live-step-edit-and-tempo-edit-use-different-boundaries-and-seal-practice",
+          "status": "passed"
+        },
+        {
+          "name": "product-meter-group-tempo-unit-offbeats-and-invalid-range",
+          "status": "passed"
+        },
+        {
+          "name": "product-linked-bpm-edits-in-both-tabs-and-survives-reload",
+          "status": "passed"
+        },
+        {
+          "name": "product-count-in-is-independent-and-applies-only-on-fresh-start",
+          "status": "passed"
+        },
+        {
+          "name": "live-product-pause-owner-switch-and-explicit-resume",
+          "status": "passed"
+        },
+        {
+          "name": "leaving-section-cancels-audition-waiting-for-audio-context",
+          "status": "passed"
+        },
+        {
+          "name": "project-steps-and-full-chain-survive-reload-and-export",
+          "status": "passed"
+        },
+        {
+          "name": "manual-note-keeps-rhythm-material-and-time-after-changing-project",
+          "status": "passed"
+        },
+        {
+          "name": "product-layout-keeps-transport-and-local-grid-in-two-themes",
+          "status": "passed"
+        },
+        {
+          "name": "product-photo-panel-uses-local-images-and-keeps-shared-controls-compact",
+          "status": "passed"
+        },
+        {
+          "name": "product-amplifier-dials-faders-and-playhead-use-real-rhythm-state",
+          "status": "passed"
+        },
+        {
+          "name": "product-keyboard-tabs-and-grid-do-not-intercept-transport-shortcuts",
+          "status": "passed"
+        },
+        {
+          "name": "product-step-accents-use-project-owned-channel-defaults",
+          "status": "passed"
+        },
+        {
+          "name": "native-real-hidden-tab-pauses-until-explicit-resume",
+          "status": "passed"
+        },
+        {
+          "name": "native-upgrade-seven-to-ten-keeps-legacy-history-and-drafts",
+          "status": "passed"
+        },
+        {
+          "name": "native-upgrade-v8-to-v10-keeps-rhythm-projects-and-practice",
+          "status": "passed"
+        },
+        {
+          "name": "native-upgrade-v9-to-v10-keeps-rhythm-projects-and-practice",
+          "status": "passed"
+        },
+        {
+          "name": "native-upgrade-abort-after-successful-cursor-update-retains-version-seven",
+          "status": "passed"
+        },
+        {
+          "name": "native-project-restore-validates-chain-and-rolls-back-after-project-and-selection-put",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "suite": "music-bank",
+      "generatedAt": "2026-11-09T13:48:29.232Z",
+      "passed": 10,
+      "failed": 0,
+      "staticServer": {
+        "reuseRequested": true,
+        "owned": false,
+        "mode": "external-reused",
+        "indexVerifiedByteForByte": true,
+        "restartAllowed": false,
+        "shutdownAllowed": false
+      },
+      "checks": [
+        {
+          "name": "product-15-real-files-render-independent-track-controls-and-reject-old-GTP",
+          "status": "passed"
+        },
+        {
+          "name": "product-independent-drums-live-volume-mute-solo-and-four-notation-states",
+          "status": "passed"
+        },
+        {
+          "name": "product-directory-search-pages-read-only-selected-file-and-no-full-catalogue-backup",
+          "status": "passed"
+        },
+        {
+          "name": "product-save-reload-content-rebind-export-restore-and-presets-keep-original-context",
+          "status": "passed"
+        },
+        {
+          "name": "product-pending-file-disables-old-mixer-and-cancel-retains-exact-context",
+          "status": "passed"
+        },
+        {
+          "name": "product-invalid-range-cannot-continue-previous-valid-loop",
+          "status": "passed"
+        },
+        {
+          "name": "product-module-switches-coordinate-bank-and-ear-audio-owners",
+          "status": "passed"
+        },
+        {
+          "name": "product-studio-scroll-and-both-themes-remain-visible-at-real-viewports",
+          "status": "passed"
+        },
+        {
+          "name": "product-native-tab-hide-pauses-and-return-waits-for-explicit-start",
+          "status": "passed"
+        },
+        {
+          "name": "product-switching-away-cancels-pending-module-load-with-no-late-audio-owner",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "suite": "browser",
+      "generatedAt": "2026-11-09T13:49:51.555Z",
+      "passed": 15,
+      "failed": 0,
+      "staticServer": {
+        "reuseRequested": true,
+        "owned": false,
+        "mode": "external-reused",
+        "indexMatchesBuild": true,
+        "restartAllowed": false,
+        "shutdownAllowed": false
+      },
+      "checks": [
+        {
+          "name": "initial-eadg-range-and-selection",
+          "status": "passed"
+        },
+        {
+          "name": "contextual-flat-and-sharp-spelling",
+          "status": "passed"
+        },
+        {
+          "name": "six-structures-independent-musical-fixtures",
+          "status": "passed"
+        },
+        {
+          "name": "restricted-string-and-fret-domain",
+          "status": "passed"
+        },
+        {
+          "name": "inclusive-zero-twenty-four-and-upper-range",
+          "status": "passed"
+        },
+        {
+          "name": "empty-filter-explains-and-recovers",
+          "status": "passed"
+        },
+        {
+          "name": "invalid-range-recovery-without-runtime-error",
+          "status": "passed"
+        },
+        {
+          "name": "same-height-different-string-and-octave",
+          "status": "passed"
+        },
+        {
+          "name": "chromatic-position-is-selectable-and-context-is-explicit",
+          "status": "passed"
+        },
+        {
+          "name": "labels-degrees-and-hidden-keep-accessible-position",
+          "status": "passed"
+        },
+        {
+          "name": "root-and-selection-have-accessible-independent-states",
+          "status": "passed"
+        },
+        {
+          "name": "keyboard-roving-focus-and-explicit-selection",
+          "status": "passed"
+        },
+        {
+          "name": "keyboard-home-end-and-filtered-string-boundaries",
+          "status": "passed"
+        },
+        {
+          "name": "narrow-viewport-scroll-and-last-fret-selection",
+          "status": "passed"
+        },
+        {
+          "name": "clean-context-local-resources-and-no-runtime-errors",
+          "status": "passed"
+        }
+      ]
+    }
+  ]
+}

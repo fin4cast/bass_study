@@ -298,7 +298,7 @@ check('guided-route-shares-exact-material-and-links-screen-ear-results', 'ui', a
   await routeAction(page, 'next').click(); assert.equal(await page.locator('[data-training-mode="sequence"]').getAttribute('aria-pressed'), 'true');
   assert.deepEqual(await page.getByTestId('sequence-route').locator('[data-sequence-position]').evaluateAll(nodes => nodes.map(node => node.dataset.sequencePosition)), expectedIds);
   assert.equal(await page.getByLabel('Длительность нот', { exact: true }).inputValue(), 'quarter');
-  assert.equal(await page.getByLabel('Темп, BPM', { exact: true }).inputValue(), '60');
+  assert.equal(await page.locator('#player-mount').getByLabel('Темп, BPM', { exact: true }).inputValue(), '60');
   assert.equal(await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).inputValue(), 'infinite');
   assert.ok(await page.getByLabel('Отсчёт перед стартом', { exact: true }).isChecked());
   await routeAction(page, 'stop').click(); const exported = await exportUi(page);

@@ -163,7 +163,9 @@ async function setupApp(page, { pattern = 'ascending', countIn = false, duration
   await page.locator('[data-sequence-view="notation"]').click();
   await page.locator('#notation-mount [data-notation-index="0"]').first().waitFor();
   assert.equal(await page.evaluate(() => window.__notationAudioContexts.length), contexts, 'Showing notation created another audio context.');
-  await page.getByLabel('Длительность нот', { exact: true }).selectOption(duration); await page.getByLabel('Темп, BPM', { exact: true }).fill('120'); await page.getByLabel('Темп, BPM', { exact: true }).press('Tab');
+  const bpm = page.locator('#player-mount').getByLabel('Темп, BPM', { exact: true });
+  await page.getByLabel('Длительность нот', { exact: true }).selectOption(duration);
+  await bpm.fill('120'); await bpm.press('Tab');
   await page.getByLabel('Отсчёт перед стартом', { exact: true }).setChecked(countIn); await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite');
   return contexts;
 }

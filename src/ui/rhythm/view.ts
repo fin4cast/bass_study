@@ -3,9 +3,9 @@ import { DEFAULT_RHYTHM_VELOCITY, RHYTHM_PATTERN_LENGTHS } from '../../rhythm/mo
 function dial(setting: string, label: string, min: number, max: number, description?: string) {
   const describedBy = description ? ` aria-describedby="${description}"` : '';
   return `<label class="rhythm-dial">
+    <span class="rhythm-dial-label">${label}</span>
     <span class="rhythm-dial-scale" aria-hidden="true"><span class="rhythm-dial-face"></span></span>
     <input type="range" min="${min}" max="${max}" step="1" data-rhythm-setting="${setting}" data-rhythm-dial aria-label="${label}"${describedBy}>
-    <span class="rhythm-dial-label">${label}</span>
   </label>`;
 }
 
@@ -89,6 +89,22 @@ export function rhythmMarkup(id: string) {
           <div class="rhythm-playing-field" tabindex="0" role="region" aria-label="Акценты долей">
             <div class="rhythm-beats" data-rhythm-output="beats"></div>
           </div>
+          <div class="rhythm-metro-secondary">
+            <section class="rhythm-card rhythm-sounds" aria-label="Звук метронома">
+              <details class="learning-help">
+                <summary><strong>Звук</strong><span class="rhythm-muted" data-rhythm-output="kit-name"></span></summary>
+                <div class="rhythm-segment rhythm-kit-list" data-rhythm-output="kits" role="group" aria-label="Тембр клика"></div>
+              </details>
+              <button type="button" data-rhythm-action="preview">Прослушать</button>
+            </section>
+            <details class="learning-help rhythm-training">
+              <summary><strong>Тренировка</strong><span class="rhythm-muted" data-rhythm-output="training-summary"></span></summary>
+              <div class="rhythm-training-fields">
+                <fieldset><legend><label class="rhythm-check"><input type="checkbox" data-rhythm-setting="silentEnabled">Немые такты</label></legend><label>Со звуком<input type="number" min="1" max="16" data-rhythm-setting="soundBars"></label><label>Без звука<input type="number" min="1" max="16" data-rhythm-setting="silentBars"></label></fieldset>
+                <fieldset><legend><label class="rhythm-check"><input type="checkbox" data-rhythm-setting="rampEnabled">Рост темпа</label></legend><label>Шаг BPM<input type="number" min="1" max="20" data-rhythm-setting="stepBpm"></label><label>Каждые N тактов<input type="number" min="1" max="32" data-rhythm-setting="everyBars"></label><label>До BPM<input type="number" min="30" max="240" data-rhythm-setting="targetBpm" aria-describedby="${id}-ramp-help"></label><small class="rhythm-muted" id="${id}-ramp-help">При росте темпа цель поднимается, если исходный BPM оказался выше.</small></fieldset>
+              </div>
+            </details>
+          </div>
         </section>
         <aside class="settings-panel rhythm-side-scroll" id="${id}-metro-settings" data-rhythm-settings-panel="metronome" tabindex="-1" aria-labelledby="${id}-metro-settings-title" hidden>
           <div class="section-title"><h2 id="${id}-metro-settings-title">Настройки метронома</h2><button type="button" class="text-button rhythm-settings-close" data-rhythm-settings-close>Свернуть</button></div>
@@ -108,22 +124,6 @@ export function rhythmMarkup(id: string) {
             ${choice('metro-swing-mode', 'Рисунок свинга', [['eighth', 'Половины доли'], ['sixteenth', 'Внутри пары']])}
             <p class="rhythm-muted rhythm-swing-help" id="${id}-swing-help" data-rhythm-output="swing-explanation"></p>
           </section>
-          <div class="rhythm-metro-secondary">
-            <section class="rhythm-card rhythm-sounds" aria-label="Звук метронома">
-              <details class="learning-help">
-                <summary><strong>Звук</strong><span class="rhythm-muted" data-rhythm-output="kit-name"></span></summary>
-                <div class="rhythm-segment rhythm-kit-list" data-rhythm-output="kits" role="group" aria-label="Тембр клика"></div>
-              </details>
-              <button type="button" data-rhythm-action="preview">Прослушать</button>
-            </section>
-            <details class="learning-help rhythm-training">
-              <summary><strong>Тренировка</strong><span class="rhythm-muted" data-rhythm-output="training-summary"></span></summary>
-              <div class="rhythm-training-fields">
-                <fieldset><legend><label class="rhythm-check"><input type="checkbox" data-rhythm-setting="silentEnabled">Немые такты</label></legend><label>Со звуком<input type="number" min="1" max="16" data-rhythm-setting="soundBars"></label><label>Без звука<input type="number" min="1" max="16" data-rhythm-setting="silentBars"></label></fieldset>
-                <fieldset><legend><label class="rhythm-check"><input type="checkbox" data-rhythm-setting="rampEnabled">Рост темпа</label></legend><label>Шаг BPM<input type="number" min="1" max="20" data-rhythm-setting="stepBpm"></label><label>Каждые N тактов<input type="number" min="1" max="32" data-rhythm-setting="everyBars"></label><label>До BPM<input type="number" min="30" max="240" data-rhythm-setting="targetBpm" aria-describedby="${id}-ramp-help"></label><small class="rhythm-muted" id="${id}-ramp-help">При росте темпа цель поднимается, если исходный BPM оказался выше.</small></fieldset>
-              </div>
-            </details>
-          </div>
         </aside>
       </div>
     </section>
@@ -157,7 +157,12 @@ export function rhythmMarkup(id: string) {
               </section>
               <section class="rhythm-playback-settings" aria-label="Воспроизведение">
                 <div class="rhythm-choice" role="group" aria-label="Повтор ритма"><span>Повтор</span><div class="rhythm-segment"><button type="button" data-rhythm-repeat="once" aria-pressed="false">Один проход</button><button type="button" data-rhythm-repeat="loop" aria-pressed="true">По кругу</button></div></div>
-                <label class="rhythm-check"><input type="checkbox" data-rhythm-setting="rhythmClick" aria-describedby="${id}-overlay-help">Метроном поверх</label>
+                <label class="rhythm-overlay-switch">
+                  <input type="checkbox" role="switch" data-rhythm-setting="rhythmClick" aria-describedby="${id}-overlay-help">
+                  <span class="rhythm-overlay-switch-face" aria-hidden="true"></span>
+                  <span>Метроном поверх</span>
+                  <span class="rhythm-switch-value" aria-hidden="true"><span>Выкл.</span><span>Вкл.</span></span>
+                </label>
               </section>
               <details class="learning-help rhythm-editor-bar">
                 <summary>Действия с тактом</summary>
@@ -171,6 +176,15 @@ export function rhythmMarkup(id: string) {
             </div>
           </aside>
           <div class="rhythm-groove-tools" tabindex="0" role="region" aria-label="Сила удара, цепочка и проекты">
+            <section class="rhythm-card rhythm-chain-card">
+              <div class="rhythm-chain-heading">
+                <div class="rhythm-card-heading"><h2>Цепочка</h2><button type="button" class="rhythm-utility" data-rhythm-action="add-clip" aria-label="Добавить блок" title="Добавить блок">+</button><span class="rhythm-muted" data-rhythm-output="chain-length"></span></div>
+                <div class="rhythm-choice rhythm-scope" role="group" aria-label="Что проигрывать"><span>Играть</span><div class="rhythm-segment"><button type="button" data-rhythm-scope="pattern" aria-pressed="true">Паттерн</button><button type="button" data-rhythm-scope="chain" aria-pressed="false">Цепочку</button></div></div>
+              </div>
+              <div class="rhythm-chain" data-rhythm-output="chain" aria-label="Порядок паттернов"></div>
+              <div class="rhythm-clip-editor" data-rhythm-output="clip-editor" hidden></div>
+            </section>
+            <div class="rhythm-groove-extras">
             <details class="rhythm-velocity">
               <summary>Сила и акцент удара <span class="rhythm-accent-hint" aria-hidden="true">ПКМ по шагу — акцент</span></summary>
               <div class="rhythm-velocity-scroll"><div data-rhythm-output="velocity"></div></div>
@@ -191,14 +205,6 @@ export function rhythmMarkup(id: string) {
                 </div>
               </div>
             </details>
-            <section class="rhythm-card rhythm-chain-card">
-              <div class="rhythm-chain-heading">
-                <div class="rhythm-card-heading"><h2>Цепочка</h2><button type="button" class="rhythm-utility" data-rhythm-action="add-clip" aria-label="Добавить блок" title="Добавить блок">+</button><span class="rhythm-muted" data-rhythm-output="chain-length"></span></div>
-                <div class="rhythm-choice rhythm-scope" role="group" aria-label="Что проигрывать"><span>Играть</span><div class="rhythm-segment"><button type="button" data-rhythm-scope="pattern" aria-pressed="true">Паттерн</button><button type="button" data-rhythm-scope="chain" aria-pressed="false">Цепочку</button></div></div>
-              </div>
-              <div class="rhythm-chain" data-rhythm-output="chain" aria-label="Порядок паттернов"></div>
-              <div class="rhythm-clip-editor" data-rhythm-output="clip-editor" hidden></div>
-            </section>
             <details class="rhythm-card rhythm-library">
               <summary>Партии и проекты</summary>
               <div class="rhythm-library-body">
@@ -210,13 +216,13 @@ export function rhythmMarkup(id: string) {
                 </section>
               </div>
             </details>
+            </div>
           </div>
         </div>
       </div>
     </section>
     </div>
     <div class="rhythm-transport-options">
-      <p class="rhythm-muted" data-rhythm-output="linked-tempo" hidden>Общий BPM</p>
       <span class="sr-only" id="${id}-overlay-help" data-rhythm-output="overlay-help"></span>
       <p class="rhythm-status" role="status" data-rhythm-output="status" tabindex="-1"></p>
       <button type="button" data-rhythm-action="retry-project" hidden>Повторить запись</button>
@@ -226,30 +232,52 @@ export function rhythmMarkup(id: string) {
       <div class="rhythm-transport-line">
         <div class="rhythm-tempo">
           <label class="rhythm-bpm-display">
-            <input type="number" min="30" max="240" data-rhythm-setting="bpm" aria-label="Темп, BPM" value="92">
-            <span><span data-rhythm-output="tempo-unit" aria-hidden="true">♩</span> BPM</span>
+            <span class="rhythm-bpm-caption">
+              <span class="rhythm-bpm-caption-default" aria-hidden="true">Темп</span>
+              <span id="${id}-linked-tempo" data-rhythm-output="linked-tempo" hidden>Общий BPM</span>
+            </span>
+            <span class="rhythm-bpm-readout">
+              <input type="number" min="30" max="240" data-rhythm-setting="bpm" aria-label="Темп, BPM" value="92">
+              <span class="rhythm-bpm-unit" aria-hidden="true"><span data-rhythm-output="tempo-unit">♩</span> BPM</span>
+            </span>
           </label>
-          ${dial('bpm-slider', 'Темп', 30, 240)}
           <div class="rhythm-tempo-nudges">
-            <button type="button" data-rhythm-action="faster" aria-label="Увеличить темп на один BPM">+</button>
             <button type="button" data-rhythm-action="slower" aria-label="Уменьшить темп на один BPM">−</button>
-          </div>
-        </div>
-        <div class="rhythm-swing-dock" data-rhythm-dock="metronome">
-          ${dial('metronomeSwing', 'Свинг', 50, 70, id + '-swing-help')}<output data-rhythm-output="metro-swing"></output>
-          <div class="rhythm-swing-unavailable" data-rhythm-output="swing-unavailable" title="Свинг доступен при делении доли на две или четыре части" hidden><span>Свинг</span><span aria-hidden="true">—</span><span class="sr-only">недоступен</span></div>
-        </div>
-        <div class="rhythm-swing-dock" data-rhythm-dock="rhythm" hidden>${dial('rhythm-swing', 'Свинг', 50, 70)}<output data-rhythm-output="rhythm-swing"></output></div>
-        <div class="rhythm-play-module">
-          <div class="rhythm-play-buttons">
-            <button type="button" class="rhythm-primary" data-rhythm-action="start" aria-label="Старт"><span aria-hidden="true">▶</span></button>
-            <button type="button" data-rhythm-action="pause" aria-label="Пауза" disabled><span aria-hidden="true">Ⅱ</span></button>
-            <button type="button" class="rhythm-primary" data-rhythm-action="resume" aria-label="Продолжить" hidden><span aria-hidden="true">▶</span></button>
-            <button type="button" data-rhythm-action="stop" aria-label="Стоп" disabled><span aria-hidden="true">■</span></button>
             <button type="button" data-rhythm-action="tap" aria-label="Настучать темп" title="Настучать темп">TAP</button>
+            <button type="button" data-rhythm-action="faster" aria-label="Увеличить темп на один BPM">+</button>
           </div>
-          <output class="rhythm-position" data-rhythm-output="position" aria-live="off">Остановлено</output>
-          <label class="rhythm-check"><input type="checkbox" data-rhythm-setting="countIn">Отсчёт · 1 такт</label>
+        </div>
+        <div class="rhythm-dial-bank">
+          <div class="rhythm-tempo-dial">
+            ${dial('bpm-slider', 'Темп', 30, 240)}
+            <div class="rhythm-tempo-limits" aria-hidden="true"><span>30</span><span>240</span></div>
+          </div>
+          <div class="rhythm-swing-dock" data-rhythm-dock="metronome">
+            ${dial('metronomeSwing', 'Свинг', 50, 70, id + '-swing-help')}<output data-rhythm-output="metro-swing"></output>
+          </div>
+          <div class="rhythm-swing-dock" data-rhythm-dock="rhythm" hidden>
+            ${dial('rhythm-swing', 'Свинг', 50, 70)}<output data-rhythm-output="rhythm-swing"></output>
+          </div>
+        </div>
+        <div class="rhythm-play-module">
+          <output class="rhythm-position" data-rhythm-output="position" aria-live="off">
+            <span class="rhythm-position-phase" data-rhythm-output="position-phase">Остановлено</span>
+            <span class="rhythm-position-detail" data-rhythm-output="position-detail"></span>
+          </output>
+          <div class="rhythm-play-buttons">
+            <button type="button" class="rhythm-photo-key" data-rhythm-action="start"><span class="rhythm-key-face" aria-hidden="true">▶</span><span>Старт</span></button>
+            <button type="button" class="rhythm-photo-key" data-rhythm-action="pause" disabled><span class="rhythm-key-face" aria-hidden="true">Ⅱ</span><span>Пауза</span></button>
+            <button type="button" class="rhythm-photo-key" data-rhythm-action="resume" aria-label="Продолжить" hidden><span class="rhythm-key-face" aria-hidden="true">▶</span><span>Дальше</span></button>
+            <button type="button" class="rhythm-photo-key" data-rhythm-action="stop" disabled><span class="rhythm-key-face" aria-hidden="true">■</span><span>Стоп</span></button>
+          </div>
+          <label class="rhythm-count-in">
+            <input type="checkbox" role="switch" data-rhythm-setting="countIn" aria-describedby="${id}-count-in-help">
+            <span class="rhythm-count-in-track" aria-hidden="true"></span>
+            <span class="rhythm-count-in-caption">Отсчёт
+              <span class="rhythm-count-in-value rhythm-switch-value" aria-hidden="true"><span>Выкл.</span><span>Вкл.</span></span>
+            </span>
+          </label>
+          <span id="${id}-count-in-help" class="sr-only">Один такт перед новым стартом</span>
         </div>
         <div class="rhythm-mix-module" role="group" aria-label="Микшер">
           <h2>Микшер</h2>

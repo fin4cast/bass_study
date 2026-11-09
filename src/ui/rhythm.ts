@@ -83,6 +83,8 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   const rackScroll = rack.closest<HTMLElement>('.rhythm-rack-scroll')!;
   const velocityScroll = output('velocity').parentElement!;
   const velocityEditor = velocityScroll.closest('details')!;
+  const editorScroll = container.querySelector<HTMLElement>('.rhythm-content')!;
+  const pinnedRack = window.matchMedia('(min-width: 1050px) and (min-height: 660px)');
   const wideSettings = window.matchMedia('(min-width: 1440px) and (min-height: 700px)');
   const settingsToggle = container.querySelector<HTMLButtonElement>('[data-rhythm-settings-toggle]')!;
   const settingsPanels = Array.from(container.querySelectorAll<HTMLElement>('[data-rhythm-settings-panel]'));
@@ -102,11 +104,18 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   function setSettingsOpen(open: boolean) {
     settingsOpen = open;
     const panel = syncSettingsPanel();
-    if (!open) settingsToggle.focus();
-    else if (!wideSettings.matches) {
-      panel.focus({ preventScroll: true });
-      panel.scrollIntoView({ block: 'nearest' });
+    if (!wideSettings.matches) {
+      const scroll = isRhythm() && pinnedRack.matches
+        ? panel.closest<HTMLElement>('.rhythm-groove-detail-scroll') ?? editorScroll
+        : editorScroll;
+      if (open) {
+        panel.focus({ preventScroll: true });
+        scroll.scrollTop += panel.getBoundingClientRect().top - scroll.getBoundingClientRect().top;
+      } else {
+        scroll.scrollTop = 0;
+      }
     }
+    if (!open) settingsToggle.focus();
   }
   function status(text: string) { output('status').textContent = text; }
   function showError() {
@@ -163,16 +172,21 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     container.dataset.rhythmBeat = active ? String(position?.beat ?? '') : '';
     container.dataset.rhythmStep = active ? String(position?.step ?? '') : '';
     container.dataset.rhythmClip = active ? position?.clipId ?? '' : '';
-    const positionOutput = output('position');
-    if (!active || !position) {
-      const text = TRANSPORT_LABELS[snapshot?.state ?? 'stopped'];
-      if (positionOutput.textContent !== text) positionOutput.textContent = text;
-      return;
-    }
-    const phase = snapshot?.state === 'paused' ? 'Пауза' : snapshot?.phase === 'count-in' ? 'Отсчёт' : position.silent ? 'Немой такт' : 'Играет';
     const tempo = isRhythm() ? project.bpm : preferences.metronome.bpm;
-    const text = `${phase} · такт ${position.bar}, доля ${position.beat}${snapshot?.bpm === tempo ? '' : ` · ${snapshot?.bpm} BPM`}`;
-    if (positionOutput.textContent !== text) positionOutput.textContent = text;
+    const phase = !active || !position ? TRANSPORT_LABELS[snapshot?.state ?? 'stopped']
+      : snapshot?.state === 'paused' ? 'Пауза' : snapshot?.phase === 'count-in' ? 'Отсчёт' : position.silent ? 'Немой такт' : 'Играет';
+    const phaseText = active && position && snapshot && snapshot.bpm !== tempo ? `${phase} · ${snapshot.bpm} BPM` : phase;
+    const detailText = active && position ? `Такт ${position.bar} · доля ${position.beat}` : '';
+    const phaseOutput = output('position-phase'), detailOutput = output('position-detail');
+    if (phaseOutput.textContent !== phaseText) {
+      phaseOutput.textContent = phaseText;
+      phaseOutput.title = phaseText;
+    }
+    if (detailOutput.textContent !== detailText) {
+      detailOutput.textContent = detailText;
+      detailOutput.title = detailText;
+    }
+    if (!active || !position) return;
     if (isRhythm()) {
       currentClip?.classList.add('is-playing');
       if (position.patternId === project.activePatternId && position.patternBar === selectedBar + 1) {
@@ -200,9 +214,23 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   });
   function stop() { if (!disposed) { ++runIntent; player.stop(); syncTransport(); } }
   function pause(reason = 'manual') { if (!disposed) { ++runIntent; player.pause(reason); syncTransport(); } }
+  function configForCurrentRun(): RhythmPlaybackConfig {
+    const next = config();
+    if (!playing() && snapshot?.state !== 'paused') return next;
+    const effective = snapshot?.effectiveConfig;
+    if (!effective) return next;
+    // Длина отсчёта определяет нумерацию шагов уже запущенного прохода.
+    if (next.project && effective.project && next.project.countIn !== effective.project.countIn) {
+      return { ...next, project: { ...next.project, countIn: effective.project.countIn } };
+    }
+    if (!next.project && !effective.project && next.preferences.metronome.countIn !== effective.preferences.metronome.countIn) {
+      return { preferences: { ...next.preferences, metronome: { ...next.preferences.metronome, countIn: effective.preferences.metronome.countIn } } };
+    }
+    return next;
+  }
   function configure() {
     if (inputErrors.size || disposed) return;
-    try { player.configure(config()); }
+    try { player.configure(configForCurrentRun()); }
     catch (failure) { stop(); audioError = failureText(failure); showError(); }
   }
   async function sound(command: 'start' | 'resume' | 'preview') {
@@ -251,9 +279,6 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     setField('metronomeSwing', metro.swing);
     syncChoice('metro-swing-mode', metro.division === 2 ? 'eighth' : metro.swingMode, metro.division !== 4);
     field('metronomeSwing').disabled = !swingAvailable;
-    field('metronomeSwing').closest('label')!.hidden = !swingAvailable;
-    output('metro-swing').hidden = !swingAvailable;
-    output('swing-unavailable').hidden = swingAvailable;
     output('swing-explanation').textContent = metro.division === 4 ? 'Выбери, где чередуются длинные и короткие шаги.'
       : metro.division === 2 ? 'Свинг делит долю на длинную и короткую части.' : 'Свинг доступен при делении доли на две или четыре части.';
     setField('rhythm-swing', project.swing); syncChoice('rhythm-swing-mode', project.swingMode);
@@ -262,11 +287,15 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     const tempoUnit = isRhythm() ? 'quarter' : metro.bpmUnit;
     setField('bpm', bpm); setField('bpm-slider', bpm); setField('countIn', isRhythm() ? project.countIn : metro.countIn);
     output('tempo-unit').textContent = tempoUnit === 'quarter' ? '♩' : tempoUnit === 'eighth' ? '♪' : '♩.';
-    output('linked-tempo').hidden = !project.overlay;
+    const linkedTempo = output('linked-tempo');
+    linkedTempo.hidden = !project.overlay;
+    if (project.overlay) field('bpm').setAttribute('aria-describedby', linkedTempo.id);
+    else field('bpm').removeAttribute('aria-describedby');
     output('overlay-help').textContent = project.overlay
       ? 'Общий BPM. Ритм считает четверти в 4/4. Клик наследует акценты, подразделения и свинг метронома. /4 даёт четыре позиции основного клика на такт, /8 — восемь. Рисунок повторяется или обрезается на границе такта.'
       : 'Включи наложение, чтобы использовать настройки клика метронома и связать темп двух вкладок.';
-    output('metro-swing').textContent = `${metro.swing}%`; output('rhythm-swing').textContent = `${project.swing}%`;
+    output('metro-swing').textContent = swingAvailable ? `${metro.swing}%` : '—';
+    output('rhythm-swing').textContent = `${project.swing}%`;
     const meter = `${metro.meter.beats}/${metro.meter.denominator}`;
     output('meter-label').textContent = meter;
     const groups = output('meter-summary');
@@ -608,6 +637,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     if (view === preferences.view) return;
     stop(); inputErrors.clear(); audioError = ''; taps = [];
     changePreferences(draft => { draft.view = view; }); showError(); syncTransport();
+    editorScroll.scrollTop = 0;
   }
   function meterChanged(beats: number, denominator: 4 | 8, groups?: number[]) {
     changePreferences(draft => {

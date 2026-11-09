@@ -1587,14 +1587,18 @@ h2, h3, h4, [data-position], [data-answer-position], [data-notation-index] {
 body { background: var(--surface-canvas); }
 .app-shell {
   display: grid; grid-template-columns: 190px minmax(0, 1fr);
-  width: calc(100% - 32px); max-width: 1600px; min-height: calc(100dvh - 32px);
+  --study-inline-inset: 20px;
+  --study-block-inset: 18px;
+  --study-frame-height: calc(100dvh - 32px);
+  --study-content-height: calc(var(--study-frame-height) - 2px);
+  width: calc(100% - 32px); max-width: 1600px; min-height: var(--study-frame-height);
   padding: 0; margin: 16px auto; border: 1px solid var(--border); border-radius: 13px;
   background: var(--surface-navigation);
 }
 .site-header {
   position: sticky; top: 16px; align-self: start; display: flex; flex-direction: column;
   align-items: stretch; flex-wrap: nowrap; gap: 18px; height: auto;
-  min-height: calc(100dvh - 34px); max-height: calc(100dvh - 34px); overflow-y: auto;
+  min-height: var(--study-content-height); max-height: var(--study-content-height); overflow-y: auto;
   padding: 22px 15px 16px; border: 0; border-radius: 12px 0 0 12px;
   background: var(--surface-navigation);
 }
@@ -1650,15 +1654,16 @@ body { background: var(--surface-canvas); }
 .app-content .intro { padding: 12px 18px; gap: 12px; }
 .app-content .intro h1 { font-size: 27px; font-weight: 600; letter-spacing: -.7px; }
 .app-content .intro-copy { display: none; }
-.app-content main > :is(#ear-mount, #harmony-mount, #tracks-mount, #input-mount, #route-mount, #onboarding-mount, #history-mount) { margin-inline: 24px; }
+.app-content main > :is(#ear-mount, #tracks-mount, #input-mount, #route-mount, #onboarding-mount, #history-mount) { margin-inline: 24px; }
+.app-content main > #harmony-mount { margin-inline: var(--study-inline-inset); }
 .app-content #history-mount:not(:empty), .app-content #onboarding-mount:not(:empty) { margin-block: 20px; }
 .workspace {
   display: grid; grid-template-columns: minmax(0, 1fr) 280px; align-items: stretch;
-  min-height: calc(100dvh - 34px); border: 0; border-radius: 0; background: transparent; overflow: visible; box-shadow: none;
+  min-height: var(--study-content-height); border: 0; border-radius: 0; background: transparent; overflow: visible; box-shadow: none;
 }
 .workspace.panel-closed { grid-template-columns: minmax(0, 1fr); }
 .workspace.panel-closed > .settings-panel { display: none; }
-.workspace-main { min-width: 0; padding: 18px 20px; }
+.workspace-main { min-width: 0; padding: var(--study-block-inset, 18px) var(--study-inline-inset, 20px); }
 .study-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .study-heading > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 12px; min-width: 0; }
 .study-heading .eyebrow { font-size: 11px; line-height: 1.5; letter-spacing: .1em; font-weight: 500; }
@@ -1797,23 +1802,22 @@ body { background: var(--surface-canvas); }
 .settings-panel .range-error { margin-top: 10px; padding: 9px 11px; border: 1px solid var(--danger-border); background: var(--danger-surface); color: var(--danger-text); }
 .settings-panel input[aria-invalid="true"] { border-color: var(--danger-border); background: var(--danger-surface); }
 @media (max-width: 1120px) {
-  .app-shell { grid-template-columns: 164px minmax(0, 1fr); }
+  .app-shell { grid-template-columns: 164px minmax(0, 1fr); --study-inline-inset: 18px; }
   .site-header { padding-inline: 11px; }
   .sidebar-art { margin-inline: -11px; }
   .site-header .brand { font-size: 22px; gap: 8px; }
   .site-header .brand-dot { margin-inline: -7px; }
   .workspace { grid-template-columns: minmax(0, 1fr) 254px; }
-  .workspace-main { padding: 18px; }
   .settings-panel { padding: 20px 18px; }
   .study-heading { flex-wrap: wrap; }
   .study-heading h1 { font-size: 24px; }
 }
 @media (max-width: 950px) {
-  .app-shell { width: calc(100% - 24px); margin-block: 12px; min-height: calc(100dvh - 24px); grid-template-columns: 150px minmax(0, 1fr); }
-  .site-header { top: 12px; min-height: calc(100dvh - 26px); max-height: calc(100dvh - 26px); }
+  .app-shell { width: calc(100% - 24px); margin-block: 12px; --study-frame-height: calc(100dvh - 24px); grid-template-columns: 150px minmax(0, 1fr); }
+  .site-header { top: 12px; }
   .site-header .brand { font-size: 20px; gap: 6px; }
   .site-header .brand-dot { margin-inline: -5px; }
-  .workspace { grid-template-columns: minmax(0, 1fr); min-height: calc(100dvh - 26px); }
+  .workspace { grid-template-columns: minmax(0, 1fr); }
   .settings-panel { border-left: 0; border-top: 1px solid var(--border); }
   :is(.workspace-main #mode-nav-mount, .rhythm-header) .training-switcher { gap: 14px; }
   :is(.workspace-main #mode-nav-mount, .rhythm-header) .training-switcher > button { font-size: 12px; }
@@ -1822,7 +1826,7 @@ body { background: var(--surface-canvas); }
 .workspace-main > .study-more { margin: 6px 0 0; padding-top: 8px; }
 .workspace-main > .study-more > .structure-summary { margin-top: 10px; padding-top: 0; border-top: 0; }
 @media (max-width: 620px) {
-  .app-shell { width: 100%; margin: 0; min-height: 100dvh; border: 0; border-radius: 0; grid-template-columns: minmax(0, 1fr); }
+  .app-shell { width: 100%; margin: 0; min-height: 100dvh; border: 0; border-radius: 0; grid-template-columns: minmax(0, 1fr); --study-inline-inset: 16px; --study-block-inset: 22px; }
   .site-header { position: static; min-height: 0; max-height: none; overflow: visible; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 17px; padding: 18px 15px; border-bottom: 1px solid var(--border); border-radius: 0; }
   .site-header .brand { font-size: 22px; }
   .site-header .module-navigation { flex-direction: row; flex-wrap: wrap; gap: 3px; width: 100%; }
@@ -1841,8 +1845,7 @@ body { background: var(--surface-canvas); }
   .workspace { min-height: 0; }
   .app-content > .persistence-banner { padding-inline: 16px; }
   .app-content .intro { padding: 12px 16px; flex-wrap: wrap; }
-  .app-content main > :is(#ear-mount, #harmony-mount, #tracks-mount, #input-mount, #route-mount, #onboarding-mount, #history-mount) { margin-inline: 16px; }
-  .workspace-main { padding: 22px 16px; }
+  .app-content main > :is(#ear-mount, #tracks-mount, #input-mount, #route-mount, #onboarding-mount, #history-mount) { margin-inline: 16px; }
   .settings-panel { padding: 23px 20px; border-radius: 0; }
   .study-heading h1 { font-size: 24px; }
   .board-toolbar .label-field { margin-left: 0; }
@@ -1853,8 +1856,6 @@ body { background: var(--surface-canvas); }
   .connection-columns { grid-template-columns: minmax(0, 1fr); }
 }
 @media (min-width: 621px) and (max-height: 800px) {
-  .app-shell { margin-block: 12px; min-height: calc(100dvh - 24px); }
-  .site-header { top: 12px; min-height: calc(100dvh - 26px); max-height: calc(100dvh - 26px); }
-  .workspace-main { padding-block: 12px; }
-  .workspace { min-height: calc(100dvh - 26px); }
+  .app-shell { margin-block: 12px; --study-frame-height: calc(100dvh - 24px); --study-block-inset: 12px; }
+  .site-header { top: 12px; }
 }

@@ -1,0 +1,44 @@
+Фотографии пульта «Метроном и ритм»
+
+start.webp, stop.webp, knob.webp
+Raminder S Mulla, BOSS DR-660 Top View. Кадрирование и прозрачные маски.
+Ручка дополнительно повёрнута в плоскости снимка, её тон скорректирован.
+Вырезки распространяются под CC BY-SA 4.0.
+https://commons.wikimedia.org/wiki/File:BOSS_DR-660_Top_View.jpg
+https://creativecommons.org/licenses/by-sa/4.0/
+
+fader.webp
+Vogler, Yamaha MG20XU. Кадрирование, прозрачная маска, поворот в плоскости
+снимка и коррекция тона. Вырезка распространяется под CC BY-SA 4.0.
+https://commons.wikimedia.org/wiki/File:Yamaha_MG20XU.jpg
+https://creativecommons.org/licenses/by-sa/4.0/
+
+pause.webp
+Daniele Napolitano (DnaX), Mixer Behringer VMX100 - top view. Кадрирование
+и прозрачная маска. Вырезка распространяется под CC BY-SA 4.0.
+https://commons.wikimedia.org/wiki/File:Mixer_Behringer_VMX100_-_top_view.jpg
+https://creativecommons.org/licenses/by-sa/4.0/
+
+count-in.webp
+Adam Sampson, HH Electronic V-S Musician. Кадрирование, прозрачная маска
+и коррекция тона. CC BY 4.0.
+https://commons.wikimedia.org/wiki/File:HH_Electronic_V-S_Musician.jpg
+https://creativecommons.org/licenses/by/4.0/
+
+overlay-off.webp, overlay-on.webp
+Hannes Grobe, Controls of a 1978 Marc (Japan) world receiver (cropped).
+Кадрирование и прозрачные маски. Вырезки распространяются под CC BY-SA 4.0.
+https://commons.wikimedia.org/wiki/File:Controls_of_a_1978_Marc_(Japan)_world_receiver_(cropped).jpg
+https://creativecommons.org/licenses/by-sa/4.0/
+
+glass.webp
+striegel, 1990 Matchbook calculator keyboard and display, power off.
+Кадрирование и коррекция тона. CC BY 2.0.
+https://commons.wikimedia.org/wiki/File:1990_Matchbook_calculator_keyboard_and_display,_power_off_(30460088886).jpg
+https://creativecommons.org/licenses/by/2.0/
+
+wood.webp
+Jenelle van Heerden, Poly Haven, Walnut Veneer 02. Кадрирование, уменьшение
+и коррекция контраста. CC0 1.0.
+https://polyhaven.com/a/walnut_veneer_02
+https://creativecommons.org/publicdomain/zero/1.0/

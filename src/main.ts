@@ -862,8 +862,6 @@ introduction = mountIntroduction(byId('onboarding-mount'), { onChoice(choice, co
   onMaterial() { const material = createRouteMaterial(); const box = getBoxInstance(material.box!); applyPreferences({ ...lastValidPreferences, activeModule: 'foundation', study: { ...lastValidPreferences.study, root: 'C', structureId: 'major-triad', strings: STRING_ORDER.filter(string => box.positions.some(position => position.string === string)), fretMin: Math.min(lastValidPreferences.study.fretMin, box.window.fretMin), fretMax: Math.max(lastValidPreferences.study.fretMax, box.window.fretMax), box: material.box }, training: { ...lastValidPreferences.training, mode: 'study', reviewPositionIds: [], questionPolicy: 'random-v1' } }); savePreferences(); },
   onPosition(id) { selectPosition(id, true); }, onBeforeListen() { sequencePlayer?.stop(); rhythm?.pause('audio-owner'); tracks?.stop(); musicBank?.stop(); inputMonitor?.stop(); ear?.pauseListening(); },
 });
-byId('open-introduction').addEventListener('click', () => introduction?.open());
-document.querySelectorAll<HTMLElement>('[data-app-module]').forEach(button => button.addEventListener('click', () => switchModule(button.dataset.appModule as AppPreferences['activeModule'])));
 history = mountHistory(byId('history-mount'), {
   store: {
     readSnapshot: options => store.readSnapshot(options),
@@ -935,16 +933,42 @@ byId('retry-save').addEventListener('click', () => {
 });
 byId('retry-tab').addEventListener('click', () => location.reload());
 const historyDrawer = byId('history-mount').querySelector<HTMLDetailsElement>('.history-drawer')!;
-byId('open-history').addEventListener('click', () => {
-  const open = !historyDrawer.open;
+function setHistoryOpen(open: boolean) {
   byId('history-mount').hidden = !open;
   historyDrawer.open = open;
   byId('open-history').setAttribute('aria-expanded', String(open));
-  if (open) { historyDrawer.scrollIntoView({ block: 'start' }); historyDrawer.querySelector('summary')?.focus({ preventScroll: true }); }
+}
+function closeIntroduction() {
+  const panel = byId('onboarding-mount');
+  if (panel.hidden) return;
+  introduction?.stop();
+  panel.hidden = true;
+}
+byId('open-introduction').addEventListener('click', () => {
+  setHistoryOpen(false);
+  introduction?.open();
+  const heading = byId('onboarding-mount').querySelector<HTMLElement>('h2');
+  heading?.focus({ preventScroll: true });
+  heading?.scrollIntoView({ block: 'start' });
+});
+document.querySelectorAll<HTMLElement>('[data-app-module]').forEach(button => button.addEventListener('click', () => {
+  setHistoryOpen(false);
+  closeIntroduction();
+  switchModule(button.dataset.appModule as AppPreferences['activeModule']);
+  window.scrollTo({ top: 0 });
+}));
+byId('open-history').addEventListener('click', () => {
+  const open = !historyDrawer.open;
+  if (open) closeIntroduction();
+  setHistoryOpen(open);
 });
 historyDrawer.addEventListener('toggle', () => {
   byId('open-history').setAttribute('aria-expanded', String(historyDrawer.open));
-  if (!historyDrawer.open) {
+  if (historyDrawer.open) {
+    // The history view renders its body on this event before scrolling can use its height.
+    historyDrawer.scrollIntoView({ block: 'start' });
+    historyDrawer.querySelector('summary')?.focus({ preventScroll: true });
+  } else {
     if (historyDrawer.contains(document.activeElement)) byId('open-history').focus({ preventScroll: true });
     byId('history-mount').hidden = true;
   }

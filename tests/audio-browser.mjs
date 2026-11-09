@@ -52,7 +52,7 @@ async function setupUi(page, { last = 3, bpm = 120, repeat = 'infinite', countIn
   await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
   if (!await page.locator('.player-advanced').evaluate(element => element.open)) await page.locator('.player-advanced > summary').click();
   await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  await page.getByLabel('Темп, BPM', { exact: true }).fill(String(bpm));
+  await player(page).getByLabel('Темп, BPM', { exact: true }).fill(String(bpm));
   await page.getByLabel('Длительность нот', { exact: true }).selectOption(duration);
   await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption(repeat);
   await page.getByLabel('Отсчёт перед стартом', { exact: true }).setChecked(countIn);
@@ -276,9 +276,9 @@ check('ui-count-in-locks-structural-controls-and-manual-tempo-remains-available'
   assert.equal(await player(page).getAttribute('data-player-phase'), 'count-in');
   assert.equal(await page.locator('.is-playing').count(), 0); assert.match(await page.getByTestId('player-current-note').innerText(), /1.*2.*3.*4/);
   for (const label of ['Длительность нот', 'Повтор', 'Первая нота фрагмента', 'Последняя нота фрагмента', 'Отсчёт перед стартом', 'Показывать пульс', 'Метроном']) assert.ok(await player(page).getByLabel(label, { exact: true }).isDisabled(), label);
-  assert.ok(await page.getByLabel('Темп, BPM', { exact: true }).isEnabled()); assert.ok(await page.getByLabel('Громкость баса', { exact: true }).isEnabled());
+  assert.ok(await player(page).getByLabel('Темп, BPM', { exact: true }).isEnabled()); assert.ok(await page.getByLabel('Громкость баса', { exact: true }).isEnabled());
   await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerPhase === 'practice');
-  await page.getByLabel('Темп, BPM', { exact: true }).fill('150'); await page.getByLabel('Темп, BPM', { exact: true }).press('Tab');
+  await player(page).getByLabel('Темп, BPM', { exact: true }).fill('150'); await player(page).getByLabel('Темп, BPM', { exact: true }).press('Tab');
   await page.waitForFunction(() => Math.abs(Number(document.querySelector('#player-mount')?.dataset.currentBpm) - 150) < 0.01);
   await action(page, 'pause').click(); await stateIs(page, 'paused'); assert.ok(await page.getByLabel('Длительность нот', { exact: true }).isDisabled());
   await action(page, 'resume').click(); await stateIs(page, 'running'); assert.equal(await player(page).getAttribute('data-player-phase'), 'practice');
@@ -304,8 +304,8 @@ check('ui-tempo-ladder-validation-ownership-and-finite-completion', 'ui', async 
   await page.getByLabel('Целевой темп', { exact: true }).fill('220');
   await page.getByLabel('Шаг темпа', { exact: true }).fill('10'); await page.getByLabel('Повторов на темп', { exact: true }).fill('2');
   await page.getByLabel('Повторов на темп', { exact: true }).press('Tab');
-  assert.ok(await page.getByLabel('Темп, BPM', { exact: true }).isDisabled()); assert.equal(await page.getByLabel('Темп, BPM', { exact: true }).inputValue(), '200');
-  await action(page, 'start').click(); await stateIs(page, 'running'); assert.ok(await page.getByLabel('Темп, BPM', { exact: true }).isDisabled());
+  assert.ok(await player(page).getByLabel('Темп, BPM', { exact: true }).isDisabled()); assert.equal(await player(page).getByLabel('Темп, BPM', { exact: true }).inputValue(), '200');
+  await action(page, 'start').click(); await stateIs(page, 'running'); assert.ok(await player(page).getByLabel('Темп, BPM', { exact: true }).isDisabled());
   await stateIs(page, 'finished'); assert.match(await page.getByTestId('player-status').innerText(), /завершены/); assert.equal(await page.locator('.is-playing').count(), 0);
   return { manualTempoDisabled: true, completedThreeTemposTwoPassesEach: true };
 });
@@ -326,7 +326,7 @@ check('ui-metronome-modes-subdivision-and-live-volume-controls', 'ui', async ({ 
 });
 
 check('ui-keyboard-space-escape-and-input-button-guards', 'ui', async ({ page }) => {
-  await setupUi(page); const bpm = page.getByLabel('Темп, BPM', { exact: true });
+  await setupUi(page); const bpm = player(page).getByLabel('Темп, BPM', { exact: true });
   await bpm.focus(); await bpm.press('Space'); assert.equal(await player(page).getAttribute('data-player-state'), 'stopped');
   await page.getByTestId('player-status').click(); await page.keyboard.press('Space'); await stateIs(page, 'running');
   await bpm.focus(); await bpm.press('Escape'); assert.equal(await player(page).getAttribute('data-player-state'), 'running');
