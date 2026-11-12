@@ -75,6 +75,14 @@ describe('переносимые настройки свободного муз�
     await expect(bindMusicBankFile(file('Песня.gp4', '', new Uint8Array([3, 2, 1])), expected)).rejects.toThrow(/SHA/);
     let read = false; await expect(bindMusicBankFile({ size: 4, async arrayBuffer() { read = true; return bytes.buffer; } }, expected)).rejects.toThrow(/Размер/); expect(read).toBe(false);
   });
+
+  it('хеширует только байты представления, без копии всего буфера', async () => {
+    const whole = new Uint8Array([9, 1, 2, 3, 9]);
+    const view = whole.subarray(1, 4);
+    expect(view.byteOffset).toBe(1);
+    expect(await musicBankSha256(view)).toBe('039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81');
+    expect(await musicBankSha256(whole)).not.toBe(await musicBankSha256(view));
+  });
 });
 
 describe('каталог только в памяти страницы', () => {
