@@ -251,7 +251,7 @@ alphaTab ведёт собственные аудиочасы, синтезат�
 
 - `npm run build` — `tsc --noEmit`, затем `vite build` в `dist`. Перед сборкой, перед `npm run dev` и после `npm ci` (`postinstall`) выполняется `scripts/prepare-music-bank.mjs`.
 - `prepareMusicBankVendor` проверяет версию `@coderline/alphatab` (1.9.0) и SHA-256 исходного `alphaTab.core.mjs`; при расхождении подготовка останавливается, и патч нужно проверить заново.
-- Именованные замены с проверкой числа мест подключают `scripts/music-bank/channel-layout.mjs` — модель виртуальных каналов: у каждой партии свои каналы, ударные — 9 + 16·n; choke-группы и note-on с velocity 0 действуют только в своей партии; программы, bank и события сохраняются. Стандартный MIDI-экспорт виртуальные каналы не поддерживает.
+- Именованные замены с проверкой числа мест подключают `scripts/music-bank/channel-layout.mjs` — модель виртуальных каналов: у каждой партии свои каналы, ударные — 9 + 16·n; партия со смешанными ударными и мелодическими станами получает мелодическую пару и пометку `mixed`, не останавливая загрузку файла; choke-группы и note-on с velocity 0 действуют только в своей партии; программы, bank и события сохраняются. Стандартный MIDI-экспорт виртуальные каналы не поддерживает.
 - Результат — игнорируемый Git `public/vendor/music-bank`: ESM-файлы `.js` (core, точка входа, worker, worklet, `channel-layout.js`), шрифт, SoundFont, лицензия MPL-2.0 и `patch-manifest.json` с хешами и списком замен. Вручную не редактируется.
 - Патч проверяет `scripts/music-bank/vendor.test.mjs`, звук по партиям — `tests/music-bank-channels.mjs` (см. [DEVELOPMENT](DEVELOPMENT.md#runners)).
 
