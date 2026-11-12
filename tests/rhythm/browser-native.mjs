@@ -174,7 +174,7 @@ check('native-real-hidden-tab-pauses-until-explicit-resume', 'native', async ({ 
   return { actualDocumentHidden: true, noAutomaticResume: true };
 }));
 
-// Current-schema database written without product code: a non-rhythm fretboard sequence draft and a preset without rhythm settings.
+// Current-schema database written without product code: a non-rhythm fretboard sequence draft.
 function sequenceDraftSnapshot() {
   const sequenceDraft = {
     id: 'fixture-sequence-draft', createdAt: '2026-11-08T22:30:00.000Z', updatedAt: '2026-11-08T22:30:01.000Z', timeZone: 'Europe/Moscow', localDate: '2026-11-09',
@@ -185,12 +185,11 @@ function sequenceDraftSnapshot() {
   return {
     ...currentCopy, profile: { theme: 'dark', onboarding: { version: 1, choice: 'guided', completed: true } },
     preferences: { ...currentCopy.preferences, rhythm: null },
-    presets: [{ id: 'fixture-rhythmless-preset', name: 'Пресет без ритма', createdAt: '2026-11-08T22:30:00.000Z', preferences: { ...currentCopy.preferences, activeModule: 'harmony', rhythm: null } }],
     practiceDrafts: [...currentCopy.practiceDrafts, sequenceDraft], rhythmProjects: [], activeRhythmProjectId: null,
   };
 }
 
-check('native-current-database-saves-fretboard-sequence-draft-and-rhythmless-preset-keeps-projects', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
+check('native-current-database-saves-fretboard-sequence-draft', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
   await seedDatabase(page, origin, sequenceDraftSnapshot());
   const before = await raw(page);
   assert.equal(before.version, 11);
@@ -207,23 +206,8 @@ check('native-current-database-saves-fretboard-sequence-draft-and-rhythmless-pre
   assert.deepEqual(saved.result.material, draft.material);
   assert.deepEqual(saved.result.context, draft.context);
   assert.equal(saved.occurredAt, draft.createdAt);
-  await page.locator('#open-history').click();
-  await enter(page);
-  await edit(page, 'bpm', 113);
-  await root(page).locator('[data-rhythm-mode="rhythm"]').click();
-  await root(page).locator('[data-rhythm-step]').first().click();
-  await page.waitForFunction(() => document.querySelector('[data-rhythm-output="projects"] [data-rhythm-open-project]'));
-  const projectBeforePreset = (await raw(page)).rhythmProjects[0];
-  await page.locator('[data-app-module="foundation"]').click();
-  await openHistory(page);
-  await page.locator('[data-apply-preset="fixture-rhythmless-preset"]').click();
-  await root(page).waitFor();
-  assert.equal(await root(page).locator('[data-rhythm-mode="rhythm"]').getAttribute('aria-selected'), 'true');
-  const afterPreset = await raw(page);
-  assert.deepEqual(afterPreset.rhythmProjects, [projectBeforePreset]);
-  assert.equal(afterPreset.activeRhythmProjectId, projectBeforePreset.id);
-  assert.equal(afterPreset.preferences.rhythm.metronome.bpm, 113);
-  return { version: before.version, history: before.history.length, drafts: before.practiceDrafts.length, savedDraftDuration: saved.result.durationMs, rhythmlessPresetPreservesRhythm: true };
+  assert.deepEqual((await raw(page)).exercises, before.exercises, 'Saving a draft leaves user exercises untouched');
+  return { version: before.version, history: before.history.length, drafts: before.practiceDrafts.length, savedDraftDuration: saved.result.durationMs };
 }));
 
 check('native-project-restore-validates-chain-and-rolls-back-after-project-and-selection-put', 'native', async ({ fixtureOrigin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
@@ -244,7 +228,7 @@ check('native-project-restore-validates-chain-and-rolls-back-after-project-and-s
     try { await store.restorePrepared(store.prepareImport(JSON.stringify(bad))); } catch (error) { invalidCode = error.code; }
     const afterInvalid = await store.readSnapshot();
     // Abort right after the last put: every project and the selection were already written successfully.
-    const failAfterWrite = 2 + candidate.presets.length + candidate.history.length + candidate.practiceDrafts.length + candidate.rhythmProjects.length + 1;
+    const failAfterWrite = 2 + candidate.exercises.length + candidate.history.length + candidate.practiceDrafts.length + candidate.rhythmProjects.length + 1;
     faults.arm(failAfterWrite);
     try { await store.restorePrepared(store.prepareImport(JSON.stringify(candidate))); } catch (error) { abortCode = error.code; }
     const transaction = faults.last();

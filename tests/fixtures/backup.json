@@ -3,6 +3,73 @@
   "schemaVersion": 11,
   "preferences": {
     "activeModule": "harmony",
+    "lesson": {
+      "plan": {
+        "version": "plan-v1",
+        "localDate": "2026-11-09",
+        "steps": [
+          {
+            "id": "standard-1",
+            "content": {
+              "kind": "exercise",
+              "spec": {
+                "version": "exercise-v1",
+                "templateId": "chromatic-position",
+                "params": {
+                  "startFret": 5
+                }
+              }
+            },
+            "minutes": 3,
+            "status": "done"
+          },
+          {
+            "id": "standard-2",
+            "content": {
+              "kind": "check",
+              "spec": {
+                "version": "check-v1",
+                "exercise": {
+                  "version": "exercise-v1",
+                  "templateId": "pentatonic-form",
+                  "params": {
+                    "root": "A",
+                    "structureId": "minor-pentatonic",
+                    "shapeId": "penta-b"
+                  }
+                },
+                "kind": "name-degree",
+                "count": 6,
+                "ear": false
+              }
+            },
+            "minutes": 3,
+            "status": "current"
+          }
+        ]
+      },
+      "tab": "today",
+      "playFrom": "C",
+      "viewByExercise": {
+        "builtin:chromatic-position": "tab",
+        "user:fixture-penta": "memory"
+      },
+      "progressTab": "exercises",
+      "progressSource": "all"
+    },
+    "play": {
+      "defaultView": "both",
+      "newExerciseView": "board",
+      "countIn": true,
+      "labels": "degree",
+      "bpm": 76
+    },
+    "reference": {
+      "mastered": [
+        "semitone",
+        "octave"
+      ]
+    },
     "tracks": null,
     "musicBank": null,
     "rhythm": {
@@ -14,17 +81,10 @@
         "meter": {
           "beats": 4,
           "denominator": 4,
-          "groups": [
-            4
-          ]
+          "groups": [4]
         },
         "division": 1,
-        "accents": [
-          2,
-          1,
-          1,
-          1
-        ],
+        "accents": [2, 1, 1, 1],
         "substeps": [],
         "swing": 50,
         "swingMode": "eighth",
@@ -46,12 +106,6 @@
     },
     "input": {
       "deviceId": ""
-    },
-    "ear": {
-      "root": "A",
-      "quality": "minor",
-      "count": 10,
-      "bpm": 80
     },
     "study": {
       "root": "A",
@@ -133,17 +187,10 @@
               "meter": {
                 "beats": 4,
                 "denominator": 4,
-                "groups": [
-                  4
-                ]
+                "groups": [4]
               },
               "division": 1,
-              "accents": [
-                2,
-                1,
-                1,
-                1
-              ],
+              "accents": [2, 1, 1, 1],
               "substeps": [],
               "swing": 50,
               "swingMode": "eighth",
@@ -255,8 +302,85 @@
       "editRevision": 1
     }
   ],
-  "presets": [],
+  "exercises": [
+    {
+      "version": "user-exercise-v1",
+      "id": "fixture-penta",
+      "name": "Am пентатоника, форма B",
+      "spec": {
+        "version": "exercise-v1",
+        "templateId": "pentatonic-form",
+        "params": {
+          "root": "A",
+          "structureId": "minor-pentatonic",
+          "shapeId": "penta-b"
+        }
+      },
+      "createdAt": "2026-11-08T22:30:00.000Z"
+    }
+  ],
   "history": [
+    {
+      "id": "fixture-check-history",
+      "occurredAt": "2026-11-08T22:45:00.000Z",
+      "timeZone": "Europe/Moscow",
+      "localDate": "2026-11-09",
+      "routeRef": null,
+      "result": {
+        "kind": "check",
+        "source": "screen-check",
+        "exerciseKey": "builtin:pentatonic-form",
+        "title": "Форма пентатоники вверх-вниз",
+        "spec": {
+          "version": "check-v1",
+          "exercise": {
+            "version": "exercise-v1",
+            "templateId": "pentatonic-form",
+            "params": {
+              "root": "A",
+              "structureId": "minor-pentatonic",
+              "shapeId": "penta-b"
+            }
+          },
+          "kind": "name-degree",
+          "count": 6,
+          "ear": false
+        },
+        "activeMs": 95000,
+        "answers": [
+          {
+            "degree": "b3",
+            "outcome": "correct",
+            "errors": 0
+          },
+          {
+            "degree": "b7",
+            "outcome": "corrected",
+            "errors": 2
+          },
+          {
+            "degree": "4",
+            "outcome": "revealed",
+            "errors": 1
+          },
+          {
+            "degree": "1",
+            "outcome": "skipped",
+            "errors": 0
+          },
+          {
+            "degree": "5",
+            "outcome": "correct",
+            "errors": 0
+          },
+          {
+            "degree": "5",
+            "outcome": "unanswered",
+            "errors": 0
+          }
+        ]
+      }
+    },
     {
       "id": "fixture-ear-history",
       "occurredAt": "2026-11-08T22:35:00.000Z",
@@ -405,6 +529,37 @@
       }
     },
     {
+      "id": "fixture-exercise-history",
+      "occurredAt": "2026-11-08T22:40:00.000Z",
+      "timeZone": "Europe/Moscow",
+      "localDate": "2026-11-09",
+      "routeRef": null,
+      "result": {
+        "kind": "manual",
+        "source": "self-report",
+        "comfortableBpm": 84,
+        "durationMs": 180000,
+        "note": "Чисто на 84",
+        "assessment": "clean",
+        "context": null,
+        "material": {
+          "kind": "exercise",
+          "key": "user:fixture-penta",
+          "title": "Am пентатоника, форма B",
+          "spec": {
+            "version": "exercise-v1",
+            "templateId": "pentatonic-form",
+            "params": {
+              "root": "A",
+              "structureId": "minor-pentatonic",
+              "shapeId": "penta-b"
+            }
+          },
+          "view": "both"
+        }
+      }
+    },
+    {
       "id": "fixture-rhythm-history",
       "occurredAt": "2026-11-08T22:35:00.000Z",
       "timeZone": "Europe/Moscow",
@@ -416,6 +571,7 @@
         "comfortableBpm": 117,
         "durationMs": 600,
         "note": "Отметка ритма",
+        "assessment": null,
         "context": null,
         "material": {
           "kind": "rhythm",
@@ -429,17 +585,10 @@
                 "meter": {
                   "beats": 4,
                   "denominator": 4,
-                  "groups": [
-                    4
-                  ]
+                  "groups": [4]
                 },
                 "division": 1,
-                "accents": [
-                  2,
-                  1,
-                  1,
-                  1
-                ],
+                "accents": [2, 1, 1, 1],
                 "substeps": [],
                 "swing": 50,
                 "swingMode": "eighth",
@@ -610,16 +759,8 @@
         "sessionLinks": [],
         "kind": "route",
         "source": "active-timer",
-        "plannedStepMs": [
-          180000,
-          180000,
-          240000
-        ],
-        "actualStepMs": [
-          180000,
-          2500,
-          0
-        ],
+        "plannedStepMs": [180000, 180000, 240000],
+        "actualStepMs": [180000, 2500, 0],
         "stepIndex": 1,
         "totalPlannedMs": 600000,
         "status": "finished",

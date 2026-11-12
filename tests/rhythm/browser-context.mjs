@@ -116,9 +116,9 @@ export async function raw(page) {
         request.onerror = () => reject(request.error);
       });
       const preferences = transaction.objectStore('preferences');
-      const [current, presets, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId] = await Promise.all([
+      const [current, exercises, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId] = await Promise.all([
         get(preferences.get('current')),
-        get(transaction.objectStore('presets').getAll()),
+        stores.includes('exercises') ? get(transaction.objectStore('exercises').getAll()) : [],
         get(transaction.objectStore('history').getAll()),
         get(transaction.objectStore('profile').get('current')),
         get(transaction.objectStore('practiceDrafts').getAll()),
@@ -126,7 +126,7 @@ export async function raw(page) {
         get(preferences.get('rhythm-selection')),
       ]);
       await done;
-      return { version: db.version, stores, preferences: current, presets, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId: activeRhythmProjectId ?? null };
+      return { version: db.version, stores, preferences: current, exercises, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId: activeRhythmProjectId ?? null };
     } finally { db.close(); }
   });
 }
@@ -146,12 +146,13 @@ export async function seedDatabase(page, origin, snapshot) {
       const request = indexedDB.open('bass-study', snapshot.schemaVersion);
       request.onupgradeneeded = () => {
         const db = request.result;
+        // Порядок создания хранилищ схемы 11: preferences, profile, exercises, history, practiceDrafts, rhythmProjects.
+        if (snapshot.schemaVersion !== 11) throw new Error('Only the current schema 11 layout is seeded here');
         const preferences = db.createObjectStore('preferences');
         preferences.put(snapshot.preferences, 'current');
         if (snapshot.activeRhythmProjectId) preferences.put(snapshot.activeRhythmProjectId, 'rhythm-selection');
         db.createObjectStore('profile').put(snapshot.profile, 'current');
-        const stores = ['presets', 'history', 'practiceDrafts'];
-        if (snapshot.schemaVersion >= 8) stores.push('rhythmProjects');
+        const stores = ['exercises', 'history', 'practiceDrafts', 'rhythmProjects'];
         for (const name of stores) {
           const store = db.createObjectStore(name, { keyPath: 'id' });
           for (const value of snapshot[name]) store.put(value);

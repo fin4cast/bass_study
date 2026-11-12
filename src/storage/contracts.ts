@@ -1,6 +1,7 @@
 import type { QuestionContext } from '../training';
 import type { PracticeMaterial } from '../training/results';
 import type { RouteRef } from '../route';
+import type { Assessment } from '../practice/results';
 
 export interface GlobalProfile {
   readonly theme: 'system' | 'light' | 'dark';
@@ -34,4 +35,6 @@ export interface DrainDraftRequest {
   readonly note: string;
   readonly occurredAt: string;
   readonly timeZone: string;
+  /** Самооценка прохода: обязательна для черновика упражнения, у прочих материалов отсутствует или null. */
+  readonly assessment?: Assessment | null;
 }

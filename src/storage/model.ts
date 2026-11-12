@@ -5,10 +5,15 @@ import {
   type QuizResult, type QuizSession, type SequencePattern, type TrainingScope,
   INTERVAL_DEGREES, createIntervalTarget, type IntervalDegree,
 } from '../training';
-import { createQuizQuestionsV1, replayQuizResultV1 } from '../training/quiz-rules-v1';
-import { createManualPracticeResult, manualTempoBounds, type ManualPracticeResult } from '../training/results';
-import { collectEarResults, createEarQuestionV1, createEarQuestionsV1, replayEarResultV1,
-  type EarAnswerEvent, type EarListenEvent, type EarDegree, type EarQuality, type EarSession, type SavedEarResult } from '../ear/rules-v1';
+import { createQuizQuestionsV1, isNamingModeV1, replayQuizResultV1 } from '../training/quiz-rules-v1';
+import { createManualPracticeResult, manualTempoBounds, EXERCISE_VIEWS, type ExerciseView, type ManualPracticeResult } from '../training/results';
+import { collectEarResults, createEarQuestionV1, createEarQuestionsV1, isEarQuality, replayEarResultV1,
+  type EarAnswerEvent, type EarListenEvent, type EarQuality, type EarSession, type SavedEarResult } from '../ear/rules-v1';
+import { exerciseStructure, validateExerciseSpec } from '../exercises';
+import { validateCheckSpec, validatePlan, type CheckSpec, type DayPlan } from '../practice/plan';
+import { validateUserExercise, type UserExercise } from '../practice/library';
+import { REFERENCE_CONCEPTS } from '../practice/concepts';
+import type { CheckOutcome } from '../practice/results';
 import { getRouteResult, replayRouteResultV1, type RouteEvent, type RouteResult } from '../route';
 import { validateTracksManifest, type TracksManifest } from '../tracks';
 import { validateMusicBankPreferences, type MusicBankPreferences } from '../music-bank/model';
@@ -17,16 +22,44 @@ import { createBoxSelection, getBoxInstanceV1, validateBoxSelectionV1, type BoxS
 import type { PracticeMaterial } from '../training/results';
 import { DEFAULT_PROFILE, type GlobalProfile, type PracticeDraft, type DrainDraftRequest } from './contracts';
 export * from './contracts';
-export type { PracticeMaterial } from '../training/results';
+export type { PracticeMaterial, ExercisePracticeMaterial, ExerciseView } from '../training/results';
 export type { RouteRef } from '../route';
+export type { UserExercise } from '../practice/library';
 
+export type ActiveModule = 'lesson' | 'foundation' | 'harmony' | 'tracks' | 'progress' | 'settings';
+export const ACTIVE_MODULES: readonly ActiveModule[] = Object.freeze(['lesson', 'foundation', 'harmony', 'tracks', 'progress', 'settings']);
+/** Ключ упражнения библиотеки: `builtin:<шаблон>` или `user:<id>`. */
+export const EXERCISE_KEY = /^(builtin|user):[A-Za-z0-9_-]{1,64}$/;
+export const MAX_EXERCISE_VIEWS = 200;
+/** Самое долгое активное время одной проверки «Проверь себя». */
+export const MAX_CHECK_ACTIVE_MS = 6 * 60 * 60 * 1000;
+export interface LessonPreferences {
+  readonly plan: DayPlan | null;
+  readonly tab: 'today' | 'library' | 'basics';
+  /** «Играть от»: тоника встроенных шаблонов или null. */
+  readonly playFrom: string | null;
+  /** Последний вид экрана игры по ключу упражнения (не больше 200 ключей). */
+  readonly viewByExercise: Readonly<Record<string, ExerciseView>>;
+  readonly progressTab: 'exercises' | 'calendar';
+  readonly progressSource: 'play' | 'check' | 'all';
+}
+export interface PlayPreferences {
+  readonly defaultView: ExerciseView;
+  readonly newExerciseView: ExerciseView | null;
+  readonly countIn: boolean;
+  readonly labels: 'name' | 'degree' | 'finger';
+  readonly bpm: number;
+}
 export interface AppPreferences {
-  readonly activeModule: 'foundation' | 'ear' | 'route' | 'harmony' | 'tracks' | 'input';
+  readonly activeModule: ActiveModule;
+  readonly lesson: LessonPreferences;
+  readonly play: PlayPreferences;
+  /** Понятия справочника, отмеченные освоенными (id из REFERENCE_CONCEPTS). */
+  readonly reference: { readonly mastered: readonly string[] };
   readonly tracks: TracksManifest | null;
   readonly musicBank: MusicBankPreferences | null;
   readonly input: { readonly deviceId: string };
   readonly rhythm: RhythmPreferences | null;
-  readonly ear: { readonly root: string; readonly quality: EarQuality; readonly count: number; readonly bpm: number };
   readonly study: { readonly root: string; readonly structureId: StructureId; readonly labelMode: LabelMode; readonly strings: readonly StringId[]; readonly fretMin: number; readonly fretMax: number; readonly box: BoxSelection | null; readonly showFingers: boolean };
   readonly training: { readonly mode: 'study' | 'quiz' | 'sequence'; readonly quizMode: QuizMode; readonly scope: TrainingScope; readonly intervalDegree: IntervalDegree; readonly count: number; readonly pattern: SequencePattern; readonly sequenceScope: TrainingScope; readonly reviewPositionIds: readonly string[]; readonly questionPolicy: 'random-v1' | 'triad-6-v1' | 'shape-6-v1' };
   readonly player: {
@@ -37,7 +70,6 @@ export interface AppPreferences {
     readonly bassVolume: number; readonly clickVolume: number;
   };
 }
-export interface Preset { readonly id: string; readonly name: string; readonly createdAt: string; readonly preferences: AppPreferences }
 export interface HistoryMetadata { readonly id: string; readonly occurredAt: string; readonly timeZone: string; readonly routeRef?: import('../route').RouteRef | null }
 export type StoredQuestion = Omit<QuizResult, 'kind' | 'mode' | 'context' | 'outcome'> & {
   readonly targetPositionId: string | null;
@@ -57,11 +89,20 @@ export interface EarHistoryResult {
 }
 export interface EarHistoryEntry extends HistoryEnvelope { readonly result: EarHistoryResult }
 export interface RouteHistoryEntry extends HistoryEnvelope { readonly result: RouteResult }
-export type HistoryEntry = ScreenHistoryEntry | ManualHistoryEntry | EarHistoryEntry | RouteHistoryEntry;
+/** Ответ «Проверь себя»: ступень вопроса и исход; ошибки — неверные ответы до верного. */
+export interface CheckAnswer { readonly degree: string; readonly outcome: CheckOutcome; readonly errors: number }
+/** Итог «Проверь себя» (R-026): экранные ответы по ступеням материала упражнения, отдельно от самооценки игры. */
+export interface CheckHistoryResult {
+  readonly kind: 'check'; readonly source: 'screen-check';
+  readonly exerciseKey: string; readonly title: string; readonly spec: CheckSpec;
+  readonly activeMs: number; readonly answers: readonly CheckAnswer[];
+}
+export interface CheckHistoryEntry extends HistoryEnvelope { readonly result: CheckHistoryResult }
+export type HistoryEntry = ScreenHistoryEntry | ManualHistoryEntry | EarHistoryEntry | RouteHistoryEntry | CheckHistoryEntry;
 export interface StudySnapshot {
   readonly format: 'bass-study-backup'; readonly schemaVersion: typeof STUDY_SCHEMA_VERSION; readonly preferences: AppPreferences;
   readonly profile: GlobalProfile; readonly practiceDrafts: readonly PracticeDraft[];
-  readonly presets: readonly Preset[]; readonly history: readonly HistoryEntry[];
+  readonly exercises: readonly UserExercise[]; readonly history: readonly HistoryEntry[];
   readonly rhythmProjects: readonly RhythmProject[]; readonly activeRhythmProjectId: string | null;
 }
 
@@ -73,7 +114,7 @@ export const MAX_BACKUP_BYTES = 67_108_864;
 export const STUDY_SCHEMA_VERSION = 11;
 
 const ROOT_IDS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
-const MODES: readonly QuizMode[] = ['name-note', 'find-note', 'find-all', 'find-degree', 'find-pitch', 'find-interval'];
+const MODES: readonly QuizMode[] = ['name-note', 'name-degree', 'find-note', 'find-all', 'find-degree', 'find-pitch', 'find-interval'];
 const PATTERNS: readonly SequencePattern[] = ['ascending', 'descending', 'round-trip', 'groups-of-three'];
 const SCOPES: readonly TrainingScope[] = ['structure', 'chromatic'];
 const DURATIONS = ['quarter', 'eighth', 'sixteenth'];
@@ -112,6 +153,13 @@ export function validateStoredRhythmProject(value: unknown): RhythmProject {
 }
 export function validateRhythmProjectId(value: unknown): string {
   return text(value, 'ID проекта ритма');
+}
+/** Модель упражнений бросает RangeError; на границе хранилища это INVALID_DATA. */
+export function validateStoredExercise(value: unknown): UserExercise {
+  const exercise = rhythmData('Упражнение', () => validateUserExercise(value));
+  // Date.parse принимает и несуществующий день (30 февраля): дата должна совпадать с собой после разбора.
+  if (new Date(exercise.createdAt).toISOString().slice(0, 19) !== exercise.createdAt.slice(0, 19)) invalid('Упражнение: несуществующая дата создания.');
+  return exercise;
 }
 function object(value: unknown, keys: readonly string[], label: string): Data {
   if (!value || typeof value !== 'object' || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) invalid(`${label}: нужен обычный объект данных.`);
@@ -181,7 +229,10 @@ export function originalLocalDate(occurredAt: string, timeZone: string): string 
 export const DEFAULT_PREFERENCES: AppPreferences = immutable({
   tracks: null, musicBank: null, input: { deviceId: '' },
   rhythm: null,
-  activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 },
+  activeModule: 'lesson',
+  lesson: { plan: null, tab: 'today', playFrom: null, viewByExercise: {}, progressTab: 'exercises', progressSource: 'all' },
+  play: { defaultView: 'both', newExerciseView: 'board', countIn: true, labels: 'name', bpm: 72 },
+  reference: { mastered: [] },
   study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12,
     box: createBoxSelection({ root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a', anchorString: 'E', anchorFret: 5 }), showFingers: false },
   training: { mode: 'study', quizMode: 'name-note', scope: 'structure', intervalDegree: '#4', count: 10, pattern: 'ascending', sequenceScope: 'structure', reviewPositionIds: [], questionPolicy: 'random-v1' },
@@ -200,8 +251,50 @@ function positionIds(value: unknown, label: string, allowEmpty: boolean): string
 }
 function position(id: string) { const [string, fret] = id.split(':'); return getPosition(string as StringId, Number(fret)); }
 
+const CONCEPT_IDS = new Set(REFERENCE_CONCEPTS.map(concept => concept.id));
+function exerciseKey(value: unknown, label: string): string {
+  const key = text(value, label, 72);
+  if (!EXERCISE_KEY.test(key)) invalid(`${label}: ожидается builtin:<шаблон> или user:<id>.`);
+  return key;
+}
+function exerciseTitle(value: unknown): string { return text(value, 'Название упражнения', 120); }
+function validateLessonPreferences(value: unknown): LessonPreferences {
+  const data = object(value, ['plan', 'tab', 'playFrom', 'viewByExercise', 'progressTab', 'progressSource'], 'Настройки занятия');
+  const plan = data.plan === null ? null : rhythmData('План на сегодня', () => validatePlan(data.plan));
+  let playFrom: string | null = null;
+  if (data.playFrom !== null) {
+    const note = text(data.playFrom, 'Играть от', 8);
+    try { playFrom = parseNote(note).name; } catch { invalid('Играть от: некорректная нота.'); }
+  }
+  const raw = data.viewByExercise;
+  const views = object(raw, raw && typeof raw === 'object' ? Object.keys(raw) : [], 'Виды упражнений');
+  const entries = Object.entries(views);
+  if (entries.length > MAX_EXERCISE_VIEWS) invalid(`Виды упражнений: не больше ${MAX_EXERCISE_VIEWS} записей.`);
+  const viewByExercise = Object.fromEntries(entries.map(([key, view]) => [exerciseKey(key, 'Ключ вида упражнения'), oneOf(view, EXERCISE_VIEWS, 'Вид упражнения')]));
+  return { plan, tab: oneOf(data.tab, ['today', 'library', 'basics'] as const, 'Вкладка занятия'), playFrom, viewByExercise,
+    progressTab: oneOf(data.progressTab, ['exercises', 'calendar'] as const, 'Вкладка прогресса'),
+    progressSource: oneOf(data.progressSource, ['play', 'check', 'all'] as const, 'Источник прогресса') };
+}
+function validatePlayPreferences(value: unknown): PlayPreferences {
+  const data = object(value, ['defaultView', 'newExerciseView', 'countIn', 'labels', 'bpm'], 'Настройки экрана игры');
+  return { defaultView: oneOf(data.defaultView, EXERCISE_VIEWS, 'Вид по умолчанию'),
+    newExerciseView: data.newExerciseView === null ? null : oneOf(data.newExerciseView, EXERCISE_VIEWS, 'Вид нового упражнения'),
+    countIn: boolean(data.countIn, 'Отсчёт перед игрой'), labels: oneOf(data.labels, ['name', 'degree', 'finger'] as const, 'Подписи нот'),
+    bpm: number(data.bpm, 40, 220, 'Темп экрана игры') };
+}
+function validateReferencePreferences(value: unknown): AppPreferences['reference'] {
+  const data = object(value, ['mastered'], 'Справочник');
+  const mastered = array(data.mastered, CONCEPT_IDS.size, 'Освоенные понятия').map(id => {
+    const concept = text(id, 'Понятие справочника', 64);
+    if (!CONCEPT_IDS.has(concept)) invalid('Освоенные понятия: неизвестное понятие справочника.');
+    return concept;
+  });
+  if (new Set(mastered).size !== mastered.length) invalid('Освоенные понятия не должны повторяться.');
+  return { mastered };
+}
+
 export function validatePreferences(value: unknown): AppPreferences {
-  const data = object(value, ['activeModule', 'ear', 'rhythm', 'tracks', 'musicBank', 'input', 'study', 'training', 'player'], 'Настройки');
+  const data = object(value, ['activeModule', 'lesson', 'play', 'reference', 'rhythm', 'tracks', 'musicBank', 'input', 'study', 'training', 'player'], 'Настройки');
   const input = object(data.input, ['deviceId'], 'Настройки аудиовхода');
   let tracks: TracksManifest | null = null;
   if (data.tracks !== null) {
@@ -214,7 +307,6 @@ export function validatePreferences(value: unknown): AppPreferences {
     catch (failure) { invalid(`Настройки раздела «Табулатура и ноты»: ${failure instanceof Error ? failure.message : String(failure)}`); }
   }
   const rhythm = data.rhythm === null ? null : rhythmData('Настройки метронома и ритма', () => validateRhythmPreferences(data.rhythm));
-  const ear = object(data.ear, ['root', 'quality', 'count', 'bpm'], 'Настройки слуха');
   const study = object(data.study, ['root', 'structureId', 'labelMode', 'strings', 'fretMin', 'fretMax', 'box', 'showFingers'], 'Настройки грифа');
   const box = study.box === null ? null : validateBoxSelection(study.box);
   if (box && (parseNote(box.root).name !== parseNote(String(study.root)).name || box.structureId !== study.structureId)) invalid('Бокс не соответствует тонике или структуре.');
@@ -226,7 +318,7 @@ export function validatePreferences(value: unknown): AppPreferences {
   const training = object(data.training, ['mode', 'quizMode', 'scope', 'intervalDegree', 'count', 'pattern', 'sequenceScope', 'reviewPositionIds', 'questionPolicy'], 'Настройки заданий');
   const quizMode = oneOf(training.quizMode, MODES, 'Тип задания');
   const scope = oneOf(training.scope, SCOPES, 'Область задания');
-  if (quizMode === 'find-degree' && scope !== 'structure') invalid('Поиск ступени требует область «Ноты структуры».');
+  if ((quizMode === 'find-degree' || quizMode === 'name-degree') && scope !== 'structure') invalid('Ступени работают только в области «Ноты структуры».');
   if (quizMode === 'find-interval' && scope !== 'chromatic') invalid('Поиск произвольного интервала требует область «Все ноты».');
   const player = object(data.player, ['bpm', 'duration', 'repeat', 'countIn', 'showPulse', 'from', 'to', 'ladderStart', 'ladderEnd', 'ladderStep', 'ladderRepeats', 'metronome', 'metronomeMode', 'subdivision', 'bassVolume', 'clickVolume'], 'Настройки проигрывателя');
   const from = player.from === null ? null : number(player.from, 1, 10000, 'Начало фрагмента');
@@ -236,9 +328,9 @@ export function validatePreferences(value: unknown): AppPreferences {
   const ladderEnd = number(player.ladderEnd, 40, 220, 'Конечный BPM');
   if (ladderStart > ladderEnd) invalid('Конечный темп лестницы ниже начального.');
   return immutable({
-    activeModule: oneOf(data.activeModule, ['foundation', 'ear', 'route', 'harmony', 'tracks', 'input'] as const, 'Раздел'),
+    activeModule: oneOf(data.activeModule, ACTIVE_MODULES, 'Раздел'),
+    lesson: validateLessonPreferences(data.lesson), play: validatePlayPreferences(data.play), reference: validateReferencePreferences(data.reference),
     tracks, musicBank, rhythm, input: { deviceId: text(input.deviceId, 'Устройство аудиовхода', 2048, true) },
-    ear: { root: oneOf(ear.root, ROOT_IDS, 'Тоника слухового задания'), quality: oneOf(ear.quality, ['major', 'minor'] as const, 'Трезвучие слухового задания'), count: number(ear.count, 1, 20, 'Число слуховых вопросов'), bpm: number(ear.bpm, 60, 120, 'Темп слухового задания') },
     study: { root: oneOf(study.root, ROOT_IDS, 'Тоника'), structureId: oneOf(study.structureId, STRUCTURE_IDS, 'Структура'), labelMode: oneOf(study.labelMode, ['notes', 'degrees', 'hidden'] as const, 'Подписи'), strings, fretMin, fretMax, box, showFingers: boolean(study.showFingers, 'Показывать пальцы') },
     training: { mode: oneOf(training.mode, ['study', 'quiz', 'sequence'] as const, 'Режим занятия'), quizMode, scope, intervalDegree: oneOf(training.intervalDegree, INTERVAL_DEGREES, 'Интервал'),
       count: number(training.count, 1, 30, 'Число вопросов'), pattern: oneOf(training.pattern, PATTERNS, 'Порядок нот'), sequenceScope: oneOf(training.sequenceScope, SCOPES, 'Материал последовательности'), reviewPositionIds: positionIds(training.reviewPositionIds, 'Позиции для повторения', true), questionPolicy: oneOf(training.questionPolicy, ['random-v1', 'triad-6-v1', 'shape-6-v1'] as const, 'Политика вопросов') },
@@ -292,6 +384,14 @@ export function validatePracticeMaterial(value: unknown, area?: QuestionContext 
     const playback = rhythmData('Конфигурация проигрывания', () => validateRhythmPlaybackConfig(data.playback));
     return immutable({ kind, playback });
   }
+  if (kind === 'exercise') {
+    const data = object(value, ['kind', 'key', 'title', 'spec', 'view'], 'Материал упражнения');
+    if (area) invalid('Проход упражнения задаётся описанием упражнения, а не контекстом грифа.');
+    const key = exerciseKey(data.key, 'Ключ упражнения');
+    const spec = rhythmData('Описание упражнения', () => validateExerciseSpec(data.spec));
+    if (key.startsWith('builtin:') && key.slice('builtin:'.length) !== spec.templateId) invalid('Ключ встроенного упражнения не соответствует его шаблону.');
+    return immutable({ kind, key, title: exerciseTitle(data.title), spec, view: oneOf(data.view, EXERCISE_VIEWS, 'Вид экрана игры') });
+  }
   if (area === null) invalid('Для этого материала нужен исходный контекст грифа.');
   if (kind !== 'sequence' && kind !== 'fretboard') invalid('Неизвестный материал практики.');
   const data = object(value, kind === 'fretboard' ? ['kind', 'box'] : ['kind', 'pattern', 'routePositionIds', 'duration', 'fragment', 'box'], 'Материал грифа');
@@ -326,6 +426,7 @@ export function validatePracticeDraft(value: unknown): PracticeDraft {
   const material = validatePracticeMaterial(data.material, area) as PracticeMaterial;
   const routeRef = validateRouteRef(data.routeRef);
   if (material.kind === 'rhythm' && routeRef !== null) invalid('Практика метронома и ритма не относится к маршруту.');
+  if (material.kind === 'exercise' && routeRef !== null) invalid('Проход упражнения не относится к маршруту.');
   if (material.kind === 'fretboard' && totalReferenceMs !== 0) invalid('Изучение грифа не измеряет время проигрывания эталона.');
   return immutable({ id: text(data.id, 'ID черновика', 160), createdAt, updatedAt: utc(data.updatedAt, 'Обновление черновика'), timeZone, localDate,
     context: area, material, routeRef, totalReferenceMs, recordedThroughMs,
@@ -340,11 +441,6 @@ export function mergePracticeDraft(current: PracticeDraft | undefined, incoming:
   return validatePracticeDraft({ ...current, totalReferenceMs: Math.max(current.totalReferenceMs, incoming.totalReferenceMs),
     recordedThroughMs: current.recordedThroughMs, suggestedBpm: incoming.suggestedBpm, updatedAt: incoming.updatedAt,
     ...(newerText ? { note: incoming.note, comfortableBpm: incoming.comfortableBpm, editRevision: incoming.editRevision } : {}) });
-}
-
-export function validatePreset(value: unknown): Preset {
-  const data = object(value, ['id', 'name', 'createdAt', 'preferences'], 'Пресет');
-  return immutable({ id: text(data.id, 'ID пресета', 120), name: text(data.name, 'Название пресета', 80).trim(), createdAt: utc(data.createdAt, 'Дата пресета'), preferences: recordContext('Настройки пресета', () => validatePreferences(data.preferences)) });
 }
 
 const QUESTION_KEYS = ['questionId', 'answerRule', 'target', 'targetPositionId', 'selectedPositionIds', 'attempts', 'errors', 'firstAnswer', 'firstResponseMs', 'completionMs', 'firstAttemptCorrect', 'hintUsed', 'skipped', 'independentCorrect', 'corrected', 'outcome', 'answerEvents', 'targetMidi'];
@@ -382,8 +478,8 @@ function validateScreenQuestion(value: unknown, mode: QuizMode, originalContext:
   const interval = intervalDegree === undefined ? null : createIntervalTarget(originalContext.root, intervalDegree, allPositions);
   if (interval ? interval.target.name !== targetName || interval.target.pitchClass !== targetClass : targetName !== candidates[0].noteName || targetData.degree !== candidates[0].degree) invalid('Написание или ступень цели не соответствует исходному контексту.');
   const targetPositionId = raw.targetPositionId === null ? null : text(raw.targetPositionId, 'Позиция вопроса', 5);
-  if (mode === 'name-note' ? !candidates.some(item => item.id === targetPositionId) : targetPositionId !== null) invalid('Позиция вопроса не соответствует режиму или целевой ноте.');
-  const answerRule = mode === 'name-note' ? 'pitch-class' : mode === 'find-all' ? 'all-positions' : mode === 'find-pitch' ? 'exact-pitch' : 'any-position';
+  if (isNamingModeV1(mode) ? !candidates.some(item => item.id === targetPositionId) : targetPositionId !== null) invalid('Позиция вопроса не соответствует режиму или целевой ноте.');
+  const answerRule = isNamingModeV1(mode) ? 'pitch-class' : mode === 'find-all' ? 'all-positions' : mode === 'find-pitch' ? 'exact-pitch' : 'any-position';
   if (raw.answerRule !== answerRule) invalid('Правило проверки не соответствует типу вопроса.');
   positionIds(raw.selectedPositionIds, 'Найденные позиции', true);
   const attempts = number(raw.attempts, 0, Number.MAX_SAFE_INTEGER, 'Число попыток');
@@ -417,7 +513,7 @@ function validateEarResult(value: unknown, root: string, quality: EarQuality, re
   if (raw.kind !== 'ear' || raw.source !== 'audio-choice') invalid('Неверное происхождение слухового результата.');
   const questionData = object(raw.question, EAR_QUESTION_KEYS, 'Слуховой вопрос');
   const seed = number(questionData.seed, 0, 0xffffffff, 'Seed слухового вопроса');
-  array(questionData.choices, 3, 'Варианты слухового ответа').forEach(choice => object(choice, ['id', 'label'], 'Вариант слухового ответа'));
+  array(questionData.choices, 5, 'Варианты слухового ответа').forEach(choice => object(choice, ['id', 'label'], 'Вариант слухового ответа'));
   const question = check === 'stored' ? questionData as unknown as ReturnType<typeof createEarQuestionV1> : createEarQuestionV1({ root, quality, referenceMidi, seed });
   if (check === 'full' && !same(questionData, question)) invalid('Слуховая цель, написание, октава или варианты не соответствуют исходному вопросу.');
   const listens = array(raw.listenEvents, Number.MAX_SAFE_INTEGER, 'Прослушивания').map((item): EarListenEvent => {
@@ -456,7 +552,8 @@ function validateEarHistory(value: unknown, check: RecordCheck): EarHistoryResul
   const raw = object(value, ['kind', 'source', 'context', 'seed', 'plannedCount', 'questions'], 'Слуховое занятие');
   if (raw.kind !== 'ear' || raw.source !== 'audio-choice') invalid('Неверное происхождение слухового занятия.');
   const area = object(raw.context, ['root', 'quality', 'referenceMidi'], 'Контекст слуха');
-  const quality = oneOf(area.quality, ['major', 'minor'] as const, 'Слуховое трезвучие');
+  if (!isEarQuality(area.quality)) invalid('Слуховая структура: неизвестное значение.');
+  const quality: EarQuality = area.quality;
   const root = parseNote(text(area.root, 'Тоника слуха', 32)).name;
   const seed = number(raw.seed, 0, 0xffffffff, 'Seed слухового занятия');
   const plannedCount = number(raw.plannedCount, 1, 20, 'Число слуховых вопросов');
@@ -496,6 +593,42 @@ function validateRouteHistory(value: unknown, check: RecordCheck): RouteResult {
   return expected;
 }
 
+const ASSESSMENTS = ['clean', 'errors', 'slow'] as const;
+const CHECK_OUTCOMES: readonly CheckOutcome[] = ['correct', 'corrected', 'revealed', 'skipped', 'unanswered'];
+
+/** Самооценка обязательна для прохода упражнения и отсутствует (null) у прочих материалов. */
+function manualAssessment(value: unknown, material: PracticeMaterial): ManualPracticeResult['assessment'] {
+  if (material.kind !== 'exercise') { if (value !== null) invalid('Самооценка прохода относится только к упражнению.'); return null; }
+  return oneOf(value, ASSESSMENTS, 'Самооценка прохода');
+}
+
+/**
+ * Итог «Проверь себя». Ступени ответов принадлежат структуре материала: у упражнения без одной структуры
+ * (хроматика, транспонирование и т. п.) проверки ступеней нет, и такая запись отклоняется.
+ */
+function validateCheckHistory(value: unknown): CheckHistoryResult {
+  const raw = object(value, ['kind', 'source', 'exerciseKey', 'title', 'spec', 'activeMs', 'answers'], '«Проверь себя»');
+  if (raw.source !== 'screen-check') invalid('Итог «Проверь себя» должен иметь источник screen-check.');
+  const key = exerciseKey(raw.exerciseKey, 'Ключ упражнения проверки');
+  const spec = rhythmData('Описание проверки', () => validateCheckSpec(raw.spec));
+  if (key.startsWith('builtin:') && key.slice('builtin:'.length) !== spec.exercise.templateId) invalid('Ключ встроенного упражнения не соответствует его шаблону.');
+  const structure = exerciseStructure(spec.exercise);
+  if (!structure) invalid('В материале этого упражнения нет ступеней одной структуры — проверка ступеней недоступна.');
+  const degrees = new Set(structure.notes.map(note => note.degree));
+  const answers = array(raw.answers, 20, 'Ответы проверки').map((item): CheckAnswer => {
+    const answer = object(item, ['degree', 'outcome', 'errors'], 'Ответ проверки');
+    const degree = text(answer.degree, 'Ступень ответа', 4);
+    if (!degrees.has(degree)) invalid('Ступень ответа не принадлежит структуре упражнения.');
+    const outcome = oneOf(answer.outcome, CHECK_OUTCOMES, 'Исход ответа');
+    const errors = number(answer.errors, 0, 20, 'Ошибки ответа');
+    if (outcome === 'correct' ? errors !== 0 : outcome === 'corrected' && errors === 0) invalid('Исход ответа не соответствует числу ошибок.');
+    return { degree, outcome, errors };
+  });
+  if (!answers.length) invalid('Итог «Проверь себя» должен содержать хотя бы один ответ.');
+  return immutable({ kind: 'check', source: 'screen-check', exerciseKey: key, title: exerciseTitle(raw.title), spec,
+    activeMs: number(raw.activeMs, 0, MAX_CHECK_ACTIVE_MS, 'Активное время проверки'), answers });
+}
+
 export function validateHistoryEntry(value: unknown, check: RecordCheck = 'full'): HistoryEntry {
   const raw = object(value, ['id', 'occurredAt', 'timeZone', 'localDate', 'result', 'routeRef'], 'Запись истории');
   const id = text(raw.id, 'ID истории', 160);
@@ -512,24 +645,29 @@ export function validateHistoryEntry(value: unknown, check: RecordCheck = 'full'
   if (kind === 'ear') return immutable({ ...envelope, result: validateEarHistory(raw.result, check) });
   if (kind === 'route') { if (routeRef) invalid('Маршрут не может ссылаться на родительский маршрут.'); return immutable({ ...envelope, result: validateRouteHistory(raw.result, check) }); }
   if (kind === 'manual') {
-    const result = object(raw.result, ['kind', 'source', 'comfortableBpm', 'durationMs', 'note', 'context', 'material'], 'Ручная отметка');
+    const result = object(raw.result, ['kind', 'source', 'comfortableBpm', 'durationMs', 'note', 'assessment', 'context', 'material'], 'Ручная отметка');
     if (result.source !== 'self-report') invalid('Ручная отметка должна быть явно помечена как самооценка.');
     const area = result.context === null ? null : context(result.context);
     const material = validatePracticeMaterial(result.material, area);
     if (material.kind === 'rhythm' && routeRef !== null) invalid('Практика метронома и ритма не относится к маршруту.');
+    if (material.kind === 'exercise' && routeRef !== null) invalid('Проход упражнения не относится к маршруту.');
     const manual = createManualPracticeResult({
       context: area, comfortableBpm: manualBpm(result.comfortableBpm, material, 'Комфортный темп'),
       durationMs: number(result.durationMs, 0, Number.MAX_SAFE_INTEGER, 'Длительность занятия', false), note: text(result.note, 'Заметка', 2000, true),
-      material,
+      assessment: manualAssessment(result.assessment, material), material,
     });
     return immutable({ ...envelope, result: manual });
+  }
+  if (kind === 'check') {
+    if (routeRef) invalid('«Проверь себя» не относится к маршруту.');
+    return immutable({ ...envelope, result: validateCheckHistory(raw.result) });
   }
   if (kind !== 'screen') invalid('Неизвестное происхождение результата.');
   const result = object(raw.result, ['kind', 'source', 'seed', 'mode', 'context', 'plannedCount', 'questions', 'questionPolicy'], 'Экранное занятие');
   if (result.source !== 'screen-input') invalid('Экранный результат должен иметь источник screen-input.');
   const originalContext = context(result.context);
   const mode = oneOf(result.mode, MODES, 'Тип экранного задания');
-  if (mode === 'find-degree' && originalContext.scope !== 'structure') invalid('Поиск ступени не может иметь хроматический контекст.');
+  if ((mode === 'find-degree' || mode === 'name-degree') && originalContext.scope !== 'structure') invalid('Задание по ступеням не может иметь хроматический контекст.');
   if (mode === 'find-interval' && originalContext.scope !== 'chromatic') invalid('Произвольный интервал требует хроматический контекст.');
   const plannedCount = number(result.plannedCount, 1, 100, 'Запланированные вопросы');
   const seed = number(result.seed, 0, 0xffffffff, 'Seed');
@@ -550,29 +688,29 @@ export function validateHistoryEntry(value: unknown, check: RecordCheck = 'full'
 
 /** Full validation of a backup in the current format, including replay of every answer. */
 export function validateSnapshot(value: unknown): StudySnapshot {
-  const raw = object(value, ['format', 'schemaVersion', 'preferences', 'presets', 'history', 'profile', 'practiceDrafts', 'rhythmProjects', 'activeRhythmProjectId'], 'Резервная копия');
+  const raw = object(value, ['format', 'schemaVersion', 'preferences', 'exercises', 'history', 'profile', 'practiceDrafts', 'rhythmProjects', 'activeRhythmProjectId'], 'Резервная копия');
   if (raw.format !== 'bass-study-backup') throw new StudyStorageError('UNSUPPORTED_FORMAT', 'Это не резервная копия bass_study.');
   if (raw.schemaVersion !== STUDY_SCHEMA_VERSION) throw new StudyStorageError('UNSUPPORTED_VERSION', 'Эта версия резервной копии не поддерживается. Данные не изменены.');
   // Import bytes are bounded by parseBackup; ordinary native writes must never make
   // an otherwise valid database unreadable merely by exceeding an arbitrary count.
-  const presets = array(raw.presets, Number.MAX_SAFE_INTEGER, 'Пресеты').map((value, index) => recordContext(`Пресет №${index + 1}`, () => validatePreset(value)));
+  const exercises = array(raw.exercises, Number.MAX_SAFE_INTEGER, 'Упражнения').map((value, index) => recordContext(`Упражнение №${index + 1}`, () => validateStoredExercise(value)));
   const history = array(raw.history, Number.MAX_SAFE_INTEGER, 'История').map(item => validateHistoryEntry(item));
   const practiceDrafts = array(raw.practiceDrafts, Number.MAX_SAFE_INTEGER, 'Черновики').map(item => validatePracticeDraft(item));
   const rhythmProjects = array(raw.rhythmProjects, Number.MAX_SAFE_INTEGER, 'Проекты ритма').map((item, index) =>
     recordContext(`Проект ритма №${index + 1}`, () => validateStoredRhythmProject(item)));
   const activeRhythmProjectId = raw.activeRhythmProjectId === null ? null : validateRhythmProjectId(raw.activeRhythmProjectId);
-  if (new Set(presets.map(item => item.id)).size !== presets.length || new Set(history.map(item => item.id)).size !== history.length) invalid('ID пресетов или истории повторяются.');
+  if (new Set(exercises.map(item => item.id)).size !== exercises.length || new Set(history.map(item => item.id)).size !== history.length) invalid('ID упражнений или истории повторяются.');
   const byId = (a: { id: string }, b: { id: string }) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   if (new Set(practiceDrafts.map(item => item.id)).size !== practiceDrafts.length) invalid('ID черновиков повторяются.');
   if (new Set(rhythmProjects.map(item => item.id)).size !== rhythmProjects.length) invalid('ID проектов ритма повторяются.');
   if (activeRhythmProjectId !== null && !rhythmProjects.some(item => item.id === activeRhythmProjectId)) invalid('Выбранный проект ритма отсутствует в библиотеке.');
-  return immutable({ format: 'bass-study-backup', schemaVersion: STUDY_SCHEMA_VERSION, preferences: recordContext('Текущие настройки (preferences/current)', () => validatePreferences(raw.preferences)), profile: validateProfile(raw.profile), practiceDrafts: practiceDrafts.sort(byId), presets: presets.sort(byId), history: history.sort(byId), rhythmProjects: rhythmProjects.sort(byId), activeRhythmProjectId });
+  return immutable({ format: 'bass-study-backup', schemaVersion: STUDY_SCHEMA_VERSION, preferences: recordContext('Текущие настройки (preferences/current)', () => validatePreferences(raw.preferences)), profile: validateProfile(raw.profile), practiceDrafts: practiceDrafts.sort(byId), exercises: exercises.sort(byId), history: history.sort(byId), rhythmProjects: rhythmProjects.sort(byId), activeRhythmProjectId });
 }
 
 /** Raw values read from this application's own database. */
 export interface StoredRecords {
   readonly preferences: unknown; readonly profile: unknown; readonly activeRhythmProjectId: unknown;
-  readonly presets: readonly unknown[]; readonly history: readonly unknown[]; readonly practiceDrafts: readonly unknown[]; readonly rhythmProjects: readonly unknown[];
+  readonly exercises: readonly unknown[]; readonly history: readonly unknown[]; readonly practiceDrafts: readonly unknown[]; readonly rhythmProjects: readonly unknown[];
 }
 /** A record the application could not read; it stays in the database untouched. */
 export interface SkippedRecord { readonly store: string; readonly id: string; readonly reason: string }
@@ -609,20 +747,20 @@ export function readStoredSnapshot(records: StoredRecords): { snapshot: StudySna
     profile: single('profile', records.profile, DEFAULT_PROFILE, validateProfile),
     // Same key order as validateSnapshot: cached and fresh snapshots must export identically.
     practiceDrafts: each('practiceDrafts', records.practiceDrafts, value => validatePracticeDraft(value)).sort(byId),
-    presets: each('presets', records.presets, validatePreset).sort(byId),
+    exercises: each('exercises', records.exercises, validateStoredExercise).sort(byId),
     history: each('history', records.history, value => validateHistoryEntry(value, 'stored')).sort(byId),
     rhythmProjects: rhythmProjects.sort(byId), activeRhythmProjectId });
   return { snapshot, skipped: Object.freeze(skipped) };
 }
 
-const STORE_NAMES: Record<string, string> = { preferences: 'настройки', profile: 'профиль', presets: 'пресеты', history: 'история', practiceDrafts: 'черновики', rhythmProjects: 'проекты ритма' };
+const STORE_NAMES: Record<string, string> = { preferences: 'настройки', profile: 'профиль', exercises: 'упражнения', history: 'история', practiceDrafts: 'черновики', rhythmProjects: 'проекты ритма' };
 /** User-facing notice about skipped records; empty when nothing was skipped. */
 export function describeSkippedRecords(skipped: readonly SkippedRecord[]): string {
   if (!skipped.length) return '';
   const counts = new Map<string, number>();
   for (const record of skipped) counts.set(record.store, (counts.get(record.store) ?? 0) + 1);
   const parts = [...counts].map(([store, count]) => `${STORE_NAMES[store] ?? store} — ${count}`).join(', ');
-  return `Не прочитано повреждённых записей: ${skipped.length} (${parts}). Остальные данные доступны. Эти записи остались в базе; их можно сохранить сырым экспортом в «Моих занятиях».`;
+  return `Не прочитано повреждённых записей: ${skipped.length} (${parts}). Остальные данные доступны. Эти записи остались в базе; их можно сохранить сырым экспортом в «Настройках».`;
 }
 
 /** The byte limit is enforced on the file (`File.size`); here only the decoded length is bounded. */
@@ -633,11 +771,11 @@ function readBackupJson(json: string): unknown {
 export function parseBackup(json: string): StudySnapshot { return validateSnapshot(readBackupJson(json)); }
 export function previewImport(json: string) {
   const snapshot = parseBackup(json);
-  return { snapshot, presets: snapshot.presets.length, history: snapshot.history.length,
+  return { snapshot, exercises: snapshot.exercises.length, history: snapshot.history.length,
     rhythmProjects: snapshot.rhythmProjects.length, requiresConfirmation: true as const, replacement: 'full' as const };
 }
 
-export function emptySnapshot(): StudySnapshot { return validateSnapshot({ format: 'bass-study-backup', schemaVersion: STUDY_SCHEMA_VERSION, profile: DEFAULT_PROFILE, practiceDrafts: [], preferences: DEFAULT_PREFERENCES, presets: [], history: [], rhythmProjects: [], activeRhythmProjectId: null }); }
+export function emptySnapshot(): StudySnapshot { return validateSnapshot({ format: 'bass-study-backup', schemaVersion: STUDY_SCHEMA_VERSION, profile: DEFAULT_PROFILE, practiceDrafts: [], preferences: DEFAULT_PREFERENCES, exercises: [], history: [], rhythmProjects: [], activeRhythmProjectId: null }); }
 
 function envelope(metadata: HistoryMetadata) {
   return { id: metadata.id, occurredAt: metadata.occurredAt, timeZone: metadata.timeZone, localDate: originalLocalDate(metadata.occurredAt, metadata.timeZone), routeRef: metadata.routeRef ?? null };
@@ -672,14 +810,17 @@ export function makeManualHistory(result: ManualPracticeResult, metadata: Histor
 
 export function applyDraftDrain(draftValue: PracticeDraft, request: DrainDraftRequest, existing?: HistoryEntry): { entry: ManualHistoryEntry; draft: PracticeDraft } {
   const draft = validatePracticeDraft(draftValue);
-  object(request, ['draftId', 'historyId', 'expectedRecordedThroughMs', 'throughMs', 'editRevision', 'comfortableBpm', 'note', 'occurredAt', 'timeZone'], 'Сохранение черновика');
+  // Самооценка нужна только черновику прохода упражнения; у прочих материалов поле можно не передавать.
+  const hasAssessment = request !== null && typeof request === 'object' && Object.hasOwn(request, 'assessment');
+  object(request, ['draftId', 'historyId', 'expectedRecordedThroughMs', 'throughMs', 'editRevision', 'comfortableBpm', 'note', 'occurredAt', 'timeZone', ...(hasAssessment ? ['assessment'] : [])], 'Сохранение черновика');
   if (request.draftId !== draft.id) invalid('Выбран другой черновик.');
   if (request.occurredAt !== draft.createdAt || request.timeZone !== draft.timeZone) invalid('Отметка должна сохранять исходные время и часовой пояс черновика.');
   const baseline = number(request.expectedRecordedThroughMs, 0, Number.MAX_SAFE_INTEGER, 'Исходная граница сохранения', false);
   const through = number(request.throughMs, baseline, draft.totalReferenceMs, 'Граница сохранения', false);
   number(request.editRevision, 0, draft.editRevision, 'Версия сохраняемой заметки');
   const entry = makeManualHistory(createManualPracticeResult({ context: draft.context, material: draft.material,
-    comfortableBpm: manualBpm(request.comfortableBpm, draft.material, 'Сохраняемый темп'), durationMs: through - baseline, note: text(request.note, 'Сохраняемая заметка', 2000, true) }),
+    comfortableBpm: manualBpm(request.comfortableBpm, draft.material, 'Сохраняемый темп'), durationMs: through - baseline, note: text(request.note, 'Сохраняемая заметка', 2000, true),
+    assessment: manualAssessment(hasAssessment ? request.assessment : null, draft.material) }),
   { id: text(request.historyId, 'ID ручной отметки', 160), occurredAt: request.occurredAt, timeZone: request.timeZone, routeRef: draft.routeRef });
   if (existing) {
     if (!same(validateHistoryEntry(existing), entry)) throw new StudyStorageError('SAVE_CONFLICT', 'Этот ID уже принадлежит другой записи. Черновик не изменён.');
@@ -697,6 +838,13 @@ export function makeEarHistory(session: EarSession, metadata: HistoryMetadata): 
   if (!questions.length) return null;
   const first = session.questions[0];
   return validateHistoryEntry({ ...envelope({ ...metadata, routeRef: metadata.routeRef ?? session.routeRef ?? null }), result: { kind: 'ear', source: 'audio-choice', context: { root: first.root, quality: first.quality, referenceMidi: first.referenceMidi }, seed: session.seed, plannedCount: session.questions.length, questions } }) as EarHistoryEntry;
+}
+
+/** Итог «Проверь себя» в историю; без ответов записи нет. */
+export function makeCheckHistory(result: Omit<CheckHistoryResult, 'kind' | 'source'>, metadata: HistoryMetadata): CheckHistoryEntry | null {
+  if (!result.answers.length) return null;
+  return validateHistoryEntry({ ...envelope(metadata), result: { kind: 'check', source: 'screen-check', exerciseKey: result.exerciseKey, title: result.title,
+    spec: result.spec, activeMs: result.activeMs, answers: result.answers } }) as CheckHistoryEntry;
 }
 
 export function makeRouteHistory(session: RouteResult, metadata: HistoryMetadata): RouteHistoryEntry | null {
@@ -718,11 +866,13 @@ export function getHistorySummary(history: readonly HistoryEntry[]) {
   const groups = new Map<string, { mode: QuizMode; context: QuestionContext; questionPolicy: ScreenHistoryResult['questionPolicy']; intervalDegrees: readonly IntervalDegree[]; questions: StoredQuestion[] }>();
   let screenSessions = 0; let manualSessions = 0; let manualDurationMs = 0;
   let earSessions = 0;
+  let checkSessions = 0; let checkActiveMs = 0;
   let routeSessions = 0; let routeActiveMs = 0;
   const earQuestions: SavedEarResult[] = [];
   for (const entry of history) {
     if (entry.result.kind === 'manual') { manualSessions++; manualDurationMs += entry.result.durationMs; continue; }
     if (entry.result.kind === 'ear') { earSessions++; earQuestions.push(...entry.result.questions); continue; }
+    if (entry.result.kind === 'check') { checkSessions++; checkActiveMs += entry.result.activeMs; continue; }
     if (entry.result.kind === 'route') { routeSessions++; routeActiveMs += entry.result.actualStepMs.reduce((sum, value) => sum + value, 0); continue; }
     screenSessions++;
     const { context: area, mode, questions, questionPolicy } = entry.result;
@@ -748,7 +898,7 @@ export function getHistorySummary(history: readonly HistoryEntry[]) {
   });
   const total = (key: 'questions' | 'completedQuestions' | 'independentCorrect' | 'corrected' | 'errors' | 'hints' | 'skipped' | 'interrupted') => summaries.reduce((sum, group) => sum + group[key], 0);
   return immutable({ entries: history.length, screenSessions, manualSessions, manualDurationMs,
-    routeSessions, routeActiveMs,
+    routeSessions, routeActiveMs, checkSessions, checkActiveMs,
     earSessions, earQuestions: earQuestions.length, earCompletedQuestions: earQuestions.filter(question => question.outcome !== 'interrupted').length,
     earIndependentCorrect: earQuestions.filter(question => question.independentCorrect).length, earCorrected: earQuestions.filter(question => question.corrected).length,
     earErrors: earQuestions.reduce((sum, question) => sum + question.errors, 0), earHints: earQuestions.filter(question => question.hintUsed).length,
@@ -773,7 +923,7 @@ export function getReviewPositionIds(history: readonly HistoryEntry[]): readonly
     const targetHeights = new Set<number>();
     for (const question of entry.result.questions) {
       if (question.independentCorrect) continue;
-      if (entry.result.mode === 'name-note') {
+      if (isNamingModeV1(entry.result.mode)) {
         if (question.targetPositionId) ids.add(question.targetPositionId);
       } else if (question.targetMidi === null) targetClasses.add(question.target.pitchClass);
       else targetHeights.add(question.targetMidi);

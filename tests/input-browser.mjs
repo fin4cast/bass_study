@@ -140,12 +140,12 @@ check('ui-native-track-ended-event-releases-input-and-shows-explanation', 'ui', 
   await openInput(page); await connectUi(page, context, origin); await page.evaluate(() => window.__inputObservations.streams[0].getAudioTracks()[0].dispatchEvent(new Event('ended'))); await stateIs(page, 'error'); assert.equal(await liveTracks(page), 0); assert.match(await page.getByTestId('input-error').innerText(), /отключён|завершён/); await delay(200); assert.equal(await calls(page), 1); return { method: 'Controlled ended event on native fake MediaStreamTrack; no physical unplug claim', released: true, automaticReconnect: false };
 });
 
-check('ui-device-preferences-preset-reload-and-schema-five-restore-never-capture', 'ui', async ({ page, context, origin }) => {
+check('ui-device-preferences-reload-and-restore-never-capture', 'ui', async ({ page, context, origin }) => {
   await openInput(page); await allow(context, origin); await action(page, 'refresh').click(); const picker = page.locator('[data-input-setting="deviceId"]'); await page.waitForFunction(() => document.querySelector('[data-input-setting=deviceId]').options.length > 1); const selected = await picker.locator('option').evaluateAll(elements => elements.find(element => element.value)?.value); await picker.selectOption(selected); await saved(page);
-  await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill('USB диагностический вход'); await page.locator('[data-history-action="save-preset"]').click(); await page.locator('[data-apply-preset]').first().waitFor(); await picker.selectOption(''); await saved(page); await page.locator('[data-apply-preset]').first().click(); await saved(page); assert.equal(await picker.inputValue(), selected); assert.equal(await calls(page), 0);
-  const before = await exportUi(page); assert.equal(before.schemaVersion, 11); assert.equal(before.preferences.input.deviceId, selected); assert.equal(before.presets[0].preferences.input.deviceId, selected); assert.equal(before.history.length, 0);
+  assert.equal(await calls(page), 0);
+  const before = await exportUi(page); assert.equal(before.schemaVersion, 11); assert.equal(before.preferences.input.deviceId, selected); assert.deepEqual(before.exercises, []); assert.equal(before.history.length, 0);
   await page.reload(); await ready(page); assert.equal(await picker.inputValue(), selected); assert.equal(await calls(page), 0);
-  await openHistory(page); await page.locator('[data-history-file]').setInputFiles({ name: 'input-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(before)) }); await page.getByTestId('backup-preview').waitFor(); assert.equal(await calls(page), 0); await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check(); await page.locator('[data-history-action="confirm-restore"]').click(); await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); assert.equal(await calls(page), 0); assert.equal(await liveTracks(page), 0); assert.deepEqual(await exportUi(page), before); return { schemaVersion: before.schemaVersion, selectedDeviceId: selected, exactRoundtrip: true, captureCallsDuringPresetReloadRestore: 0, historyEntries: 0 };
+  await openHistory(page); await page.locator('[data-history-file]').setInputFiles({ name: 'input-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(before)) }); await page.getByTestId('backup-preview').waitFor(); assert.equal(await calls(page), 0); await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check(); await page.locator('[data-history-action="confirm-restore"]').click(); await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); assert.equal(await calls(page), 0); assert.equal(await liveTracks(page), 0); assert.deepEqual(await exportUi(page), before); return { schemaVersion: before.schemaVersion, selectedDeviceId: selected, exactRoundtrip: true, captureCallsDuringReloadRestore: 0, historyEntries: 0 };
 });
 
 check('ui-retirement-releases-writer-only-after-late-acquired-input-tracks-ended', 'ui', async ({ page, context, origin }) => {
@@ -195,7 +195,7 @@ markFullOnly(checks, [
   'ui-first-open-and-return-do-not-claim-the-visible-section-is-closed',
   'ui-device-selection-stops-current-input-and-requires-new-connect',
   'ui-native-track-ended-event-releases-input-and-shows-explanation',
-  'ui-device-preferences-preset-reload-and-schema-five-restore-never-capture',
+  'ui-device-preferences-reload-and-restore-never-capture',
   'ui-module-leave-stops-native-tracks-and-return-does-not-auto-connect',
   'ui-noise-uncertainty-layout-and-non-grading-labels-are-visible',
 ], FULL_ONLY.smoke);

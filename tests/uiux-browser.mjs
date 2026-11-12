@@ -124,12 +124,10 @@ check('themes-preserve-running-sequence-focus-and-authoritative-profile', async 
   await page.locator('[data-player-action="stop"]').click(); await theme(page, 'dark');
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('bass-study-theme-v1') || 'null')?.preference === 'dark');
   assert.equal((await raw(page, 'profile', 'current')).theme, 'dark');
-  const before = await exportUi(page); await page.getByLabel('Название пресета', { exact: true }).fill('Свет сохраняется глобально'); await page.locator('[data-history-action="save-preset"]').click();
-  await page.getByText('Свет сохраняется глобально', { exact: true }).waitFor(); await theme(page, 'light');
-  await page.locator('[data-apply-preset]').first().click();
+  const before = await exportUi(page); await theme(page, 'light');
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
   await page.reload(); await ready(page); assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
-  return { evidence, audioContextsUnchanged: contexts, presetDoesNotChangeTheme: true, existingHistoryPreserved: before.history.length };
+  return { evidence, audioContextsUnchanged: contexts, existingHistoryPreserved: before.history.length };
 });
 
 check('imported-system-profile-survives-binary-chooser-and-corrupt-first-frame-cache', async ({ page, context }) => {

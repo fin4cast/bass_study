@@ -32,7 +32,7 @@ describe('подтверждённые связи результатов мар�
     const restored = await store.restorePrepared(candidate);
     expect(restored.snapshot).toBe(candidate.snapshot);
     expect(JSON.parse(await store.exportBackup())).toEqual(candidate.snapshot);
-    expect(restored.snapshot.history).toEqual(history);
+    expect(restored.snapshot.history).toEqual([...history].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
     const newResult = { ...ear, id: 'new-linked-ear', routeRef: { routeId: route.result.id, step: 'ear' as const } };
     expect((await store.addHistory(newResult)).linkedRoute).toBeUndefined();

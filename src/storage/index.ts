@@ -1,10 +1,10 @@
 import {
-  STUDY_SCHEMA_VERSION, StudyStorageError, validateHistoryEntry, validatePreferences, validatePreset,
+  STUDY_SCHEMA_VERSION, StudyStorageError, validateHistoryEntry, validatePreferences, validateStoredExercise,
   validateProfile, validatePracticeDraft, mergePracticeDraft, applyDraftDrain,
   validateRhythmProjectId, readStoredSnapshot,
-  type SkippedRecord, type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
+  type SkippedRecord, type AppPreferences, type HistoryEntry, type UserExercise, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
 } from './model';
-import { backupJson, validateRecordId, withRecord, withRhythmChange, withoutRecord, type RecordKind } from './snapshot-ops';
+import { backupJson, validateRecordId, withRecord, withRhythmChange, withoutRecord, type RecordKind, type RecordValue } from './snapshot-ops';
 import { createImportPreparation, type PreparedStudyImport } from './prepared-import';
 import { createHistoryLinks, isRouteEntry, type HistoryCommit } from './history-links';
 import { validateRhythmLibraryChange, type RhythmLibraryChange, type RhythmLibraryCommit } from './rhythm-library';
@@ -16,7 +16,9 @@ export type { RhythmLibraryChange, RhythmLibraryCommit } from './rhythm-library'
 export { createMemoryStudyStore } from './memory';
 export const STUDY_DB_NAME = 'bass-study';
 export const STUDY_DB_VERSION = STUDY_SCHEMA_VERSION;
-const STORES = ['preferences', 'presets', 'history', 'profile', 'practiceDrafts', 'rhythmProjects'] as const;
+/** Хранилища в порядке создания при upgrade. */
+const STORES = ['preferences', 'profile', 'exercises', 'history', 'practiceDrafts', 'rhythmProjects'] as const;
+const KEYED_STORES = new Set<string>(['preferences', 'profile']);
 const RHYTHM_SELECTION_KEY = 'rhythm-selection';
 
 function storageError(error: unknown): StudyStorageError {
@@ -34,7 +36,7 @@ function snapshotRequests(transaction: IDBTransaction) {
   const preferences = transaction.objectStore('preferences');
   return {
     preferences: preferences.get('current'),
-    presets: transaction.objectStore('presets').getAll(),
+    exercises: transaction.objectStore('exercises').getAll(),
     history: transaction.objectStore('history').getAll(),
     profile: transaction.objectStore('profile').get('current'),
     practiceDrafts: transaction.objectStore('practiceDrafts').getAll(),
@@ -45,7 +47,7 @@ function snapshotRequests(transaction: IDBTransaction) {
 
 function storedRecords(requests: ReturnType<typeof snapshotRequests>) {
   return { preferences: requests.preferences.result, profile: requests.profile.result, activeRhythmProjectId: requests.activeRhythmProjectId.result,
-    presets: requests.presets.result, history: requests.history.result, practiceDrafts: requests.practiceDrafts.result, rhythmProjects: requests.rhythmProjects.result };
+    exercises: requests.exercises.result, history: requests.history.result, practiceDrafts: requests.practiceDrafts.result, rhythmProjects: requests.rhythmProjects.result };
 }
 
 /**
@@ -94,7 +96,7 @@ export function createStudyStore(options: StudyStoreOptions = {}) {
     historyLinks = snapshot ? createHistoryLinks(snapshot.history) : null;
   }
 
-  function rememberRecord(kind: RecordKind, value: Preset | HistoryEntry | PracticeDraft) {
+  function rememberRecord(kind: RecordKind, value: RecordValue) {
     if (cachedSnapshot && database) cachedSnapshot = withRecord(cachedSnapshot, kind, value);
   }
 
@@ -117,8 +119,7 @@ export function createStudyStore(options: StudyStoreOptions = {}) {
         // No data migration: any older database starts empty (one user, data are not valuable yet).
         const db = request.result;
         for (const name of [...db.objectStoreNames]) db.deleteObjectStore(name);
-        db.createObjectStore('preferences'); db.createObjectStore('profile');
-        for (const name of ['presets', 'history', 'practiceDrafts', 'rhythmProjects']) db.createObjectStore(name, { keyPath: 'id' });
+        for (const name of STORES) db.createObjectStore(name, KEYED_STORES.has(name) ? undefined : { keyPath: 'id' });
       };
       request.onerror = () => { rejected = true; reject(storageError(request.error)); };
       request.onblocked = () => { rejected = true; reject(new StudyStorageError('BLOCKED', 'Открытие базы заблокировано другой вкладкой. Закройте другие вкладки bass_study и повторите операцию.')); };
@@ -305,7 +306,7 @@ export function createStudyStore(options: StudyStoreOptions = {}) {
         };
         put('preferences', snapshot.preferences, 'current');
         put('profile', snapshot.profile, 'current');
-        snapshot.presets.forEach(preset => put('presets', preset));
+        snapshot.exercises.forEach(exercise => put('exercises', exercise));
         snapshot.history.forEach(entry => put('history', entry));
         snapshot.practiceDrafts.forEach(draft => put('practiceDrafts', draft));
         snapshot.rhythmProjects.forEach(project => put('rhythmProjects', project));
@@ -314,7 +315,7 @@ export function createStudyStore(options: StudyStoreOptions = {}) {
       } catch (failure) { return rollback(transaction, done, failure); }
       if (database === db) { installSnapshot(snapshot); skippedRecords = []; }
       imports.consume(candidate);
-      return { status: 'restored' as const, presets: snapshot.presets.length, history: snapshot.history.length, snapshot };
+      return { status: 'restored' as const, exercises: snapshot.exercises.length, history: snapshot.history.length, snapshot };
     });
   }
 
@@ -335,8 +336,11 @@ export function createStudyStore(options: StudyStoreOptions = {}) {
         if (cachedSnapshot && database) cachedSnapshot = Object.freeze({ ...cachedSnapshot, preferences: validated });
       });
     },
-    async savePreset(preset: Preset) { const validated = validatePreset(preset); return enqueue(async () => { await write('presets', validated); rememberRecord('presets', validated); }); },
-    deletePreset: (id: string) => enqueue(() => remove('presets', id)),
+    async saveExercise(exercise: UserExercise) {
+      const validated = validateStoredExercise(exercise);
+      return enqueue(async () => { await write('exercises', validated); rememberRecord('exercises', validated); });
+    },
+    deleteExercise: (id: string) => enqueue(() => remove('exercises', id)),
     async addHistory(entry: HistoryEntry) { const validated = validateHistoryEntry(entry); return enqueue(() => addHistory(validated)); },
     deleteHistory: (id: string) => enqueue(() => remove('history', id)),
     async changeRhythmLibrary(change: RhythmLibraryChange) { const validated = validateRhythmLibraryChange(change); return enqueue(() => mutateRhythmProjects(validated)); },

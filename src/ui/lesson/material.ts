@@ -50,21 +50,8 @@ export const CHECK_COUNT = 6;
 
 const SHAPE_LETTER: Readonly<Record<string, string>> = { 'penta-a': 'A', 'penta-b': 'B', 'penta-c': 'C', 'penta-d': 'D', 'penta-e': 'E', 'compact-e': 'от E', 'compact-a': 'от A' };
 
-/**
- * Структура, по которой у материала есть ступени для «Проверь себя».
- * У хроматики, смены позиции, нот по грифу, октав, транспонирования формы и квинтового круга
- * одной тоники с осмысленными ступенями нет — проверка ступеней для них недоступна.
- */
-export function exerciseStructure(spec: ExerciseSpec): MusicalStructure | null {
-  switch (spec.templateId) {
-    case 'pentatonic-form': case 'scale-compact': case 'connect-forms': case 'pentatonic-neck': case 'scale-one-string':
-    case 'scale-position': case 'arpeggio-1358': case 'groups-of-three': case 'thirds':
-      return createStructure(spec.params.root, spec.params.structureId);
-    case 'pentatonic-relative': return createStructure(spec.params.minorRoot, 'minor-pentatonic');
-    case 'root-five-eight': return createStructure(spec.params.root, 'major-triad');
-    default: return null;
-  }
-}
+/** Правило перенесено в каталог упражнений: его же применяет проверка записей «Проверь себя» в хранилище. */
+export { exerciseStructure } from '../../exercises';
 
 /** Короткое имя тональности: `Am` для минорных структур, `C` для мажорных. */
 export function keyName(structure: MusicalStructure) {

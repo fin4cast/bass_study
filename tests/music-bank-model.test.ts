@@ -126,14 +126,13 @@ describe('музбанк и аудиофайлы в резервной копи�
     const fresh = createMemoryStudyStore(); await fresh.restorePrepared(fresh.prepareImport(json)); expect(await fresh.readSnapshot()).toEqual(snapshot);
   });
 
-  it('валидирует musicBank даже в неактивном разделе и каждом preset до отмены/замены базы', async () => {
+  it('валидирует musicBank даже в неактивном разделе до отмены/замены базы', async () => {
     const store = createMemoryStudyStore(); await store.restorePrepared(store.prepareImport(current)); const before = await store.readSnapshot();
     const good = validateSnapshot({ ...before, preferences: { ...before.preferences, musicBank: preferences() } });
     await store.prepareImport(JSON.stringify(good)); expect(await store.readSnapshot()).toBe(before);
     const bad: any = copy(good); bad.preferences.activeModule = 'foundation'; bad.preferences.musicBank.tracks[1].index = 7;
     expect(() => validateSnapshot(bad)).toThrow(); await expect(Promise.resolve().then(() => store.restorePrepared(store.prepareImport(JSON.stringify(bad))))).rejects.toMatchObject({ code: 'INVALID_DATA' }); expect(await store.readSnapshot()).toBe(before);
-    const preset = { id: 'bad-bank', name: 'Плохой музбанк', createdAt: '2026-11-08T22:30:00.000Z', preferences: { ...DEFAULT_PREFERENCES, musicBank: { ...preferences(), rawFile: {} } } };
-    expect(() => validateSnapshot({ ...emptySnapshot(), presets: [preset] })).toThrow();
+    expect(() => validateSnapshot({ ...emptySnapshot(), preferences: { ...DEFAULT_PREFERENCES, musicBank: { ...preferences(), rawFile: {} } } })).toThrow();
     expect(() => validatePreferences({ ...DEFAULT_PREFERENCES, musicBank: undefined })).toThrow();
   });
 });

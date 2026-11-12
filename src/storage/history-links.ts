@@ -43,7 +43,7 @@ export function createHistoryLinks(entries: readonly HistoryEntry[]) {
     remove(entry.id);
     if (isRouteEntry(entry)) {
       setLink(routes, entry.result.id, entry.id, entry);
-    } else if (entry.routeRef) {
+    } else if (entry.routeRef && entry.result.kind !== 'check') {
       const link = Object.freeze({ id: entry.id, kind: entry.result.kind, step: entry.routeRef.step });
       setLink(children, entry.routeRef.routeId, entry.id, link);
     } else return;
@@ -67,7 +67,8 @@ export function createHistoryLinks(entries: readonly HistoryEntry[]) {
         }
         return { entry: withLinks(entry, [...links.values()]) };
       }
-      if (!entry.routeRef) return { entry };
+      // «Проверь себя» к маршруту не привязывается (проверено на границе хранилища).
+      if (!entry.routeRef || entry.result.kind === 'check') return { entry };
       const parents = routes.get(entry.routeRef.routeId);
       if (parents?.size !== 1) return { entry };
       const parent = parents.values().next().value!;

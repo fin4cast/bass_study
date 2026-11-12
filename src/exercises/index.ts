@@ -156,6 +156,9 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
   'cycle-fourths': raw => ({ root: noteName(raw.root, 'Тоника'), count: integer(raw.count, 2, 12, 'Число тоник') }),
 };
 
+const BUILDABLE = new Set<string>();
+const MAX_BUILDABLE = 1024;
+
 /** Проверяет описание целиком; ошибочные параметры отклоняются, а не исправляются. */
 export function validateExerciseSpec(value: unknown): ExerciseSpec {
   const raw = plainRecord(value, 'Упражнение');
@@ -165,7 +168,15 @@ export function validateExerciseSpec(value: unknown): ExerciseSpec {
   const params = plainRecord(raw.params, 'Параметры');
   exactKeys(params, Object.keys(getExerciseTemplate(templateId).defaults), 'Параметры');
   const spec = deepFreeze({ version: 'exercise-v1', templateId, params: PARAM_RULES[templateId](params) }) as ExerciseSpec;
-  buildPlan(spec);
+  // Построение плана — проверка, что материал помещается на гриф; для формы по всему грифу оно стоит десятки миллисекунд.
+  // Результат детерминирован, поэтому уже построенные описания запоминаются: история и копия с повторами одного
+  // упражнения не перестраивают его план на каждой записи. Ошибки не запоминаются.
+  const key = JSON.stringify(spec);
+  if (!BUILDABLE.has(key)) {
+    buildPlan(spec);
+    if (BUILDABLE.size >= MAX_BUILDABLE) BUILDABLE.clear();
+    BUILDABLE.add(key);
+  }
   return spec;
 }
 
@@ -375,6 +386,22 @@ function buildPlan(spec: ExerciseSpec): ExercisePlan {
     spec, title: built.title ?? template.title, category: template.category, concepts: template.concepts,
     segments: built.segments.map(label => ({ label })), notes, positions: built.drafts.map(draft => draft.position),
   });
+}
+
+/**
+ * Структура, по которой у материала есть ступени для «Проверь себя».
+ * У хроматики, смены позиции, нот по грифу, октав, транспонирования формы и квинтового круга
+ * одной тоники с осмысленными ступенями нет — проверка ступеней для них недоступна.
+ */
+export function exerciseStructure(spec: ExerciseSpec): MusicalStructure | null {
+  switch (spec.templateId) {
+    case 'pentatonic-form': case 'scale-compact': case 'connect-forms': case 'pentatonic-neck': case 'scale-one-string':
+    case 'scale-position': case 'arpeggio-1358': case 'groups-of-three': case 'thirds':
+      return createStructure(spec.params.root, spec.params.structureId);
+    case 'pentatonic-relative': return createStructure(spec.params.minorRoot, 'minor-pentatonic');
+    case 'root-five-eight': return createStructure(spec.params.root, 'major-triad');
+    default: return null;
+  }
 }
 
 /** План упражнения по проверенному описанию. Тот же список позиций читают гриф, TAB, звук и история. */

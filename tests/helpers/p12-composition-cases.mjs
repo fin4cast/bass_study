@@ -3,8 +3,9 @@ import { readFile } from 'node:fs/promises';
 
 export function p12CompositionChecks({ confirmImport, uiBackup }) {
   const cases = [
-    { omitted: 'input', unavailable: ['input'], storedSection: 'input' },
-    { omitted: 'ear', unavailable: ['ear', 'route'], storedSection: 'route' },
+    // Разделы схемы 11, которых в этой оболочке ещё нет, сохраняются и показывают запасной раздел.
+    { omitted: 'input', unavailable: ['input'], storedSection: 'settings' },
+    { omitted: 'ear', unavailable: ['ear', 'route'], storedSection: 'progress' },
   ];
   return cases.map(({ omitted, unavailable, storedSection }) => ({
     name: `composition-without-${omitted}-retains-unavailable-schema11-data`,
@@ -14,7 +15,7 @@ export function p12CompositionChecks({ confirmImport, uiBackup }) {
       const incoming = JSON.parse(await readFile(new URL('../fixtures/backup.json', import.meta.url), 'utf8'));
       incoming.preferences.activeModule = storedSection;
       incoming.preferences.input.deviceId = 'fixture-input-device';
-      incoming.preferences.ear = { root: 'C', quality: 'major', count: 13, bpm: 110 };
+      incoming.preferences.reference = { mastered: ['semitone'] };
       await confirmImport(page, incoming);
 
       const current = page.locator('.module-navigation [aria-current="page"]');

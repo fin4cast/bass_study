@@ -5,7 +5,7 @@
 <body>
   <h1>Изолированная проверка IndexedDB</h1>
   <script type="module">
-    import { createStudyStore, DEFAULT_PREFERENCES, emptySnapshot, makeManualHistory, makeRouteHistory, makeScreenHistory, previewImport, validateSnapshot } from '/src/storage/index.ts';
+    import { createStudyStore, DEFAULT_PREFERENCES, emptySnapshot, makeCheckHistory, makeManualHistory, makeRouteHistory, makeScreenHistory, previewImport, validateSnapshot } from '/src/storage/index.ts';
     import { annotatePositions, createStructure, getPosition } from '/src/music/index.ts';
     import { createManualPracticeResult, nextQuestion, startQuiz, submitAnswer } from '/src/training/index.ts';
     import { advanceRouteSession, createRouteMaterial, startRouteSession } from '/src/route/index.ts';
@@ -22,6 +22,20 @@
     function manual(id = 'fixture-manual', note = 'Ручная отметка; не измеренная точность.') {
       return makeManualHistory(createManualPracticeResult({ context, material: { kind: 'sequence', pattern: 'ascending', routePositionIds: ['E:0', 'E:12'], duration: 'quarter', fragment: { from: 0, toExclusive: 2 }, box: null }, comfortableBpm: 72, durationMs: 300000, note }), { ...metadata, id });
     }
+    const pentatonic = shapeId => ({ version: 'exercise-v1', templateId: 'pentatonic-form', params: { root: 'A', structureId: 'minor-pentatonic', shapeId } });
+    function exercise(id = 'fixture-exercise-a', name = 'Нижняя форма', shapeId = 'penta-a') {
+      return { version: 'user-exercise-v1', id, name, spec: pentatonic(shapeId), createdAt: metadata.occurredAt };
+    }
+    // Проход упражнения на экране игры: самооценка обязательна, контекста грифа нет.
+    function exercisePass(id = 'fixture-exercise-pass', assessment = 'clean') {
+      return makeManualHistory(createManualPracticeResult({ context: null, comfortableBpm: 84, durationMs: 180000, note: 'Проход упражнения', assessment,
+        material: { kind: 'exercise', key: 'user:fixture-exercise-a', title: 'Нижняя форма', spec: pentatonic('penta-a'), view: 'both' } }), { ...metadata, id });
+    }
+    function check(id = 'fixture-check') {
+      return makeCheckHistory({ exerciseKey: 'builtin:pentatonic-form', title: 'Форма пентатоники вверх-вниз', activeMs: 95000,
+        spec: { version: 'check-v1', exercise: pentatonic('penta-b'), kind: 'name-degree', count: 3, ear: false },
+        answers: [{ degree: 'b3', outcome: 'correct', errors: 0 }, { degree: 'b7', outcome: 'corrected', errors: 2 }, { degree: '4', outcome: 'unanswered', errors: 0 }] }, { ...metadata, id });
+    }
     function route(id, atMs = 2500) {
       const session = startRouteSession({ id: `session-${id}`, material: createRouteMaterial() });
       return makeRouteHistory(advanceRouteSession(session, atMs), { ...metadata, id });
@@ -32,10 +46,7 @@
       preferences.training.mode = 'sequence'; preferences.training.sequenceScope = 'chromatic';
       preferences.player.bpm = 96; preferences.player.countIn = false;
       return validateSnapshot({ ...emptySnapshot(), profile: { theme: 'system', onboarding: { version: 1, choice: 'free', completed: false } }, preferences,
-        presets: [
-          { id: 'fixture-preset-a', name: 'Нижняя струна', createdAt: metadata.occurredAt, preferences },
-          { id: 'fixture-preset-b', name: 'Исходная область', createdAt: metadata.occurredAt, preferences: DEFAULT_PREFERENCES },
-        ], history: [screen(), manual()] });
+        exercises: [exercise('fixture-exercise-a', 'Нижняя форма'), exercise('fixture-exercise-b', 'Вторая форма', 'penta-b')], history: [screen(), manual()] });
     }
     function draft(id = 'native-draft') {
       const area = { root: 'C', structureId: 'major-triad', scope: 'structure', positionIds: ['E:8', 'A:7', 'A:10', 'D:10'] };
@@ -75,7 +86,7 @@
     async function seed() {
       const snapshot = seedSnapshot();
       await store.savePreferences(snapshot.preferences); await store.saveProfile(snapshot.profile);
-      for (const preset of snapshot.presets) await store.savePreset(preset);
+      for (const exercise of snapshot.exercises) await store.saveExercise(exercise);
       for (const entry of snapshot.history) await store.addHistory(entry);
       return store.readSnapshot({ fresh: true });
     }
@@ -84,18 +95,18 @@
         const request = indexedDB.open('bass-study'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
       });
       try {
-        const transaction = db.transaction(['preferences', 'presets', 'history', 'profile', 'practiceDrafts', 'rhythmProjects'], 'readonly');
+        const transaction = db.transaction(['preferences', 'profile', 'exercises', 'history', 'practiceDrafts', 'rhythmProjects'], 'readonly');
         const complete = new Promise((resolve, reject) => { transaction.oncomplete = resolve; transaction.onabort = () => reject(transaction.error); });
         const get = request => new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
-        const [preferences, presets, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId] = await Promise.all([
-          get(transaction.objectStore('preferences').get('current')), get(transaction.objectStore('presets').getAll()), get(transaction.objectStore('history').getAll()),
+        const [preferences, exercises, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId] = await Promise.all([
+          get(transaction.objectStore('preferences').get('current')), get(transaction.objectStore('exercises').getAll()), get(transaction.objectStore('history').getAll()),
           get(transaction.objectStore('profile').get('current')), get(transaction.objectStore('practiceDrafts').getAll()),
           get(transaction.objectStore('rhythmProjects').getAll()), get(transaction.objectStore('preferences').get('rhythm-selection')),
         ]);
-        await complete; return { version: db.version, preferences: preferences ?? null, presets, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId: activeRhythmProjectId ?? null };
+        await complete; return { version: db.version, preferences: preferences ?? null, exercises, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId: activeRhythmProjectId ?? null };
       } finally { db.close(); }
     }
-    window.p5 = { store, faults, seed, seedSnapshot, screen, manual, route, draft, emptySnapshot, previewImport, readRaw, createStore, defaults: DEFAULT_PREFERENCES, ready: true };
+    window.p5 = { store, faults, seed, seedSnapshot, screen, manual, exercise, exercisePass, check, route, draft, emptySnapshot, previewImport, readRaw, createStore, defaults: DEFAULT_PREFERENCES, ready: true };
   </script>
 </body>
 </html>

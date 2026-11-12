@@ -7,12 +7,17 @@ import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 const literal = JSON.parse(await readFile(fileURLToPath(new URL('./fixtures/backup.json', import.meta.url)), 'utf8'));
 const checks = [];
 const check = (name, run) => checks.push({ name, scope: 'native', run });
-const storeNames = ['preferences', 'presets', 'history', 'profile', 'practiceDrafts'];
-// Current copy with a dark profile and one preset, so profile and preset changes are observable.
-const current = {
-  ...literal, profile: { ...literal.profile, theme: 'dark' },
-  presets: [{ id: 'fixture-preset-a', name: 'Нижняя струна', createdAt: '2026-11-08T22:30:00.000Z', preferences: literal.preferences }],
-};
+// Хранилища старой базы версии 10 и текущей схемы 11 (P13: «Упражнения» заменили пресеты), отсортированные, как их отдаёт IDB.
+const V10_STORES = ['history', 'practiceDrafts', 'preferences', 'presets', 'profile', 'rhythmProjects'];
+const V11_STORES = ['exercises', 'history', 'practiceDrafts', 'preferences', 'profile', 'rhythmProjects'];
+// Порядок создания хранилищ при апгрейде до схемы 11.
+const V11_CREATION_ORDER = ['preferences', 'profile', 'exercises', 'history', 'practiceDrafts', 'rhythmProjects'];
+// Current copy with a dark profile and one user exercise, so profile and exercise changes are observable.
+const current = { ...literal, profile: { ...literal.profile, theme: 'dark' } };
+assert.equal(current.exercises.length, 1, 'The current copy carries one user exercise');
+// The old v10 database had a presets store with the old preset record layout.
+const { exercises: _currentExercises, ...currentWithoutExercises } = current;
+const oldV10 = { ...currentWithoutExercises, presets: [{ id: 'fixture-preset-a', name: 'Нижняя струна', createdAt: '2026-11-08T22:30:00.000Z', preferences: literal.preferences }] };
 const metadataBank = {
   version: 1, file: { name: 'Нативный пример.gp4', relativePath: 'Банк/Нативный пример.gp4', size: 3, sha256: 'a'.repeat(64), title: 'Нативный пример', artist: 'Контрольный материал', trackCount: 2, barCount: 8 },
   tracks: [{ index: 0, name: 'Ударные A', visible: false, audible: true, solo: false, volume: .25 }, { index: 1, name: 'Ударные B', visible: true, audible: false, solo: true, volume: 1.5 }],
@@ -20,36 +25,37 @@ const metadataBank = {
   range: { fromBar: 2, toBar: 6 }, loop: true,
 };
 
-// Независимое readonly-чтение; не импортирует продуктовый адаптер и не использует его кеш.
+// Независимое readonly-чтение всех хранилищ; не импортирует продуктовый адаптер и не использует его кеш.
 async function raw(page) {
-  return page.evaluate(async names => {
+  return page.evaluate(async () => {
     const db = await new Promise((resolve, reject) => {
       const request = indexedDB.open('bass-study');
       request.onupgradeneeded = () => { request.transaction.abort(); reject(new Error('Readonly reader не должен создавать отсутствующую базу')); };
       request.onerror = () => reject(request.error); request.onsuccess = () => resolve(request.result);
     });
     try {
-      const hasRhythm = db.objectStoreNames.contains('rhythmProjects');
-      const transaction = db.transaction(hasRhythm ? [...names, 'rhythmProjects'] : names, 'readonly');
+      const names = [...db.objectStoreNames];
+      const transaction = db.transaction(names, 'readonly');
       const done = new Promise((resolve, reject) => { transaction.oncomplete = resolve; transaction.onabort = () => reject(transaction.error); });
       const get = request => new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
-      const [preferences, presets, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId] = await Promise.all([
-        get(transaction.objectStore('preferences').get('current')), get(transaction.objectStore('presets').getAll()),
-        get(transaction.objectStore('history').getAll()), get(transaction.objectStore('profile').get('current')),
-        get(transaction.objectStore('practiceDrafts').getAll()),
-        hasRhythm ? get(transaction.objectStore('rhythmProjects').getAll()) : undefined,
-        hasRhythm ? get(transaction.objectStore('preferences').get('rhythm-selection')) : undefined,
-      ]);
+      const result = { version: db.version, stores: names };
+      await Promise.all(names.map(async name => {
+        const store = transaction.objectStore(name);
+        if (name === 'preferences') {
+          [result.preferences, result.activeRhythmProjectId] = await Promise.all([get(store.get('current')), get(store.get('rhythm-selection'))]);
+          result.activeRhythmProjectId ??= null;
+        } else if (name === 'profile') result.profile = await get(store.get('current'));
+        else result[name] = await get(store.getAll());
+      }));
       await done;
-      return { version: db.version, stores: [...db.objectStoreNames], preferences, presets, history, profile, practiceDrafts,
-        ...(hasRhythm ? { rhythmProjects, activeRhythmProjectId: activeRhythmProjectId ?? null } : {}) };
+      return result;
     } finally { db.close(); }
-  }, storeNames);
+  });
 }
 function rawSnapshot(snapshot, version = 11) {
-  const hasRhythm = version >= 8;
-  return { version, stores: [...storeNames, ...(hasRhythm ? ['rhythmProjects'] : [])].sort(), preferences: snapshot.preferences, presets: snapshot.presets, history: snapshot.history, profile: snapshot.profile, practiceDrafts: snapshot.practiceDrafts,
-    ...(hasRhythm ? { rhythmProjects: snapshot.rhythmProjects, activeRhythmProjectId: snapshot.activeRhythmProjectId } : {}) };
+  const records = version >= 11 ? { exercises: snapshot.exercises } : { presets: snapshot.presets };
+  return { version, stores: version >= 11 ? V11_STORES : V10_STORES, preferences: snapshot.preferences, ...records, history: snapshot.history, profile: snapshot.profile,
+    practiceDrafts: snapshot.practiceDrafts, rhythmProjects: snapshot.rhythmProjects, activeRhythmProjectId: snapshot.activeRhythmProjectId };
 }
 async function readyProduct(page, origin) {
   await page.goto(origin);
@@ -85,7 +91,7 @@ async function seedNativeV10(page, origin) {
       request.onerror = () => reject(request.error); request.onsuccess = () => resolve(request.result);
     });
     const evidence = { version: db.version, stores: [...db.objectStoreNames] }; db.close(); return evidence;
-  }, { snapshot: current, origin });
+  }, { snapshot: oldV10, origin });
 }
 async function fixture(page, fixtureOrigin) {
   await page.goto(`${fixtureOrigin}/tests/fixtures/storage.html`);
@@ -95,11 +101,12 @@ async function fixture(page, fixtureOrigin) {
 check('native-real-v10-database-upgrades-to-empty-v11-and-product-persists', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
   const seeded = await seedNativeV10(page, origin);
   const before = await raw(page);
-  assert.deepEqual(before, rawSnapshot(current, 10));
+  assert.deepEqual(before, rawSnapshot(oldV10, 10));
   await readyProduct(page, origin);
   const upgraded = await raw(page);
   assert.equal(upgraded.version, 11); assert.deepEqual(upgraded.stores, rawSnapshot(current).stores);
-  assert.deepEqual([upgraded.presets, upgraded.history, upgraded.practiceDrafts, upgraded.rhythmProjects, upgraded.activeRhythmProjectId], [[], [], [], [], null]);
+  assert.deepEqual([upgraded.exercises, upgraded.history, upgraded.practiceDrafts, upgraded.rhythmProjects, upgraded.activeRhythmProjectId], [[], [], [], [], null]);
+  assert.equal(Object.hasOwn(upgraded, 'presets'), false, 'Хранилище пресетов не переживает апгрейд');
   assert.notEqual(upgraded.profile?.theme, 'dark', 'Старый профиль не переносится');
   assert.notDeepEqual(upgraded.preferences, current.preferences, 'Старые настройки не переносятся');
   const surface = await page.evaluate(() => ({ persistence: document.querySelector('#persistence-message')?.textContent,
@@ -133,9 +140,9 @@ check('native-v10-upgrade-abort-after-recreating-stores-keeps-old-database-and-m
   await readyProduct(page, origin);
   const observation = await page.evaluate(() => window.__musicBankUpgradeAbort);
   assert.equal(observation.abortIssued, true); assert.equal(observation.databaseVersion, 11);
-  assert.deepEqual([...observation.deletedStores].sort(), before.stores); assert.deepEqual([...observation.createdStores].sort(), before.stores);
+  assert.deepEqual([...observation.deletedStores].sort(), before.stores); assert.deepEqual(observation.createdStores, V11_CREATION_ORDER);
   const after = await raw(page);
-  assert.deepEqual(after, before); assert.deepEqual(after, rawSnapshot(current, 10));
+  assert.deepEqual(after, before); assert.deepEqual(after, rawSnapshot(oldV10, 10));
   const persistence = await page.locator('#persistence-message').innerText(); assert.match(persistence, /Только в памяти/);
   return { observation, before: { version: before.version, history: before.history.length }, after: { version: after.version, history: after.history.length }, persistence, nativeVersionStayed: 10, storesRecreatedBeforeAbort: true };
 }));
@@ -187,7 +194,8 @@ check('native-v11-invalid-copy-preview-cancel-and-abort-after-successful-put-pre
     const badCopies = [];
     const duplicate = structuredClone(candidate); duplicate.preferences.musicBank.tracks[1].index = 0; badCopies.push(duplicate);
     const hiddenPayload = structuredClone(candidate); hiddenPayload.preferences.activeModule = 'foundation'; hiddenPayload.preferences.musicBank.file.pcm = [0, 1]; badCopies.push(hiddenPayload);
-    const badPreset = structuredClone(candidate); badPreset.presets[0].preferences.musicBank = { ...bank, fileHandle: {} }; badCopies.push(badPreset);
+    const badExercise = structuredClone(candidate); badExercise.exercises[0].preferences = { musicBank: { ...bank, fileHandle: {} } }; badCopies.push(badExercise);
+    const legacyPresets = structuredClone(candidate); legacyPresets.presets = []; badCopies.push(legacyPresets);
     const failures = [];
     for (const bad of badCopies) {
       try { await store.restorePrepared(store.prepareImport(JSON.stringify(bad))); failures.push(null); }
@@ -215,6 +223,7 @@ check('native-v11-invalid-copy-preview-cancel-and-abort-after-successful-put-pre
   assert.deepEqual(evidence.exportedAfterAbort, evidence.before); assert.deepEqual(evidence.freshAfterAbort, evidence.before);
   assert.equal(evidence.recovered.profile.theme, 'light'); assert.deepEqual(evidence.recovered.preferences.musicBank, metadataBank);
   assert.deepEqual(evidence.recovered.history, current.history); assert.deepEqual(evidence.recovered.practiceDrafts, current.practiceDrafts);
+  assert.deepEqual(evidence.recovered.exercises, current.exercises);
   assert.deepEqual(await raw(page), rawSnapshot(evidence.recovered));
   return evidence;
 }));

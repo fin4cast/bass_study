@@ -1,7 +1,11 @@
 import type { AppPreferences } from '../storage';
 import { escapeHtml } from '../ui/html';
 
-export type AppSection = AppPreferences['activeModule'];
+/** ВРЕМЕННО (P13-02): разделы прежней оболочки. Сохраняемый раздел — `AppPreferences['activeModule']`, см. `storedSection`. */
+export type AppSection = 'foundation' | 'ear' | 'harmony' | 'tracks' | 'input' | 'route';
+/** ВРЕМЕННО: разделы, которых больше нет в схеме настроек, сохраняются как стартовый «lesson». */
+export const storedSection = (section: AppSection): AppPreferences['activeModule'] =>
+  section === 'ear' || section === 'input' || section === 'route' ? 'lesson' : section;
 
 const sections = {
   foundation: { title: 'Гриф и практика' },

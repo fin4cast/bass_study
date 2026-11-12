@@ -1,9 +1,9 @@
-import { MAX_BACKUP_BYTES, StudyStorageError, type HistoryEntry, type Preset, type StudySnapshot, type PracticeDraft } from './model';
+import { MAX_BACKUP_BYTES, StudyStorageError, type HistoryEntry, type UserExercise, type StudySnapshot, type PracticeDraft } from './model';
 import type { RhythmLibraryChange } from './rhythm-library';
 
 /** Pure snapshot rules shared by the IndexedDB cache and the in-memory store. */
-export type RecordKind = 'presets' | 'history' | 'practiceDrafts';
-type RecordValue = Preset | HistoryEntry | PracticeDraft;
+export type RecordKind = 'exercises' | 'history' | 'practiceDrafts';
+export type RecordValue = UserExercise | HistoryEntry | PracticeDraft;
 
 const byId = (a: { id: string }, b: { id: string }) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 

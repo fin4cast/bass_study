@@ -59,7 +59,8 @@ function scientificMidi(text) {
   return 12 * (Number(match[3]) + 1) + naturals[match[1]] + alteration;
 }
 
-const CURRENT_STORES = ['history', 'practiceDrafts', 'preferences', 'presets', 'profile', 'rhythmProjects'];
+// Схема 11 (P13): «Упражнения» заменили пресеты. Списки хранилищ отсортированы, как их читает независимый raw-читатель.
+const CURRENT_STORES = ['exercises', 'history', 'practiceDrafts', 'preferences', 'profile', 'rhythmProjects'];
 const literalCopy = async () => JSON.parse(await readFile(new URL('./fixtures/backup.json', import.meta.url), 'utf8'));
 
 for (const version of [1, 10]) {
@@ -164,12 +165,13 @@ check('product-opens-real-v10-database-as-empty-persistent-v11-and-rejects-old-c
   await page.goto(origin); await ready(page);
   const upgraded = await rawCounts(page);
   assert.equal(upgraded.version, 11); assert.deepEqual(Object.keys(upgraded.counts), CURRENT_STORES);
-  for (const name of ['history', 'presets', 'practiceDrafts', 'rhythmProjects']) assert.equal(upgraded.counts[name], 0, `${name} must start empty after the upgrade`);
+  for (const name of ['exercises', 'history', 'practiceDrafts', 'rhythmProjects']) assert.equal(upgraded.counts[name], 0, `${name} must start empty after the upgrade`);
+  assert.equal(Object.hasOwn(upgraded.counts, 'presets'), false, 'The removed presets store must not survive the upgrade');
   assert.notEqual(upgraded.theme, 'dark', 'The old profile must not survive the upgrade');
   const surface = await page.evaluate(() => ({ storageDetailsHidden: document.querySelector('#open-storage-details')?.hidden, localStatus: document.querySelector('#local-save-status')?.textContent, testApi: ['p5', 'p6'].filter(name => name in window) }));
   assert.deepEqual(surface, { storageDetailsHidden: true, localStatus: 'Локально · сохранено', testApi: [] }, 'The upgraded product must persist natively, not in page memory');
   const empty = await exportUi(page);
-  assert.equal(empty.schemaVersion, 11); assert.deepEqual([empty.presets, empty.history, empty.practiceDrafts, empty.rhythmProjects, empty.activeRhythmProjectId], [[], [], [], [], null]);
+  assert.equal(empty.schemaVersion, 11); assert.deepEqual([empty.exercises, empty.history, empty.practiceDrafts, empty.rhythmProjects, empty.activeRhythmProjectId], [[], [], [], [], null]);
   await page.getByLabel('Тоника', { exact: true }).selectOption('F'); await saved(page);
   await page.reload(); await ready(page); assert.equal(await page.getByLabel('Тоника', { exact: true }).inputValue(), 'F', 'A setting written after the upgrade must survive reload');
   const before = await exportUi(page); assert.equal(before.preferences.study.root, 'F');
@@ -240,10 +242,8 @@ check('inactive-invalid-tempo-ladder-does-not-block-ordinary-play-or-canonical-p
   await player.getByLabel('Повтор', { exact: true }).selectOption('once'); await bpm.fill('96'); await bpm.press('Tab');
   assert.ok(await page.getByTestId('player-error').isHidden()); await page.locator('[data-player-action="start"]').click();
   await page.waitForFunction(() => ['running', 'finishing', 'finished'].includes(document.querySelector('#player-mount')?.dataset.playerState));
-  await page.locator('[data-player-action="stop"]').click(); await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill('Обычный темп после ошибки лестницы'); await historyAction(page, 'save-preset').click();
-  await page.getByTestId('preset-list').getByText('Обычный темп после ошибки лестницы', { exact: true }).waitFor(); const exported = await exportUi(page);
+  await page.locator('[data-player-action="stop"]').click(); await saved(page); const exported = await exportUi(page);
   assert.equal(exported.preferences.player.repeat, 'once'); assert.equal(exported.preferences.player.bpm, 96); assert.equal(exported.preferences.player.ladderStart, 60); assert.equal(exported.preferences.player.ladderEnd, 100);
-  assert.deepEqual(exported.presets[0].preferences.player, exported.preferences.player);
   return { rejectedActiveLadder: [200, 80], ordinaryPlaybackAccepted: true, canonicalPlayer: exported.preferences.player };
 }, { scope: 'ui' });
 
@@ -269,7 +269,6 @@ check('manual-draft-keeps-old-material-and-merges-new-runs-without-double-counti
   await bpm.fill('120'); await bpm.press('Tab'); await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
   async function playFor(milliseconds) { await page.locator('[data-player-action="start"]').click(); await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerState === 'running' && document.querySelector('#player-mount')?.dataset.currentPosition === 'E:0'); await delay(milliseconds); await page.locator('[data-player-action="stop"]').click(); }
   await playFor(650); await openHistory(page);
-  await page.getByLabel('Название пресета', { exact: true }).fill('Тот же материал C'); await historyAction(page, 'save-preset').click(); await page.getByTestId('preset-list').getByText('Тот же материал C', { exact: true }).waitFor();
   const oldText = 'Заметка к прежнему материалу C.';
   await page.getByLabel('Заметка к практике', { exact: true }).fill(oldText); await page.getByLabel('Комфортный темп', { exact: true }).fill('72');
   const withDraft = await exportUi(page); const originalDraft = withDraft.practiceDrafts.find(item => item.note === oldText); assert.ok(originalDraft); assert.equal(withDraft.history.length, 0);
@@ -285,7 +284,8 @@ check('manual-draft-keeps-old-material-and-merges-new-runs-without-double-counti
   const first = await exportUi(page), oldEntry = first.history.find(entry => entry.result.note === oldText);
   assert.ok(oldEntry); assert.equal(oldEntry.result.context.root, 'C'); assert.deepEqual(oldEntry.result.context.positionIds, ['E:0']); assert.equal(oldEntry.result.comfortableBpm, 72); assert.equal(oldEntry.result.material.kind, 'sequence');
   assert.ok(oldEntry.result.durationMs >= 500 && oldEntry.result.durationMs < 1300); assert.equal(first.practiceDrafts.find(item => item.id === originalDraft.id).recordedThroughMs, oldEntry.result.durationMs);
-  await page.getByTestId('preset-list').getByRole('button', { name: 'Применить', exact: true }).click(); await page.waitForFunction(() => document.querySelector('[aria-label="Тоника"]')?.value === 'C');
+  // Возврат к тому же материалу C (прежде — через пресет, удалённый в P13).
+  await page.getByLabel('Тоника', { exact: true }).selectOption('C'); await page.waitForFunction(() => document.querySelector('[aria-label="Тоника"]')?.value === 'C');
   await playFor(1400); await historyAction(page, 'refresh-draft').click();
   const newText = 'Новый остаток того же материала C.';
   await page.getByLabel('Заметка к практике', { exact: true }).fill(newText); await page.getByLabel('Комфортный темп', { exact: true }).fill('84'); await historyAction(page, 'save-manual').click();

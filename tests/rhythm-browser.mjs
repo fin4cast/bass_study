@@ -18,7 +18,7 @@ markFullOnly(checks, [
 markFullOnly(checks, [
   'native-p12-rhythm-retry-commits-project-while-profile-write-still-fails',
   'native-p12-restore-and-retry-are-exclusive-and-post-commit-hydration-requires-reload',
-  'native-current-database-saves-fretboard-sequence-draft-and-rhythmless-preset-keeps-projects',
+  'native-current-database-saves-fretboard-sequence-draft',
   'native-project-restore-validates-chain-and-rolls-back-after-project-and-selection-put',
 ], FULL_ONLY.separateProcess);
 markFullOnly(checks, [

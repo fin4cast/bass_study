@@ -32,7 +32,7 @@ describe('schema6: truthful material, global profile and durable drafts', () => 
     expect(() => validatePreferences({ ...preferences, study: { ...preferences.study, showFingers: 1 } })).toThrow();
   });
 
-  it('keeps interface profile outside presets, exports and restores confirmed drafts', async () => {
+  it('keeps interface profile outside preferences, exports and restores confirmed drafts', async () => {
     const store = createMemoryStudyStore(); await store.saveProfile({ theme: 'dark', onboarding: { version: 1, choice: 'free', completed: false } });
     await store.upsertPracticeDraft(draft());
     const snapshot = await store.readSnapshot(); expect(snapshot.profile.theme).toBe('dark'); expect(snapshot.preferences).not.toHaveProperty('theme');

@@ -1,7 +1,7 @@
 import {
-  STUDY_SCHEMA_VERSION, StudyStorageError, emptySnapshot, validateHistoryEntry, validatePreferences, validatePreset,
+  STUDY_SCHEMA_VERSION, StudyStorageError, emptySnapshot, validateHistoryEntry, validatePreferences, validateStoredExercise,
   validateProfile, validatePracticeDraft, mergePracticeDraft, applyDraftDrain,
-  type SkippedRecord, type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
+  type SkippedRecord, type AppPreferences, type HistoryEntry, type UserExercise, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
 } from './model';
 import { createImportPreparation, type PreparedStudyImport } from './prepared-import';
 import { createHistoryLinks, type HistoryCommit } from './history-links';
@@ -35,7 +35,7 @@ export function createMemoryStudyStore() {
       snapshot = imports.snapshot(candidate);
       historyLinks = createHistoryLinks(snapshot.history);
       imports.consume(candidate);
-      return { status: 'restored' as const, presets: snapshot.presets.length, history: snapshot.history.length, snapshot };
+      return { status: 'restored' as const, exercises: snapshot.exercises.length, history: snapshot.history.length, snapshot };
     });
   }
   return {
@@ -65,11 +65,11 @@ export function createMemoryStudyStore() {
       const validated = validatePreferences(preferences);
       return enqueue(() => { snapshot = Object.freeze({ ...snapshot, preferences: validated }); });
     },
-    async savePreset(preset: Preset) {
-      const validated = validatePreset(preset);
-      return enqueue(() => { snapshot = withRecord(snapshot, 'presets', validated); });
+    async saveExercise(exercise: UserExercise) {
+      const validated = validateStoredExercise(exercise);
+      return enqueue(() => { snapshot = withRecord(snapshot, 'exercises', validated); });
     },
-    deletePreset: (id: string) => enqueue(() => remove('presets', id)),
+    deleteExercise: (id: string) => enqueue(() => remove('exercises', id)),
     async addHistory(entry: HistoryEntry) {
       const validated = validateHistoryEntry(entry);
       return enqueue(() => { const commit = historyLinks.plan(validated); rememberHistory(commit); return commit; });

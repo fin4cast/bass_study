@@ -169,12 +169,12 @@ check('native-route-manual-drain-rolls-back-child-draft-and-parent', async ({ pa
   return { abortAfterTwoAndThreeSuccessfulWrites: true, sameIdOnRetry: true, originalParentOnly: true, oneTimeDebit: true };
 });
 
-check('native-indexeddb-schema-preferences-presets-and-distinct-results', async ({ page }) => {
-  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 11); assert.deepEqual(empty.presets, []); assert.deepEqual(empty.history, []);
+check('native-indexeddb-schema-preferences-exercises-and-distinct-results', async ({ page }) => {
+  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 11); assert.deepEqual(empty.exercises, []); assert.deepEqual(empty.history, []);
   assert.deepEqual(empty.rhythmProjects, []); assert.equal(empty.activeRhythmProjectId, null);
   const state = await seed(page);
   assert.equal(state.format, 'bass-study-backup'); assert.equal(state.preferences.player.bpm, 96);
-  assert.deepEqual(state.presets.map(item => item.name), ['Нижняя струна', 'Исходная область']);
+  assert.deepEqual(state.exercises.map(item => item.name), ['Нижняя форма', 'Вторая форма']);
   assert.deepEqual(state.history.map(item => item.result.kind), ['manual', 'screen']);
   const manual = state.history[0]; const screen = state.history[1];
   assert.equal(manual.result.source, 'self-report'); assert.equal(manual.result.comfortableBpm, 72); assert.equal(manual.result.durationMs, 300000);
@@ -186,11 +186,11 @@ check('native-indexeddb-schema-preferences-presets-and-distinct-results', async 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => { const db = request.result; const result = { name: db.name, version: db.version, stores: [...db.objectStoreNames] }; db.close(); resolve(result); };
   }));
-  assert.deepEqual(schema, { name: 'bass-study', version: 11, stores: ['history', 'practiceDrafts', 'preferences', 'presets', 'profile', 'rhythmProjects'] });
+  assert.deepEqual(schema, { name: 'bass-study', version: 11, stores: ['exercises', 'history', 'practiceDrafts', 'preferences', 'profile', 'rhythmProjects'] });
   return { schema, state };
 });
 
-check('native-preferences-queue-preserves-concurrent-history-and-presets', async ({ page }) => {
+check('native-preferences-queue-preserves-concurrent-history-and-exercises', async ({ page }) => {
   await seed(page);
   const state = await page.evaluate(async () => {
     const preferences = (await window.p5.store.readSnapshot()).preferences;
@@ -201,7 +201,7 @@ check('native-preferences-queue-preserves-concurrent-history-and-presets', async
     }
     await Promise.all(pending); return window.p5.store.readSnapshot({ fresh: true });
   });
-  assert.equal(state.preferences.player.bpm, 107); assert.equal(state.presets.length, 2); assert.equal(state.history.length, 10);
+  assert.equal(state.preferences.player.bpm, 107); assert.equal(state.exercises.length, 2); assert.equal(state.history.length, 10);
   assert.deepEqual(state.history.filter(item => item.id.startsWith('fixture-')).map(item => item.id), ['fixture-manual', 'fixture-screen']);
   await page.reload(); await page.waitForFunction(() => window.p5?.ready); assert.deepEqual(await snapshot(page), state);
   return state;
@@ -211,12 +211,12 @@ check('native-history-upsert-and-deletes-touch-only-requested-records', async ({
   const before = await seed(page);
   const after = await page.evaluate(async () => {
     await window.p5.store.addHistory(window.p5.manual('fixture-manual', 'Обновлённая заметка.'));
-    await window.p5.store.deletePreset('fixture-preset-b');
+    await window.p5.store.deleteExercise('fixture-exercise-b');
     await window.p5.store.deleteHistory('fixture-screen');
     return window.p5.store.readSnapshot({ fresh: true });
   });
   assert.equal(after.history.length, 1); assert.equal(after.history[0].result.note, 'Обновлённая заметка.');
-  assert.deepEqual(after.presets.map(item => item.id), ['fixture-preset-a']); assert.deepEqual(after.preferences, before.preferences);
+  assert.deepEqual(after.exercises.map(item => item.id), ['fixture-exercise-a']); assert.deepEqual(after.preferences, before.preferences);
   return after;
 });
 
@@ -226,7 +226,7 @@ check('native-export-clean-context-restore-full-replacement', async ({ page, fre
   try {
     assert.deepEqual((await snapshot(clean.page)).history, []);
     const preview = await clean.page.evaluate(json => window.p5.previewImport(json), json);
-    assert.deepEqual({ presets: preview.presets, history: preview.history, replacement: preview.replacement, requiresConfirmation: preview.requiresConfirmation }, { presets: 2, history: 2, replacement: 'full', requiresConfirmation: true });
+    assert.deepEqual({ exercises: preview.exercises, history: preview.history, replacement: preview.replacement, requiresConfirmation: preview.requiresConfirmation }, { exercises: 2, history: 2, replacement: 'full', requiresConfirmation: true });
     await clean.page.evaluate(async json => { const { store } = window.p5; await store.restorePrepared(store.prepareImport(json)); }, json);
     assert.deepEqual(await snapshot(clean.page), expected);
     await clean.page.evaluate(() => window.p5.store.addHistory(window.p5.manual('remove-on-replacement')));
@@ -246,7 +246,11 @@ check('native-cancel-and-validation-refusals-never-change-existing-data', async 
       ['previous-version', JSON.stringify({ ...clone(), schemaVersion: 10 }), 'UNSUPPORTED_VERSION'],
       ['future-version', JSON.stringify({ ...clone(), schemaVersion: 12 }), 'UNSUPPORTED_VERSION'],
       ['wrong-bpm-type', (() => { const value = clone(); value.preferences.player.bpm = '96'; return JSON.stringify(value); })(), 'INVALID_DATA'],
-      ['duplicate-presets', (() => { const value = clone(); value.presets.push(value.presets[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
+      ['duplicate-exercises', (() => { const value = clone(); value.exercises.push(value.exercises[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
+      ['exercise-extra-field', (() => { const value = clone(); value.exercises[0].preferences = {}; return JSON.stringify(value); })(), 'INVALID_DATA'],
+      ['legacy-presets-field', (() => { const value = clone(); value.presets = []; return JSON.stringify(value); })(), 'INVALID_DATA'],
+      ['exercise-pass-without-assessment', (() => { const value = clone(); value.history.push({ ...window.p5.exercisePass(), result: { ...window.p5.exercisePass().result, assessment: null } }); return JSON.stringify(value); })(), 'INVALID_DATA'],
+      ['check-foreign-degree', (() => { const value = clone(); const entry = structuredClone(window.p5.check()); entry.result.answers[0].degree = '3'; value.history.push(entry); return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['duplicate-history', (() => { const value = clone(); value.history.push(value.history[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['dishonest-screen-score', (() => { const value = clone(); value.history.find(entry => entry.result.kind === 'screen').result.questions[0].independentCorrect = true; return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['corrupt-context-position', (() => { const value = clone(); value.history[0].result.context.positionIds = ['E:25']; return JSON.stringify(value); })(), 'INVALID_DATA'],
@@ -256,7 +260,7 @@ check('native-cancel-and-validation-refusals-never-change-existing-data', async 
     const results = [];
     // Cancel = the copy is prepared for preview and never committed.
     const prepared = window.p5.store.prepareImport(JSON.stringify(window.p5.emptySnapshot()));
-    const cancelled = { requiresConfirmation: prepared.requiresConfirmation, replacement: prepared.replacement, presets: prepared.presets, history: prepared.history };
+    const cancelled = { requiresConfirmation: prepared.requiresConfirmation, replacement: prepared.replacement, exercises: prepared.exercises, history: prepared.history };
     results.push({ name: 'cancel', result: cancelled, unchanged: JSON.stringify(await window.p5.store.readSnapshot({ fresh: true })) === JSON.stringify(current) });
     for (const [name, json, expected] of mutations) {
       let failure = null;
@@ -265,7 +269,7 @@ check('native-cancel-and-validation-refusals-never-change-existing-data', async 
     }
     return results;
   });
-  assert.deepEqual(results[0].result, { requiresConfirmation: true, replacement: 'full', presets: 0, history: 0 });
+  assert.deepEqual(results[0].result, { requiresConfirmation: true, replacement: 'full', exercises: 0, history: 0 });
   for (const result of results) { assert.equal(result.unchanged, true, result.name); if (result.expected) assert.equal(result.failure?.code, result.expected, result.name); }
   assert.deepEqual(await snapshot(page), before); return results;
 });
@@ -415,6 +419,56 @@ check('native-project-save-abort-rolls-back-project-and-selection-after-both-put
   return evidence;
 });
 
+check('native-exercise-and-check-writes-abort-after-put-then-export-restore-roundtrip', async ({ page, freshPage, closeContext, fixtureUrl }) => {
+  const before = await seed(page);
+  const evidence = await page.evaluate(async () => {
+    const { store, faults, readRaw, exercise, exercisePass, check } = window.p5;
+    const cachedBefore = await store.readSnapshot(), rawBefore = await readRaw();
+    const failures = {};
+    // Отказ после уже успешного put: кеш и база остаются прежними, повтор записывает ровно одну запись.
+    faults.arm(1);
+    try { await store.saveExercise(exercise('aborted-exercise', 'Отменённое упражнение')); } catch (error) { failures.exercise = { code: error.code, ...faults.last() }; }
+    const afterExercise = { sameCache: await store.readSnapshot() === cachedBefore, raw: await readRaw(), fresh: await store.readSnapshot({ fresh: true }) };
+    const cachedAgain = await store.readSnapshot();
+    faults.arm(1);
+    try { await store.addHistory(check('aborted-check')); } catch (error) { failures.check = { code: error.code, ...faults.last() }; }
+    const afterCheck = { sameCache: await store.readSnapshot() === cachedAgain, raw: await readRaw() };
+    // Строгий отказ до записи: лишнее поле и чужая ступень не доходят до базы.
+    const refusals = [];
+    for (const write of [
+      () => store.saveExercise({ ...exercise('extra-field'), preferences: {} }),
+      () => store.addHistory({ ...check('foreign-degree'), result: { ...check('foreign-degree').result, answers: [{ degree: '3', outcome: 'correct', errors: 0 }] } }),
+      () => store.addHistory({ ...exercisePass('no-assessment'), result: { ...exercisePass('no-assessment').result, assessment: null } }),
+    ]) { try { await write(); refusals.push(null); } catch (error) { refusals.push(error.code); } }
+    const afterRefusals = await readRaw();
+    await store.saveExercise(exercise('aborted-exercise', 'Отменённое упражнение'));
+    await store.addHistory(check('aborted-check'));
+    await store.addHistory(exercisePass('fixture-exercise-pass', 'slow'));
+    const cached = await store.readSnapshot(), fresh = await store.readSnapshot({ fresh: true });
+    return { failures, rawBefore, afterExercise, afterCheck, refusals, afterRefusals, cachedMatchesFresh: JSON.stringify(cached) === JSON.stringify(fresh), fresh, json: await store.exportBackup() };
+  });
+  assert.deepEqual(evidence.failures, { exercise: { code: 'STORAGE_FAILURE', successfulWrites: 1, aborted: true }, check: { code: 'STORAGE_FAILURE', successfulWrites: 1, aborted: true } });
+  assert.equal(evidence.afterExercise.sameCache, true); assert.deepEqual(evidence.afterExercise.raw, evidence.rawBefore); assert.deepEqual(evidence.afterExercise.fresh, before);
+  assert.equal(evidence.afterCheck.sameCache, true); assert.deepEqual(evidence.afterCheck.raw, evidence.rawBefore);
+  assert.deepEqual(evidence.refusals, ['INVALID_DATA', 'INVALID_DATA', 'INVALID_DATA']); assert.deepEqual(evidence.afterRefusals, evidence.rawBefore);
+  assert.equal(evidence.cachedMatchesFresh, true);
+  assert.deepEqual(evidence.fresh.exercises.map(item => item.id), ['aborted-exercise', 'fixture-exercise-a', 'fixture-exercise-b']);
+  const check = evidence.fresh.history.find(entry => entry.result.kind === 'check');
+  assert.equal(check.id, 'aborted-check'); assert.equal(check.result.source, 'screen-check'); assert.equal(check.result.answers.length, 3);
+  const pass = evidence.fresh.history.find(entry => entry.id === 'fixture-exercise-pass');
+  assert.equal(pass.result.assessment, 'slow'); assert.equal(pass.result.material.kind, 'exercise'); assert.equal(pass.result.context, null);
+  assert.ok(evidence.fresh.history.filter(entry => entry.result.kind === 'manual' && entry.result.material.kind !== 'exercise').every(entry => entry.result.assessment === null));
+  const clean = await freshPage(fixtureUrl);
+  try {
+    await clean.page.evaluate(async json => { const { store } = window.p5; await store.restorePrepared(store.prepareImport(json)); }, evidence.json);
+    const restored = await snapshot(clean.page);
+    assert.deepEqual(restored, evidence.fresh); assert.equal(JSON.stringify(restored), evidence.json);
+    const raw = await clean.page.evaluate(() => window.p5.readRaw());
+    assert.deepEqual(raw.exercises, restored.exercises); assert.deepEqual(raw.history, restored.history);
+  } finally { await closeContext(clean.context); }
+  return { failures: evidence.failures, refusals: evidence.refusals, exercises: evidence.fresh.exercises.length, history: evidence.fresh.history.map(entry => entry.result.kind), restoredInCleanContext: true };
+});
+
 check('native-real-browser-quota-refusal-preserves-last-confirmed-commit-and-recovers', async ({ page, cdp, fixtureOrigin }) => {
   const initial = await snapshot(page);
   const quotaBefore = await cdp.send('Storage.getUsageAndQuota', { origin: fixtureOrigin }); let outcome;
@@ -504,14 +558,14 @@ check('native-successful-commits-update-cache-without-full-read-and-match-fresh-
       const fresh = await store.readSnapshot({ fresh: true });
       rows.push({ name, callsBeforeFresh, explicitFreshCalls: { ...counts }, referenceChanged: cached !== before,
         frozen: Object.isFrozen(cached), cacheMatchesFresh: JSON.stringify(cached) === JSON.stringify(fresh),
-        presets: fresh.presets.length, history: fresh.history.length, bpm: fresh.preferences.player.bpm });
+        exercises: fresh.exercises.length, history: fresh.history.length, bpm: fresh.preferences.player.bpm });
     }
     try {
       const preferences = (await store.readSnapshot()).preferences;
       await verify('savePreferences', () => store.savePreferences({ ...preferences, player: { ...preferences.player, bpm: 108 } }));
-      await verify('savePreset', () => store.savePreset({ id: 'cache-preset', name: 'Кеш после commit', createdAt: '2026-11-08T09:00:00.000Z', preferences }));
+      await verify('saveExercise', () => store.saveExercise(window.p5.exercise('cache-exercise', 'Кеш после commit')));
       await verify('addHistory', () => store.addHistory(window.p5.manual('cache-history')));
-      await verify('deletePreset', () => store.deletePreset('fixture-preset-b'));
+      await verify('deleteExercise', () => store.deleteExercise('fixture-exercise-b'));
       await verify('deleteHistory', () => store.deleteHistory('fixture-screen'));
       await verify('restore', () => store.restorePrepared(store.prepareImport(JSON.stringify(window.p5.emptySnapshot()))));
       return rows;
@@ -522,8 +576,8 @@ check('native-successful-commits-update-cache-without-full-read-and-match-fresh-
     assert.ok(operation.explicitFreshCalls.getAll >= 2, operation.name); assert.equal(operation.referenceChanged, true, operation.name);
     assert.equal(operation.frozen, true); assert.equal(operation.cacheMatchesFresh, true, operation.name);
   }
-  assert.equal(operations[0].bpm, 108); assert.equal(operations[1].presets, 3); assert.equal(operations[2].history, 3);
-  assert.equal(operations[3].presets, 2); assert.equal(operations[4].history, 2); assert.equal(operations[5].history, 0); assert.equal(operations[5].presets, 0);
+  assert.equal(operations[0].bpm, 108); assert.equal(operations[1].exercises, 3); assert.equal(operations[2].history, 3);
+  assert.equal(operations[3].exercises, 2); assert.equal(operations[4].history, 2); assert.equal(operations[5].history, 0); assert.equal(operations[5].exercises, 0);
   return { observer: 'Native IDB read-method wrappers only count calls and always invoke the originals; no returned data or failures are replaced.', operations };
 });
 
@@ -543,7 +597,7 @@ check('native-unexpected-database-close-invalidates-cache-after-isolated-browser
     const current = await window.p5.store.readSnapshot();
     return { cacheWasInvalidated: current !== window.p5.beforeUnexpectedClose, current, fresh: await window.p5.store.readSnapshot({ fresh: true }), raw: await window.p5.readRaw() };
   });
-  assert.equal(cleared.cacheWasInvalidated, true); assert.deepEqual(cleared.current.history, []); assert.deepEqual(cleared.current.presets, []);
+  assert.equal(cleared.cacheWasInvalidated, true); assert.deepEqual(cleared.current.history, []); assert.deepEqual(cleared.current.exercises, []);
   assert.deepEqual(cleared.current, cleared.fresh); assert.deepEqual(cleared.raw.history, []);
   await page.evaluate(() => window.p5.store.addHistory(window.p5.manual('after-unexpected-close')));
   const recovered = await snapshot(page); assert.deepEqual(recovered.history.map(entry => entry.id), ['after-unexpected-close']);
@@ -607,7 +661,7 @@ async function uiSaved(page) {
   await page.waitForFunction(() => document.querySelector('[data-testid="history-save-status"]')?.dataset.status === 'saved');
 }
 
-check('ui-settings-reload-presets-apply-delete-and-download-export', async ({ page }) => {
+check('ui-settings-reload-and-download-export', async ({ page }) => {
   await uiRange(page);
   await page.getByRole('button', { name: 'Ступени', exact: true }).click();
   await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
@@ -615,71 +669,46 @@ check('ui-settings-reload-presets-apply-delete-and-download-export', async ({ pa
   const bpm = page.locator('#player-mount').getByLabel('Темп, BPM', { exact: true });
   await bpm.fill('96'); await bpm.press('Tab');
   await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
-  await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill('Мой нижний участок'); await historyAction(page, 'save-preset').click();
-  await page.getByTestId('preset-list').getByText('Мой нижний участок', { exact: true }).waitFor();
-  const exported = await uiBackup(page); assert.equal(exported.schemaVersion, 11); assert.equal(exported.presets.length, 1);
+  await uiSaved(page);
+  const exported = await uiBackup(page); assert.equal(exported.schemaVersion, 11); assert.deepEqual(exported.exercises, []);
   assert.deepEqual(exported.preferences.study, { root: 'C', structureId: 'major', labelMode: 'degrees', strings: ['E'], fretMin: 0, fretMax: 3, box: null, showFingers: false });
   assert.equal(exported.preferences.player.bpm, 96); assert.equal(exported.preferences.player.countIn, false);
   await page.reload(); await openHistory(page);
   assert.equal(await page.getByLabel('Тоника', { exact: true }).inputValue(), 'C'); assert.equal(await page.getByLabel('Последний лад', { exact: true }).inputValue(), '3');
   assert.equal(await bpm.inputValue(), '96');
-  assert.deepEqual((await uiBackup(page)).presets, exported.presets);
-  await page.getByLabel('Тоника', { exact: true }).selectOption('G'); await uiSaved(page);
-  await page.getByTestId('preset-list').getByRole('button', { name: 'Применить', exact: true }).click();
-  await page.waitForFunction(() => document.querySelector('[aria-label="Тоника"]')?.value === 'C');
-  const deletion = page.getByRole('button', { name: 'Удалить пресет Мой нижний участок', exact: true });
-  await deletion.click(); const dialog = page.getByRole('dialog'); await dialog.waitFor(); assert.match(await dialog.innerText(), /Мой нижний участок/);
-  await page.keyboard.press('Escape'); assert.equal(await page.getByTestId('preset-list').getByText('Мой нижний участок', { exact: true }).count(), 1);
-  await deletion.click(); await page.getByRole('dialog').getByRole('button', { name: 'Отмена', exact: true }).click(); assert.equal((await uiBackup(page)).presets.length, 1);
-  await deletion.click(); await page.getByRole('dialog').getByRole('button', { name: 'Удалить', exact: true }).click();
-  await page.getByTestId('preset-list').getByText('Мой нижний участок', { exact: true }).waitFor({ state: 'detached' });
-  assert.equal((await uiBackup(page)).presets.length, 0);
-  return { exportedPreferences: exported.preferences, survivedReload: true, presetAppliedAndDeleted: true, escapeAndCancelPreservedPreset: true };
+  assert.deepEqual((await uiBackup(page)).preferences, exported.preferences);
+  return { exportedPreferences: exported.preferences, survivedReload: true };
 }, { scope: 'ui' });
 
-check('ui-finger-display-setting-survives-preset-reload-and-backup-restore', async ({ page }) => {
-  await uiReady(page); await revealControl(page.locator('#show-fingers')); await page.locator('#show-fingers').check();
-  await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill('Форма с пальцами'); await historyAction(page, 'save-preset').click();
-  await page.getByTestId('preset-list').getByText('Форма с пальцами', { exact: true }).waitFor();
+check('ui-finger-display-setting-survives-reload-and-backup-restore', async ({ page }) => {
+  await uiReady(page); await revealControl(page.locator('#show-fingers')); await page.locator('#show-fingers').check(); await uiSaved(page);
   const expected = await uiBackup(page); assert.equal(expected.preferences.study.showFingers, true); assert.equal(expected.preferences.study.box.shapeId, 'penta-a');
-  await page.locator('#show-fingers').uncheck(); await uiSaved(page); assert.equal((await uiBackup(page)).preferences.study.showFingers, false);
-  await page.getByTestId('preset-list').getByRole('button', { name: 'Применить', exact: true }).click(); assert.ok(await page.locator('#show-fingers').isChecked());
   await page.reload(); await openHistory(page); assert.ok(await page.locator('#show-fingers').isChecked()); assert.deepEqual(await uiBackup(page), expected);
   await revealControl(page.locator('#show-fingers')); await page.locator('#show-fingers').uncheck(); await uiSaved(page); await confirmImport(page, expected);
   assert.ok(await page.locator('#show-fingers').isChecked()); assert.deepEqual(await uiBackup(page), expected);
-  return { initialBox: expected.preferences.study.box, displayStoredIndependently: true, presetAndReloadAndRestore: true };
+  return { initialBox: expected.preferences.study.box, displayStoredIndependently: true, reloadAndRestore: true };
 }, { scope: 'ui' });
 
 check('ui-user-text-in-history-stays-text-not-markup', async ({ page }) => {
-  const name = `"><img src=x onerror="window.__u1=1">&amp; 'q'`;
   const filename = `<img src=x onerror="window.__u1=2">.json`;
-  await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill(name); await historyAction(page, 'save-preset').click();
-  const list = page.getByTestId('preset-list'); await list.getByText(name, { exact: true }).waitFor();
-  const deletion = page.getByRole('button', { name: `Удалить пресет ${name}`, exact: true }); assert.equal(await deletion.count(), 1);
-  await deletion.click(); const dialog = page.getByRole('dialog'); await dialog.waitFor(); assert.ok((await dialog.innerText()).includes(name));
-  await dialog.getByRole('button', { name: 'Отмена', exact: true }).click();
-  await list.getByRole('button', { name: 'Применить', exact: true }).click(); await page.getByText(`Пресет «${name}» применён.`, { exact: true }).waitFor();
-  const backup = await uiBackup(page); assert.equal(backup.presets[0].name, name);
+  const backup = await uiBackup(page);
   await upload(page, backup, filename); const preview = page.getByTestId('backup-preview'); await preview.waitFor();
   assert.ok((await preview.innerText()).includes(filename));
   const injected = await page.evaluate(() => ({ images: document.querySelectorAll('.history-drawer img, dialog img').length, flag: window.__u1 ?? null }));
   assert.deepEqual(injected, { images: 0, flag: null });
   await historyAction(page, 'cancel-restore').click();
-  return { presetNameIsText: true, dialogAndNoticeAreText: true, importFilenameIsText: true, injected };
+  return { importFilenameIsText: true, injected };
 }, { scope: 'ui' });
 
 check('ui-import-preview-cancel-confirm-and-full-replacement', async ({ page, fixtureUrl }) => {
-  const incoming = await fixtureBackup(page, fixtureUrl); await openHistory(page);
-  await page.getByLabel('Название пресета', { exact: true }).fill('Устаревший пресет'); await historyAction(page, 'save-preset').click();
-  await page.getByTestId('preset-list').getByText('Устаревший пресет', { exact: true }).waitFor(); const before = await uiBackup(page);
+  const incoming = await fixtureBackup(page, fixtureUrl); await openHistory(page); const before = await uiBackup(page);
   await upload(page, incoming); await page.getByTestId('backup-preview').waitFor();
-  assert.match(await page.getByTestId('backup-preview').innerText(), /2 пресетов.*2 записей истории/);
+  assert.match(await page.getByTestId('backup-preview').innerText(), /2 записей истории/);
   assert.deepEqual(await uiBackup(page), before, 'Preview and export before confirmation must leave data unchanged');
   await historyAction(page, 'cancel-restore').click(); assert.equal(await page.getByTestId('backup-preview').count(), 0); assert.deepEqual(await uiBackup(page), before);
   await confirmImport(page, incoming); const restored = await uiBackup(page);
   assert.deepEqual(restored, incoming); assert.equal(await page.getByLabel('Тоника', { exact: true }).inputValue(), 'C');
   assert.equal(await page.getByTestId('history-list').locator('[data-history-entry]').count(), 2);
-  assert.equal(await page.getByTestId('preset-list').getByText('Устаревший пресет', { exact: true }).count(), 0);
   await page.reload(); await openHistory(page); assert.deepEqual(await uiBackup(page), incoming);
   return { previewDidNotWrite: true, cancelled: true, restored, survivedReload: true };
 }, { scope: 'ui' });
@@ -900,39 +929,6 @@ check('ui-history-filters-and-exact-error-review-subset-preserve-original-contex
   return { expectedId, originalContext: original.result.context, screenshot: 'test-results/p5-history-desktop.png' };
 }, { scope: 'ui' });
 
-check('ui-real-quota-error-is-visible-and-retry-saves-after-reset', async ({ page, cdp, origin }) => {
-  await openHistory(page); const before = await uiBackup(page);
-  let message, failedName, confirmedBeforeFailure = []; let attempts = 0;
-  try {
-    await cdp.send('Storage.overrideQuotaForOrigin', { origin, quotaSize: 1 });
-    // Real IDB may have a preallocated credit after initial profile/preferences.
-    // Bound the UI attempts; each successful card is a confirmed native commit.
-    for (let index = 0; index < 1024; index++) {
-      const name = 'Переполнение ' + index + ' ' + 'Н'.repeat(54); attempts++;
-      const beforeIds = await page.getByTestId('preset-list').locator('[data-preset-id]').evaluateAll(nodes => nodes.map(node => node.dataset.presetId).sort());
-      await page.getByLabel('Название пресета', { exact: true }).fill(name); await historyAction(page, 'save-preset').click();
-      await page.waitForFunction(name => {
-        const error = document.querySelector('[data-testid="history-error"]');
-        return !!(error && error.getClientRects().length) || [...document.querySelectorAll('[data-preset-id] strong')].some(node => node.textContent === name);
-      }, name);
-      if (await page.getByTestId('history-error').isVisible()) {
-        message = await page.getByTestId('history-error').innerText(); failedName = name; confirmedBeforeFailure = beforeIds;
-        const afterIds = await page.getByTestId('preset-list').locator('[data-preset-id]').evaluateAll(nodes => nodes.map(node => node.dataset.presetId).sort());
-        assert.deepEqual(afterIds, beforeIds, 'A refused native put must not add or remove a confirmed preset'); break;
-      }
-    }
-    assert.ok(failedName, '1024 real UI saves must exhaust preallocated credit under a 1-byte origin quota');
-    assert.match(message, /места|Сохранение не выполнено/);
-    assert.match(await page.locator('#persistence-message').innerText(), /места|ошиб|подтвержд|сохранени/i);
-  } finally { await cdp.send('Storage.overrideQuotaForOrigin', { origin }); }
-  await page.locator('#retry-save').click(); await page.getByTestId('preset-list').getByText(failedName, { exact: true }).waitFor();
-  const recovered = await uiBackup(page);
-  assert.equal(recovered.presets.length, confirmedBeforeFailure.length + 1);
-  for (const id of confirmedBeforeFailure) assert.ok(recovered.presets.some(preset => preset.id === id));
-  assert.equal(recovered.presets.filter(preset => preset.name === failedName).length, 1); assert.deepEqual(recovered.history, before.history);
-  return { actualNativeQuotaError: message, attempts, boundedAt: 1024, confirmedBeforeFailure, retriedAfterQuotaReset: true, recoveredPreset: failedName };
-}, { scope: 'ui' });
-
 check('ui-unavailable-indexeddb-falls-back-to-explicit-memory-and-export', async ({ page }) => {
   await uiReady(page);
   const details = page.getByRole('button', { name: 'Без сохранения · подробнее', exact: true });
@@ -958,7 +954,7 @@ markFullOnly(checks, [
 markFullOnly(checks, [
   'composition-without-input-retains-unavailable-schema11-data',
   'composition-without-ear-retains-unavailable-schema11-data',
-  'ui-finger-display-setting-survives-preset-reload-and-backup-restore',
+  'ui-finger-display-setting-survives-reload-and-backup-restore',
   'ui-draft-abort-still-downloads-confirmed-bytes-and-offers-retry',
   'ui-restore-waits-for-successful-preliminary-writes-and-keeps-preview-for-retry',
   'ui-preview-and-cancel-leave-active-practice-and-native-data-untouched',

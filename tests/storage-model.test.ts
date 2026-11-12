@@ -8,7 +8,7 @@ import { annotatePositions, createStructure, getPosition } from '../src/music';
 import { createManualPracticeResult, nextQuestion, revealAnswer, skipQuestion, startQuiz, submitAnswer, type QuizMode } from '../src/training';
 import {
   DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError, emptySnapshot, getHistorySummary, getReviewPositionIds, makeEarHistory, makeRouteHistory, makeManualHistory, makeScreenHistory,
-  originalLocalDate, parseBackup, previewImport, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
+  originalLocalDate, parseBackup, previewImport, validateHistoryEntry, validatePreferences, validateStoredExercise, validateSnapshot,
   type HistoryEntry, type ScreenHistoryEntry,
 } from '../src/storage/model';
 
@@ -17,6 +17,8 @@ const positions = annotatePositions([getPosition('E', 0), getPosition('E', 12)],
 const context = { scope: 'structure' as const, root: 'A', structureId: 'minor-pentatonic' as const, positionIds: ['E:0', 'E:12'] };
 const metadata = { id: 'synthetic-screen', occurredAt: '2026-11-08T09:00:00.000Z', timeZone: 'Europe/Moscow' };
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+const exerciseRecord = (id: string, name = 'Am пентатоника') => ({ version: 'user-exercise-v1', id, name, createdAt: metadata.occurredAt,
+  spec: { version: 'exercise-v1', templateId: 'pentatonic-form', params: { root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a' } } });
 function validationFailure(operation: () => unknown): StudyStorageError {
   let failure: unknown;
   try { operation(); } catch (error) { failure = error; }
@@ -50,33 +52,33 @@ describe('строгая диагностика полей и записи бе�
     expect(failure.message).not.toContain('x'.repeat(100));
   });
 
-  it('различает текущие настройки и конкретный номер пресета, не раскрывая его название или ID', () => {
+  it('различает текущие настройки и конкретный номер упражнения, не раскрывая его название или ID', () => {
     const bad: any = clone(DEFAULT_PREFERENCES);
     bad.study.unexpectedViewState = 'PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS';
     const current = validationFailure(() => validateSnapshot({ ...emptySnapshot(), preferences: bad }));
     expect(current.message).toMatch(/^Текущие настройки \(preferences\/current\): Настройки грифа:/);
-    const validPreset = { id: 'valid-preset', name: 'Первый', createdAt: metadata.occurredAt, preferences: DEFAULT_PREFERENCES };
-    const badPreset = { ...validPreset, id: 'PRIVATE_PRESET_ID', name: 'PRIVATE_PRESET_NAME', preferences: bad };
-    expect(validationFailure(() => validatePreset(badPreset)).message).toMatch(/^Настройки пресета: Настройки грифа:/);
-    const preset = validationFailure(() => validateSnapshot({ ...emptySnapshot(), presets: [validPreset, badPreset] }));
-    expect(preset.message).toMatch(/^Пресет №2: Настройки пресета: Настройки грифа:/);
-    for (const value of ['PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS', 'PRIVATE_PRESET_ID', 'PRIVATE_PRESET_NAME']) expect(preset.message).not.toContain(value);
+    const badExercise = { ...exerciseRecord('PRIVATE_EXERCISE_ID', 'PRIVATE_EXERCISE_NAME'), unexpectedViewState: 'PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS' };
+    expect(validationFailure(() => validateStoredExercise(badExercise)).message).toMatch(/^Упражнение: /);
+    const exercise = validationFailure(() => validateSnapshot({ ...emptySnapshot(), exercises: [exerciseRecord('valid'), badExercise] }));
+    expect(exercise.message).toMatch(/^Упражнение №2: Упражнение: /);
+    for (const value of ['PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS', 'PRIVATE_EXERCISE_ID', 'PRIVATE_EXERCISE_NAME']) expect(exercise.message).not.toContain(value);
   });
 
-  it('сохраняет контекст текущей или пресетной записи при строгом разборе резервной копии', () => {
+  it('сохраняет контекст текущей записи или упражнения при строгом разборе резервной копии', () => {
     const current = JSON.parse(backupJson);
     current.preferences.study.unexpectedViewState = 'PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS';
     const currentFailure = validationFailure(() => parseBackup(JSON.stringify(current)));
     expect(currentFailure.message).toMatch(/^Текущие настройки \(preferences\/current\):/);
     expect(currentFailure.message).toContain('Неизвестные: "unexpectedViewState".');
-    const preset = JSON.parse(backupJson);
-    preset.presets = [{ id: 'preset-1', name: 'Пресет', createdAt: '2026-11-08T09:00:00.000Z', preferences: clone(DEFAULT_PREFERENCES) }];
-    expect(parseBackup(JSON.stringify(preset)).presets).toHaveLength(1);
-    preset.presets[0].preferences.study.unexpectedViewState = 'PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS';
-    const presetFailure = validationFailure(() => parseBackup(JSON.stringify(preset)));
-    expect(presetFailure.message).toMatch(/^Пресет №1:/);
-    expect(presetFailure.message).toContain('Неизвестные: "unexpectedViewState".');
-    expect(presetFailure.message).not.toContain('PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS');
+    const copy = JSON.parse(backupJson);
+    copy.exercises.push(exerciseRecord('zz-second'));
+    expect(parseBackup(JSON.stringify(copy)).exercises.map(item => item.id)).toEqual(['fixture-penta', 'zz-second']);
+    copy.exercises[1].spec.params.shapeId = 'PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS';
+    const exerciseFailure = validationFailure(() => parseBackup(JSON.stringify(copy)));
+    expect(exerciseFailure.message).toMatch(/^Упражнение №2:/);
+    expect(exerciseFailure.message).not.toContain('PRIVATE_VALUE_NOT_FOR_DIAGNOSTICS');
+    copy.exercises[1] = { ...exerciseRecord('fixture-penta') };
+    expect(validationFailure(() => parseBackup(JSON.stringify(copy))).message).toMatch(/ID упражнений или истории повторяются/);
   });
 });
 
@@ -88,7 +90,7 @@ describe('переносимые метаданные дорожек и выбо
     const snapshot = validateSnapshot({ ...emptySnapshot(), preferences });
     expect(parseBackup(JSON.stringify(snapshot))).toEqual(snapshot);
     expect(snapshot.preferences.tracks?.tracks[0].sha256).toBe('a'.repeat(64));
-    expect(validatePreferences({ ...preferences, activeModule: 'input' }).input.deviceId).toBe('opaque-device-id');
+    expect(validatePreferences({ ...preferences, activeModule: 'settings' }).input.deviceId).toBe('opaque-device-id');
     for (const mutate of [(value: any) => { value.tracks.tracks[0].pcm = [0, 1]; }, (value: any) => { value.input.stream = {}; }, (value: any) => { value.input.deviceId = 'x'.repeat(2049); }, (value: any) => { value.tracks.clip.to = .1; }]) {
       const bad = clone(preferences); mutate(bad); expect(() => validatePreferences(bad)).toThrow();
     }
@@ -151,12 +153,11 @@ describe('schema3: маршрут учитывает только активно
 });
 
 describe('слуховое происхождение', () => {
-  it('проверяет обязательные настройки слухового раздела', () => {
-    expect(DEFAULT_PREFERENCES).toMatchObject({ activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 } });
+  it('раздела «Слух» больше нет в настройках: его поле и прежние разделы отклоняются', () => {
+    expect(DEFAULT_PREFERENCES).not.toHaveProperty('ear');
     for (const change of [
-      (value: any) => { value.activeModule = 'other'; }, (value: any) => { value.ear.bpm = 121; },
-      (value: any) => { value.ear.count = 21; }, (value: any) => { value.ear.quality = 'diminished'; },
-      (value: any) => { value.ear.root = 'H'; },
+      (value: any) => { value.activeModule = 'ear'; }, (value: any) => { value.activeModule = 'route'; }, (value: any) => { value.activeModule = 'input'; },
+      (value: any) => { value.ear = { root: 'A', quality: 'minor', count: 10, bpm: 80 }; },
     ]) { const input = clone(DEFAULT_PREFERENCES); change(input); expect(() => validatePreferences(input)).toThrow(); }
   });
 
@@ -273,10 +274,10 @@ describe('явное временное хранилище', () => {
     const backup = await store.exportBackup();
     expect(parseBackup(backup).history[0]?.result.kind).toBe('manual');
     const empty = JSON.stringify(emptySnapshot());
-    expect(previewImport(empty)).toMatchObject({ history: 0, presets: 0, replacement: 'full', requiresConfirmation: true });
+    expect(previewImport(empty)).toMatchObject({ history: 0, exercises: 0, replacement: 'full', requiresConfirmation: true });
     store.prepareImport(empty); // предпросмотр без подтверждения ничего не меняет
     expect((await store.readSnapshot()).history).toHaveLength(1);
-    expect(await store.restorePrepared(store.prepareImport(empty))).toMatchObject({ status: 'restored', history: 0, presets: 0 });
+    expect(await store.restorePrepared(store.prepareImport(empty))).toMatchObject({ status: 'restored', history: 0, exercises: 0 });
     expect((await store.readSnapshot()).history).toHaveLength(0);
     await store.restorePrepared(store.prepareImport(backup));
     await store.close();
@@ -312,16 +313,16 @@ describe('обычные JSON-значения без побочных эффе�
   it('отклоняет разреженные массивы и посторонние свойства', () => {
     expect(() => validateSnapshot({ ...emptySnapshot(), history: new Array(1) })).toThrow();
     const list = Object.assign([], { extra: true });
-    expect(() => validateSnapshot({ ...emptySnapshot(), presets: list })).toThrow();
+    expect(() => validateSnapshot({ ...emptySnapshot(), exercises: list })).toThrow();
   });
 
-  it('обычная база не теряет читаемость после 1000 пресетов', () => {
-    const presets = Array.from({ length: 1001 }, (_, i) => ({ id: `preset-${i}`, name: `Настройка ${i}`, createdAt: metadata.occurredAt, preferences: DEFAULT_PREFERENCES }));
-    expect(validateSnapshot({ ...emptySnapshot(), presets }).presets).toHaveLength(1001);
+  it('обычная база не теряет читаемость после 1000 упражнений', () => {
+    const exercises = Array.from({ length: 1001 }, (_, i) => exerciseRecord(`exercise-${i}`, `Упражнение ${i}`));
+    expect(validateSnapshot({ ...emptySnapshot(), exercises }).exercises).toHaveLength(1001);
   });
 });
 
-describe('настройки и пресеты', () => {
+describe('настройки и собственные упражнения', () => {
   it('defaults соответствуют реальным экранным настройкам и полному фрагменту', () => {
     const result = validatePreferences(DEFAULT_PREFERENCES);
     expect(result.study).toMatchObject({ root: 'A', structureId: 'minor-pentatonic', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12, box: { shapeId: 'penta-a', anchorFret: 5 } });
@@ -368,11 +369,19 @@ describe('настройки и пресеты', () => {
     expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
   });
 
-  it('валидирует пресет без привязки истории к удаляемому пресету', () => {
-    const preset = validatePreset({ id: 'preset-one', name: '  Мой диапазон  ', createdAt: metadata.occurredAt, preferences: DEFAULT_PREFERENCES });
-    expect(preset.name).toBe('Мой диапазон');
-    expect(() => validatePreset({ ...preset, createdAt: '2026-02-30T00:00:00.000Z' })).toThrow();
-    expect(() => validatePreset({ ...preset, name: ' ' })).toThrow();
+  it('строго проверяет собственное упражнение: поля, название, дату и описание', () => {
+    const exercise = validateStoredExercise(exerciseRecord('exercise-one', 'Мой диапазон'));
+    expect(exercise).toEqual(exerciseRecord('exercise-one', 'Мой диапазон'));
+    expect(Object.isFrozen(exercise.spec.params)).toBe(true);
+    for (const change of [
+      (x: any) => { x.name = '  Мой диапазон  '; }, (x: any) => { x.name = ' '; }, (x: any) => { x.name = 'x'.repeat(81); },
+      (x: any) => { x.createdAt = '2026-02-30T00:00:00.000Z'; }, (x: any) => { x.createdAt = 'вчера'; },
+      (x: any) => { x.id = 'user:bad'; }, (x: any) => { x.version = 'user-exercise-v2'; }, (x: any) => { x.extra = true; }, (x: any) => { delete x.spec; },
+      (x: any) => { x.spec.params.shapeId = 'penta-z'; }, (x: any) => { x.spec.params.extra = 1; }, (x: any) => { x.spec.templateId = 'made-up'; },
+    ]) {
+      const input = exerciseRecord('exercise-one'); change(input);
+      expect(validationFailure(() => validateStoredExercise(input)).code).toBe('INVALID_DATA');
+    }
   });
 });
 

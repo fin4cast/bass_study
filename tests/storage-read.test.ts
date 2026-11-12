@@ -5,7 +5,7 @@ import { DEFAULT_PREFERENCES, describeSkippedRecords, parseBackup, readStoredSna
 const backup = JSON.parse(fixture);
 const records = (patch: Partial<StoredRecords> = {}): StoredRecords => ({
   preferences: backup.preferences, profile: backup.profile, activeRhythmProjectId: backup.activeRhythmProjectId,
-  presets: backup.presets, history: backup.history, practiceDrafts: backup.practiceDrafts, rhythmProjects: backup.rhythmProjects, ...patch,
+  exercises: backup.exercises, history: backup.history, practiceDrafts: backup.practiceDrafts, rhythmProjects: backup.rhythmProjects, ...patch,
 });
 
 describe('чтение собственной базы', () => {
@@ -17,9 +17,10 @@ describe('чтение собственной базы', () => {
     // должны давать байт-в-байт одинаковый экспорт, включая порядок полей.
     const canonical = validateSnapshot(backup);
     const reread = readStoredSnapshot({ preferences: canonical.preferences, profile: canonical.profile, activeRhythmProjectId: canonical.activeRhythmProjectId,
-      presets: canonical.presets, history: canonical.history, practiceDrafts: canonical.practiceDrafts, rhythmProjects: canonical.rhythmProjects }).snapshot;
+      exercises: canonical.exercises, history: canonical.history, practiceDrafts: canonical.practiceDrafts, rhythmProjects: canonical.rhythmProjects }).snapshot;
     expect(JSON.stringify(reread)).toBe(JSON.stringify(canonical));
-    expect(new Set(snapshot.history.map(entry => entry.result.kind))).toEqual(new Set(['screen', 'manual', 'ear', 'route']));
+    expect(new Set(snapshot.history.map(entry => entry.result.kind))).toEqual(new Set(['screen', 'manual', 'ear', 'route', 'check']));
+    expect(snapshot.exercises.map(exercise => exercise.id)).toEqual(['fixture-penta']);
   });
 
   it('пропускает одну повреждённую запись, а остальные данные читает', () => {

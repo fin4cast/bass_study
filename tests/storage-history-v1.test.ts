@@ -3,6 +3,8 @@ import current from './fixtures/backup.json?raw';
 import shapeV1 from './fixtures/screen-shape-v1.json?raw';
 import { createMemoryStudyStore, emptySnapshot, parseBackup, validateHistoryEntry, type ScreenHistoryEntry } from '../src/storage';
 
+const earEntry = (snapshot: ReturnType<typeof JSON.parse>) => snapshot.history.find((entry: { result: { kind: string } }) => entry.result.kind === 'ear');
+
 describe('буквальные резервные копии и исторические правила v1', () => {
   it('сохраняет текущий снимок со слухом, маршрутом, учебной серией и ритмом буквально', () => {
     const snapshot = parseBackup(current);
@@ -11,13 +13,18 @@ describe('буквальные резервные копии и историче
     expect(snapshot.history.find(entry => entry.result.kind === 'route')?.result).toMatchObject({ actualStepMs: [180000, 2500, 0], finishReason: 'stopped' });
     expect(snapshot.history.find(entry => entry.result.kind === 'screen')?.result).toMatchObject({ questionPolicy: 'triad-6-v1' });
     expect(snapshot.rhythmProjects[0].channels[0].velocityDefaults).toEqual({ hit: 61, accent: 88 });
+    expect(snapshot.history.find(entry => entry.id === 'fixture-exercise-history')?.result).toMatchObject({ kind: 'manual', assessment: 'clean', context: null, material: { kind: 'exercise', key: 'user:fixture-penta', view: 'both' } });
+    expect(snapshot.history.find(entry => entry.result.kind === 'check')?.result).toMatchObject({ source: 'screen-check', exerciseKey: 'builtin:pentatonic-form', activeMs: 95000 });
+    expect(snapshot.history.find(entry => entry.id === 'fixture-rhythm-history')?.result).toMatchObject({ kind: 'manual', assessment: null });
+    expect(snapshot.exercises).toEqual([expect.objectContaining({ id: 'fixture-penta', name: 'Am пентатоника, форма B' })]);
+    expect(snapshot.preferences).toMatchObject({ lesson: { tab: 'today', playFrom: 'C', plan: { steps: [{ status: 'done' }, { status: 'current' }] } }, play: { labels: 'degree', bpm: 76 }, reference: { mastered: ['semitone', 'octave'] } });
   });
 
   it('отклоняет изменения порядка, времени и исходного материала исторических записей', () => {
     for (const tamper of [
-      (snapshot: ReturnType<typeof JSON.parse>) => snapshot.history[0].result.questions[0].question.choices.reverse(),
-      (snapshot: ReturnType<typeof JSON.parse>) => snapshot.history[0].result.questions[0].answerEvents[0].order = 5,
-      (snapshot: ReturnType<typeof JSON.parse>) => snapshot.history[0].result.questions[0].listenEvents[1].atMs = 1519,
+      (snapshot: ReturnType<typeof JSON.parse>) => earEntry(snapshot).result.questions[0].question.choices.reverse(),
+      (snapshot: ReturnType<typeof JSON.parse>) => earEntry(snapshot).result.questions[0].answerEvents[0].order = 5,
+      (snapshot: ReturnType<typeof JSON.parse>) => earEntry(snapshot).result.questions[0].listenEvents[1].atMs = 1519,
       (snapshot: ReturnType<typeof JSON.parse>) => snapshot.history.find((entry: { result: { kind: string } }) => entry.result.kind === 'route').result.actualStepMs[1]++,
       (snapshot: ReturnType<typeof JSON.parse>) => snapshot.history.find((entry: { result: { kind: string } }) => entry.result.kind === 'screen').result.questions[0].questionId = 'wrong-id',
     ]) {
@@ -72,7 +79,7 @@ it('публикует только подготовленный этим хра
   expect(await store.readSnapshot()).toEqual(emptySnapshot());
   await expect(store.restorePrepared({ ...candidate })).rejects.toMatchObject({ code: 'INVALID_BACKUP' });
   await expect(createMemoryStudyStore().restorePrepared(candidate)).rejects.toMatchObject({ code: 'INVALID_BACKUP' });
-  await expect(store.restorePrepared(candidate)).resolves.toMatchObject({ status: 'restored', history: 4 });
+  await expect(store.restorePrepared(candidate)).resolves.toMatchObject({ status: 'restored', history: 6, exercises: 1 });
   expect(await store.readSnapshot()).toBe(candidate.snapshot);
   await expect(store.restorePrepared(candidate)).rejects.toMatchObject({ code: 'INVALID_BACKUP' });
   const stale = store.prepareImport(current);

@@ -124,7 +124,7 @@ check('product-directory-search-pages-read-only-selected-file-and-no-full-catalo
   return { count, matching: matches, sourceReads: 1, backupBytes: Buffer.byteLength(serialized), onlySelectedDescriptor: true };
 });
 
-check('product-save-reload-content-rebind-export-restore-and-presets-keep-original-context', 'ui', async ({ page }) => {
+check('product-save-reload-content-rebind-export-restore-keep-original-context', 'ui', async ({ page }) => {
   await enter(page); await load(page, 'sample-08');
   await row(page, 1).locator('[data-control=audible]').uncheck(); await row(page, 2).locator('[data-control=volume]').fill('0.4');
   await field(page, 'staff').uncheck(); await field(page, 'speed').selectOption('0.75');
@@ -146,7 +146,7 @@ check('product-save-reload-content-rebind-export-restore-and-presets-keep-origin
   return { schema: 7, renameByContent: true, previewDidNotWrite: true, exactRestoredPreferences: true, rebindRequired: true };
 });
 
-check('product-studio-bindings-survive-foundation-shortcuts-and-full-preset-requires-rebind', 'ui', async ({ page }) => {
+check('product-studio-bindings-survive-foundation-shortcuts', 'ui', async ({ page }) => {
   const wav = studioWav();
   const audio = page.locator('#legacy-tracks-mount');
   const audioAction = name => audio.locator(`[data-tracks-action="${name}"]`);
@@ -195,13 +195,8 @@ check('product-studio-bindings-survive-foundation-shortcuts-and-full-preset-requ
   await audioReady();
   assert.deepEqual(await timeline(audio), scoreTimeline);
   await audio.getByLabel('Повторять аудиофрагмент', { exact: true }).check();
-  const presetName = 'Студия с партитурой и дорожкой';
-  await page.locator('#open-history').click();
-  await page.getByLabel('Название пресета', { exact: true }).fill(presetName);
-  await page.locator('[data-history-action="save-preset"]').click();
-  await page.getByTestId('preset-list').getByText(presetName, { exact: true }).waitFor();
-  const preset = (await exported(page)).presets.find(item => item.name === presetName);
-  assert.ok(preset?.preferences.musicBank.file && preset.preferences.tracks);
+  const studio = (await exported(page)).preferences;
+  assert.ok(studio.musicBank.file && studio.tracks);
   await closeHistory(page);
 
   await scoreTab.click(); await playScore();
@@ -217,24 +212,11 @@ check('product-studio-bindings-survive-foundation-shortcuts-and-full-preset-requ
   await enter(page); await playScore(); await field(page, 'stop').click();
   await audioTab.click(); await playAudio(); await audioAction('stop').click();
   const afterShortcuts = (await exported(page)).preferences;
-  assert.deepEqual(afterShortcuts.musicBank, preset.preferences.musicBank);
-  assert.deepEqual(afterShortcuts.tracks, preset.preferences.tracks);
+  assert.deepEqual(afterShortcuts.musicBank, studio.musicBank);
+  assert.deepEqual(afterShortcuts.tracks, studio.tracks);
 
-  await page.locator(`[data-apply-preset="${preset.id}"]`).click();
-  await page.getByText(`Пресет «${presetName}» применён.`, { exact: true }).waitFor();
-  assert.equal(await activeSection(), 'tracks');
-  await closeHistory(page);
-  await scoreTab.click();
-  assert.equal(await bank(page).getAttribute('data-music-bank-state'), 'missing');
-  assert.equal(await field(page, 'play').isDisabled(), true);
-  await audioTab.click();
-  assert.equal(await audio.getAttribute('data-tracks-bound'), '0');
-  assert.equal(await audioAction('play').isDisabled(), true);
-  const afterPreset = (await exported(page)).preferences;
-  assert.deepEqual(afterPreset.musicBank, preset.preferences.musicBank);
-  assert.deepEqual(afterPreset.tracks, preset.preferences.tracks);
   return { playedAfterGuidedIntroduction: ['score', 'audio'], playedAfterReview: ['score', 'audio'],
-    exactDescriptorsAndMixPreserved: true, presetRequiredExplicitRebindForBoth: true, sharedTimeline: scoreTimeline };
+    exactDescriptorsAndMixPreserved: true, sharedTimeline: scoreTimeline };
 });
 
 check('product-pending-file-disables-old-mixer-and-cancel-retains-exact-context', 'ui', async ({ page }) => {
@@ -418,7 +400,7 @@ markFullOnly(checks, [
 ], FULL_ONLY.liveAudio);
 markFullOnly(checks, [
   'product-directory-search-pages-read-only-selected-file-and-no-full-catalogue-backup',
-  'product-studio-bindings-survive-foundation-shortcuts-and-full-preset-requires-rebind',
+  'product-studio-bindings-survive-foundation-shortcuts',
   'product-pending-file-disables-old-mixer-and-cancel-retains-exact-context',
   'product-module-switches-coordinate-bank-and-ear-audio-owners',
   'product-engine-failure-keeps-committed-score-and-latest-selection-wins',

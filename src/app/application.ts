@@ -13,7 +13,7 @@ import { createStudyStore, createMemoryStudyStore, exportRawDatabase, describeSk
 import { renderAppShell } from './app-shell';
 import { createWriteQueue } from './write-queue';
 import { mountShell } from './shell';
-import { APP_SECTIONS, type AppSection } from './page-frame';
+import { APP_SECTIONS, storedSection, type AppSection } from './page-frame';
 import { createPageLayout } from './page-layout';
 import { createPersistencePhase } from './persistence-phase';
 import { createPersistenceStatus } from './persistence-status';
@@ -34,7 +34,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
   const available = installed.filter(id => id !== 'route' || (installed.includes('foundation') && installed.includes('ear')));
   const fallback = available.includes('foundation') ? 'foundation' : available[0];
   if (!fallback) throw new Error('Нужен хотя бы один раздел тренажёра.');
-  const resolveSection = (id: AppSection) => available.includes(id) ? id : fallback;
+  const resolveSection = (id: AppPreferences['activeModule']) => (available as readonly string[]).includes(id) ? id as AppSection : fallback;
   const lifetime = new AbortController();
   const listen = { signal: lifetime.signal };
   app.innerHTML = renderAppShell(fallback, available);
@@ -182,10 +182,10 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     for (const [id, screen] of screens) screen.setVisible(id === activeModule);
   }
 
-  function switchModule(next: AppPreferences['activeModule']) {
+  function switchModule(next: AppSection) {
     if (!available.includes(next)) return;
     if (next === activeModule) {
-      if (!routeNavigation) savePreferences({ activeModule: next });
+      if (!routeNavigation) savePreferences({ activeModule: storedSection(next) });
       return;
     }
     drafts.capture(); audio.end('introduction', 'section');
@@ -197,7 +197,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     updateModuleVisibility();
     history?.updatePracticeContext();
     syncPracticeBinding();
-    if (!routeNavigation) savePreferences({ activeModule: next });
+    if (!routeNavigation) savePreferences({ activeModule: storedSection(next) });
   }
 
   function openRouteStep(step: RouteStep, session: RouteSession | null, initial: boolean) {
@@ -212,7 +212,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
       else sections.foundation?.openRouteStep(step, session, material, initial);
     }
     finally { routeNavigation = false; }
-    updateModuleVisibility(); syncPracticeBinding(); savePreferences({ ...sections.foundation?.getPreferences(), activeModule });
+    updateModuleVisibility(); syncPracticeBinding(); savePreferences({ ...sections.foundation?.getPreferences(), activeModule: storedSection(activeModule) });
     const heading = step === 'ear' ? sections.ear?.routeFocus() : sections.foundation?.routeFocus(step);
     if (heading) { heading.tabIndex = -1; layout.reveal(heading, 'start'); }
   }
@@ -229,7 +229,6 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
       audio.endAll('settings');
       activeModule = resolveSection(value.activeModule);
       sections.foundation?.applyPreferences(value);
-      sections.ear?.applyPreferences(value.ear);
       if (source !== 'preset' || value.rhythm) {
         sections.rhythm?.applyPreferences(value.rhythm ?? DEFAULT_RHYTHM_PREFERENCES);
         if (source === 'preset' && sections.rhythm) preferences.update({ rhythm: sections.rhythm.getPreferences() });
@@ -257,7 +256,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     reveal: layout.reveal,
   });
   if (available.includes('ear')) sections.ear = mountEar(byId('ear-mount'), {
-    onPreferencesChange: () => { if (sections.ear) savePreferences({ ear: sections.ear.getPreferences() }); },
+    onPreferencesChange: () => { /* ВРЕМЕННО (P13-02): настроек раздела «Слух» больше нет в схеме. */ },
     onSessionChanged: sessions.ear,
     onSessionFinished() { sessions.closeQuiz('ear'); },
     onBeforeListen: () => audio.claim('ear'),
@@ -300,7 +299,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     onMaterial() {
       drafts.capture(); leaveRoute(); switchModule('foundation');
       sections.foundation?.finishSession(); sections.foundation?.stop(); sections.foundation?.introduction();
-      savePreferences({ ...sections.foundation?.getPreferences(), activeModule });
+      savePreferences({ ...sections.foundation?.getPreferences(), activeModule: storedSection(activeModule) });
     },
     onPosition(id) { sections.foundation?.selectPosition(id); },
     onBeforeListen: () => audio.claim('introduction'),
@@ -317,7 +316,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     exportRaw: () => exportRawDatabase(),
     getSkippedRecords: () => store.skippedRecords(),
     prepareImport: value => store.prepareImport(value),
-    async savePreset(value) { requireWritable(); await writes.run(() => store.savePreset(value), `preset:${value.id}`); },
+    async savePreset() { throw new Error('Пресеты заменены собственными упражнениями (P13).'); },
     async saveManual(value) { requireWritable(); await writes.run(() => store.addHistory(value), `history:${value.id}`, undefined, publishHistoryCommit); },
     getPreferences,
     reveal: layout.reveal,
@@ -346,11 +345,11 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     savePracticeDraft: async (id, note, bpm) => { requireWritable(); await drafts.save(id, note, bpm); },
     deletePracticeDraft: async id => { requireWritable(); if (drafts.current()?.id === id) { sections.foundation?.stop(); sections.rhythm?.stop(); } drafts.capture(); await drafts.remove(id); },
     async deleteHistory(id) { requireWritable(); sessions.markDeleted(id); const generation = writes.supersede(`history:${id}`); await writes.run(() => store.deleteHistory(id), `history:${id}`, generation); },
-    async deletePreset(id) { requireWritable(); const generation = writes.supersede(`preset:${id}`); await writes.run(() => store.deletePreset(id), `preset:${id}`, generation); },
+    async deletePreset() { throw new Error('Пресеты заменены собственными упражнениями (P13).'); },
     onRepeatErrors: sections.foundation ? (ids, context) => {
       drafts.capture(); leaveRoute(); switchModule('foundation');
       sections.foundation?.finishSession(); sections.foundation?.stop(); sections.foundation?.repeatErrors(ids, context);
-      savePreferences({ ...sections.foundation?.getPreferences(), activeModule });
+      savePreferences({ ...sections.foundation?.getPreferences(), activeModule: storedSection(activeModule) });
     } : undefined,
     async restoreBackup(candidate, onCommitted) {
       phase.beginRestore();
