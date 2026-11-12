@@ -285,8 +285,8 @@ check('draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deleti
   await ready(page); await module(page, 'harmony');
   await page.locator('[data-rhythm-setting="bpm"]:visible').fill('80'); await page.locator('[data-rhythm-setting="bpm"]:visible').press('Tab');
   await page.locator('[data-rhythm-action="start"]').click();
-  await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState === 'running');
-  await new Promise(resolve => setTimeout(resolve, 360));
+  // Черновик создаётся только после накопленного времени практики: ждём вторую проигранную долю, а не фиксированное время.
+  await page.waitForFunction(() => { const view = document.querySelector('.rhythm-view'); return view?.dataset.rhythmPhase === 'practice' && (Number(view.dataset.rhythmBar) > 1 || Number(view.dataset.rhythmBeat) >= 2); });
   await page.locator('[data-rhythm-action="pause"]').click(); await history(page);
   const note = page.getByLabel('Заметка к практике', { exact: true });
   await note.fill('Сохранить эту заметку после reload'); await page.getByLabel('Комфортный темп', { exact: true }).fill('');
@@ -309,8 +309,8 @@ check('draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deleti
   await waitRaw(page, 'history', values => values.length === 0);
   await page.locator('.history-drawer > summary').click(); await module(page, 'harmony');
   await page.locator('[data-rhythm-action="start"]').click();
-  await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmPhase === 'practice');
-  await new Promise(resolve => setTimeout(resolve, 360));
+  // Черновик создаётся только после накопленного времени практики: ждём вторую проигранную долю, а не фиксированное время.
+  await page.waitForFunction(() => { const view = document.querySelector('.rhythm-view'); return view?.dataset.rhythmPhase === 'practice' && (Number(view.dataset.rhythmBar) > 1 || Number(view.dataset.rhythmBeat) >= 2); });
   await page.locator('[data-rhythm-action="pause"]').click(); await history(page);
   await note.fill('Удалить только этот черновик'); await waitRaw(page, 'practiceDrafts', values => values.some(draft => draft.note === 'Удалить только этот черновик'));
   const drawer = page.locator('.history-drawer'); await drawer.locator(':scope > summary').click(); await history(page);
@@ -479,12 +479,11 @@ check('laptop-widths-show-board-by-500px-and-narrow-layout-uses-local-scroll', a
 });
 
 markFullOnly(checks, [
-  'draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deletion',
-], FULL_ONLY.unstable);
-markFullOnly(checks, [
   'themes-preserve-running-sequence-focus-and-authoritative-profile',
   'imported-system-profile-survives-binary-chooser-and-corrupt-first-frame-cache',
   'free-practice-choice-does-not-reopen-start-question-after-reload-or-restore',
   'meaningful-SVG-labels-fingers-focus-notation-and-TAB-masks-have-actual-contrast',
+  // 11–15 с; сохранение ручных отметок с заметкой в быстром наборе проверяет history-keyboard-focus….
+  'draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deletion',
 ], FULL_ONLY.smoke);
 await runNotationBrowserChecks(checks, { reportName: 'p8-uiux-edge.json', scope: 'P8 actual product UI, themes and first frame, source contexts, guided introduction, exact boxes, persistent manual drafts, confirmation, sampled computed contrast, laptop widths and CDP page scale. Native IndexedDB is only read, media access is denied before capture, no physical bass/latency assessment.' });
