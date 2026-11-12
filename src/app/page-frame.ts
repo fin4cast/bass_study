@@ -1,7 +1,7 @@
 import type { AppPreferences } from '../storage';
 import { escapeHtml } from '../ui/html';
 
-/** Р Р°Р·РґРµР» РѕР±РѕР»РѕС‡РєРё вЂ” С‚Рѕ Р¶Рµ, С‡С‚Рѕ СЃРѕС…СЂР°РЅСЏРµРјС‹Р№ `AppPreferences['activeModule']` (D-043). */
+/** Раздел оболочки — то же, что сохраняемый `AppPreferences['activeModule']` (D-043). */
 export type AppSection = AppPreferences['activeModule'];
 
 const ICONS = {
@@ -14,15 +14,16 @@ const ICONS = {
 } satisfies Record<AppSection, string>;
 
 const sections = {
-  lesson: { title: 'Р—Р°РЅСЏС‚РёРµ' },
-  foundation: { title: 'Р“СЂРёС„' },
-  harmony: { title: 'Р РёС‚Рј', workspace: 'bounded' },
-  tracks: { title: 'РџРµСЃРЅРё' },
-  progress: { title: 'РџСЂРѕРіСЂРµСЃСЃ' },
-  settings: { title: 'РќР°СЃС‚СЂРѕР№РєРё' },
+  lesson: { title: 'Занятие' },
+  foundation: { title: 'Гриф' },
+  harmony: { title: 'Ритм', workspace: 'bounded' },
+  tracks: { title: 'Песни' },
+  // Прогресс прокручивает только свои списки, поэтому занимает высоту окна целиком.
+  progress: { title: 'Прогресс', workspace: 'bounded' },
+  settings: { title: 'Настройки' },
 } satisfies Record<AppSection, { title: string; workspace?: 'bounded' }>;
 
-/** РџРѕСЂСЏРґРѕРє СЂР°Р·РґРµР»РѕРІ: РїСЏС‚СЊ РІ РѕСЃРЅРѕРІРЅРѕРј РјРµРЅСЋ, В«РќР°СЃС‚СЂРѕР№РєРёВ» вЂ” РІРЅРёР·Сѓ РјРµРЅСЋ СЂСЏРґРѕРј СЃ С‚РµРјРѕР№. */
+/** Порядок разделов: пять в основном меню, «Настройки» — внизу меню рядом с темой. */
 export const APP_SECTIONS = Object.keys(sections) as readonly AppSection[];
 export const MENU_SECTIONS: readonly AppSection[] = Object.freeze(['lesson', 'foundation', 'harmony', 'tracks', 'progress']);
 
@@ -31,14 +32,14 @@ export function workspaceLayout(section: AppSection) {
   return 'workspace' in page ? page.workspace : 'flow';
 }
 
-/** РљРЅРѕРїРєР° СЂР°Р·РґРµР»Р° СЃ РёРєРѕРЅРєРѕР№; РїРѕРґРїРёСЃСЊ СЃРєСЂС‹РІР°РµС‚СЃСЏ РІ СѓР·РєРѕРј РјРµРЅСЋ, РЅРѕ РѕСЃС‚Р°С‘С‚СЃСЏ РґРѕСЃС‚СѓРїРЅС‹Рј РёРјРµРЅРµРј. */
+/** Кнопка раздела с иконкой; подпись скрывается в узком меню, но остаётся доступным именем. */
 export function renderSectionButton(section: AppSection, current: AppSection) {
   return `<button type="button" class="nav-item" data-app-module="${section}"${section === current ? ' aria-current="page"' : ''} disabled><svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">${ICONS[section]}</svg><span>${sections[section].title}</span></button>`;
 }
 
 export function renderPrimaryNavigation(initial: AppSection, available: readonly AppSection[] = APP_SECTIONS) {
   const buttons = MENU_SECTIONS.filter(section => available.includes(section)).map(section => renderSectionButton(section, initial));
-  return `<nav class="module-navigation" aria-label="Р Р°Р·РґРµР»С‹ С‚СЂРµРЅР°Р¶С‘СЂР°">${buttons.join('')}</nav>`;
+  return `<nav class="module-navigation" aria-label="Разделы тренажёра">${buttons.join('')}</nav>`;
 }
 
 interface PageHeaderOptions {
@@ -65,6 +66,6 @@ export function renderPageHeader(section: AppSection, options: PageHeaderOptions
 export function renderPageSettingsButton(id: string, panelId: string, expanded = false) {
   return `<button type="button" id="${id}" class="secondary-button button-compact page-settings-button" data-page-settings-toggle aria-controls="${panelId}" aria-expanded="${expanded}">
     <svg viewBox="0 0 20 16" width="20" height="16" aria-hidden="true"><path d="M4 2v12m6-12v12m6-12v12"/><path class="page-settings-faders" d="M2 6h4m2 4h4m2-5h4"/></svg>
-    <span>РџР°СЂР°РјРµС‚СЂС‹</span><span class="page-settings-lamp" aria-hidden="true"></span>
+    <span>Параметры</span><span class="page-settings-lamp" aria-hidden="true"></span>
   </button>`;
 }
