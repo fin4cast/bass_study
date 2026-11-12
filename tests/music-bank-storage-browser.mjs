@@ -148,17 +148,18 @@ check('native-v10-cache-fresh-and-independent-raw-distinguish-external-commit-an
     const cached = await store.readSnapshot(), rawExternal = await window.p5.readRaw(), fresh = await store.readSnapshot({ fresh: true });
     const invalid = structuredClone(external); invalid.musicBank.tracks[1].index = 0;
     await externalPreferences(invalid);
-    const knownBeforeInvalidFresh = await store.readSnapshot(); let freshFailure, ordinaryAfterFailure;
-    try { await store.readSnapshot({ fresh: true }); } catch (error) { freshFailure = { code: error.code, message: error.message }; }
-    try { await store.readSnapshot(); } catch (error) { ordinaryAfterFailure = { code: error.code, message: error.message }; }
+    const knownBeforeInvalidFresh = await store.readSnapshot();
+    // A damaged record is skipped and reported; the rest of the database stays readable.
+    const invalidFresh = await store.readSnapshot({ fresh: true }), skipped = store.skippedRecords().map(record => record.store);
     const rawInvalid = await window.p5.readRaw();
     await store.restore(JSON.stringify(before), { confirmed: true }); const recovered = await store.readSnapshot({ fresh: true });
     return { before, cached, sameCachedReference: before === cached, cachedFrozen: Object.isFrozen(cached.preferences.musicBank.tracks[0]), rawExternal, fresh,
-      knownBeforeInvalidFresh, sameKnownReference: fresh === knownBeforeInvalidFresh, freshFailure, ordinaryAfterFailure, rawInvalid, recovered };
+      knownBeforeInvalidFresh, sameKnownReference: fresh === knownBeforeInvalidFresh, invalidFresh, skipped, rawInvalid, recovered, skippedAfterRestore: store.skippedRecords().length };
   }, { snapshot: expectedV10, bank: metadataBank });
   assert.equal(evidence.sameCachedReference, true); assert.equal(evidence.cachedFrozen, true); assert.equal(evidence.cached.preferences.musicBank.speed, .75);
   assert.equal(evidence.rawExternal.preferences.musicBank.speed, 1.5); assert.equal(evidence.fresh.preferences.musicBank.speed, 1.5);
-  assert.equal(evidence.sameKnownReference, true); assert.equal(evidence.freshFailure?.code, 'INVALID_DATA'); assert.equal(evidence.ordinaryAfterFailure?.code, 'INVALID_DATA');
+  assert.equal(evidence.sameKnownReference, true); assert.deepEqual(evidence.skipped, ['preferences']); assert.equal(evidence.skippedAfterRestore, 0);
+  assert.deepEqual(evidence.invalidFresh.history, evidence.before.history); assert.equal(evidence.invalidFresh.preferences.musicBank, null);
   assert.equal(evidence.rawInvalid.preferences.musicBank.tracks[1].index, 0); assert.deepEqual(evidence.recovered, evidence.before);
   assert.deepEqual(await raw(page), rawSnapshot(evidence.recovered));
   return { ...evidence, observationScope: 'isolated storage fixture; real IndexedDB, external writer is deliberate test-only mutation' };
@@ -206,6 +207,40 @@ check('native-v10-invalid-copy-preview-cancel-and-abort-after-successful-put-pre
   assert.deepEqual(await raw(page), rawSnapshot(evidence.recovered));
   return evidence;
 }));
+
+checks.push({ name: 'product-skips-one-damaged-record-keeps-database-and-offers-raw-export', scope: 'ui', async run({ page }) {
+  const current = JSON.parse(await readFile(fileURLToPath(new URL('./fixtures/v10-backup.json', import.meta.url)), 'utf8'));
+  const valid = current.history.find(entry => entry.result.kind === 'screen');
+  const ready = () => page.waitForFunction(() => {
+    const main = document.querySelector('main');
+    return main?.getAttribute('aria-busy') === 'false' && !main.inert && /Не прочитано|Сохранено локально|Только в памяти/.test(document.querySelector('#persistence-message')?.textContent ?? '');
+  }, undefined, { timeout: 20000 });
+  await ready();
+  // Separate connection of the test: the product never writes a damaged record itself.
+  await page.evaluate(async records => {
+    const db = await new Promise((resolve, reject) => { const request = indexedDB.open('bass-study'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+    try { await new Promise((resolve, reject) => { const tx = db.transaction('history', 'readwrite'); tx.oncomplete = resolve; tx.onabort = () => reject(tx.error); records.forEach(record => tx.objectStore('history').put(record)); }); }
+    finally { db.close(); }
+  }, [valid, { id: 'broken-entry', occurredAt: 'вчера' }]);
+  await page.context().addInitScript(() => {
+    const persist = navigator.storage.persist.bind(navigator.storage);
+    window.__persistRequests = 0;
+    navigator.storage.persist = () => { window.__persistRequests++; return persist(); };
+  });
+  await page.reload();
+  await ready();
+  const persistence = await page.locator('#persistence-message').innerText();
+  assert.match(persistence, /Не прочитано повреждённых записей: 1 \(история — 1\)/);
+  assert.doesNotMatch(persistence, /Только в памяти/);
+  assert.equal(await page.evaluate(() => window.__persistRequests), 1, 'База просит браузер не вытеснять данные');
+  await page.locator('.history-drawer > summary').click();
+  assert.match(await page.locator('[data-history-count]').innerText(), /^1 записей/);
+  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('[data-history-action="export-raw"]').click()]);
+  const dump = JSON.parse(await readFile(await download.path(), 'utf8'));
+  assert.equal(dump.format, 'bass-study-raw-indexeddb');
+  assert.deepEqual(dump.stores.history.map(record => record.key).sort(), ['broken-entry', valid.id].sort());
+  return { persistence, rawStores: Object.keys(dump.stores), rawVersion: dump.version };
+} });
 
 await runTracksBrowserChecks(checks, {
   scope: 'P10 schema10: true native v6→10 migration/rollback, profile and draft preservation, cached/fresh/independent raw IDB, metadata-only music bank strict restore. No memory substitute, no product test API, no audio/hardware claims.',

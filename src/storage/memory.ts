@@ -3,7 +3,7 @@ import {
   validatePreferences, validatePreset,
   validateProfile, validatePracticeDraft, mergePracticeDraft, applyDraftDrain,
   validateRhythmProjectId, validateStoredRhythmProject,
-  type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
+  type SkippedRecord, type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
 } from './model';
 import type { RhythmProject } from '../rhythm/model';
 import { createImportPreparation, type PreparedStudyImport } from './prepared-import';
@@ -67,6 +67,7 @@ export function createMemoryStudyStore() {
   return {
     open: () => enqueue(() => ({ name: 'bass-study-memory', version: STUDY_SCHEMA_VERSION })),
     readSnapshot: (_options: { fresh?: boolean } = {}) => enqueue(() => snapshot),
+    skippedRecords: (): readonly SkippedRecord[] => [],
     async saveProfile(profile: GlobalProfile) { const validated = validateProfile(profile); return enqueue(() => { snapshot = Object.freeze({ ...snapshot, profile: validated }); }); },
     async upsertPracticeDraft(draft: PracticeDraft) { const validated = validatePracticeDraft(draft); return enqueue(() => { const merged = mergePracticeDraft(snapshot.practiceDrafts.find(item => item.id === validated.id), validated); remember('practiceDrafts', merged); return merged; }); },
     updateDraftProgress: (id: string, totalReferenceMs: number, suggestedBpm: number, updatedAt: string) => enqueue(() => { const current = snapshot.practiceDrafts.find(item => item.id === id); if (!current) throw new StudyStorageError('MISSING_DRAFT', 'Черновик отсутствует.'); const draft = validatePracticeDraft({ ...current, totalReferenceMs: Math.max(current.totalReferenceMs, totalReferenceMs), suggestedBpm, updatedAt }); remember('practiceDrafts', draft); return draft; }),

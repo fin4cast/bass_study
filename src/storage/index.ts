@@ -2,8 +2,8 @@ import {
   DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError, migrateRhythmSnapshot, previewImport, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
   legacyRecordMigrations,
   DEFAULT_PROFILE, validateProfile, validatePracticeDraft, validatePreviousPracticeDraft, mergePracticeDraft, applyDraftDrain,
-  validateRhythmProjectId, validateStoredRhythmProject,
-  type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
+  validateRhythmProjectId, validateStoredRhythmProject, readStoredSnapshot,
+  type SkippedRecord, type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
 } from './model';
 import type { LegacyRhythmVelocityDefaults, RhythmProject } from '../rhythm/model';
 import { createImportPreparation, type PreparedStudyImport } from './prepared-import';
@@ -44,6 +44,39 @@ function snapshotRequests(transaction: IDBTransaction) {
   };
 }
 
+function storedRecords(requests: ReturnType<typeof snapshotRequests>) {
+  return { preferences: requests.preferences.result, profile: requests.profile.result, activeRhythmProjectId: requests.activeRhythmProjectId.result,
+    presets: requests.presets.result, history: requests.history.result, practiceDrafts: requests.practiceDrafts.result, rhythmProjects: requests.rhythmProjects.result };
+}
+
+/**
+ * Dumps every object store of the database as it is, without validation or upgrade.
+ * Works when the application cannot read the data, including a newer database version.
+ */
+export async function exportRawDatabase(name = STUDY_DB_NAME): Promise<string> {
+  if (!globalThis.indexedDB) throw new StudyStorageError('UNAVAILABLE', 'Браузерное хранилище недоступно.');
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(name);
+    // Opening without a version never upgrades an existing database; a missing one must not be created.
+    request.onupgradeneeded = () => request.transaction!.abort();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(new StudyStorageError('MISSING_DATABASE', 'Локальная база не найдена.'));
+  });
+  try {
+    const names = [...db.objectStoreNames];
+    const stores: Record<string, { key: IDBValidKey; value: unknown }[]> = {};
+    if (names.length) {
+      const transaction = db.transaction(names, 'readonly');
+      const done = new Promise<void>((resolve, reject) => { transaction.oncomplete = () => resolve(); transaction.onabort = () => reject(storageError(transaction.error)); });
+      const reads = names.map(store => Promise.all([requestValue(transaction.objectStore(store).getAllKeys()), requestValue(transaction.objectStore(store).getAll())]));
+      const values = await Promise.all(reads);
+      await done;
+      names.forEach((store, index) => { const [keys, records] = values[index]; stores[store] = keys.map((key, item) => ({ key, value: records[item] })); });
+    }
+    return JSON.stringify({ format: 'bass-study-raw-indexeddb', database: db.name, version: db.version, exportedAt: new Date().toISOString(), stores });
+  } finally { db.close(); }
+}
+
 function snapshotFromRequests(requests: ReturnType<typeof snapshotRequests>, schemaVersion: 8 | 9 | typeof STUDY_DB_VERSION, legacyRhythmDefaults?: LegacyRhythmVelocityDefaults): StudySnapshot {
   const snapshot = { format: 'bass-study-backup', schemaVersion,
     preferences: requests.preferences.result ?? DEFAULT_PREFERENCES, presets: requests.presets.result, history: requests.history.result,
@@ -60,6 +93,7 @@ export function createStudyStore(legacyRhythmDefaults?: LegacyRhythmVelocityDefa
   let queue: Promise<void> = Promise.resolve();
   let lastTransaction = { successfulWrites: 0, aborted: false };
   let cachedSnapshot: StudySnapshot | null = null;
+  let skippedRecords: readonly SkippedRecord[] = [];
   let historyLinks: ReturnType<typeof createHistoryLinks> | null = null;
 
   function installSnapshot(snapshot: StudySnapshot | null) {
@@ -200,8 +234,8 @@ export function createStudyStore(legacyRhythmDefaults?: LegacyRhythmVelocityDefa
     const done = completion(transaction);
     const requests = snapshotRequests(transaction);
     await Promise.all([requestValue(requests.activeRhythmProjectId), done]);
-    const snapshot = snapshotFromRequests(requests, STUDY_DB_VERSION);
-    if (database === db) installSnapshot(snapshot);
+    const { snapshot, skipped } = readStoredSnapshot(storedRecords(requests));
+    if (database === db) { installSnapshot(snapshot); skippedRecords = skipped; }
     return snapshot;
   }
 
@@ -374,7 +408,7 @@ export function createStudyStore(legacyRhythmDefaults?: LegacyRhythmVelocityDefa
         await done.catch(() => {});
         throw failure;
       }
-      if (database === db) installSnapshot(snapshot);
+      if (database === db) { installSnapshot(snapshot); skippedRecords = []; }
       imports.consume(candidate);
       return { status: 'restored' as const, presets: snapshot.presets.length, history: snapshot.history.length, snapshot };
     });
@@ -384,6 +418,8 @@ export function createStudyStore(legacyRhythmDefaults?: LegacyRhythmVelocityDefa
     open: () => enqueue(async () => { const db = await getDatabase(); return { name: db.name, version: db.version }; }),
     /** The application holds the writer lease. Use fresh for explicit external-change checks. */
     readSnapshot: (options: { fresh?: boolean } = {}) => enqueue(() => read(options.fresh === true)),
+    /** Records skipped by the last read of the database; they remain stored and appear in the raw export. */
+    skippedRecords: () => skippedRecords,
     async saveProfile(profile: GlobalProfile) { const validated = validateProfile(profile); return enqueue(async () => { await write('profile', validated, 'current'); if (cachedSnapshot && database) cachedSnapshot = Object.freeze({ ...cachedSnapshot, profile: validated }); }); },
     async upsertPracticeDraft(draft: PracticeDraft) { const validated = validatePracticeDraft(draft); return enqueue(() => mutateDraft(validated.id, current => mergePracticeDraft(current, validated))); },
     updateDraftProgress: (id: string, totalReferenceMs: number, suggestedBpm: number, updatedAt: string) => enqueue(() => mutateDraft(id, current => { if (!current) throw new StudyStorageError('MISSING_DRAFT', 'Черновик отсутствует.'); return validatePracticeDraft({ ...current, totalReferenceMs: Math.max(current.totalReferenceMs, totalReferenceMs), suggestedBpm, updatedAt }); })),

@@ -21,7 +21,7 @@ import { readLegacyRhythmVelocityDefaults } from './rhythm-legacy-defaults';
 import { mountIntroduction } from '../ui/introduction';
 import { createRouteMaterial, type RouteSession } from '../route';
 import { acquireWriterLease } from './writer-lock';
-import { createStudyStore, createMemoryStudyStore, DEFAULT_PREFERENCES, DEFAULT_PROFILE, type AppPreferences, type HistoryCommit, type GlobalProfile, type PracticeDraft, type StudySnapshot } from '../storage';
+import { createStudyStore, createMemoryStudyStore, exportRawDatabase, describeSkippedRecords, DEFAULT_PREFERENCES, DEFAULT_PROFILE, type AppPreferences, type HistoryCommit, type GlobalProfile, type PracticeDraft, type StudySnapshot } from '../storage';
 import { rhythmPracticeLabel, type RhythmPracticeMaterial } from '../training/results';
 export function mountApplication(app: HTMLElement, installed: readonly AppSection[] = APP_SECTIONS) {
   const available = installed.filter(id => id !== 'route' || (installed.includes('foundation') && installed.includes('ear')));
@@ -93,6 +93,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
   let writerLease: Awaited<ReturnType<typeof acquireWriterLease>> | undefined;
   let startupIssue = '';
   let preferenceIssue = '';
+  let skippedIssue = '';
   let writeState: { pending: number; failures: readonly string[] } = { pending: 0, failures: [] };
   let getDraftPending = () => false;
   let draftStatusDirty = false;
@@ -133,8 +134,8 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     if (retiring || phase.phase === 'reload') return;
     const { pending, failures } = writeState;
     const dirty = getDraftPending(); draftStatusDirty = dirty;
-    const message = failures.length ? `Не сохранено операций: ${failures.length}. ${failures[0]} Экспорт содержит только подтверждённые записи.` : preferenceIssue || (pending ? 'Сохранение…' : dirty ? 'Черновик ожидает автосохранения…' : persistent ? 'Сохранено локально в этом браузере' : `Только в памяти страницы. Экспортируй копию перед закрытием. ${startupIssue}`);
-    const error = failures.length > 0 || preferenceIssue !== '';
+    const message = failures.length ? `Не сохранено операций: ${failures.length}. ${failures[0]} Экспорт содержит только подтверждённые записи.` : preferenceIssue || skippedIssue || (pending ? 'Сохранение…' : dirty ? 'Черновик ожидает автосохранения…' : persistent ? 'Сохранено локально в этом браузере' : `Только в памяти страницы. Экспортируй копию перед закрытием. ${startupIssue}`);
+    const error = failures.length > 0 || preferenceIssue !== '' || skippedIssue !== '';
     const memoryDetails = byId('open-storage-details');
     memoryDetails.hidden = persistent;
     byId('local-save-status').hidden = !persistent && !error;
@@ -241,6 +242,11 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
   }
 
   function getPreferences() { return preferences.value; }
+
+  function noteSkippedRecords() {
+    skippedIssue = describeSkippedRecords(store.skippedRecords());
+    showPersistenceStatus();
+  }
 
   function savePreferences(patch: Partial<AppPreferences>) {
     if (retiring || applyingPreferences || routeNavigation || !phase.writable) return;
@@ -400,8 +406,10 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
   history = mountHistory(byId('history-mount'), {
     readConfirmed: options => {
       if (retiring) throw new Error('Страница закрывается.');
-      return store.readSnapshot(options);
+      return store.readSnapshot(options).then(snapshot => { noteSkippedRecords(); return snapshot; });
     },
+    exportRaw: () => exportRawDatabase(),
+    getSkippedRecords: () => store.skippedRecords(),
     prepareImport: value => store.prepareImport(value),
     async savePreset(value) { requireWritable(); await writes.run(() => store.savePreset(value), `preset:${value.id}`); },
     async saveManual(value) { requireWritable(); await writes.run(() => store.addHistory(value), `history:${value.id}`, undefined, publishHistoryCommit); },
@@ -505,7 +513,12 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
       return;
     }
     let snapshot;
-    try { await store.open(); if (retiring) return; snapshot = await store.readSnapshot(); }
+    try {
+      await store.open(); if (retiring) return;
+      // Ask the browser not to evict the database under storage pressure; the answer does not change behaviour.
+      void navigator.storage?.persist?.().catch(() => false);
+      snapshot = await store.readSnapshot();
+    }
     catch (failure) {
       if (retiring) return;
       await store.close().catch(() => {});
@@ -517,6 +530,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
       console.warn('Локальная база не открылась; исходные данные не сброшены.', failure);
     }
     if (retiring) return;
+    noteSkippedRecords();
     profile = snapshot.profile; theme.setPreference(profile.theme, { notify: false }); if (persistent) theme.confirmPreference(profile.theme);
     drafts.reload(snapshot.practiceDrafts); bindingKey = '';
     applyRhythmLibrary(snapshot);

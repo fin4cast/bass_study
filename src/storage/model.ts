@@ -83,6 +83,8 @@ const DURATIONS = ['quarter', 'eighth', 'sixteenth'];
 const STRUCTURE_IDS = STRUCTURES.map(item => item.id);
 type Data = Record<string, unknown>;
 type LegacyRhythmVersion = 8 | 9;
+/** `full` replays answers and regenerates questions (import, new writes); `stored` trusts records this app validated on write and checks their shape only. */
+export type RecordCheck = 'full' | 'stored';
 
 function immutable<T>(value: T): T {
   if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -399,7 +401,7 @@ function* screenAnswerEvents(value: unknown): Iterable<AnswerEvent> {
   }
 }
 
-function validateScreenQuestion(value: unknown, mode: QuizMode, originalContext: QuestionContext, allPositions: readonly AnnotatedPosition[]): StoredQuestion {
+function validateScreenQuestion(value: unknown, mode: QuizMode, originalContext: QuestionContext, allPositions: readonly AnnotatedPosition[], check: RecordCheck): StoredQuestion {
   const raw = object(value, QUESTION_KEYS, 'Результат вопроса');
   const questionId = text(raw.questionId, 'ID вопроса', 160);
   const eligible = allPositions.filter(item => originalContext.scope === 'chromatic' || item.inStructure);
@@ -432,6 +434,10 @@ function validateScreenQuestion(value: unknown, mode: QuizMode, originalContext:
   const closed = outcome === 'revealed' || outcome === 'skipped';
   if (closed && completionMs === null) invalid('Показ или пропуск не соответствует состоянию ответов.');
   const closure = closed && completionMs !== null ? { outcome, atMs: completionMs } : undefined;
+  if (check === 'stored') {
+    const answerEvents = [...screenAnswerEvents(raw.answerEvents)];
+    return immutable({ ...raw, questionId, target, targetMidi, answerRule, targetPositionId, answerEvents, outcome, completionMs } as unknown as StoredQuestion);
+  }
   const expected = replayQuizResultV1(mode, targetClass, candidates.map(item => item.id), screenAnswerEvents(raw.answerEvents), closure);
   for (const key of ['selectedPositionIds', 'attempts', 'errors', 'firstAnswer', 'firstResponseMs', 'completionMs', 'firstAttemptCorrect', 'hintUsed', 'skipped', 'independentCorrect', 'corrected', 'outcome'] as const) {
     if (!same(raw[key], expected[key])) invalid(`Поле результата ${key} не соответствует реальным попыткам.`);
@@ -442,13 +448,14 @@ function validateScreenQuestion(value: unknown, mode: QuizMode, originalContext:
 const EAR_QUESTION_KEYS = ['id', 'seed', 'root', 'quality', 'referenceMidi', 'targetMidi', 'targetDegree', 'targetName', 'choices'];
 const EAR_RESULT_KEYS = ['kind', 'source', 'question', 'listensStarted', 'listensCompleted', 'listensCancelled', 'replayCount', 'listenEvents', 'answerEvents', 'attempts', 'errors', 'firstAnswer', 'firstResponseMs', 'firstAttemptCorrect', 'independentCorrect', 'corrected', 'hintUsed', 'skipped', 'outcome', 'closedAtMs', 'completionAfterListenMs'];
 
-function validateEarResult(value: unknown, root: string, quality: EarQuality, referenceMidi: number): SavedEarResult {
+function validateEarResult(value: unknown, root: string, quality: EarQuality, referenceMidi: number, check: RecordCheck): SavedEarResult {
   const raw = object(value, EAR_RESULT_KEYS, 'Результат слухового вопроса');
   if (raw.kind !== 'ear' || raw.source !== 'audio-choice') invalid('Неверное происхождение слухового результата.');
   const questionData = object(raw.question, EAR_QUESTION_KEYS, 'Слуховой вопрос');
-  const question = createEarQuestionV1({ root, quality, referenceMidi, seed: number(questionData.seed, 0, 0xffffffff, 'Seed слухового вопроса') });
+  const seed = number(questionData.seed, 0, 0xffffffff, 'Seed слухового вопроса');
   array(questionData.choices, 3, 'Варианты слухового ответа').forEach(choice => object(choice, ['id', 'label'], 'Вариант слухового ответа'));
-  if (!same(questionData, question)) invalid('Слуховая цель, написание, октава или варианты не соответствуют исходному вопросу.');
+  const question = check === 'stored' ? questionData as unknown as ReturnType<typeof createEarQuestionV1> : createEarQuestionV1({ root, quality, referenceMidi, seed });
+  if (check === 'full' && !same(questionData, question)) invalid('Слуховая цель, написание, октава или варианты не соответствуют исходному вопросу.');
   const listens = array(raw.listenEvents, Number.MAX_SAFE_INTEGER, 'Прослушивания').map((item): EarListenEvent => {
     if (!item || typeof item !== 'object') invalid('Некорректное событие прослушивания.');
     const descriptor = Object.getOwnPropertyDescriptor(item, 'type');
@@ -466,6 +473,11 @@ function validateEarResult(value: unknown, root: string, quality: EarQuality, re
   const outcome = oneOf(raw.outcome, ['correct', 'corrected', 'revealed', 'skipped', 'interrupted'] as const, 'Итог слухового вопроса');
   const closure = outcome === 'revealed' || outcome === 'skipped'
     ? { outcome, atMs: number(raw.closedAtMs, 0, Number.MAX_SAFE_INTEGER, 'Закрытие слухового вопроса', false) } : undefined;
+  if (check === 'stored') {
+    for (const key of ['listensStarted', 'listensCompleted', 'listensCancelled', 'replayCount', 'attempts', 'errors'] as const) number(raw[key], 0, Number.MAX_SAFE_INTEGER, key);
+    for (const key of ['independentCorrect', 'corrected', 'hintUsed', 'skipped'] as const) boolean(raw[key], key);
+    return immutable({ ...raw, question, listenEvents: listens, answerEvents: answers, outcome } as unknown as SavedEarResult);
+  }
   let expected;
   try { expected = replayEarResultV1(question, listens, answers, closure); }
   catch (failure) { invalid(failure instanceof Error ? failure.message : 'Некорректный журнал слухового вопроса.'); }
@@ -473,7 +485,7 @@ function validateEarResult(value: unknown, root: string, quality: EarQuality, re
   return expected;
 }
 
-function validateEarHistory(value: unknown, legacy = false): EarHistoryResult {
+function validateEarHistory(value: unknown, legacy: boolean, check: RecordCheck): EarHistoryResult {
   const raw = object(value, ['kind', 'source', 'context', 'seed', 'plannedCount', 'questions'], 'Слуховое занятие');
   if (raw.kind !== 'ear' || raw.source !== 'audio-choice') invalid('Неверное происхождение слухового занятия.');
   const area = object(raw.context, ['root', 'quality', ...(legacy ? [] : ['referenceMidi'])], 'Контекст слуха');
@@ -483,13 +495,13 @@ function validateEarHistory(value: unknown, legacy = false): EarHistoryResult {
   const plannedCount = number(raw.plannedCount, 1, 20, 'Число слуховых вопросов');
   const referenceMidi = legacy ? 36 + parseNote(root).pitchClass : number(area.referenceMidi, 0, 120, 'Опорная высота слуха');
   if (referenceMidi % 12 !== parseNote(root).pitchClass) invalid('Опорная высота не соответствует тонике слуха.');
-  const questions = array(raw.questions, plannedCount, 'Результаты слуховых вопросов').map(item => validateEarResult(item, root, quality, referenceMidi));
-  const generated = createEarQuestionsV1({ root, quality, referenceMidi, seed, count: plannedCount });
-  if (!questions.length || questions.some((item, index) => !same(item.question, generated[index]) || item.outcome === 'interrupted' && index !== questions.length - 1)) invalid('Порядок или состав слуховых вопросов не соответствует исходной серии.');
+  const questions = array(raw.questions, plannedCount, 'Результаты слуховых вопросов').map(item => validateEarResult(item, root, quality, referenceMidi, check));
+  const generated = check === 'full' ? createEarQuestionsV1({ root, quality, referenceMidi, seed, count: plannedCount }) : null;
+  if (!questions.length || questions.some((item, index) => generated && !same(item.question, generated[index]) || item.outcome === 'interrupted' && index !== questions.length - 1)) invalid('Порядок или состав слуховых вопросов не соответствует исходной серии.');
   return immutable({ kind: 'ear', source: 'audio-choice', context: { root, quality, referenceMidi: legacy ? questions[0].question.referenceMidi : referenceMidi }, seed, plannedCount, questions });
 }
 
-function validateRouteHistory(value: unknown, legacy = false): RouteResult {
+function validateRouteHistory(value: unknown, legacy: boolean, check: RecordCheck): RouteResult {
   const raw = object(value, ['id', 'kind', 'source', 'plannedStepMs', 'actualStepMs', 'stepIndex', 'totalPlannedMs', 'status', 'finishReason', 'events', 'asOfMs', ...(legacy ? [] : ['material', 'sessionLinks'])], 'Учебный маршрут');
   if (raw.kind !== 'route' || raw.source !== 'active-timer') invalid('Маршрут учитывает активное время, без оценки точности игры.');
   array(raw.plannedStepMs, 3, 'Плановое время шагов');
@@ -505,26 +517,33 @@ function validateRouteHistory(value: unknown, legacy = false): RouteResult {
   const normalized = legacy ? { ...raw, material: null, sessionLinks: [] } : raw;
   plainJson(normalized.material);
   array(normalized.sessionLinks, Number.MAX_SAFE_INTEGER, 'Связанные занятия').forEach(link => object(link, ['id', 'kind', 'step'], 'Связь занятия'));
+  if (check === 'stored') {
+    if (actual.length !== 3) invalid('Активное время шагов: нужны три значения.');
+    number(raw.stepIndex, 0, 2, 'Шаг маршрута');
+    oneOf(raw.status, ['running', 'paused', 'between', 'finished'] as const, 'Состояние маршрута');
+    if (raw.finishReason !== null) oneOf(raw.finishReason, ['completed', 'stopped'] as const, 'Причина завершения маршрута');
+    return immutable({ ...normalized, id, actualStepMs: actual, events, asOfMs } as unknown as RouteResult);
+  }
   const expected = replayRouteResultV1({ id, events, asOfMs, material: normalized.material as RouteResult['material'], sessionLinks: normalized.sessionLinks as RouteResult['sessionLinks'] });
   if (actual.reduce((sum, value) => sum + value, 0) === 0 || !same(normalized, expected)) invalid('Состояние маршрута не соответствует событиям или не содержит активного времени.');
   return expected;
 }
 
-export function validateHistoryEntry(value: unknown, legacy = false, legacyRhythmVersion?: LegacyRhythmVersion): HistoryEntry {
+export function validateHistoryEntry(value: unknown, legacy = false, legacyRhythmVersion?: LegacyRhythmVersion, check: RecordCheck = 'full'): HistoryEntry {
   const raw = object(value, ['id', 'occurredAt', 'timeZone', 'localDate', 'result', ...(legacy ? [] : ['routeRef'])], 'Запись истории');
   const id = text(raw.id, 'ID истории', 160);
   const occurredAt = utc(raw.occurredAt, 'Время занятия');
   const timeZone = text(raw.timeZone, 'Часовой пояс', 100);
-  const localDate = originalLocalDate(occurredAt, timeZone);
-  if (raw.localDate !== localDate) invalid('Дата занятия не соответствует исходному времени и часовому поясу.');
+  const localDate = check === 'full' ? originalLocalDate(occurredAt, timeZone) : text(raw.localDate, 'Дата занятия', 10);
+  if (raw.localDate !== localDate || !/^\d{4}-\d{2}-\d{2}$/.test(localDate)) invalid('Дата занятия не соответствует исходному времени и часовому поясу.');
   if (!raw.result || typeof raw.result !== 'object' || Array.isArray(raw.result)) invalid('Отсутствует результат занятия.');
   const kindProperty = Object.getOwnPropertyDescriptor(raw.result, 'kind');
   if (!kindProperty || !Object.hasOwn(kindProperty, 'value')) invalid('Происхождение результата должно быть обычным JSON-полем.');
   const kind = kindProperty.value;
   const routeRef = legacy ? null : validateRouteRef(raw.routeRef);
   const envelope = { id, occurredAt, timeZone, localDate, routeRef };
-  if (kind === 'ear') return immutable({ ...envelope, result: validateEarHistory(raw.result, legacy) });
-  if (kind === 'route') { if (routeRef) invalid('Маршрут не может ссылаться на родительский маршрут.'); return immutable({ ...envelope, result: validateRouteHistory(raw.result, legacy) }); }
+  if (kind === 'ear') return immutable({ ...envelope, result: validateEarHistory(raw.result, legacy, check) });
+  if (kind === 'route') { if (routeRef) invalid('Маршрут не может ссылаться на родительский маршрут.'); return immutable({ ...envelope, result: validateRouteHistory(raw.result, legacy, check) }); }
   if (kind === 'manual') {
     const result = object(raw.result, ['kind', 'source', 'comfortableBpm', 'durationMs', 'note', 'context', ...(legacy ? [] : ['material'])], 'Ручная отметка');
     if (result.source !== 'self-report') invalid('Ручная отметка должна быть явно помечена как самооценка.');
@@ -550,11 +569,11 @@ export function validateHistoryEntry(value: unknown, legacy = false, legacyRhyth
   const questionPolicy = legacy ? 'random-v1' : oneOf(result.questionPolicy, ['random-v1', 'triad-6-v1', 'shape-6-v1'] as const, 'Политика вопросов');
   const structure = createStructure(originalContext.root, originalContext.structureId);
   const positions = annotatePositions(originalContext.positionIds.map(position), structure);
-  const questions = array(result.questions, plannedCount, 'Результаты вопросов').map(item => validateScreenQuestion(item, mode, originalContext, positions));
+  const questions = array(result.questions, plannedCount, 'Результаты вопросов').map(item => validateScreenQuestion(item, mode, originalContext, positions, check));
   if (questions.length === 0 || new Set(questions.map(item => item.questionId)).size !== questions.length) invalid('Экранная история пуста или содержит повторяющиеся вопросы.');
   if (questions.some((item, index) => item.outcome === 'interrupted' && index !== questions.length - 1)) invalid('Прерванным может быть только последний сохранённый вопрос.');
   if (questionPolicy === 'triad-6-v1' && (plannedCount !== 6 || !['major-triad', 'minor-triad'].includes(originalContext.structureId))) invalid('Серия трезвучия требует шесть вопросов и трезвучный контекст.');
-  if (questionPolicy === 'triad-6-v1' || questionPolicy === 'shape-6-v1') {
+  if (check === 'full' && (questionPolicy === 'triad-6-v1' || questionPolicy === 'shape-6-v1')) {
     const generated = createQuizQuestionsV1({ structure, positions,
       mode, scope: originalContext.scope, seed, questionPolicy, box: originalContext.box ?? null }, plannedCount);
     if (questions.some((question, index) => question.questionId !== generated[index].id || !same(question.target, generated[index].target) || question.targetMidi !== generated[index].targetMidi || question.targetPositionId !== (generated[index].targetPositionId ?? null))) invalid('Учебная серия не соответствует зафиксированному набору шести вопросов.');
@@ -594,6 +613,61 @@ function validateSnapshotVersion(value: unknown, sourceVersion: LegacyRhythmVers
   if (new Set(rhythmProjects.map(item => item.id)).size !== rhythmProjects.length) invalid('ID проектов ритма повторяются.');
   if (activeRhythmProjectId !== null && !rhythmProjects.some(item => item.id === activeRhythmProjectId)) invalid('Выбранный проект ритма отсутствует в библиотеке.');
   return immutable({ format: 'bass-study-backup', schemaVersion: STUDY_SCHEMA_VERSION, preferences: recordContext('Текущие настройки (preferences/current)', () => validatePreferences(raw.preferences)), profile: validateProfile(raw.profile), practiceDrafts: practiceDrafts.sort(byId), presets: presets.sort(byId), history: history.sort(byId), rhythmProjects: rhythmProjects.sort(byId), activeRhythmProjectId });
+}
+
+/** Raw values read from this application's own database. */
+export interface StoredRecords {
+  readonly preferences: unknown; readonly profile: unknown; readonly activeRhythmProjectId: unknown;
+  readonly presets: readonly unknown[]; readonly history: readonly unknown[]; readonly practiceDrafts: readonly unknown[]; readonly rhythmProjects: readonly unknown[];
+}
+/** A record the application could not read; it stays in the database untouched. */
+export interface SkippedRecord { readonly store: string; readonly id: string; readonly reason: string }
+
+/**
+ * Reads the own database record by record. Records were fully validated when written,
+ * so only their shape is checked here; one damaged record is skipped instead of
+ * making the whole database unavailable.
+ */
+export function readStoredSnapshot(records: StoredRecords): { snapshot: StudySnapshot; skipped: readonly SkippedRecord[] } {
+  const skipped: SkippedRecord[] = [];
+  const reason = (failure: unknown) => failure instanceof Error ? failure.message : String(failure);
+  const recordId = (value: unknown, index: number) => {
+    const id = value && typeof value === 'object' ? Object.getOwnPropertyDescriptor(value, 'id')?.value : undefined;
+    return typeof id === 'string' ? id.slice(0, 160) : `№${index + 1}`;
+  };
+  function each<T>(store: string, values: readonly unknown[], read: (value: unknown) => T): T[] {
+    return values.flatMap((value, index) => {
+      try { return [read(value)]; }
+      catch (failure) { skipped.push({ store, id: recordId(value, index), reason: reason(failure) }); return []; }
+    });
+  }
+  function single<T>(store: string, value: unknown, fallback: T, read: (value: unknown) => T): T {
+    if (value === undefined) return fallback;
+    try { return read(value); }
+    catch (failure) { skipped.push({ store, id: 'current', reason: reason(failure) }); return fallback; }
+  }
+  const rhythmProjects = each('rhythmProjects', records.rhythmProjects, validateStoredRhythmProject);
+  const selected = single('preferences', records.activeRhythmProjectId ?? null, null, value => value === null ? null : validateRhythmProjectId(value));
+  const activeRhythmProjectId = selected !== null && rhythmProjects.some(project => project.id === selected) ? selected : null;
+  const byId = (a: { id: string }, b: { id: string }) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  const snapshot: StudySnapshot = immutable({ format: 'bass-study-backup', schemaVersion: STUDY_SCHEMA_VERSION,
+    preferences: single('preferences', records.preferences, DEFAULT_PREFERENCES, validatePreferences),
+    profile: single('profile', records.profile, DEFAULT_PROFILE, validateProfile),
+    presets: each('presets', records.presets, validatePreset).sort(byId),
+    history: each('history', records.history, value => validateHistoryEntry(value, false, undefined, 'stored')).sort(byId),
+    practiceDrafts: each('practiceDrafts', records.practiceDrafts, value => validatePracticeDraft(value)).sort(byId),
+    rhythmProjects: rhythmProjects.sort(byId), activeRhythmProjectId });
+  return { snapshot, skipped: Object.freeze(skipped) };
+}
+
+const STORE_NAMES: Record<string, string> = { preferences: 'настройки', profile: 'профиль', presets: 'пресеты', history: 'история', practiceDrafts: 'черновики', rhythmProjects: 'проекты ритма' };
+/** User-facing notice about skipped records; empty when nothing was skipped. */
+export function describeSkippedRecords(skipped: readonly SkippedRecord[]): string {
+  if (!skipped.length) return '';
+  const counts = new Map<string, number>();
+  for (const record of skipped) counts.set(record.store, (counts.get(record.store) ?? 0) + 1);
+  const parts = [...counts].map(([store, count]) => `${STORE_NAMES[store] ?? store} — ${count}`).join(', ');
+  return `Не прочитано повреждённых записей: ${skipped.length} (${parts}). Остальные данные доступны. Эти записи остались в базе; их можно сохранить сырым экспортом в «Моих занятиях».`;
 }
 
 /** Exact schema-1 records are validated before adding schema-2 defaults. */
@@ -727,8 +801,9 @@ export function migrateBackup(value: unknown): StudySnapshot {
     history: array(data.history, Number.MAX_SAFE_INTEGER, 'Старая история').map(migrations.history) });
 }
 
+/** The byte limit is enforced on the file (`File.size`); here only the decoded length is bounded. */
 function readBackupJson(json: string): unknown {
-  if (typeof json !== 'string' || json.length > MAX_BACKUP_BYTES || new TextEncoder().encode(json).byteLength > MAX_BACKUP_BYTES) throw new StudyStorageError('INVALID_BACKUP', 'Нужен JSON-файл размером не более 64 МиБ.');
+  if (typeof json !== 'string' || json.length > MAX_BACKUP_BYTES) throw new StudyStorageError('INVALID_BACKUP', 'Нужен JSON-файл размером не более 64 МиБ.');
   try { return JSON.parse(json); } catch { throw new StudyStorageError('INVALID_BACKUP', 'Не удалось прочитать JSON резервной копии.'); }
 }
 export function parseBackup(json: string): StudySnapshot { return migrateBackup(readBackupJson(json)); }

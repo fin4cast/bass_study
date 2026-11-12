@@ -44,6 +44,9 @@ export interface HistoryOptions {
   deleteHistory: (id: string) => Promise<void>;
   prepareImport: (json: string) => PreparedStudyImport;
   exportConfirmed: () => Promise<{ json: string; incomplete: boolean }>;
+  /** Raw dump of the browser database for the case when the application cannot read it. */
+  exportRaw?: () => Promise<string>;
+  getSkippedRecords?: () => readonly unknown[];
   reveal?: (target: HTMLElement) => void;
   getPreferences: () => AppPreferences;
   applyPreferences: (preferences: AppPreferences, source: 'preset' | 'restore') => void | Promise<void>;
@@ -288,7 +291,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
       <section class="history-block" aria-labelledby="presets-heading"><div class="history-block-heading"><div><p class="eyebrow">БЫСТРО ВЕРНУТЬСЯ К ЗАНЯТИЮ</p><h3 id="presets-heading">Сохранённые настройки</h3></div><span class="history-small-count">${snapshot.presets.length} пресетов</span></div><p class="history-help">Пресет открывает указанный раздел с его материалом и настройками. Тема оформления, введение, ответы и черновики в него не входят. Аудиофайлы при применении выбираются заново.</p><div class="preset-save-form"><label class="history-field"><span class="form-label">Название пресета</span><input class="form-control" type="text" maxlength="80" value="${escapeHtml(presetName)}" aria-label="Название пресета" data-history-field="presetName" placeholder="Например, A minor · первые пять ладов"${busy ? ' disabled' : ''}></label><button class="secondary-button" type="button" data-history-action="save-preset"${busy ? ' disabled' : ''}>Сохранить пресет</button></div><div class="preset-list" data-testid="preset-list">${snapshot.presets.length ? [...snapshot.presets].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(preset => `<article class="preset-card" data-preset-id="${escapeHtml(preset.id)}"><div><strong>${escapeHtml(preset.name)}</strong><p>${escapeHtml(presetDescription(preset.preferences))}</p><small>${formatDate(preset.createdAt)}</small></div><div><button class="secondary-button" type="button" data-apply-preset="${escapeHtml(preset.id)}"${busy ? ' disabled' : ''}>Применить</button><button class="text-button button-compact" type="button" data-delete-preset="${escapeHtml(preset.id)}" aria-label="Удалить пресет ${escapeHtml(preset.name)}"${busy ? ' disabled' : ''}>Удалить</button></div></article>`).join('') : '<p class="history-empty">Сохрани удобную настройку, чтобы вернуться к ней одной кнопкой.</p>'}</div></section>
       <section class="history-block" aria-labelledby="history-heading"><div class="history-block-heading"><div><p class="eyebrow">ФАКТИЧЕСКИЕ РЕЗУЛЬТАТЫ</p><h3 id="history-heading">История занятий</h3></div><label class="history-filter"><span class="sr-only">Тип записей истории</span><select class="form-control form-control-compact" aria-label="Тип записей истории" data-history-field="filter"><option value="all"${filter === 'all' ? ' selected' : ''}>Все записи</option><option value="screen"${filter === 'screen' ? ' selected' : ''}>Экранные задания</option><option value="manual"${filter === 'manual' ? ' selected' : ''}>Ручные отметки</option><option value="ear"${filter === "ear" ? " selected" : ""}>Слух</option><option value="route"${filter === "route" ? " selected" : ""}>Маршруты</option></select></label></div><p class="history-help">Результаты хранят исходную тональность, область и способ оценки. Здесь нет общего «уровня басиста».</p><div class="history-entry-list" data-testid="history-list">${ordered.length ? ordered.slice(0, visibleEntries).map(entryMarkup).join('') : `<p class="history-empty">${filter === 'all' ? 'Записей пока нет. Закончи упражнение или сохрани ручную отметку.' : ({ screen: 'Экранных заданий', manual: 'Ручных отметок', ear: 'Слуховых занятий', route: 'Маршрутов' }[filter]) + ' пока нет. В других категориях записи могут быть.'}</p>`}</div>${ordered.length > visibleEntries ? '<button class="text-button" type="button" data-history-action="show-more">Показать ещё</button>' : ''}
       ${summary.groups.length ? `<details class="history-context-groups"><summary class="section-disclosure">Сводка по одинаковым условиям · ${summary.groups.length} групп</summary><p class="history-help">Время первого ответа сравнивается только внутри одинакового режима и музыкального контекста.</p><div class="history-table-scroll"><table><thead><tr><th>Контекст</th><th>Самостоятельно</th><th>Ошибки</th><th>Первый ответ, среднее</th></tr></thead><tbody>${summary.groups.map(group => `<tr><td>${escapeHtml(MODE_NAMES[group.mode] ?? group.mode)}<small>${escapeHtml(comparisonConditions(group))}</small><small>${escapeHtml(contextName(group.context))}</small></td><td>${group.independentCorrect} / ${group.completedQuestions}</td><td>${group.errors}</td><td>${group.meanFirstResponseMs === null ? '—' : `${(group.meanFirstResponseMs / 1000).toFixed(2)} с`}</td></tr>`).join('')}</tbody></table></div></details>` : ''}</section>
-      <section class="history-block backup-block" aria-labelledby="backup-heading"><div class="history-block-heading"><div><p class="eyebrow">ПЕРЕНОСИМАЯ КОПИЯ</p><h3 id="backup-heading">Сохрани данные отдельно</h3></div><span class="history-backup-format">JSON · версия ${snapshot.schemaVersion}</span></div><p class="history-help">В копию входят настройки, профиль оформления и введения, пресеты, история и черновики ручной практики. Восстановление полностью заменяет эти данные; предварительный просмотр ничего не меняет.</p><div class="backup-actions"><button class="secondary-button" type="button" data-history-action="export"${busy ? ' disabled' : ''}>Экспортировать JSON</button><label class="backup-file-label secondary-button">Выбрать копию<input type="file" accept="application/json,.json" aria-label="Файл резервной копии" data-history-file${busy ? ' disabled' : ''}></label></div>${preview ? importPreviewMarkup() : ''}</section>
+      <section class="history-block backup-block" aria-labelledby="backup-heading"><div class="history-block-heading"><div><p class="eyebrow">ПЕРЕНОСИМАЯ КОПИЯ</p><h3 id="backup-heading">Сохрани данные отдельно</h3></div><span class="history-backup-format">JSON · версия ${snapshot.schemaVersion}</span></div><p class="history-help">В копию входят настройки, профиль оформления и введения, пресеты, история и черновики ручной практики. Восстановление полностью заменяет эти данные; предварительный просмотр ничего не меняет.</p>${rawExportOffered() ? `<p class="history-help" data-testid="raw-export-help">${options.isPersistent() ? 'Часть записей базы не прочитана. Обычная копия их не содержит.' : 'База не открылась, обычная копия содержит только данные этой страницы.'} Сырой экспорт сохраняет содержимое базы браузера как есть, без проверки; восстановить из него можно только вручную.</p>` : ''}<div class="backup-actions"><button class="secondary-button" type="button" data-history-action="export"${busy ? ' disabled' : ''}>Экспортировать JSON</button>${rawExportOffered() ? `<button class="text-button" type="button" data-history-action="export-raw"${busy ? ' disabled' : ''}>Сырой экспорт базы</button>` : ''}<label class="backup-file-label secondary-button">Выбрать копию<input type="file" accept="application/json,.json" aria-label="Файл резервной копии" data-history-file${busy ? ' disabled' : ''}></label></div>${preview ? importPreviewMarkup() : ''}</section>
     `;
     if (focusField) {
       const next = body.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`[data-history-field="${focusField}"]`);
@@ -412,16 +415,22 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     else { const heading = body.querySelector<HTMLElement>(kind === 'preset' ? '#presets-heading' : '#history-heading'); if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); } }
   }
 
-  async function downloadBackup() {
-    const { incomplete, json } = await options.exportConfirmed();
+  function rawExportOffered() { return Boolean(options.exportRaw) && (!options.isPersistent() || Boolean(options.getSkippedRecords?.().length)); }
+
+  function download(json: string, prefix: string) {
     const blobUrl = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
     blobUrls.add(blobUrl);
     const anchor = document.createElement('a');
     anchor.href = blobUrl;
-    anchor.download = `bass-study-backup-${new Intl.DateTimeFormat('sv-SE').format(new Date())}.json`;
+    anchor.download = `${prefix}-${new Intl.DateTimeFormat('sv-SE').format(new Date())}.json`;
     anchor.click();
     const timer = setTimeout(() => { URL.revokeObjectURL(blobUrl); blobUrls.delete(blobUrl); revokeTimers.delete(timer); }, 1000);
     revokeTimers.add(timer);
+  }
+
+  async function downloadBackup() {
+    const { incomplete, json } = await options.exportConfirmed();
+    download(json, 'bass-study-backup');
     actionNotice = incomplete
       ? 'Копия содержит подтверждённые данные. Несохранённые изменения в неё не вошли. Повтори сохранение.'
       : 'Копия подготовлена для скачивания. Проверь сохранённый файл.';
@@ -584,6 +593,10 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
         }
         actionNotice = 'Ручная отметка сохранена отдельно от экранных результатов.';
       } else if (action === 'export') await downloadBackup();
+      else if (action === 'export-raw' && options.exportRaw) {
+        download(await options.exportRaw(), 'bass-study-raw');
+        actionNotice = 'Сырой экспорт базы подготовлен. Это не резервная копия: восстановление из него выполняется вручную.';
+      }
       else if (action === 'confirm-restore') {
         if (!preview || !importConfirmed) throw new Error('Сначала выбери копию и подтверди полную замену.');
         await options.restoreBackup(preview, () => {
