@@ -1,0 +1,164 @@
+<style>
+  #studio-lesson-r1 .p-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;}
+  #studio-lesson-r1 .p-head-copy{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  #studio-lesson-r1 .p-head-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  #studio-lesson-r1 .p-title-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  #studio-lesson-r1 .p-chips{display:flex;gap:6px;flex-wrap:wrap;}
+  #studio-lesson-r1 .p-back{border:0;background:none;padding:0;color:var(--s-muted);font-size:12px;text-align:left;align-self:flex-start;}
+  #studio-lesson-r1 .p-row{display:flex;gap:14px;align-items:stretch;flex-wrap:wrap;}
+  #studio-lesson-r1 .p-row>.lr-concept{flex:1 1 320px;}
+  #studio-lesson-r1 .p-row>.lr-legend{flex:1 1 360px;align-items:center;}
+  #studio-lesson-r1 .p-hidden{display:none !important;}
+  #studio-lesson-r1 .p-tabcard{padding:4px 12px 2px;}
+  #studio-lesson-r1 .p-tabcard header{display:flex;justify-content:space-between;font-size:11px;color:var(--s-muted);padding-top:4px;}
+  #studio-lesson-r1 .p-memory{display:flex;align-items:center;justify-content:center;gap:18px;min-height:96px;border:1px dashed var(--s-line-strong);border-radius:12px;color:var(--s-muted);font-size:13px;}
+  #studio-lesson-r1 .p-memory strong{font-size:34px;color:var(--s-ink);font-weight:700;}
+  /* B: гриф главный */
+  #studio-lesson-r1 .b-strip{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center;}
+  #studio-lesson-r1 .b-now{display:flex;flex-direction:column;align-items:center;min-width:112px;border:1px solid var(--s-line);border-radius:12px;padding:8px 12px;background:var(--s-panel);}
+  #studio-lesson-r1 .b-now strong{font-size:34px;line-height:1.05;font-weight:700;}
+  #studio-lesson-r1 .b-now span{font-size:12px;color:var(--s-muted);}
+  #studio-lesson-r1 .b-note{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--s-muted);}
+  #studio-lesson-r1 .b-note b{color:var(--s-ink);}
+  #studio-lesson-r1 .b-shift{border-left:3px solid var(--s-gold);padding:2px 0 2px 10px;}
+  /* C: фокус */
+  #studio-lesson-r1 .c-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;min-height:0;flex:1;}
+  #studio-lesson-r1 .c-tab{display:flex;flex-direction:column;gap:8px;justify-content:flex-start;}
+  #studio-lesson-r1 .c-tab .lr-tab{padding:14px 18px;}
+  #studio-lesson-r1 .c-next{opacity:.75;}
+  #studio-lesson-r1 .c-side{display:flex;flex-direction:column;gap:12px;}
+  #studio-lesson-r1 .c-ladder{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;counter-reset:step;}
+  #studio-lesson-r1 .c-ladder button{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid var(--s-line);border-radius:8px;background:var(--s-paper);padding:7px 10px;font-size:13px;}
+  #studio-lesson-r1 .c-ladder button::before{counter-increment:step;content:counter(step);display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--s-line-strong);font-size:11px;font-weight:700;}
+  #studio-lesson-r1 .c-ladder button[aria-pressed="true"]{border-color:var(--s-green);background:var(--s-green-soft);font-weight:650;}
+  #studio-lesson-r1 .c-ladder button.is-done::before{content:'✓';background:var(--s-green);color:var(--s-on-green);border-color:var(--s-green);}
+  #studio-lesson-r1 .c-ladder small{margin-left:auto;font-size:11px;color:var(--s-muted);font-weight:400;}
+  #studio-lesson-r1 .c-bar{font-size:12px;color:var(--s-muted);display:flex;justify-content:space-between;}
+  #studio-lesson-r1 .p-scene.is-rated .lr-concept{display:none;}
+  #studio-lesson-r1 .p-row>.lr-rate{flex:1 1 380px;}
+  #studio-lesson-r1 .lr-rate{padding:6px 10px;gap:8px;}
+  #studio-lesson-r1 .lr-rate .lr-btn{padding:4px 10px;font-size:12px;}
+  #studio-lesson-r1 .p-row>.b-note{flex:1 1 auto;}
+  #studio-lesson-r1 .p-scene.is-rated .b-note>span:last-child{display:none;}
+  @media (max-width:1100px){#studio-lesson-r1 .c-grid{grid-template-columns:minmax(0,1fr) 236px;}}
+</style>
+<div id="studio-lesson-r1" data-candidate="a"></div>
+<script>
+(() => {
+  const L = window.LessonRef;
+  const ex = L.material.ex1;
+  const events = ex.notation.events;
+  const steps = events.length;
+  const root = document.getElementById('studio-lesson-r1');
+  const shift = { from: ex.notes[ex.split - 1], to: ex.notes[ex.split] };
+  const fingerA = ex.formA.fingers[shift.from.id], fingerB = ex.formB.fingers[shift.to.id];
+  const conceptChips = '<span class="lr-chip lr-chip-concept">Связка форм</span><span class="lr-chip lr-chip-concept">Общие ноты</span><span class="lr-chip lr-chip-concept">Ступени ♭3 · ♭7</span>';
+  const pos = id => id.replace(':', '/');
+  const sharedNames = ex.shared.map(id => ex.notes.find(n => n.id === id)?.name).filter(Boolean);
+  const concept = (open = false) => `<details class="lr-concept"${open ? ' open' : ''}><summary>ⓘ Почему через общие ноты</summary><p>Соседние формы пентатоники делят общие позиции. У форм A и B это ${L.esc(sharedNames.join(', '))} (${L.esc(ex.shared.map(pos).join(', '))}). Рука переходит в новую позицию по знакомой ноте, а не прыжком. Так пентатоника складывается в одну карту грифа, а не в пять отдельных «ящиков».</p></details>`;
+  const head = (variant) => `<div class="p-head"><div class="p-head-copy"><button type="button" class="p-back">← Занятие · план на сегодня, шаг 2 из 4</button><div class="p-title-row"><h1 class="lr-h1">${L.esc('Связка соседних форм · Am · A → B')}</h1><span class="lr-sub">16 восьмых · 2 такта · лучший темп 76</span></div><div class="p-chips">${conceptChips}</div></div><div class="p-head-tools">${variant}</div></div>`;
+  const hintSeg = `<div class="lr-seg" role="group" aria-label="Подсказки" data-hints><button type="button" data-hint="both" aria-pressed="true">Таб + гриф</button><button type="button" data-hint="tab" aria-pressed="false">Таб</button><button type="button" data-hint="board" aria-pressed="false">Гриф</button><button type="button" data-hint="memory" aria-pressed="false">По памяти</button></div>`;
+  const labelSeg = `<div class="lr-seg" role="group" aria-label="Подписи" data-labels><button type="button" data-label="name" aria-pressed="true">Ноты</button><button type="button" data-label="degree" aria-pressed="false">Ступени</button><button type="button" data-label="finger" aria-pressed="false">Пальцы</button></div>`;
+  const listen = `<button type="button" class="lr-btn lr-btn-ghost" data-listen title="Слух как опция: эталон звучит до игры">♪ Сначала услышь</button>`;
+  const after = `<div class="lr-after lr-rate" data-after><strong data-after-title>Проход завершён.</strong><span>Как прошло?</span><button type="button" class="lr-btn" data-rate="clean">Чисто</button><button type="button" class="lr-btn" data-rate="errors">С ошибками</button><button type="button" class="lr-btn" data-rate="slow">Не успевал</button><span data-suggest class="lr-sub"></span></div>`;
+  const legend = `<div class="lr-legend" data-part="legend"><span><i style="background:#f3c180"></i>Тоника A (на общей ноте — кольцо)</span><span><i style="background:#e6efdc"></i>Форма A · 5–8</span><span><i style="background:#a4cce2"></i>Форма B · 7–10</span><span><i style="background:#cbb5e7"></i>Общие ноты</span><span><i style="background:transparent;border:2px dashed #c9a640"></i>Следующая нота</span></div>`;
+
+  /** Пальцы и подписи берутся из формы, которую сейчас играют: такт 1 — форма A, такт 2 — форма B. */
+  function boardNotes(labelMode, current) {
+    return L.ex1BoardNotes({ labels: labelMode, phase: current >= ex.split ? 'b' : 'a' });
+  }
+
+  const panelA = `<div data-candidate-panel="a"><section class="p-scene" data-scene="a" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+    ${head(listen + hintSeg + labelSeg)}
+    <div class="lr-tab p-tabcard" data-part="tab"><header><span>TAB · бас E–A–D–G</span><span>такт 1 — вверх по форме A · такт 2 — вниз по форме B</span></header><div data-tab></div></div>
+    <div class="p-memory p-hidden" data-part="memory"><span>По памяти: только стартовая позиция</span><strong>E/5</strong><span>A1 · палец 1 · вверх по форме A</span></div>
+    <div class="lr-board" data-part="board"><div data-board></div></div>
+    <div class="p-row">${legend}${concept()}${after}</div>
+    ${L.transport({ bpm: 76 })}
+  </section></div>`;
+
+  const panelB = `<div data-candidate-panel="b"><section class="p-scene" data-scene="b" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+    ${head(listen + labelSeg)}
+    <div class="b-strip"><div class="b-now" aria-live="polite"><span>Сейчас</span><strong data-now>A1</strong><span data-now-detail>E:5 · ступень 1</span></div><div class="lr-tab p-tabcard"><header><span>Лента TAB · текущий такт</span><span data-bar-label>такт 1 из 2</span></header><div data-tab></div></div></div>
+    <div class="lr-board"><div data-board></div></div>
+    <div class="p-row"><div class="b-note b-shift"><span>Переход</span><b>${L.esc(pos(shift.from.id))} (палец ${fingerA}) → сдвиг на 2 лада → ${L.esc(pos(shift.to.id))} (палец ${fingerB})</b><span>дальше вниз по форме B</span></div>${concept()}${after}</div>
+    ${L.transport({ bpm: 76 })}
+  </section></div>`;
+
+  const panelC = `<div data-candidate-panel="c"><section class="p-scene" data-scene="c" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+    ${head(listen)}
+    <div class="c-grid">
+      <div class="c-tab"><div class="c-bar"><span data-bar-label>Такт 1 из 2 · вверх по форме A</span><span>счёт: 1 и 2 и 3 и 4 и</span></div><div class="lr-tab" data-part="tab"><div data-tab></div></div><div class="p-memory p-hidden" data-part="memory"><span>По памяти</span><strong>E/5</strong><span>старт · палец 1</span></div><div class="lr-tab c-next" data-part="tab-next"><div data-tab-next></div></div>${after}</div>
+      <aside class="c-side"><div class="lr-board" data-part="board"><div data-board></div></div>
+        <div class="lr-card" style="padding:12px 14px"><p class="lr-eyebrow" style="margin-bottom:8px">Шаги подсказок</p><ol class="c-ladder" data-ladder><li><button type="button" data-hint="both" aria-pressed="true">Таб + гриф <small>чисто · 72</small></button></li><li><button type="button" data-hint="tab" aria-pressed="false">Только таб <small>следующая</small></button></li><li><button type="button" data-hint="board" aria-pressed="false">Только гриф</button></li><li><button type="button" data-hint="memory" aria-pressed="false">По памяти</button></li></ol><p class="lr-sub" style="margin-top:8px;font-size:12px">После чистого прохода предлагается следующий шаг подсказок.</p></div>
+        ${concept()}
+      </aside>
+    </div>
+    ${L.transport({ bpm: 76 })}
+  </section></div>`;
+
+  root.innerHTML = L.shell('lesson', panelA + panelB + panelC);
+  L.mount(root, { candidates: ['a', 'b', 'c'] });
+
+  function wireScene(scene, renderScene) {
+    let labelMode = 'name', hint = 'both', current = -1;
+    const render = index => { current = index; renderScene({ current, labelMode, hint }); };
+    const applyHint = () => {
+      scene.querySelectorAll('[data-hint]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.hint === hint)));
+      const part = name => scene.querySelector(`[data-part="${name}"]`);
+      part('tab')?.classList.toggle('p-hidden', hint === 'board' || hint === 'memory');
+      part('tab-next')?.classList.toggle('p-hidden', hint === 'board' || hint === 'memory');
+      part('board')?.classList.toggle('p-hidden', hint === 'tab' || hint === 'memory');
+      part('memory')?.classList.toggle('p-hidden', hint !== 'memory');
+      part('legend')?.classList.toggle('p-hidden', hint === 'tab' || hint === 'memory');
+      render(current);
+    };
+    scene.querySelectorAll('[data-hint]').forEach(b => b.addEventListener('click', () => { hint = b.dataset.hint; applyHint(); }));
+    scene.querySelectorAll('[data-label]').forEach(b => b.addEventListener('click', () => {
+      labelMode = b.dataset.label;
+      scene.querySelectorAll('[data-label]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      render(current);
+    }));
+    scene.querySelector('[data-listen]')?.addEventListener('click', event => { event.currentTarget.textContent = '♪ Эталон: в референсе без звука'; });
+    const afterBox = scene.querySelector('[data-after]');
+    const suggest = afterBox.querySelector('[data-suggest]');
+    afterBox.querySelectorAll('[data-rate]').forEach(b => b.addEventListener('click', () => {
+      const bpm = Number(scene.querySelector('[data-lr-bpm-value]').textContent);
+      suggest.textContent = ({ clean: `Дальше: темп ${bpm + 4} или связка B → C.`, errors: `Оставь ${bpm}; включи петлю на ноты 5–12 — переход между формами.`, slow: `Попробуй ${bpm - 4} BPM, отсчёт оставлен.` })[b.dataset.rate];
+    }));
+    L.bindTransport(scene, { steps, bpm: 76, render, onPass: passes => { afterBox.classList.add('is-open'); scene.classList.add('is-rated'); afterBox.querySelector('[data-after-title]').textContent = `Проход ${passes} завершён.`; } });
+    applyHint();
+  }
+
+  wireScene(root.querySelector('[data-scene="a"]'), ({ current, labelMode }) => {
+    const scene = root.querySelector('[data-scene="a"]');
+    scene.querySelector('[data-tab]').innerHTML = L.tab({ events, current, width: 1000, lineGap: 17, fontSize: 15 });
+    const next = current >= 0 ? events[(current + 1) % steps].positionId : null;
+    scene.querySelector('[data-board]').innerHTML = L.fretboard({ fretMin: 0, fretMax: 12, notes: boardNotes(labelMode, current), current: current >= 0 ? events[current].positionId : null, next, width: 1000, marker: 40 });
+  });
+
+  wireScene(root.querySelector('[data-scene="b"]'), ({ current, labelMode }) => {
+    const scene = root.querySelector('[data-scene="b"]');
+    const index = Math.max(0, current);
+    const bar = Math.floor(index / 8);
+    scene.querySelector('[data-tab]').innerHTML = L.tab({ events, current, width: 900, from: bar * 8, count: 8, lineGap: 13, fontSize: 13 });
+    scene.querySelector('[data-bar-label]').textContent = `такт ${bar + 1} из 2 · ${bar ? 'вниз по форме B' : 'вверх по форме A'}`;
+    const note = ex.notes[index];
+    scene.querySelector('[data-now]').textContent = current >= 0 ? note.name : '—';
+    scene.querySelector('[data-now-detail]').textContent = current >= 0 ? `${pos(note.id)} · ступень ${L.deg(note.degree)}` : 'нажми «Играть»';
+    const next = current >= 0 ? events[(current + 1) % steps].positionId : events[0].positionId;
+    scene.querySelector('[data-board]').innerHTML = L.fretboard({ fretMin: 3, fretMax: 12, notes: boardNotes(labelMode, current), current: current >= 0 ? events[current].positionId : null, next, width: 1000, marker: 46 });
+  });
+
+  wireScene(root.querySelector('[data-scene="c"]'), ({ current }) => {
+    const scene = root.querySelector('[data-scene="c"]');
+    const index = Math.max(0, current);
+    const bar = Math.floor(index / 8);
+    scene.querySelector('[data-tab]').innerHTML = L.tab({ events, current, width: 760, from: bar * 8, count: 8, lineGap: 34, fontSize: 28, dimPlayed: true });
+    scene.querySelector('[data-tab-next]').innerHTML = L.tab({ events, current: -1, width: 760, from: ((bar + 1) % 2) * 8, count: 8, lineGap: 14, fontSize: 13, showCount: false });
+    scene.querySelector('[data-bar-label]').textContent = `Такт ${bar + 1} из 2 · ${bar ? 'вниз по форме B' : 'вверх по форме A'} · ниже — следующий`;
+    const next = current >= 0 ? events[(current + 1) % steps].positionId : events[0].positionId;
+    scene.querySelector('[data-board]').innerHTML = L.fretboard({ fretMin: 4, fretMax: 11, notes: L.ex1BoardNotes({ labels: 'none' }), current: current >= 0 ? events[current].positionId : null, next, width: 300, marker: 22, labels: true });
+  });
+})();
+</script>

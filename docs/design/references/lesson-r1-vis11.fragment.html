@@ -1,0 +1,459 @@
+<script>
+var BassLessonModel=(function(e){Object.defineProperty(e,Symbol.toStringTag,{value:`Module`});var t=Object.freeze([Object.freeze({id:`E`,number:4,openMidi:28}),Object.freeze({id:`A`,number:3,openMidi:33}),Object.freeze({id:`D`,number:2,openMidi:38}),Object.freeze({id:`G`,number:1,openMidi:43})]),n=Object.freeze([{id:`major`,name:`Мажор`,intervals:[0,2,4,5,7,9,11],degrees:[`1`,`2`,`3`,`4`,`5`,`6`,`7`]},{id:`natural-minor`,name:`Натуральный минор`,intervals:[0,2,3,5,7,8,10],degrees:[`1`,`2`,`b3`,`4`,`5`,`b6`,`b7`]},{id:`major-pentatonic`,name:`Мажорная пентатоника`,intervals:[0,2,4,7,9],degrees:[`1`,`2`,`3`,`5`,`6`]},{id:`minor-pentatonic`,name:`Минорная пентатоника`,intervals:[0,3,5,7,10],degrees:[`1`,`b3`,`4`,`5`,`b7`]},{id:`major-triad`,name:`Мажорное трезвучие`,intervals:[0,4,7],degrees:[`1`,`3`,`5`]},{id:`minor-triad`,name:`Минорное трезвучие`,intervals:[0,3,7],degrees:[`1`,`b3`,`5`]}].map(e=>Object.freeze({...e,intervals:Object.freeze([...e.intervals]),degrees:Object.freeze([...e.degrees])}))),r=[`C`,`D`,`E`,`F`,`G`,`A`,`B`],i={C:0,D:2,E:4,F:5,G:7,A:9,B:11},a=[`C`,`C♯`,`D`,`E♭`,`E`,`F`,`F♯`,`G`,`A♭`,`A`,`B♭`,`B`],o=e=>(e%12+12)%12;function s(e,t,n,r){if(!Number.isInteger(e)||e<t||e>n)throw RangeError(`${r}: требуется целое число от ${t} до ${n}.`)}function c(e){s(e,0,127,`MIDI-высота`)}function l(e,t){return e+(t>0?`♯`.repeat(t):`♭`.repeat(-t))}function u(e){return c(e),440*2**((e-69)/12)}function d(e){if(typeof e!=`string`)throw TypeError(`Название ноты должно быть строкой.`);let t=e.trim().replaceAll(`♯`,`#`).replaceAll(`♭`,`b`).replaceAll(`𝄪`,`##`).replaceAll(`𝄫`,`bb`).replaceAll(`x`,`##`),n=/^([A-Ga-g])(#+|b+|♮)?$/.exec(t);if(!n)throw RangeError(`Некорректная нота: используйте A–G и знаки ♯ или ♭ без номера октавы.`);let r=n[1].toUpperCase(),a=n[2]===`♮`?``:n[2]??``,s=a.startsWith(`#`)?a.length:-a.length;return Object.freeze({letter:r,accidental:s||0,pitchClass:o(i[r]+s),name:l(r,s)})}function f(e,t){c(e);let n=d(t??a[o(e)]);if(n.pitchClass!==o(e))throw RangeError(`Написание ноты не соответствует звучащей MIDI-высоте.`);let r=(e-i[n.letter]-n.accidental)/12-1;return`${n.name}${r}`}function p(e,t){let a=d(e),s=n.find(e=>e.id===t);if(!s)throw RangeError(`Неизвестная гамма или трезвучие.`);let c=r.indexOf(a.letter),u=s.intervals.map((e,t)=>{let n=s.degrees[t],u=Number(n.replace(/^[b#]+/,``)),d=c+u-1,f=r[d%r.length],p=o(a.pitchClass+e),m=i[f]+12*Math.floor(d/r.length)-i[a.letter],h=a.accidental+e-m;return Object.freeze({letter:f,accidental:h,pitchClass:p,name:l(f,h),degree:n,semitones:e})});return Object.freeze({root:a.name,rootPitchClass:a.pitchClass,id:s.id,name:s.name,formula:s.degrees.map(e=>e.replaceAll(`b`,`♭`).replaceAll(`#`,`♯`)).join(` – `),notes:Object.freeze(u)})}function m(e,n){let r=t.find(t=>t.id===e);if(!r)throw RangeError(`Неизвестная струна: доступны E, A, D, G.`);s(n,0,24,`Лад`);let i=r.openMidi+n;return Object.freeze({id:`${e}:${n}`,string:e,fret:n,midi:i,pitchClass:o(i),naturalName:a[o(i)],frequency:u(i)})}function h(e){if(!e||typeof e!=`object`)throw TypeError(`Нужны настройки диапазона грифа.`);if(s(e.fretMin,0,24,`Первый лад`),s(e.fretMax,0,24,`Последний лад`),e.fretMin>e.fretMax)throw RangeError(`Первый лад не может быть больше последнего.`);if(!Array.isArray(e.strings))throw TypeError(`Струны должны быть массивом E, A, D, G.`);let n=new Set(e.strings);if(n.size!==e.strings.length)throw RangeError(`Струны в фильтре не должны повторяться.`);for(let e of n)if(!t.some(t=>t.id===e))throw RangeError(`Неизвестная струна в фильтре.`);return Object.freeze(t.filter(e=>n.has(e.id)).flatMap(t=>Array.from({length:e.fretMax-e.fretMin+1},(n,r)=>m(t.id,e.fretMin+r))))}function g(e,t){let n=new Map(t.notes.map(e=>[e.pitchClass,e]));return Object.freeze(e.map(e=>{let r=n.get(e.pitchClass);return Object.freeze({...e,inStructure:r!==void 0,isRoot:e.pitchClass===t.rootPitchClass,noteName:r?.name??e.naturalName,degree:r?.degree??null})}))}var _=[`E`,`A`,`D`,`G`],v={"penta-a":{window:[0,3],frets:[[0,3],[0,2],[0,2],[0,2]]},"penta-b":{window:[2,5],frets:[[3,5],[2,5],[2,5],[2,4]]},"penta-c":{window:[4,7],frets:[[5,7],[5,7],[5,7],[4,7]]},"penta-d":{window:[7,10],frets:[[7,10],[7,10],[7,9],[7,9]]},"penta-e":{window:[9,12],frets:[[10,12],[10,12],[9,12],[9,12]]}},y={major:[[0,0,2],[0,2,4],[1,-1,1],[1,0,2],[1,2,4],[2,-1,1],[2,1,3],[2,2,4]],"natural-minor":[[0,0,1],[0,2,3],[0,3,4],[1,0,1],[1,2,3],[1,3,4],[2,0,1],[2,2,3]],"major-triad":[[0,0,2],[1,-1,1],[1,2,4],[2,2,4]],"minor-triad":[[0,0,1],[0,3,4],[1,2,3],[2,2,3]]},b=e=>(e%12+12)%12;function x(e){return e&&typeof e==`object`&&!Object.isFrozen(e)&&(Object.values(e).forEach(x),Object.freeze(e)),e}function S(e){let t=p(e.root,e.structureId),n=e.structureId.endsWith(`pentatonic`),r={},i,a,o;if(n){if(!(e.shapeId in v)||e.anchorString!==`E`)throw RangeError(`Пентатонике нужна одна из пяти форм EADG.`);let n=b(t.rootPitchClass+(e.structureId===`major-pentatonic`?9:0));if(b(4+e.anchorFret)!==n)throw RangeError(`Якорь цепочки не соответствует выбранной пентатонике.`);let s=v[e.shapeId];if(a=e.anchorFret+s.window[0],o=e.anchorFret+s.window[1],a<1||o>24)throw RangeError(`Полная закрытая форма должна помещаться на ладах 1–24.`);i=g(s.frets.flatMap((t,n)=>t.map(t=>m(_[n],e.anchorFret+t))),t),i.forEach(e=>{r[e.id]=e.fret-a+1})}else{let n=y[e.structureId];if(!n||e.shapeId!==`compact-${e.anchorString.toLowerCase()}`)throw RangeError(`Для структуры нужна компактная форма с тоникой на E или A.`);if(m(e.anchorString,e.anchorFret).pitchClass!==t.rootPitchClass)throw RangeError(`Начальная позиция формы должна быть тоникой.`);let s=_.indexOf(e.anchorString),c=n.map(e=>e[1]);if(a=e.anchorFret+Math.min(...c),o=e.anchorFret+Math.max(...c),a<1||o>24)throw RangeError(`Полная закрытая форма должна помещаться на ладах 1–24.`);i=g(n.map(([t,n,i])=>{let a=m(_[s+t],e.anchorFret+n);return r[a.id]=i,a}),t)}if(i.some(e=>!e.inStructure))throw RangeError(`Форма содержит ноту вне выбранной структуры.`);let s=i[0],c=n?`Начальная нота ${s.noteName} · ступень ${s.degree?.replace(`b`,`♭`)} · лад ${s.fret}`:`Тоника ${t.root} · лад ${e.anchorFret}`;return x({selection:e,positions:i,fingers:r,referencePositionIds:i.map(e=>e.id),window:{fretMin:a,fretMax:o},label:c})}function C(e){if(!e||typeof e!=`object`||Array.isArray(e))throw RangeError(`Нужен сохранённый контекст формы.`);let t=e,n=[`version`,`shapeId`,`root`,`structureId`,`anchorFret`,`anchorString`];if(![Object.prototype,null].includes(Object.getPrototypeOf(e))||Reflect.ownKeys(t).length!==n.length||Object.values(Object.getOwnPropertyDescriptors(t)).some(e=>!Object.hasOwn(e,`value`)))throw RangeError(`Описание формы должно содержать только обычные JSON-поля.`);if(Object.keys(t).length!==n.length||n.some(e=>!Object.hasOwn(t,e))||t.version!==`boxes-v1`||typeof t.root!=`string`||typeof t.structureId!=`string`||typeof t.shapeId!=`string`||t.anchorString!==`E`&&t.anchorString!==`A`||!Number.isInteger(t.anchorFret)||Number(t.anchorFret)<-11||Number(t.anchorFret)>24)throw RangeError(`Некорректное описание учебной формы.`);let r={version:`boxes-v1`,shapeId:t.shapeId,root:d(t.root).name,structureId:t.structureId,anchorFret:Number(t.anchorFret),anchorString:t.anchorString};return S(r),x(r)}function w(e){return S(C(e))}var T=w;function E(e,t){let n=p(e,t),r=t.endsWith(`pentatonic`),i=r?Object.keys(v):[`compact-e`,`compact-a`],a=[];for(let e of i)for(let i=r?-11:1;i<=24;i++){let r=e===`compact-a`?`A`:`E`;try{a.push(T({version:`boxes-v1`,shapeId:e,root:n.root,structureId:t,anchorFret:i,anchorString:r}))}catch{}}return x(a.sort((e,t)=>e.window.fretMin-t.window.fretMin||e.selection.shapeId.localeCompare(t.selection.shapeId)))}function D(e,t){let n=new Set(t.referencePositionIds);return Object.freeze(e.referencePositionIds.filter(e=>n.has(e)))}Object.freeze([`1`,`b2`,`2`,`b3`,`3`,`4`,`#4`,`b5`,`5`,`b6`,`6`,`b7`,`7`]);function O(e){let t=e.scope??`structure`;if(t!==`structure`&&t!==`chromatic`)throw RangeError(`Неизвестная область: выберите ноты структуры или все ноты.`);let n=e.positions;if(e.box){let t=w(e.box);if(t.selection.root!==e.structure.root||t.selection.structureId!==e.structure.id)throw RangeError(`Форма не соответствует выбранной тонике и структуре.`);let r=new Set(e.positions.map(e=>e.id));if(t.referencePositionIds.some(e=>!r.has(e)))throw RangeError(`Учебная форма не помещается в доступную область. Покажи её целиком.`);n=t.positions}let r=g(n,e.structure);return[...new Map(r.map(e=>[e.id,e])).values()].filter(e=>t===`chromatic`||e.inStructure)}var k={ascending:`Вверх`,descending:`Вниз`,"round-trip":`Вверх-вниз`,"groups-of-three":`Группы по три`};function A(e){if(typeof e==`object`&&e&&!Object.isFrozen(e)){for(let t of Object.values(e))A(t);Object.freeze(e)}return e}function j(e){if(!Object.hasOwn(k,e.pattern))throw RangeError(`Неизвестный порядок нот.`);let n=[...O(e)].sort((e,n)=>e.midi-n.midi||t.findIndex(t=>t.id===e.string)-t.findIndex(e=>e.id===n.string)||e.fret-n.fret),r=[];for(let e of n)r.at(-1)?.midi!==e.midi&&r.push(e);let i=e.pattern===`groups-of-three`?3:e.pattern===`round-trip`?2:1;if(r.length<i)throw RangeError(`Для этого порядка нужно не менее ${i} разных высот в выбранной области.`);let a=e.pattern===`descending`?[...r].reverse():e.pattern===`round-trip`?[...r,...r.slice(1,-1).reverse()]:e.pattern===`groups-of-three`?r.slice(0,-2).flatMap((e,t)=>r.slice(t,t+3)):r;return A({pattern:e.pattern,name:k[e.pattern],notes:a})}var M=[`C`,`D`,`E`,`F`,`G`,`A`,`B`],N=[`G`,`D`,`A`,`E`],P={quarter:{beats:1,flags:0},eighth:{beats:.5,flags:1},sixteenth:{beats:.25,flags:2}};function F(e){return e&&typeof e==`object`&&!Object.isFrozen(e)&&(Object.values(e).forEach(F),Object.freeze(e)),e}function I(e){let t=[];for(let n=-2;n>=e;n-=2)t.push(n);for(let n=10;n<=e;n+=2)t.push(n);return t}function L(e){if(!Array.isArray(e.positions))throw TypeError(`Для нотной записи нужен массив позиций последовательности.`);if(!Object.hasOwn(P,e.duration))throw RangeError(`Выберите четверти, восьмые или шестнадцатые.`);let t=P[e.duration],n=new Map,r=-1,i=e.positions.map((e,i)=>{if(!e||typeof e!=`object`)throw RangeError(`Некорректная позиция для нотной записи.`);let a=m(e.string,e.fret);if(a.id!==e.id||a.midi!==e.midi||a.pitchClass!==e.pitchClass)throw RangeError(`Позиция нотной записи не соответствует строю E–A–D–G.`);let o=d(e.noteName);if(o.pitchClass!==a.pitchClass)throw RangeError(`Контекстное написание ноты не соответствует звучащей высоте.`);let s=a.midi+12,c=f(s,o.name),l=Number(c.match(/(-?\d+)$/)[1]),u=l*7+M.indexOf(o.letter)-(14+M.indexOf(`G`)),p=i*t.beats,h=Math.floor(p/4);h!==r&&(n.clear(),r=h);let g=`${o.letter}:${l}`,_=(n.get(g)??0)===o.accidental?``:o.accidental===0?`♮`:o.accidental>0?`♯`.repeat(o.accidental):`♭`.repeat(-o.accidental);return n.set(g,o.accidental),{id:`notation-${i}-${a.id}`,index:i,positionId:a.id,soundingMidi:a.midi,writtenMidi:s,spelling:o.name,writtenName:c,writtenOctave:l,letter:o.letter,accidental:o.accidental,accidentalDisplay:_,staffStep:u,ledgerSteps:I(u),tab:{row:N.indexOf(a.string),string:a.string,fret:a.fret},beat:p,bar:h,beatInBar:p%4,durationBeats:t.beats,flagCount:t.flags}}),a=i.length*t.beats;return F({clef:`bass`,meter:`4/4`,transpositionSemitones:12,duration:e.duration,totalBeats:a,bars:Math.ceil(a/4),events:i})}var R=[`E`,`A`,`D`,`G`],z=[1,2,3,4];function B(e,t){let n=p(e,t);return{structure:n,positions:g(h({strings:R,fretMin:0,fretMax:24}),n)}}function V(e,t,n){let r=e.find(e=>e.window.fretMin===t&&e.window.fretMax===n);if(!r)throw Error(`Форма с окном ${t}–${n} не найдена.`);return r}function H(e,t){let{structure:n,positions:r}=B(e.selection.root,e.selection.structureId),i=j({box:e.selection,positions:r,structure:n,pattern:`ascending`}).notes,a=j({box:t.selection,positions:r,structure:n,pattern:`descending`}).notes;return{notes:[...i,...a],shared:D(e,t),split:i.length}}function U(e,t){let n=p(t,`natural-minor`),r=g(h({strings:R,fretMin:e,fretMax:e+3}),n);return{notes:r,fingers:r.map(t=>z[t.fret-e])}}var W=e=>e.map(e=>({id:e.id,string:e.string,fret:e.fret,midi:e.midi,name:f(e.midi,e.noteName??e.naturalName),degree:e.degree}));function G(){let e=E(`A`,`minor-pentatonic`),t=V(e,5,8),n=V(e,7,10),r=H(t,n),i=E(`C`,`major-triad`).find(e=>e.selection.anchorString===`E`&&e.selection.anchorFret===8);if(!i)throw Error(`Компактная форма C от E/8 не найдена.`);let a=B(`C`,`major-triad`),o=j({box:i.selection,...a,pattern:`round-trip`}).notes,s=U(5,`A`);return{ex1:{title:`Связка форм A→B · пентатоника Am`,formA:{label:t.label,window:t.window,ids:t.positions.map(e=>e.id),fingers:t.fingers},formB:{label:n.label,window:n.window,ids:n.positions.map(e=>e.id),fingers:n.fingers},shared:r.shared,split:r.split,notes:W(r.notes),notation:L({positions:r.notes,duration:`eighth`})},ex2:{title:`Арпеджио 1–3–5–8 · C-мажор от E/8`,notes:W(o),fingers:i.fingers,notation:L({positions:o,duration:`quarter`})},ex3:{title:`Хроматика 1-2-3-4 · позиция V`,notes:W(s.notes),fingers:s.fingers,notation:L({positions:s.notes,duration:`eighth`})}}}return e.buildLessonMaterial=G,e.chromaticPosition=U,e.connectBoxes=H,e.createNotationPlan=L,e.createStructure=p,e.formatMidi=f,e.getBoxCatalogue=E,e.getBoxOverlap=D,e})({});
+</script>
+<style>
+  #studio-lesson-r1{--s-paper:light-dark(#fafaf7,#1c2420);--s-nav:light-dark(#f0f2ec,#202c25);--s-panel:light-dark(#f5f6f0,#202923);--s-input:light-dark(#ffffff,#26332b);--s-ink:light-dark(#27372e,#edf4e8);--s-muted:light-dark(#5d6b61,#b0beb0);--s-line:light-dark(#d9e1d5,#405346);--s-line-strong:light-dark(#74836d,#82917d);--s-hover:light-dark(#eaf0e5,#324337);--s-green:light-dark(#345d42,#bdd5ab);--s-on-green:light-dark(#ffffff,#17271c);--s-green-soft:light-dark(#e8eee1,#31482f);--s-gold:light-dark(#956124,#edbf7e);--s-gold-soft:light-dark(#f3e2bf,#564321);--s-info:light-dark(#35556e,#bbd9f1);--s-info-soft:light-dark(#e7eff5,#2b3d4a);--s-focus:light-dark(#246bb4,#92c8ff);--s-neck:#1a2b22;--s-neck-text:#e5eee0;--s-neck-muted:#c3d0bf;--s-neck-line:#abbcad;--s-note:#e6efdc;--s-note-ink:#213a29;--s-root:#f3c180;--s-root-ink:#3c2913;--s-form-b:#a4cce2;--s-form-b-ink:#16303f;--s-playing:#fbdf8e;--s-shared:#cbb5e7;
+    color-scheme:light;font:14px/1.5 'Segoe UI Variable','Segoe UI',Arial,sans-serif;color:var(--s-ink);background:var(--s-paper);width:100%;}
+  #studio-lesson-r1[data-theme="dark"]{color-scheme:dark;}
+  #studio-lesson-r1 *{box-sizing:border-box;}
+  #studio-lesson-r1 button{font:inherit;color:inherit;cursor:pointer;}
+  #studio-lesson-r1 :focus-visible{outline:3px solid var(--s-focus);outline-offset:2px;}
+  #studio-lesson-r1 h1,#studio-lesson-r1 h2,#studio-lesson-r1 h3,#studio-lesson-r1 p{margin:0;}
+  #studio-lesson-r1 [data-candidate-panel]{display:none;}
+  #studio-lesson-r1[data-candidate="a"] [data-candidate-panel="a"],#studio-lesson-r1[data-candidate="b"] [data-candidate-panel="b"],#studio-lesson-r1[data-candidate="c"] [data-candidate-panel="c"]{display:contents;}
+  /* Оболочка: новое меню D-043 */
+  #studio-lesson-r1 .lr-app{display:grid;grid-template-columns:208px minmax(0,1fr);height:100vh;min-height:620px;background:var(--s-paper);border:1px solid var(--s-line);border-radius:14px;overflow:hidden;}
+  #studio-lesson-r1 .lr-nav{background:var(--s-nav);border-right:1px solid var(--s-line);padding:24px 14px 18px;display:flex;flex-direction:column;gap:22px;min-height:0;}
+  #studio-lesson-r1 .lr-brand{display:flex;align-items:center;gap:10px;font-size:24px;font-weight:730;letter-spacing:-1.2px;padding-left:4px;}
+  #studio-lesson-r1 .lr-brand-word>span{color:var(--s-gold);}
+  #studio-lesson-r1 .lr-brand-mark{width:27px;height:28px;display:flex;gap:4px;align-items:center;}
+  #studio-lesson-r1 .lr-brand-mark i{display:block;width:3px;border-radius:3px;background:var(--s-green);}
+  #studio-lesson-r1 .lr-brand-mark i:nth-child(1){height:22px}#studio-lesson-r1 .lr-brand-mark i:nth-child(2){height:28px}#studio-lesson-r1 .lr-brand-mark i:nth-child(3){height:17px}#studio-lesson-r1 .lr-brand-mark i:nth-child(4){height:24px}
+  #studio-lesson-r1 .lr-nav-list{display:flex;flex-direction:column;gap:3px;}
+  #studio-lesson-r1 .lr-nav-item{display:flex;align-items:center;gap:11px;border:0;background:none;text-align:left;padding:9px 12px;border-radius:8px;font-size:15px;color:var(--s-muted);}
+  #studio-lesson-r1 .lr-nav-item svg{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+  #studio-lesson-r1 .lr-nav-item:hover{background:var(--s-hover);color:var(--s-ink);}
+  #studio-lesson-r1 .lr-nav-item[aria-current="page"]{background:var(--s-paper);color:var(--s-ink);font-weight:650;box-shadow:inset 3px 0 0 var(--s-green);}
+  #studio-lesson-r1 .lr-nav-bottom{margin-top:auto;display:flex;flex-direction:column;gap:10px;}
+  #studio-lesson-r1 .lr-theme{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--s-line);border-radius:8px;padding:3px;background:var(--s-paper);}
+  #studio-lesson-r1 .lr-theme button{border:0;background:none;border-radius:6px;padding:5px 0;font-size:12px;color:var(--s-muted);}
+  #studio-lesson-r1 .lr-theme button[aria-pressed="true"]{background:var(--s-panel);color:var(--s-ink);font-weight:650;box-shadow:0 0 0 1px var(--s-line);}
+  #studio-lesson-r1 .lr-status{font-size:11px;color:var(--s-muted);padding-left:4px;}
+  #studio-lesson-r1 .lr-main{min-width:0;min-height:0;overflow:auto;padding:22px 26px;display:flex;flex-direction:column;gap:16px;}
+  /* Общие примитивы */
+  #studio-lesson-r1 .lr-eyebrow{font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--s-muted);}
+  #studio-lesson-r1 .lr-h1{font-size:26px;font-weight:650;letter-spacing:-.6px;}
+  #studio-lesson-r1 .lr-sub{color:var(--s-muted);font-size:13px;}
+  #studio-lesson-r1 .lr-card{background:var(--s-panel);border:1px solid var(--s-line);border-radius:12px;padding:16px 18px;}
+  #studio-lesson-r1 .lr-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--s-line-strong);background:var(--s-input);border-radius:8px;padding:8px 14px;font-weight:600;font-size:13px;}
+  #studio-lesson-r1 .lr-btn:hover{background:var(--s-hover);}
+  #studio-lesson-r1 .lr-btn-primary{background:var(--s-green);border-color:var(--s-green);color:var(--s-on-green);}
+  #studio-lesson-r1 .lr-btn-primary:hover{background:var(--s-green);filter:brightness(1.08);}
+  #studio-lesson-r1 .lr-btn-primary .lr-kbd{color:inherit;border-color:currentColor;opacity:.75;}
+  #studio-lesson-r1 .lr-btn-ghost{border-color:transparent;background:none;}
+  #studio-lesson-r1 .lr-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--s-line);border-radius:999px;padding:2px 9px;font-size:12px;color:var(--s-muted);background:var(--s-paper);}
+  #studio-lesson-r1 .lr-chip-concept{border-color:var(--s-info);color:var(--s-info);background:var(--s-info-soft);}
+  #studio-lesson-r1 .lr-kbd{font:600 11px/1 'Segoe UI',Arial;border:1px solid var(--s-line-strong);border-bottom-width:2px;border-radius:4px;padding:2px 5px;color:var(--s-muted);}
+  #studio-lesson-r1 .lr-seg{display:inline-flex;border:1px solid var(--s-line);border-radius:8px;padding:3px;gap:2px;background:var(--s-paper);}
+  #studio-lesson-r1 .lr-seg button{border:0;background:none;border-radius:6px;padding:5px 10px;font-size:12px;color:var(--s-muted);}
+  #studio-lesson-r1 .lr-seg button[aria-pressed="true"]{background:var(--s-panel);color:var(--s-ink);font-weight:650;box-shadow:0 0 0 1px var(--s-line);}
+  #studio-lesson-r1 .lr-meter{height:6px;border-radius:3px;background:var(--s-green-soft);overflow:hidden;}
+  #studio-lesson-r1 .lr-meter>i{display:block;height:100%;background:var(--s-green);}
+  /* Гриф и TAB */
+  #studio-lesson-r1 .lr-board{background:var(--s-neck);border-radius:12px;padding:8px 10px 6px;}
+  #studio-lesson-r1 .lr-board svg,#studio-lesson-r1 .lr-tab svg{display:block;width:100%;height:auto;}
+  #studio-lesson-r1 .lr-tab{background:var(--s-paper);border:1px solid var(--s-line);border-radius:12px;padding:8px 12px;}
+  #studio-lesson-r1 .lr-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--s-muted);}
+  #studio-lesson-r1 .lr-legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid var(--s-line-strong);}
+  /* Транспорт */
+  #studio-lesson-r1 .lr-transport{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--s-panel);border:1px solid var(--s-line);border-radius:12px;padding:10px 14px;}
+  #studio-lesson-r1 .lr-transport .lr-play{min-width:118px;justify-content:center;}
+  #studio-lesson-r1 .lr-bpm{display:flex;align-items:center;gap:4px;}
+  #studio-lesson-r1 .lr-bpm output{font:700 22px/1 'Segoe UI',Arial;min-width:46px;text-align:center;font-variant-numeric:tabular-nums;}
+  #studio-lesson-r1 .lr-bpm small{font-size:11px;color:var(--s-muted);}
+  #studio-lesson-r1 .lr-icon-btn{width:30px;height:30px;border:1px solid var(--s-line-strong);border-radius:7px;background:var(--s-input);font-weight:700;}
+  #studio-lesson-r1 .lr-toggle{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--s-line);border-radius:7px;background:var(--s-paper);padding:5px 9px;font-size:12px;color:var(--s-muted);}
+  #studio-lesson-r1 .lr-toggle[aria-pressed="true"]{border-color:var(--s-green);color:var(--s-ink);background:var(--s-green-soft);}
+  #studio-lesson-r1 .lr-count{font:700 13px/1 'Segoe UI';color:var(--s-gold);min-width:64px;}
+  #studio-lesson-r1 .lr-progress{flex:1;min-width:120px;}
+  #studio-lesson-r1 .lr-progress small{font-size:11px;color:var(--s-muted);}
+  /* Карточка понятия и самооценка */
+  #studio-lesson-r1 .lr-concept{border:1px solid var(--s-info);background:var(--s-info-soft);border-radius:10px;padding:10px 12px;font-size:13px;}
+  #studio-lesson-r1 .lr-concept summary{cursor:pointer;font-weight:650;color:var(--s-info);list-style:none;display:flex;gap:8px;align-items:center;}
+  #studio-lesson-r1 .lr-concept summary::-webkit-details-marker{display:none;}
+  #studio-lesson-r1 .lr-concept p{margin-top:6px;color:var(--s-ink);}
+  #studio-lesson-r1 .lr-after{display:none;}
+  #studio-lesson-r1 .lr-after.is-open{display:flex;}
+  #studio-lesson-r1 .lr-rate{gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--s-gold);background:var(--s-gold-soft);border-radius:10px;padding:10px 14px;font-size:13px;}
+  #studio-lesson-r1 .lr-rate strong{margin-right:4px;}
+  @media (max-width:1100px){#studio-lesson-r1 .lr-app{grid-template-columns:72px minmax(0,1fr);}#studio-lesson-r1 .lr-nav{padding:18px 8px;align-items:center;}#studio-lesson-r1 .lr-brand-word,#studio-lesson-r1 .lr-nav-item span,#studio-lesson-r1 .lr-status{display:none;}#studio-lesson-r1 .lr-nav-item{justify-content:center;padding:10px;}#studio-lesson-r1 .lr-theme{grid-template-columns:1fr;}#studio-lesson-r1 .lr-main{padding:18px;}}
+</style>
+<script>
+(() => {
+  const M = BassLessonModel;
+  const material = M.buildLessonMaterial();
+  const NS = 'http://www.w3.org/2000/svg';
+  const STRINGS = ['G', 'D', 'A', 'E'];
+  const ICONS = {
+    lesson: '<svg viewBox="0 0 20 20"><path d="M4 3h9l3 3v11H4z"/><path d="M7 9h6M7 12h6M7 6h3"/></svg>',
+    neck: '<svg viewBox="0 0 20 20"><rect x="2" y="5" width="16" height="10" rx="2"/><path d="M6 5v10M10 5v10M14 5v10M2 8.5h16M2 11.5h16"/></svg>',
+    rhythm: '<svg viewBox="0 0 20 20"><path d="M7 17 9 3h2l2 14z"/><path d="M10 11l5-6"/></svg>',
+    songs: '<svg viewBox="0 0 20 20"><path d="M8 15V4l9-2v11"/><circle cx="5.5" cy="15" r="2.5"/><circle cx="14.5" cy="13" r="2.5"/></svg>',
+    progress: '<svg viewBox="0 0 20 20"><path d="M3 16h14"/><path d="M5 13l4-4 3 2 4-6"/></svg>',
+    settings: '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v2.5M10 15.5V18M2 10h2.5M15.5 10H18M4.3 4.3l1.8 1.8M13.9 13.9l1.8 1.8M4.3 15.7l1.8-1.8M13.9 6.1l1.8-1.8"/></svg>',
+  };
+  const NAV = [['lesson', 'Занятие'], ['neck', 'Гриф'], ['rhythm', 'Ритм'], ['songs', 'Песни'], ['progress', 'Прогресс']];
+  const esc = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const deg = value => value ? String(value).replace('b', '♭').replace('#', '♯') : '';
+
+  /** Боковое меню из пяти разделов; «Настройки» и тема — внизу. */
+  function shell(current, main) {
+    const items = NAV.map(([id, label]) => `<button type="button" class="lr-nav-item"${id === current ? ' aria-current="page"' : ''}>${ICONS[id]}<span>${label}</span></button>`).join('');
+    return `<div class="lr-app"><nav class="lr-nav" aria-label="Разделы тренажёра"><div class="lr-brand" aria-label="bass.study"><span class="lr-brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="lr-brand-word">bass<span>.</span>study</span></div><div class="lr-nav-list">${items}</div><div class="lr-nav-bottom"><button type="button" class="lr-nav-item">${ICONS.settings}<span>Настройки</span></button><div class="lr-theme" role="group" aria-label="Тема"><button type="button" data-lr-theme="light">Светлая</button><button type="button" data-lr-theme="dark">Тёмная</button></div><span class="lr-status">● Локально · сохранено</span></div></nav><main class="lr-main">${main}</main></div>`;
+  }
+
+  /**
+   * SVG грифа: строки G-D-A-E сверху вниз, лады fretMin..fretMax.
+   * notes: [{id, label, kind: root|a|b|shared|plain|ghost, finger}], current/next — id позиций.
+   */
+  function fretboard({ fretMin = 0, fretMax = 12, notes = [], current = null, next = null, width = 1000, marker = 46, labels = true }) {
+    const left = 34, right = 14, top = labels ? 26 : 10, rowGap = marker * 1.32, height = top + marker * 0.45 + rowGap * 3 + marker * 0.5 + 12;
+    const span = fretMax - fretMin + 1;
+    const cell = (width - left - right) / span;
+    const x = fret => left + (fret - fretMin + 0.5) * cell;
+    const y = string => top + marker * 0.45 + STRINGS.indexOf(string) * rowGap;
+    const r = marker / 2;
+    const parts = [];
+    if (labels) for (let f = fretMin; f <= fretMax; f++) parts.push(`<text x="${x(f)}" y="15" text-anchor="middle" font-size="12" fill="#c3d0bf" font-family="Consolas,monospace">${f}</text>`);
+    for (let f = fretMin; f <= fretMax + 1; f++) {
+      const lx = left + (f - fretMin) * cell;
+      parts.push(`<line x1="${lx}" x2="${lx}" y1="${y('G') - r * 0.7}" y2="${y('E') + r * 0.7}" stroke="#abbcad" stroke-opacity="${f === 1 && fretMin === 0 ? 1 : .45}" stroke-width="${f === 1 && fretMin === 0 ? 4 : 1.2}"/>`);
+    }
+    for (const f of [3, 5, 7, 9, 15, 17, 19, 21]) if (f >= fretMin && f <= fretMax) parts.push(`<circle cx="${x(f)}" cy="${(y('D') + y('A')) / 2}" r="4" fill="#c3d0bf" opacity=".45"/>`);
+    for (const f of [12, 24]) if (f >= fretMin && f <= fretMax) { parts.push(`<circle cx="${x(f)}" cy="${(y('G') + y('D')) / 2}" r="4" fill="#c3d0bf" opacity=".45"/>`, `<circle cx="${x(f)}" cy="${(y('A') + y('E')) / 2}" r="4" fill="#c3d0bf" opacity=".45"/>`); }
+    for (const s of STRINGS) {
+      parts.push(`<text x="12" y="${y(s) + 5}" font-size="14" font-weight="600" fill="#e5eee0">${s}</text>`);
+      parts.push(`<line x1="${left}" x2="${width - right}" y1="${y(s)}" y2="${y(s)}" stroke="#d7e2d2" stroke-width="${({ G: 1.4, D: 1.9, A: 2.4, E: 3 })[s]}" opacity=".8"/>`);
+    }
+    const fills = { root: ['#f3c180', '#3c2913'], a: ['#e6efdc', '#213a29'], b: ['#a4cce2', '#16303f'], shared: ['#cbb5e7', '#2a1d3d'], plain: ['#e6efdc', '#213a29'], ghost: ['transparent', '#c3d0bf'] };
+    for (const note of notes) {
+      const [string, fretText] = note.id.split(':');
+      const fret = Number(fretText);
+      if (fret < fretMin || fret > fretMax) continue;
+      const cx = x(fret), cy = y(string);
+      const [fill, ink] = fills[note.kind] || fills.plain;
+      const isCurrent = note.id === current, isNext = note.id === next;
+      if (isNext) parts.push(`<circle cx="${cx}" cy="${cy}" r="${r + 5}" fill="none" stroke="#fbdf8e" stroke-width="2.5" stroke-dasharray="5 4"/>`);
+      if (isCurrent) parts.push(`<circle cx="${cx}" cy="${cy}" r="${r + 7}" fill="none" stroke="#ffffff" stroke-width="4"/>`);
+      parts.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${isCurrent ? '#fbdf8e' : fill}" stroke="${note.kind === 'ghost' ? '#c3d0bf' : 'none'}" stroke-width="1.5" ${note.kind === 'ghost' ? 'stroke-dasharray="3 3"' : ''}/>`);
+      if (note.root && note.kind !== 'root') parts.push(`<circle cx="${cx}" cy="${cy}" r="${r - 2.5}" fill="none" stroke="#e0a24f" stroke-width="4"/>`);
+      if (note.label) parts.push(`<text x="${cx}" y="${cy + marker * 0.14}" text-anchor="middle" font-size="${Math.round(marker * 0.39)}" font-weight="700" fill="${isCurrent ? '#3c2913' : ink}" font-family="Segoe UI,Arial">${esc(note.label)}</text>`);
+      if (note.finger) parts.push(`<text x="${cx + r * 0.78}" y="${cy - r * 0.62}" text-anchor="middle" font-size="${Math.max(10, Math.round(marker * 0.25))}" font-weight="700" fill="#fbdf8e" font-family="Segoe UI,Arial">${note.finger}</text>`);
+    }
+    return `<svg xmlns="${NS}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Гриф, лады ${fretMin}–${fretMax}">${parts.join('')}</svg>`;
+  }
+
+  /** SVG табулатуры по событиям createNotationPlan: 4 линии G-D-A-E, номера ладов, такты, курсор. */
+  function tab({ events, current = -1, width = 1000, perBar = 8, from = 0, count = events.length, lineGap = 20, fontSize = 15, showCount = true, dimPlayed = false }) {
+    const shown = events.slice(from, from + count);
+    const top = showCount ? 22 : 10, left = 30, right = 12;
+    const height = top + lineGap * 3 + 22;
+    const slot = (width - left - right) / shown.length;
+    const parts = [];
+    STRINGS.forEach((s, row) => {
+      const ly = top + row * lineGap;
+      parts.push(`<line x1="${left}" x2="${width - right}" y1="${ly}" y2="${ly}" stroke="currentColor" stroke-opacity=".35"/>`);
+      parts.push(`<text x="6" y="${ly + 4}" font-size="11" fill="currentColor" opacity=".7" font-family="Consolas,monospace">${s}</text>`);
+    });
+    parts.push(`<line x1="${left}" x2="${left}" y1="${top}" y2="${top + lineGap * 3}" stroke="currentColor" stroke-opacity=".6" stroke-width="2"/>`);
+    shown.forEach((event, i) => {
+      const index = from + i;
+      const cx = left + slot * (i + 0.5);
+      if (i > 0 && index % perBar === 0) parts.push(`<line x1="${left + slot * i}" x2="${left + slot * i}" y1="${top}" y2="${top + lineGap * 3}" stroke="currentColor" stroke-opacity=".55"/>`);
+      if (index === current) parts.push(`<rect x="${cx - slot * 0.42}" y="${top - lineGap * 0.6}" width="${slot * 0.84}" height="${lineGap * 4.2}" rx="6" fill="#f2c94c" fill-opacity=".22" stroke="#d9a520" stroke-width="2.5"/>`);
+      const ly = top + event.tab.row * lineGap;
+      const label = String(event.tab.fret);
+      const w = label.length * fontSize * 0.62 + 6;
+      parts.push(`<rect x="${cx - w / 2}" y="${ly - fontSize * 0.62}" width="${w}" height="${fontSize * 1.24}" style="fill:${index === current ? 'transparent' : 'var(--s-tab-bg,var(--s-paper))'}"/>`);
+      parts.push(`<text x="${cx}" y="${ly + fontSize * 0.36}" text-anchor="middle" font-size="${fontSize}" font-weight="700" fill="currentColor" opacity="${dimPlayed && index < current ? .4 : 1}" font-family="Consolas,monospace">${label}</text>`);
+      if (showCount) {
+        const beatText = event.beatInBar % 1 === 0 ? String(event.beatInBar + 1) : 'и';
+        parts.push(`<text x="${cx}" y="12" text-anchor="middle" font-size="10" fill="currentColor" opacity=".55" font-family="Segoe UI,Arial">${beatText}</text>`);
+      }
+    });
+    parts.push(`<line x1="${width - right}" x2="${width - right}" y1="${top}" y2="${top + lineGap * 3}" stroke="currentColor" stroke-opacity=".6" stroke-width="2"/>`);
+    return `<svg xmlns="${NS}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Табулатура">${parts.join('')}</svg>`;
+  }
+
+  /** Ноты EX-1 для грифа: форма A, форма B, общие позиции, тоники. */
+  /**
+   * Общие позиции важнее тоники: они остаются сиреневыми, тоника на них — золотое кольцо.
+   * Пальцы берутся из формы, которую сейчас играют (phase 'a' | 'b').
+   */
+  function ex1BoardNotes({ labels = 'name', fingers = false, phase = 'a' } = {}) {
+    const ex = material.ex1;
+    const shared = new Set(ex.shared);
+    const ids = [...new Set([...ex.formA.ids, ...ex.formB.ids])];
+    const byId = new Map(ex.notes.map(n => [n.id, n]));
+    const fingerOf = id => {
+      const own = phase === 'b' ? ex.formB.fingers : ex.formA.fingers;
+      const other = phase === 'b' ? ex.formA.fingers : ex.formB.fingers;
+      return own[id] ?? other[id];
+    };
+    return ids.map(id => {
+      const note = byId.get(id);
+      const inA = ex.formA.ids.includes(id);
+      const isRoot = note?.degree === '1';
+      const kind = shared.has(id) ? 'shared' : isRoot ? 'root' : inA ? 'a' : 'b';
+      const label = labels === 'degree' ? deg(note?.degree) : labels === 'finger' ? String(fingerOf(id)) : labels === 'none' ? '' : note?.name.replace(/\d$/, '') ?? '';
+      const finger = fingers ? fingerOf(id) : null;
+      return { id, label, kind, finger, root: isRoot };
+    });
+  }
+
+  /** Демонстрационный плеер: отсчёт 4 доли, восьмые по BPM, петля; звука нет. */
+  function player({ steps, bpm = 72, countIn = true, loop = true, onStep, onCount, onFinish }) {
+    let timer = null, index = -1, counting = 0, state = { bpm, countIn, loop };
+    const interval = () => 60000 / state.bpm / 2;
+    function tick() {
+      if (counting > 0) { onCount?.(5 - counting); counting--; timer = setTimeout(tick, interval() * 2); return; }
+      if (index === -1) onCount?.(null);
+      index++;
+      if (index >= steps) {
+        if (!state.loop) { stop(); onFinish?.(); return; }
+        index = 0; onFinish?.({ looped: true });
+      }
+      onStep?.(index);
+      timer = setTimeout(tick, interval());
+    }
+    function start() { if (timer) return; counting = state.countIn ? 4 : 0; index = -1; tick(); }
+    function stop() { clearTimeout(timer); timer = null; counting = 0; onCount?.(null); }
+    return { start, stop, toggle() { timer ? stop() : start(); return !!timer; }, get playing() { return !!timer; }, get index() { return index; }, set(key, value) { state[key] = value; } };
+  }
+
+  /** Разметка транспорта; data-lr-* подключает bindTransport. */
+  function transport({ bpm = 72, ladder = '72 → 96, +4', compact = false } = {}) {
+    return `<div class="lr-transport" data-lr-transport>
+      <button type="button" class="lr-btn lr-btn-primary lr-play" data-lr-play>▶ Играть <span class="lr-kbd">Пробел</span></button>
+      <div class="lr-bpm"><button type="button" class="lr-icon-btn" data-lr-bpm="-4" aria-label="Медленнее">−</button><output data-lr-bpm-value>${bpm}</output><button type="button" class="lr-icon-btn" data-lr-bpm="4" aria-label="Быстрее">+</button><small>BPM ♩<br>играем восьмыми</small></div>
+      <span class="lr-count" data-lr-count aria-live="polite"></span>
+      <button type="button" class="lr-toggle" data-lr-flag="countIn" aria-pressed="true">Отсчёт 4</button>
+      <button type="button" class="lr-toggle" data-lr-flag="loop" aria-pressed="true">⟲ По кругу</button>
+      ${compact ? '' : `<button type="button" class="lr-toggle" data-lr-ladder aria-pressed="false" title="Лестница темпа">↗ Лестница ${esc(ladder)}</button>`}
+      <div class="lr-progress"><div class="lr-meter"><i data-lr-meter style="width:0%"></i></div><small data-lr-position>Нота 0 из ${material.ex1.notes.length}</small></div>
+    </div>`;
+  }
+
+  /** Подключает транспорт внутри контейнера к плееру; render(index) перерисовывает сцену. */
+  function bindTransport(container, { steps, bpm = 72, render, onPass }) {
+    const play = container.querySelector('[data-lr-play]');
+    const out = container.querySelector('[data-lr-bpm-value]');
+    const count = container.querySelector('[data-lr-count]');
+    const meter = container.querySelector('[data-lr-meter]');
+    const position = container.querySelector('[data-lr-position]');
+    let passes = 0;
+    const p = player({
+      steps, bpm,
+      onStep(i) { render(i); if (meter) meter.style.width = `${((i + 1) / steps) * 100}%`; if (position) position.textContent = `Нота ${i + 1} из ${steps} · проход ${passes + 1}`; },
+      onCount(n) { if (count) count.textContent = n ? `Отсчёт ${n}…` : ''; },
+      onFinish(info) { passes++; onPass?.(passes, info); if (!info) sync(); },
+    });
+    const sync = () => { play.innerHTML = p.playing ? '■ Стоп <span class="lr-kbd">Пробел</span>' : '▶ Играть <span class="lr-kbd">Пробел</span>'; };
+    play.addEventListener('click', () => { p.toggle(); sync(); });
+    container.querySelectorAll('[data-lr-bpm]').forEach(button => button.addEventListener('click', () => {
+      const value = Math.min(200, Math.max(40, Number(out.value || out.textContent) + Number(button.dataset.lrBpm)));
+      out.textContent = value; p.set('bpm', value);
+    }));
+    container.querySelectorAll('[data-lr-flag]').forEach(button => button.addEventListener('click', () => {
+      const on = button.getAttribute('aria-pressed') !== 'true';
+      button.setAttribute('aria-pressed', String(on)); p.set(button.dataset.lrFlag, on);
+    }));
+    container.querySelector('[data-lr-ladder]')?.addEventListener('click', event => {
+      const button = event.currentTarget; button.setAttribute('aria-pressed', String(button.getAttribute('aria-pressed') !== 'true'));
+    });
+    document.addEventListener('keydown', event => {
+      if (event.code !== 'Space' || event.target.closest?.('input,textarea,select,button')) return;
+      if (!container.closest('[data-candidate-panel]') || getComputedStyle(container).display === 'none' || !container.offsetParent) return;
+      event.preventDefault(); p.toggle(); sync();
+    });
+    return p;
+  }
+
+  /** Связывает переключатели темы и кандидата; поддерживает ?candidate=b&theme=dark. */
+  function mount(root, { candidates }) {
+    const params = new URLSearchParams(location.search);
+    const setTheme = theme => {
+      root.dataset.theme = theme;
+      root.querySelectorAll('[data-lr-theme]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lrTheme === theme)));
+      document.querySelectorAll('[data-review-theme]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.reviewTheme === theme)));
+      document.documentElement.style.colorScheme = theme;
+    };
+    const setCandidate = id => {
+      root.dataset.candidate = id;
+      document.querySelectorAll('[data-review-candidate]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.reviewCandidate === id)));
+    };
+    root.addEventListener('click', event => { const b = event.target.closest('[data-lr-theme]'); if (b) setTheme(b.dataset.lrTheme); });
+    document.querySelectorAll('[data-review-theme]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.reviewTheme)));
+    document.querySelectorAll('[data-review-candidate]').forEach(b => b.addEventListener('click', () => setCandidate(b.dataset.reviewCandidate)));
+    setTheme(params.get('theme') === 'dark' ? 'dark' : 'light');
+    setCandidate(candidates.includes(params.get('candidate')) ? params.get('candidate') : candidates[0]);
+  }
+
+  window.LessonRef = { material, shell, fretboard, tab, ex1BoardNotes, player, transport, bindTransport, mount, esc, deg, ICONS };
+})();
+</script>
+
+<style>
+  #studio-lesson-r1 .p-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;}
+  #studio-lesson-r1 .p-head-copy{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  #studio-lesson-r1 .p-head-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  #studio-lesson-r1 .p-title-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  #studio-lesson-r1 .p-chips{display:flex;gap:6px;flex-wrap:wrap;}
+  #studio-lesson-r1 .p-back{border:0;background:none;padding:0;color:var(--s-muted);font-size:12px;text-align:left;align-self:flex-start;}
+  #studio-lesson-r1 .p-row{display:flex;gap:14px;align-items:stretch;flex-wrap:wrap;}
+  #studio-lesson-r1 .p-row>.lr-concept{flex:1 1 320px;}
+  #studio-lesson-r1 .p-row>.lr-legend{flex:1 1 360px;align-items:center;}
+  #studio-lesson-r1 .p-hidden{display:none !important;}
+  #studio-lesson-r1 .p-tabcard{padding:4px 12px 2px;}
+  #studio-lesson-r1 .p-tabcard header{display:flex;justify-content:space-between;font-size:11px;color:var(--s-muted);padding-top:4px;}
+  #studio-lesson-r1 .p-memory{display:flex;align-items:center;justify-content:center;gap:18px;min-height:96px;border:1px dashed var(--s-line-strong);border-radius:12px;color:var(--s-muted);font-size:13px;}
+  #studio-lesson-r1 .p-memory strong{font-size:34px;color:var(--s-ink);font-weight:700;}
+  /* B: гриф главный */
+  #studio-lesson-r1 .b-strip{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center;}
+  #studio-lesson-r1 .b-now{display:flex;flex-direction:column;align-items:center;min-width:112px;border:1px solid var(--s-line);border-radius:12px;padding:8px 12px;background:var(--s-panel);}
+  #studio-lesson-r1 .b-now strong{font-size:34px;line-height:1.05;font-weight:700;}
+  #studio-lesson-r1 .b-now span{font-size:12px;color:var(--s-muted);}
+  #studio-lesson-r1 .b-note{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--s-muted);}
+  #studio-lesson-r1 .b-note b{color:var(--s-ink);}
+  #studio-lesson-r1 .b-shift{border-left:3px solid var(--s-gold);padding:2px 0 2px 10px;}
+  /* C: фокус */
+  #studio-lesson-r1 .c-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;min-height:0;flex:1;}
+  #studio-lesson-r1 .c-tab{display:flex;flex-direction:column;gap:8px;justify-content:flex-start;}
+  #studio-lesson-r1 .c-tab .lr-tab{padding:14px 18px;}
+  #studio-lesson-r1 .c-next{opacity:.75;}
+  #studio-lesson-r1 .c-side{display:flex;flex-direction:column;gap:12px;}
+  #studio-lesson-r1 .c-ladder{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;counter-reset:step;}
+  #studio-lesson-r1 .c-ladder button{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid var(--s-line);border-radius:8px;background:var(--s-paper);padding:7px 10px;font-size:13px;}
+  #studio-lesson-r1 .c-ladder button::before{counter-increment:step;content:counter(step);display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--s-line-strong);font-size:11px;font-weight:700;}
+  #studio-lesson-r1 .c-ladder button[aria-pressed="true"]{border-color:var(--s-green);background:var(--s-green-soft);font-weight:650;}
+  #studio-lesson-r1 .c-ladder button.is-done::before{content:'✓';background:var(--s-green);color:var(--s-on-green);border-color:var(--s-green);}
+  #studio-lesson-r1 .c-ladder small{margin-left:auto;font-size:11px;color:var(--s-muted);font-weight:400;}
+  #studio-lesson-r1 .c-bar{font-size:12px;color:var(--s-muted);display:flex;justify-content:space-between;}
+  #studio-lesson-r1 .p-scene.is-rated .lr-concept{display:none;}
+  #studio-lesson-r1 .p-row>.lr-rate{flex:1 1 380px;}
+  #studio-lesson-r1 .lr-rate{padding:6px 10px;gap:8px;}
+  #studio-lesson-r1 .lr-rate .lr-btn{padding:4px 10px;font-size:12px;}
+  #studio-lesson-r1 .p-row>.b-note{flex:1 1 auto;}
+  #studio-lesson-r1 .p-scene.is-rated .b-note>span:last-child{display:none;}
+  @media (max-width:1100px){#studio-lesson-r1 .c-grid{grid-template-columns:minmax(0,1fr) 236px;}}
+</style>
+<div id="studio-lesson-r1" data-candidate="a"></div>
+<script>
+(() => {
+  const L = window.LessonRef;
+  const ex = L.material.ex1;
+  const events = ex.notation.events;
+  const steps = events.length;
+  const root = document.getElementById('studio-lesson-r1');
+  const shift = { from: ex.notes[ex.split - 1], to: ex.notes[ex.split] };
+  const fingerA = ex.formA.fingers[shift.from.id], fingerB = ex.formB.fingers[shift.to.id];
+  const conceptChips = '<span class="lr-chip lr-chip-concept">Связка форм</span><span class="lr-chip lr-chip-concept">Общие ноты</span><span class="lr-chip lr-chip-concept">Ступени ♭3 · ♭7</span>';
+  const pos = id => id.replace(':', '/');
+  const sharedNames = ex.shared.map(id => ex.notes.find(n => n.id === id)?.name).filter(Boolean);
+  const concept = (open = false) => `<details class="lr-concept"${open ? ' open' : ''}><summary>ⓘ Почему через общие ноты</summary><p>Соседние формы пентатоники делят общие позиции. У форм A и B это ${L.esc(sharedNames.join(', '))} (${L.esc(ex.shared.map(pos).join(', '))}). Рука переходит в новую позицию по знакомой ноте, а не прыжком. Так пентатоника складывается в одну карту грифа, а не в пять отдельных «ящиков».</p></details>`;
+  const head = (variant) => `<div class="p-head"><div class="p-head-copy"><button type="button" class="p-back">← Занятие · план на сегодня, шаг 2 из 4</button><div class="p-title-row"><h1 class="lr-h1">${L.esc('Связка соседних форм · Am · A → B')}</h1><span class="lr-sub">16 восьмых · 2 такта · лучший темп 76</span></div><div class="p-chips">${conceptChips}</div></div><div class="p-head-tools">${variant}</div></div>`;
+  const hintSeg = `<div class="lr-seg" role="group" aria-label="Подсказки" data-hints><button type="button" data-hint="both" aria-pressed="true">Таб + гриф</button><button type="button" data-hint="tab" aria-pressed="false">Таб</button><button type="button" data-hint="board" aria-pressed="false">Гриф</button><button type="button" data-hint="memory" aria-pressed="false">По памяти</button></div>`;
+  const labelSeg = `<div class="lr-seg" role="group" aria-label="Подписи" data-labels><button type="button" data-label="name" aria-pressed="true">Ноты</button><button type="button" data-label="degree" aria-pressed="false">Ступени</button><button type="button" data-label="finger" aria-pressed="false">Пальцы</button></div>`;
+  const listen = `<button type="button" class="lr-btn lr-btn-ghost" data-listen title="Слух как опция: эталон звучит до игры">♪ Сначала услышь</button>`;
+  const after = `<div class="lr-after lr-rate" data-after><strong data-after-title>Проход завершён.</strong><span>Как прошло?</span><button type="button" class="lr-btn" data-rate="clean">Чисто</button><button type="button" class="lr-btn" data-rate="errors">С ошибками</button><button type="button" class="lr-btn" data-rate="slow">Не успевал</button><span data-suggest class="lr-sub"></span></div>`;
+  const legend = `<div class="lr-legend" data-part="legend"><span><i style="background:#f3c180"></i>Тоника A (на общей ноте — кольцо)</span><span><i style="background:#e6efdc"></i>Форма A · 5–8</span><span><i style="background:#a4cce2"></i>Форма B · 7–10</span><span><i style="background:#cbb5e7"></i>Общие ноты</span><span><i style="background:transparent;border:2px dashed #c9a640"></i>Следующая нота</span></div>`;
+
+  /** Пальцы и подписи берутся из формы, которую сейчас играют: такт 1 — форма A, такт 2 — форма B. */
+  function boardNotes(labelMode, current) {
+    return L.ex1BoardNotes({ labels: labelMode, phase: current >= ex.split ? 'b' : 'a' });
+  }
+
+  const panelA = `<div data-candidate-panel="a"><section class="p-scene" data-scene="a" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+    ${head(listen + hintSeg + labelSeg)}
+    <div class="lr-tab p-tabcard" data-part="tab"><header><span>TAB · бас E–A–D–G</span><span>такт 1 — вверх по форме A · такт 2 — вниз по форме B</span></header><div data-tab></div></div>
+    <div class="p-memory p-hidden" data-part="memory"><span>По памяти: только стартовая позиция</span><strong>E/5</strong><span>A1 · палец 1 · вверх по форме A</span></div>
+    <div class="lr-board" data-part="board"><div data-board></div></div>
+    <div class="p-row">${legend}${concept()}${after}</div>
+    ${L.transport({ bpm: 76 })}
+  </section></div>`;
+
+  const panelB = `<div data-candidate-panel="b"><section class="p-scene" data-scene="b" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+    ${head(listen + labelSeg)}
+    <div class="b-strip"><div class="b-now" aria-live="polite"><span>Сейчас</span><strong data-now>A1</strong><span data-now-detail>E:5 · ступень 1</span></div><div class="lr-tab p-tabcard"><header><span>Лента TAB · текущий такт</span><span data-bar-label>такт 1 из 2</span></header><div data-tab></div></div></div>
+    <div class="lr-board"><div data-board></div></div>
+    <div class="p-row"><div class="b-note b-shift"><span>Переход</span><b>${L.esc(pos(shift.from.id))} (палец ${fingerA}) → сдвиг на 2 лада → ${L.esc(pos(shift.to.id))} (палец ${fingerB})</b><span>дальше вниз по форме B</span></div>${concept()}${after}</div>
+    ${L.transport({ bpm: 76 })}
+  </section></div>`;
+
+  const panelC = `<div data-candidate-panel="c"><section class="p-scene" data-scene="c" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+    ${head(listen)}
+    <div class="c-grid">
+      <div class="c-tab"><div class="c-bar"><span data-bar-label>Такт 1 из 2 · вверх по форме A</span><span>счёт: 1 и 2 и 3 и 4 и</span></div><div class="lr-tab" data-part="tab"><div data-tab></div></div><div class="p-memory p-hidden" data-part="memory"><span>По памяти</span><strong>E/5</strong><span>старт · палец 1</span></div><div class="lr-tab c-next" data-part="tab-next"><div data-tab-next></div></div>${after}</div>
+      <aside class="c-side"><div class="lr-board" data-part="board"><div data-board></div></div>
+        <div class="lr-card" style="padding:12px 14px"><p class="lr-eyebrow" style="margin-bottom:8px">Шаги подсказок</p><ol class="c-ladder" data-ladder><li><button type="button" data-hint="both" aria-pressed="true">Таб + гриф <small>чисто · 72</small></button></li><li><button type="button" data-hint="tab" aria-pressed="false">Только таб <small>следующая</small></button></li><li><button type="button" data-hint="board" aria-pressed="false">Только гриф</button></li><li><button type="button" data-hint="memory" aria-pressed="false">По памяти</button></li></ol><p class="lr-sub" style="margin-top:8px;font-size:12px">После чистого прохода предлагается следующий шаг подсказок.</p></div>
+        ${concept()}
+      </aside>
+    </div>
+    ${L.transport({ bpm: 76 })}
+  </section></div>`;
+
+  root.innerHTML = L.shell('lesson', panelA + panelB + panelC);
+  L.mount(root, { candidates: ['a', 'b', 'c'] });
+
+  function wireScene(scene, renderScene) {
+    let labelMode = 'name', hint = 'both', current = -1;
+    const render = index => { current = index; renderScene({ current, labelMode, hint }); };
+    const applyHint = () => {
+      scene.querySelectorAll('[data-hint]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.hint === hint)));
+      const part = name => scene.querySelector(`[data-part="${name}"]`);
+      part('tab')?.classList.toggle('p-hidden', hint === 'board' || hint === 'memory');
+      part('tab-next')?.classList.toggle('p-hidden', hint === 'board' || hint === 'memory');
+      part('board')?.classList.toggle('p-hidden', hint === 'tab' || hint === 'memory');
+      part('memory')?.classList.toggle('p-hidden', hint !== 'memory');
+      part('legend')?.classList.toggle('p-hidden', hint === 'tab' || hint === 'memory');
+      render(current);
+    };
+    scene.querySelectorAll('[data-hint]').forEach(b => b.addEventListener('click', () => { hint = b.dataset.hint; applyHint(); }));
+    scene.querySelectorAll('[data-label]').forEach(b => b.addEventListener('click', () => {
+      labelMode = b.dataset.label;
+      scene.querySelectorAll('[data-label]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      render(current);
+    }));
+    scene.querySelector('[data-listen]')?.addEventListener('click', event => { event.currentTarget.textContent = '♪ Эталон: в референсе без звука'; });
+    const afterBox = scene.querySelector('[data-after]');
+    const suggest = afterBox.querySelector('[data-suggest]');
+    afterBox.querySelectorAll('[data-rate]').forEach(b => b.addEventListener('click', () => {
+      const bpm = Number(scene.querySelector('[data-lr-bpm-value]').textContent);
+      suggest.textContent = ({ clean: `Дальше: темп ${bpm + 4} или связка B → C.`, errors: `Оставь ${bpm}; включи петлю на ноты 5–12 — переход между формами.`, slow: `Попробуй ${bpm - 4} BPM, отсчёт оставлен.` })[b.dataset.rate];
+    }));
+    L.bindTransport(scene, { steps, bpm: 76, render, onPass: passes => { afterBox.classList.add('is-open'); scene.classList.add('is-rated'); afterBox.querySelector('[data-after-title]').textContent = `Проход ${passes} завершён.`; } });
+    applyHint();
+  }
+
+  wireScene(root.querySelector('[data-scene="a"]'), ({ current, labelMode }) => {
+    const scene = root.querySelector('[data-scene="a"]');
+    scene.querySelector('[data-tab]').innerHTML = L.tab({ events, current, width: 1000, lineGap: 17, fontSize: 15 });
+    const next = current >= 0 ? events[(current + 1) % steps].positionId : null;
+    scene.querySelector('[data-board]').innerHTML = L.fretboard({ fretMin: 0, fretMax: 12, notes: boardNotes(labelMode, current), current: current >= 0 ? events[current].positionId : null, next, width: 1000, marker: 40 });
+  });
+
+  wireScene(root.querySelector('[data-scene="b"]'), ({ current, labelMode }) => {
+    const scene = root.querySelector('[data-scene="b"]');
+    const index = Math.max(0, current);
+    const bar = Math.floor(index / 8);
+    scene.querySelector('[data-tab]').innerHTML = L.tab({ events, current, width: 900, from: bar * 8, count: 8, lineGap: 13, fontSize: 13 });
+    scene.querySelector('[data-bar-label]').textContent = `такт ${bar + 1} из 2 · ${bar ? 'вниз по форме B' : 'вверх по форме A'}`;
+    const note = ex.notes[index];
+    scene.querySelector('[data-now]').textContent = current >= 0 ? note.name : '—';
+    scene.querySelector('[data-now-detail]').textContent = current >= 0 ? `${pos(note.id)} · ступень ${L.deg(note.degree)}` : 'нажми «Играть»';
+    const next = current >= 0 ? events[(current + 1) % steps].positionId : events[0].positionId;
+    scene.querySelector('[data-board]').innerHTML = L.fretboard({ fretMin: 3, fretMax: 12, notes: boardNotes(labelMode, current), current: current >= 0 ? events[current].positionId : null, next, width: 1000, marker: 46 });
+  });
+
+  wireScene(root.querySelector('[data-scene="c"]'), ({ current }) => {
+    const scene = root.querySelector('[data-scene="c"]');
+    const index = Math.max(0, current);
+    const bar = Math.floor(index / 8);
+    scene.querySelector('[data-tab]').innerHTML = L.tab({ events, current, width: 760, from: bar * 8, count: 8, lineGap: 34, fontSize: 28, dimPlayed: true });
+    scene.querySelector('[data-tab-next]').innerHTML = L.tab({ events, current: -1, width: 760, from: ((bar + 1) % 2) * 8, count: 8, lineGap: 14, fontSize: 13, showCount: false });
+    scene.querySelector('[data-bar-label]').textContent = `Такт ${bar + 1} из 2 · ${bar ? 'вниз по форме B' : 'вверх по форме A'} · ниже — следующий`;
+    const next = current >= 0 ? events[(current + 1) % steps].positionId : events[0].positionId;
+    scene.querySelector('[data-board]').innerHTML = L.fretboard({ fretMin: 4, fretMax: 11, notes: L.ex1BoardNotes({ labels: 'none' }), current: current >= 0 ? events[current].positionId : null, next, width: 300, marker: 22, labels: true });
+  });
+})();
+</script>

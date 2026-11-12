@@ -1,0 +1,28 @@
+{
+  "format": "bass-study-reference-model",
+  "revision": "lesson-r1",
+  "gitHead": "a5f4c4d27252a3bf6cffdf9f2ef089aa236abda5",
+  "inputs": {
+    "src/music/index.ts": "67ba00cb3457507ff5d7bc7b5f40f257b044b001e1c747c852ba7ab5a3bc366d",
+    "src/music/boxes.ts": "91ff78638f5222fa7b8002c95d1e6741a79e6b9a306fa78a43421a00366b7e55",
+    "src/training/index.ts": "d8bda2e1644302cabc2b1e76d5b7f9266c46576ab8d991f1a327183862c511a1",
+    "src/training/quiz-rules-v1.ts": "3cb3be7a7d73baab3a57b124a6869512023bca0cb2c6f9bb896fcdc51ae4ed8d",
+    "src/notation/index.ts": "9002fbb35666c2dabf839f39679fc2b3417368f7e832b5c4e7c47cb4c7a240b7"
+  },
+  "entrySha256": "a82a3d3c6cb1ac5b0a379ae5cbd3d4e69113e6adb6761d58c33988da82911cd6",
+  "bundleSha256": "8e0078307abbac24e7d6787e850aa71ebb46d08fcf8cbd3a421d01b58d54c504",
+  "global": "BassLessonModel",
+  "target": "es2022",
+  "controlExamples": {
+    "ex1": "E:5 E:8 A:5 A:7 D:5 D:7 G:5 G:7 G:9 G:7 D:10 D:7 A:10 A:7 E:10 E:8",
+    "ex1Names": "A1 C2 D2 E2 G2 A2 C3 D3 E3 D3 C3 A2 G2 E2 D2 C2",
+    "ex1Shared": "A:7 D:7 E:8 G:7",
+    "ex1FormA": "E:5 E:8 A:5 A:7 D:5 D:7 G:5 G:7",
+    "ex1FormB": "E:8 E:10 A:7 A:10 D:7 D:10 G:7 G:9",
+    "ex2": "E:8 A:7 A:10 D:10 A:10 A:7",
+    "ex2Names": "C2 E2 G2 C3 G2 E2",
+    "ex3": "E:5 E:6 E:7 E:8 A:5 A:6 A:7 A:8 D:5 D:6 D:7 D:8 G:5 G:6 G:7 G:8",
+    "ex3Fingers": "1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4"
+  },
+  "scope": "Pure src/music, src/training and src/notation modules plus two reference-only helpers; no app, audio, storage or dist writes."
+}
