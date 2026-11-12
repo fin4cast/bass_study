@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>P13-09: эталон и «Послушать» — PCM</title>
+<link rel="icon" href="data:,">
+<body>
+<h1>Изолированная проверка звука P13-09</h1>
+<script type="module">
+  // Тестовый API только этой фикстуры: рендер PCM и журнал живого проигрывателя. Правильных ответов нет.
+  import { createPlayer, renderSequenceOffline, finiteDurationSeconds, createPlaybackPlan } from '/src/audio/engine.ts';
+  import { renderCueOffline } from '/src/audio/cue.ts';
+  import { buildExercise, createExerciseSpec } from '/src/exercises/index.ts';
+  import { getConcept, REFERENCE_CONCEPTS } from '/src/practice/concepts.ts';
+  import { listenConfig } from '/src/ui/play/model.ts';
+  import { conceptListenPlan } from '/src/ui/reference/listen.ts';
+
+  /** Начала звука: окна 5 мс, RMS выше порога после тишины (как analysePcm продукта). */
+  function onsets(samples, sampleRate, threshold = .002) {
+    const size = Math.round(sampleRate * .005); const result = []; let active = false; let peak = 0;
+    for (let start = 0; start < samples.length; start += size) {
+      const end = Math.min(start + size, samples.length); let squares = 0;
+      for (let index = start; index < end; index++) { squares += samples[index] ** 2; peak = Math.max(peak, Math.abs(samples[index])); }
+      const next = Math.sqrt(squares / (end - start)) > threshold;
+      if (next && !active) result.push(start / sampleRate);
+      active = next;
+    }
+    return { onsets: result, peak };
+  }
+  function rms(samples, sampleRate, from, to) {
+    const start = Math.max(0, Math.ceil(from * sampleRate)), end = Math.min(samples.length, Math.floor(to * sampleRate)); let squares = 0;
+    for (let index = start; index < end; index++) squares += samples[index] ** 2;
+    return Math.sqrt(squares / Math.max(1, end - start));
+  }
+  /** Основная частота окна по нормированной автокорреляции: наименьший лаг с корреляцией ≥ 0,9 максимума. */
+  function pitch(samples, sampleRate, from, to) {
+    const start = Math.round(from * sampleRate), end = Math.round(to * sampleRate);
+    const minLag = Math.floor(sampleRate / 400), maxLag = Math.ceil(sampleRate / 30);
+    const length = end - start - maxLag;
+    if (length < sampleRate * .05) throw new Error('Окно для высоты слишком короткое');
+    const corr = new Float64Array(maxLag + 2);
+    let energy = 0; for (let index = 0; index < length; index++) energy += samples[start + index] ** 2;
+    for (let lag = minLag; lag <= maxLag + 1; lag++) {
+      let sum = 0, shifted = 0;
+      for (let index = 0; index < length; index++) { sum += samples[start + index] * samples[start + index + lag]; shifted += samples[start + index + lag] ** 2; }
+      corr[lag] = sum / Math.sqrt(energy * shifted || 1);
+    }
+    let best = 0; for (let lag = minLag; lag <= maxLag; lag++) best = Math.max(best, corr[lag]);
+    for (let lag = minLag + 1; lag <= maxLag; lag++) {
+      if (corr[lag] >= .9 * best && corr[lag] >= corr[lag - 1] && corr[lag] >= corr[lag + 1]) {
+        const a = corr[lag - 1], b = corr[lag], c = corr[lag + 1]; const shift = (a - c) / (2 * (a - 2 * b + c) || 1);
+        return sampleRate / (lag + shift);
+      }
+    }
+    return null;
+  }
+  const hz = midi => 440 * 2 ** ((midi - 69) / 12);
+
+  /** «Сначала услышь»: продуктовый проигрыватель в OfflineAudioContext, канал 0 — бас, канал 1 — клик. */
+  async function renderReference({ template = 'connect-forms', bpm = 76, range = null } = {}) {
+    const plan = buildExercise(createExerciseSpec(template));
+    const config = listenConfig(plan, { bpm, range });
+    const expected = finiteDurationSeconds(createPlaybackPlan(config));
+    const { buffer, finishAt, trace } = await renderSequenceOffline(config, { durationSeconds: expected + .3 });
+    const bass = buffer.getChannelData(0), click = buffer.getChannelData(1), rate = buffer.sampleRate;
+    const notes = trace.filter(event => event.type === 'note' && !event.cancelled);
+    const slot = 60 / bpm / 2;
+    return {
+      channels: buffer.numberOfChannels, sampleRate: rate, finishAt, expectedDuration: expected,
+      positions: plan.positions.map(position => position.id),
+      traceNotes: notes.map(event => ({ time: event.time, positionId: event.positionId, noteIndex: event.noteIndex })),
+      clicksInTrace: trace.filter(event => event.type === 'click' && event.audible).length,
+      countInInTrace: trace.filter(event => event.type === 'count-in').length,
+      bass: onsets(bass, rate), click: onsets(click, rate),
+      pitches: notes.map(event => ({ positionId: event.positionId, expectedHz: hz(plan.positions[event.noteIndex].midi), measuredHz: pitch(bass, rate, event.time + .04, event.time + slot - .04) })),
+      tailRms: rms(bass, rate, finishAt + .12, finishAt + .3),
+    };
+  }
+
+  /** «Послушать»: продуктовый сигнал карточки в OfflineAudioContext. */
+  async function renderConcept(id) {
+    const plan = conceptListenPlan(getConcept(id));
+    const buffer = await renderCueOffline(plan.cue); const samples = buffer.getChannelData(0), rate = buffer.sampleRate;
+    const beat = 60 / plan.cue.bpm;
+    return {
+      id, bpm: plan.cue.bpm, channels: buffer.numberOfChannels, duration: buffer.duration,
+      expectedOnsets: plan.notes.map(note => note.beat * beat),
+      ...onsets(samples, rate),
+      pitches: plan.notes.map(note => ({ label: note.label, expectedHz: hz(note.midi), measuredHz: pitch(samples, rate, note.beat * beat + .03, (note.beat + note.durationBeats) * beat - .05) })),
+      gapRms: plan.notes.slice(0, -1).map(note => rms(samples, rate, (note.beat + note.durationBeats) * beat + .005, (note.beat + note.durationBeats) * beat + .02)),
+      tailRms: rms(samples, rate, plan.cue.totalBeats * beat + .01, plan.cue.totalBeats * beat + .1),
+    };
+  }
+
+  const player = createPlayer();
+  /** Живой эталон: старт без отсчёта; ждём `sounded` прозвучавших нот по аудиочасам, затем стоп. */
+  async function liveStopAfter(sounded = 2, template = 'connect-forms', bpm = 76) {
+    const plan = buildExercise(createExerciseSpec(template));
+    await player.start(listenConfig(plan, { bpm, range: null }));
+    const heard = snapshot => snapshot.trace.filter(event => event.type === 'note' && !event.cancelled && event.time <= snapshot.audioTime);
+    const started = performance.now();
+    // Стоп в момент, когда следующая нота уже поставлена на аудиочасы (LOOKAHEAD), но ещё не наступила.
+    const future = snapshot => snapshot.trace.filter(event => event.type === 'note' && !event.cancelled && event.time > snapshot.audioTime);
+    while (heard(player.getSnapshot()).length < sounded || !future(player.getSnapshot()).length) {
+      if (performance.now() - started > 5000) throw new Error('Живой эталон не зазвучал');
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    const before = player.getSnapshot();
+    player.stop();
+    const after = player.getSnapshot();
+    const notes = after.trace.filter(event => event.type === 'note' && event.runId === before.runId);
+    return {
+      total: plan.positions.length, stopAt: before.audioTime, stateAfter: after.state,
+      scheduledBeforeStop: before.trace.filter(event => event.type === 'note' && event.runId === before.runId).length,
+      soundedBeforeStop: heard(before).length,
+      cancelled: notes.filter(event => event.cancelled).length,
+      notCancelledAfterStop: notes.filter(event => !event.cancelled && event.time > before.audioTime + .000001).length,
+      clicks: after.trace.filter(event => event.type === 'click' && event.runId === before.runId && event.audible).length,
+    };
+  }
+
+  window.p13sound = { ready: true, renderReference, renderConcept, liveStopAfter, listenConcepts: REFERENCE_CONCEPTS.filter(concept => concept.full?.play.listen).map(concept => concept.id) };
+  window.addEventListener('pagehide', () => player.dispose(), { once: true });
+</script>
+</body>
+</html>

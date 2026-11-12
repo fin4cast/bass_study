@@ -6,6 +6,7 @@ import './reference.css';
 import { escapeHtml } from '../html';
 import { REFERENCE_CONCEPTS, findConcepts, getConcept } from '../../practice/concepts';
 import { createCardController, type CardHandlers } from './card';
+import { referenceListener } from './listen';
 import { SEARCH_ICON, levelGroups } from './model';
 
 export interface ReferenceCommonOptions {
@@ -13,6 +14,13 @@ export interface ReferenceCommonOptions {
   readonly mastered?: Iterable<string>;
   readonly onMastered?: (id: string, value: boolean) => void;
   readonly onListen?: CardHandlers['onListen'];
+  /**
+   * «Послушать» звучит внутри справочника (`createConceptListener`): владелец звука разрешает старт.
+   * Без обработчика и без `onListen` кнопка неактивна.
+   */
+  readonly onBeforeListen?: () => boolean;
+  /** Звук справочника закончился или остановлен. */
+  readonly onListenEnd?: () => void;
   readonly onPlayTemplate?: CardHandlers['onPlayTemplate'];
   readonly onOpenSection?: CardHandlers['onOpenSection'];
 }
@@ -28,6 +36,8 @@ export interface ReferenceView {
   close(): void;
   setVisible(visible: boolean): void;
   update(state: { readonly mastered?: Iterable<string> }): void;
+  /** Остановить «Послушать» (другой владелец звука, уход со страницы). */
+  stopListening(): void;
   dispose(): void;
 }
 
@@ -57,6 +67,7 @@ export function mountReference(container: HTMLElement, options: ReferenceOptions
   const input = $<HTMLInputElement>('[data-q]');
   const list = $('[data-list]');
   const cardHost = $('[data-card-host]');
+  const listener = referenceListener(options, () => card);
   const card = createCardController(cardHost, `${uid}-card`, {
     isMastered: id => mastered.has(id),
     onMastered(id, value) {
@@ -64,7 +75,7 @@ export function mountReference(container: HTMLElement, options: ReferenceOptions
       renderList();
       options.onMastered?.(id, value);
     },
-    onListen: options.onListen,
+    onListen: options.onListen ?? (listener ? concept => { void listener.play(concept); } : undefined),
     onPlayTemplate: options.onPlayTemplate,
     onOpenSection: options.onOpenSection,
   });
@@ -81,6 +92,7 @@ export function mountReference(container: HTMLElement, options: ReferenceOptions
   function select(id: string, focus = false) {
     if (!getConcept(id)) return;
     current = id;
+    listener?.stop();
     card.render(id);
     cardHost.scrollTop = 0;
     renderList();
@@ -127,8 +139,13 @@ export function mountReference(container: HTMLElement, options: ReferenceOptions
       container.hidden = false;
       select(conceptId && getConcept(conceptId) ? conceptId : current, true);
     },
-    close() { if (!disposed) container.hidden = true; },
-    setVisible(visible: boolean) { if (!disposed) container.hidden = !visible; },
+    close() { if (!disposed) { listener?.stop(); container.hidden = true; } },
+    setVisible(visible: boolean) {
+      if (disposed) return;
+      if (!visible) listener?.stop();
+      container.hidden = !visible;
+    },
+    stopListening() { listener?.stop('Остановлено.'); },
     update(state) {
       if (disposed || !state.mastered) return;
       mastered.clear();
@@ -139,6 +156,7 @@ export function mountReference(container: HTMLElement, options: ReferenceOptions
     dispose() {
       if (disposed) return;
       disposed = true;
+      listener?.dispose();
       card.dispose();
       input.removeEventListener('input', onInput);
       input.removeEventListener('keydown', onInputKey);

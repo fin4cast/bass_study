@@ -60,7 +60,7 @@ export function conceptCardHtml(concept: ReferenceConcept, options: { readonly s
     : '';
   const legend = board ? `<div class="rf-legend">${board.legend.map(item => `<span><i class="${ROLE_SWATCH[item.role]}" aria-hidden="true"></i>${escapeHtml(item.label)}</span>`).join('')}${board.showFingers ? '<span><span class="rf-finger" aria-hidden="true">1</span> палец</span>' : ''}</div>` : '';
   const listen = play?.listen
-    ? `<div class="rf-listen"><button type="button" class="secondary-button button-compact" data-listen${options.handlers.onListen ? '' : ' disabled'}>♪ Послушать</button><small>прозвучит: ${escapeHtml(play.listen)}${options.handlers.onListen ? '' : ' · звук подключится позже'}</small></div>`
+    ? `<div class="rf-listen"><button type="button" class="secondary-button button-compact" aria-pressed="false" data-listen${options.handlers.onListen ? '' : ' disabled'}>♪ Послушать</button><small>прозвучит: ${escapeHtml(play.listen)}${options.handlers.onListen ? '' : ' · звук подключится позже'}</small><small class="rf-listen-status" data-listen-status aria-live="polite"></small></div>`
     : '';
   const extras = card.extras;
   const related = relatedExercises(card.related);
@@ -151,9 +151,21 @@ export function createCardController(host: HTMLElement, scope: string, handlers:
     if (target.dataset.section) handlers.onOpenSection?.(target.dataset.section as 'rhythm' | 'songs');
   }
   host.addEventListener('click', onClick);
+  /** Состояние «Послушать» на текущей карточке: кнопка нажата, пока звук идёт; рядом — пояснение. */
+  function setListening(playing: boolean, message: string) {
+    const button = host.querySelector<HTMLElement>('[data-listen]');
+    if (!button) return;
+    button.setAttribute('aria-pressed', String(playing));
+    const label = playing ? '■ Остановить' : '♪ Послушать';
+    if (button.textContent !== label) button.textContent = label;
+    const status = host.querySelector<HTMLElement>('[data-listen-status]');
+    const text = playing ? 'звучит…' : message;
+    if (status && status.textContent !== text) status.textContent = text;
+  }
   return {
     render,
     syncMastered,
+    setListening,
     get current() { return current; },
     focusTitle() { host.querySelector<HTMLElement>('.rf-card-head h2')?.focus(); },
     dispose() { host.removeEventListener('click', onClick); host.innerHTML = ''; current = null; },

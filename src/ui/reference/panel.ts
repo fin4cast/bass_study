@@ -8,6 +8,7 @@ import { escapeHtml } from '../html';
 import { findConcepts, getConcept } from '../../practice/concepts';
 import { createCardController } from './card';
 import { SEARCH_ICON, levelInfo } from './model';
+import { referenceListener } from './listen';
 import type { ReferenceCommonOptions } from './view';
 
 export interface ReferencePanelOptions extends ReferenceCommonOptions {
@@ -22,6 +23,8 @@ export interface ReferencePanel {
   open(conceptId: string, returnFocusTo?: HTMLElement | null, from?: string): void;
   close(): void;
   update(state: { readonly mastered?: Iterable<string> }): void;
+  /** Остановить «Послушать» (другой владелец звука). */
+  stopListening(): void;
   readonly isOpen: boolean;
   dispose(): void;
 }
@@ -58,15 +61,17 @@ export function mountReferencePanel(host: HTMLElement, options: ReferencePanelOp
   let open = false;
   let disposed = false;
 
+  const listener = referenceListener(options, () => card);
   const card = createCardController(body, `${uid}-card`, {
     isMastered: id => mastered.has(id),
     onMastered(id, value) { if (value) mastered.add(id); else mastered.delete(id); options.onMastered?.(id, value); },
-    onListen: options.onListen,
+    onListen: options.onListen ?? (listener ? concept => { void listener.play(concept); } : undefined),
     onPlayTemplate: options.onPlayTemplate,
     onOpenSection: options.onOpenSection,
   });
 
   function render(focus = true) {
+    listener?.stop();
     card.render(stack.at(-1)!);
     body.scrollTop = 0;
     $('[data-back]').hidden = stack.length < 2;
@@ -147,6 +152,7 @@ export function mountReferencePanel(host: HTMLElement, options: ReferencePanelOp
 
   function close() {
     if (!open) return;
+    listener?.stop();
     open = false;
     root.hidden = true;
     setOutsideInert(false);
@@ -188,11 +194,13 @@ export function mountReferencePanel(host: HTMLElement, options: ReferencePanelOp
       for (const id of state.mastered) mastered.add(id);
       card.syncMastered();
     },
+    stopListening() { listener?.stop('Остановлено.'); },
     get isOpen() { return open; },
     dispose() {
       if (disposed) return;
       close();
       disposed = true;
+      listener?.dispose();
       card.dispose();
       root.removeEventListener('click', onClick);
       input.removeEventListener('input', search);

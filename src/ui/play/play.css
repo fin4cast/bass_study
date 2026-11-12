@@ -27,6 +27,7 @@
 .pl-head { display: flex; flex: none; justify-content: space-between; align-items: flex-start; gap: 8px 16px; flex-wrap: wrap; }
 .pl-head-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 520px; }
 .pl-head-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pl-listen[aria-pressed="true"] { color: var(--accent-text); font-weight: 650; }
 .pl-back { align-self: flex-start; border: 0; padding: 0; background: none; color: var(--text-secondary); font-size: 12px; cursor: pointer; }
 .pl-back:hover { color: var(--accent-text); text-decoration: underline; }
 .pl-title-row { display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; min-width: 0; }

@@ -293,11 +293,14 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     mastered: [],
     footnote: 'Игра на паузе под панелью',
     onMastered: setMastered,
+    onBeforeListen: () => audio.claim('reference'),
+    onListenEnd: () => audio.forget('reference'),
     onPlayTemplate(templateId) { referencePanel.close(); switchModule('lesson'); sections.lesson?.openTemplate(templateId); },
     onOpenSection(section) { referencePanel.close(); switchModule(section === 'rhythm' ? 'harmony' : 'tracks'); },
     onOpenFull(id) { switchModule('lesson'); sections.lesson?.openConcept(id); },
     onClose() { const closed = panelClosed; panelClosed = null; closed?.(); },
   });
+  sections.referencePanel = referencePanel;
 
   /* ---------- Разделы ---------- */
   if (available.includes('lesson')) sections.lesson = createLessonSection(byId('lesson-mount'), {

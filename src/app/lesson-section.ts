@@ -34,8 +34,8 @@ export interface LessonSectionOptions {
   readonly saveHistory: (entry: HistoryEntry) => void;
   /** Своё упражнение; бросает ошибку, если вкладка не может записать. */
   readonly saveExercise: (spec: ExerciseSpec, name: string) => void;
-  readonly claimAudio: (owner: 'play' | 'check') => boolean;
-  readonly forgetAudio: (owner: 'play' | 'check') => void;
+  readonly claimAudio: (owner: 'play' | 'check' | 'reference') => boolean;
+  readonly forgetAudio: (owner: 'play' | 'check' | 'reference') => void;
   /** Панель справочника поверх экрана; `onClose` — после закрытия и возврата фокуса. */
   readonly openReferencePanel: (conceptId: string, returnFocus: HTMLElement | null, from: string, onClose: () => void) => void;
   readonly onMastered: (id: string, value: boolean) => void;
@@ -124,6 +124,8 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     onMastered: options.onMastered,
     onPlayTemplate: templateId => openTemplate(templateId),
     onOpenSection: options.onOpenSection,
+    onBeforeListen: () => options.claimAudio('reference'),
+    onListenEnd: () => options.forgetAudio('reference'),
     backLabel: '← Занятие',
     onBack: () => showHome(),
   });
@@ -274,6 +276,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
       if (disposed || next === visible) return;
       visible = next;
       container.hidden = !next;
+      if (!next) reference.stopListening();
       play?.handle.setVisible(next && screen === 'play');
       checkView.setVisible(next && screen === 'check');
       if (next && screen === 'home' && homeStale) renderHome();
@@ -281,6 +284,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     pausePlay() { play?.handle.pause(); },
     stopPlay() { play?.handle.stop(); },
     stopCheck() { checkView.stop(); },
+    stopReference() { reference.stopListening(); },
     /** Открыть упражнение по ключу (из «Прогресса»); `bpm` — темп строки прогресса. */
     openExercise(key: string, bpm: number | null) {
       const prefs = options.preferences();

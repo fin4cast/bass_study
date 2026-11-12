@@ -12,7 +12,8 @@ import { onPageVisibility } from '../page-visibility';
 import { escapeHtml } from '../html';
 import { boardGeometry, boardNotesFromPlan, formatDegree, formatPosition, pitchLetter, planFretWindow, renderBoard, type BoardLabelMode } from './board';
 import {
-  BPM_MAX, BPM_MIN, BPM_STEP, CONCEPT_LABELS, PLAY_VIEWS, clampBpm, isPlayView, junctionText, junctions, ladderEnd, playbackConfig, plural,
+  BPM_MAX, BPM_MIN, BPM_STEP, CONCEPT_LABELS, PLAY_VIEWS, clampBpm, isPlayView, junctionText, junctions, ladderEnd, listenConfig, listenProgressText,
+  playbackConfig, plural,
   progressText, shiftText, suggestion, upcomingJunction, type Assessment, type Junction, type PlaySettings, type PlayView, type SuggestionAction,
 } from './model';
 import { createEnginePort, type PlayState, type PlaybackPort } from './port';
@@ -44,7 +45,10 @@ export interface MountPlayOptions {
   /** Владелец звука разрешает старт или продолжение; `false` — звук не начинается. */
   readonly onBeforeStart?: () => boolean;
   readonly onViewChange?: (view: PlayView) => void;
-  /** «Сначала услышь»: эталон до игры. Без обработчика кнопка скрыта. */
+  /**
+   * «Сначала услышь»: экран сам проигрывает эталон тем же портом (один проход без отсчёта и клика,
+   * без самооценки); старт разрешает `onBeforeStart`. Обработчик лишь сообщает хосту о начале эталона.
+   */
   readonly onListen?: () => void;
   /** Понятие упражнения (`ConceptId`): чип в шапке или «Открыть в справочнике». */
   readonly onConcept?: (id: ConceptId) => void;
@@ -80,7 +84,7 @@ const TEMPLATE = `
       <div class="pl-title-row"><h1 class="pl-title" data-title></h1><span class="pl-sub" data-sub></span><span class="pl-chips" data-chips></span></div>
     </div>
     <div class="pl-head-tools">
-      <button type="button" class="text-button pl-listen" data-listen title="Слух как опция: эталон звучит до игры">♪ Сначала услышь</button>
+      <button type="button" class="text-button pl-listen" data-listen aria-pressed="false" title="Эталон звучит до игры: один проход без отсчёта; пробел или Esc — остановить">♪ Сначала услышь</button>
       <div class="pl-seg" role="group" aria-label="Подписи на грифе" data-labels>${LABEL_MODES.map(mode => `<button type="button" data-label="${escapeHtml(mode.id)}" aria-pressed="false">${escapeHtml(mode.label)}</button>`).join('')}</div>
     </div>
   </header>
@@ -186,6 +190,9 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   let raf = 0;
   let busy = false;
   let errorText = '';
+  // «Сначала услышь»: эталон звучит тем же портом, но это не запуск игры — проходы и самооценка не считаются.
+  let listening = false;
+  let listenNote = '';
   // Проходы текущего запуска.
   let lastPass = 0;
   let completedPass = -1;
@@ -198,6 +205,8 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   let srKey = '';
 
   const runActive = () => runSettings !== null;
+  /** Игра запущена и не закончена: эталон в это время не включается, чтобы не потерять проход. */
+  const gameActive = () => runActive() && (state.status === 'counting' || state.status === 'playing' || state.status === 'paused');
   const total = () => plan?.notes.length ?? 0;
   const range = () => settings.range ?? { from: 0, toExclusive: total() };
   const activeRange = () => (runSettings ?? settings).range ?? { from: 0, toExclusive: total() };
@@ -207,7 +216,6 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     const back = at<HTMLButtonElement>('[data-back]');
     back.textContent = options.backLabel ?? '← Занятие';
     back.hidden = !options.onBack;
-    at('[data-listen]').hidden = !options.onListen;
     at('[data-title]').textContent = plan?.title ?? 'Упражнение не выбрано';
     const bars = events.length ? events[events.length - 1].bar + 1 : 0;
     at('[data-sub]').textContent = plan ? `${total()} ${plural(total(), 'восьмая', 'восьмых', 'восьмых')} · ${bars} ${plural(bars, 'такт', 'такта', 'тактов')}` : '';
@@ -402,10 +410,14 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
 
   /* ---------- Транспорт ---------- */
   function renderTransport() {
-    scene.dataset.status = state.status;
-    const playLabel = state.status === 'playing' || state.status === 'counting' ? '❚❚ Пауза' : state.status === 'paused' ? '▶ Продолжить' : '▶ Играть';
+    scene.dataset.status = listening ? 'listening' : state.status;
+    const playLabel = listening ? '■ Стоп эталона' : state.status === 'playing' || state.status === 'counting' ? '❚❚ Пауза' : state.status === 'paused' ? '▶ Продолжить' : '▶ Играть';
     setText(at('[data-play-label]'), playLabel);
     at<HTMLButtonElement>('[data-play]').disabled = !plan;
+    const listenButton = at<HTMLButtonElement>('[data-listen]');
+    listenButton.setAttribute('aria-pressed', String(listening));
+    listenButton.disabled = !plan || (!listening && gameActive());
+    setText(listenButton, listening ? '■ Стоп эталона' : '♪ Сначала услышь');
     const countIn = at('[data-countin]');
     countIn.hidden = state.status !== 'counting' || state.countBeat === null;
     setText(at('[data-countin-value]'), state.countBeat === null ? '' : String(state.countBeat));
@@ -428,15 +440,18 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     const n = total();
     const meter = index === null ? (state.status === 'finished' ? n : 0) : index + 1;
     at('[data-meter]').style.width = `${n ? (meter / n) * 100 : 0}%`;
-    setText(at('[data-progress-text]'), progressText(state, state.status === 'finished' ? null : index, n, { fromStart, range: activeRange().from === 0 && activeRange().toExclusive === n ? null : activeRange() }));
+    const shownRange = activeRange().from === 0 && activeRange().toExclusive === n ? null : activeRange();
+    const progress = listening ? listenProgressText(index, n, shownRange) : progressText(state, state.status === 'finished' ? null : index, n, { fromStart, range: shownRange });
+    setText(at('[data-progress-text]'), listenNote && !listening && state.status === 'stopped' ? `${listenNote} · ${progress}` : progress);
     at('[data-pending]').hidden = !runActive() || !differsForNextStart(runSettings!, settings) || state.status === 'stopped' || state.status === 'finished';
     const error = at('[data-error]');
     error.hidden = !errorText;
     setText(error, errorText);
     // Живая область текущей ноты: объявляется смена ноты или состояния.
     const note = index === null || !plan ? null : plan.notes[index];
-    const announce = state.status === 'counting' ? '' : note ? `Нота ${index! + 1} из ${n}: ${note.name}, ${formatPosition(note.id)}${state.status === 'paused' ? ', пауза' : ''}` : state.status === 'finished' ? 'Проход завершён' : '';
-    const key = `${state.status}|${index}`;
+    const announce = listening ? 'Звучит эталон' : listenNote && state.status === 'stopped' ? listenNote
+      : state.status === 'counting' ? '' : note ? `Нота ${index! + 1} из ${n}: ${note.name}, ${formatPosition(note.id)}${state.status === 'paused' ? ', пауза' : ''}` : state.status === 'finished' ? 'Проход завершён' : '';
+    const key = listening ? 'listening' : `${state.status}|${index}|${listenNote}`;
     if (key !== srKey) { srKey = key; setText(at('[data-sr]'), announce); }
   }
   function setText(element: Element, text: string) { if (element.textContent !== text) element.textContent = text; }
@@ -543,8 +558,9 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   }
   async function begin(restart = false) {
     if (!plan || disposed) return;
-    errorText = '';
+    errorText = ''; listenNote = '';
     if (!allowed()) return;
+    if (listening) { listening = false; restart = true; }
     const config = playbackConfig(plan, settings);
     runSettings = { ...settings };
     lastPass = 0; completedPass = -1; activeMs = 0; passBpm = settings.bpm; previous = null; fromStart = false; shownIndex = null;
@@ -560,6 +576,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   }
   function toggle() {
     if (!plan || disposed) return;
+    if (listening) { stopListen('Эталон остановлен'); return; }
     const status = port.state().status;
     if (status === 'counting' || status === 'playing') port.pause('manual');
     else if (status === 'paused') {
@@ -572,12 +589,47 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   }
   function toStart() {
     if (disposed) return;
+    if (listening) { stopListen('Эталон остановлен'); return; }
+    listenNote = '';
     try { port.stop(); } catch (failure) { errorText = message(failure); }
     runSettings = null;
     fromStart = true;
     shownIndex = null;
     update();
   }
+  /* ---------- «Сначала услышь» ---------- */
+  async function listen() {
+    if (!plan || disposed) return;
+    if (listening) { stopListen('Эталон остановлен'); return; }
+    if (gameActive()) return;
+    errorText = ''; listenNote = '';
+    if (!allowed()) return;
+    listening = true;
+    runSettings = null; fromStart = false; shownIndex = null;
+    busy = true;
+    const run = port.restart(listenConfig(plan, settings));
+    options.onListen?.();
+    update();
+    try { await run; }
+    catch (failure) {
+      errorText = `Эталон не прозвучал: ${message(failure)}`;
+      listening = false;
+      try { port.stop(); } catch { /* исходная ошибка остаётся видимой */ }
+    } finally { busy = false; update(); }
+  }
+  /** Эталон закончился или остановлен: порт возвращается к первой ноте, проход не засчитывается. */
+  function endListen(note: string) {
+    listening = false;
+    listenNote = note;
+    try { port.stop(); } catch (failure) { errorText = message(failure); }
+    shownIndex = null;
+    observe(port.state());
+  }
+  function stopListen(note: string) {
+    endListen(note);
+    update();
+  }
+
   function setFlag(flag: 'countIn' | 'loop' | 'ladder') {
     const on = !settings[flag];
     if (flag === 'loop') settings = { ...settings, loop: on, ladder: on ? false : settings.ladder };
@@ -590,12 +642,15 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   function update() {
     if (disposed) return;
     observe(port.state());
+    // Конец эталона — по состоянию проигрывателя на аудиочасах (finishAt), а не по последней запланированной ноте.
+    if (listening && !busy && state.status !== 'playing') endListen(state.status === 'finished' ? 'Эталон прозвучал — теперь сыграй сам' : 'Эталон остановлен');
     renderScene();
     renderTransport();
     if (!raf && visible && (busy || ACTIVE.has(state.status))) raf = requestAnimationFrame(frame);
   }
   function frame() { raf = 0; update(); }
   function pauseHidden() {
+    if (listening) { endListen('Эталон остановлен: вкладка скрывалась'); return; }
     const status = port.state().status;
     if (status === 'counting' || status === 'playing') port.pause('hidden');
   }
@@ -616,7 +671,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     else if (data.rate) rate(data.rate as Assessment);
     else if (data.rateClose !== undefined) closeRate();
     else if (data.back !== undefined) options.onBack?.();
-    else if (data.listen !== undefined) options.onListen?.();
+    else if (data.listen !== undefined) void listen();
     else if (data.concept) options.onConcept?.(data.concept as ConceptId);
     else if (data.conceptOpen !== undefined && concept) options.onConcept?.(concept.id);
   }, { signal });
@@ -655,6 +710,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       if (disposed) return;
       try { port.stop(); } catch { /* порт уже остановлен */ }
       plan = nextPlan;
+      listening = false; listenNote = '';
       events = createNotationPlan({ positions: nextPlan.positions, duration: 'eighth' }).events;
       junctionList = junctions(nextPlan);
       settings = { ...settings, range: null };
@@ -673,6 +729,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     },
     pause() {
       if (disposed) return;
+      if (listening) { stopListen('Эталон остановлен'); return; }
       const status = port.state().status;
       if (status === 'counting' || status === 'playing') port.pause('manual');
       update();
@@ -680,6 +737,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     stop() {
       if (disposed) return;
       try { port.stop(); } catch { /* порт уже остановлен */ }
+      listening = false;
       runSettings = null; fromStart = false; shownIndex = null;
       update();
     },
