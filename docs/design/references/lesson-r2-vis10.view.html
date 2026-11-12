@@ -187,6 +187,8 @@
 </style>
 <div id="studio-lesson" data-candidate="a" aria-label="VIS-10 r2 — Занятие"></div>
 <script>
+/* Макет: «Играть» ведёт на автономный экран игры VIS-11 рядом с этим файлом. */
+function openPlay(title) { const theme = document.getElementById('studio-lesson').dataset.theme || 'light'; location.href = `lesson-r2-vis11.html?theme=${theme}&ex=${encodeURIComponent(title)}`; }
 (() => {
   const L = window.LessonRef;
   const esc = L.esc;
@@ -636,10 +638,10 @@
     const st = t.closest('[data-state]'); if (st) { S.state = st.dataset.state; S.editing = false; renderAll(); return; }
     if (t.closest('[data-start]')) {
       const first = plan().find(s => s.status === 'current') || plan().find(pending);
-      if (first) toast(`Откроется экран игры с первым шагом плана: ${first.title}`);
+      if (first) openPlay(first.title);
       return;
     }
-    const tt = t.closest('[data-toast]'); if (tt) { toast(tt.dataset.toast); return; }
+    const tt = t.closest('[data-toast]'); if (tt) { const m = /^Откроется экран игры(?: с первым шагом плана)?: (.+)$/.exec(tt.dataset.toast); if (m) openPlay(m[1]); else toast(tt.dataset.toast); return; }
     const o = t.closest('[data-opt]'); if (o) { o.setAttribute('aria-pressed', String(o.getAttribute('aria-pressed') !== 'true')); return; }
     // Сегодня
     if (t.closest('[data-a-edit]')) { S.editing = !S.editing; renderAPlan(); refocus('data-a-edit', ''); return; }

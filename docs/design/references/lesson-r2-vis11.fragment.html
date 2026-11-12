@@ -439,6 +439,10 @@ var BassLessonModel=(function(e){Object.defineProperty(e,Symbol.toStringTag,{val
     scene.querySelectorAll('[data-label]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     render(current);
   }));
+  /* Макет: «← Занятие» возвращает в VIS-10; экран игры показывает только EX-1. */
+  at('.p-back').addEventListener('click', () => { location.href = `lesson-r2-vis10.html?theme=${root.dataset.theme || 'light'}`; });
+  const askedEx = params.get('ex');
+  if (askedEx && !/Связка соседних форм/.test(askedEx)) { const note = document.createElement('p'); note.className = 'lr-sub'; note.textContent = `Макет: вместо «${askedEx.replace(/ · .*$/, '')}» показана связка соседних форм — в референсе рассчитано одно упражнение.`; at('.p-head-copy').append(note); }
   at('[data-listen]').addEventListener('click', event => { event.currentTarget.textContent = '♪ Эталон: в референсе без звука'; });
 
   const nextView = () => VIEWS[Math.min(VIEWS.length - 1, VIEWS.findIndex(([id]) => id === view) + 1)];
