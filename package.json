@@ -32,6 +32,7 @@
     "test:design": "node tests/design-browser.mjs",
     "test:music-bank": "node tests/music-bank-browser.mjs",
     "test:rhythm": "node tests/rhythm-browser.mjs",
+    "test:p13": "node tests/p13-browser.mjs",
     "test:music-bank-storage": "node tests/music-bank-storage-browser.mjs",
     "test:regression": "node scripts/test-regression.mjs",
     "test:full": "node scripts/test-regression.mjs --full"
