@@ -61,7 +61,10 @@
   #studio-lesson .lr-icon-btn{width:30px;height:30px;border:1px solid var(--s-line-strong);border-radius:7px;background:var(--s-input);font-weight:700;}
   #studio-lesson .lr-toggle{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--s-line);border-radius:7px;background:var(--s-paper);padding:5px 9px;font-size:12px;color:var(--s-muted);}
   #studio-lesson .lr-toggle[aria-pressed="true"]{border-color:var(--s-green);color:var(--s-ink);background:var(--s-green-soft);}
-  #studio-lesson .lr-count{font:700 13px/1 'Segoe UI';color:var(--s-gold);min-width:64px;}
+  #studio-lesson .lr-transport{position:relative;}
+  #studio-lesson .lr-countin{position:absolute;left:50%;bottom:calc(100% + 12px);transform:translateX(-50%);min-width:120px;padding:10px 22px;border-radius:14px;background:var(--s-gold-soft);border:2px solid var(--s-gold);color:var(--s-ink);font:800 44px/1 'Segoe UI',Arial;text-align:center;box-shadow:0 8px 24px rgb(0 0 0 / .18);z-index:5;}
+  #studio-lesson .lr-countin::before{content:'Отсчёт ';font-size:14px;font-weight:600;vertical-align:middle;margin-right:8px;color:var(--s-muted);}
+  #studio-lesson .lr-restart{padding:8px 10px;}
   #studio-lesson .lr-progress{flex:1;min-width:120px;}
   #studio-lesson .lr-progress small{font-size:11px;color:var(--s-muted);}
   /* Карточка понятия и самооценка */
@@ -198,55 +201,73 @@
     });
   }
 
-  /** Демонстрационный плеер: отсчёт 4 доли, восьмые по BPM, петля; звука нет. */
-  function player({ steps, bpm = 72, countIn = true, loop = true, onStep, onCount, onFinish }) {
+  /**
+   * Демонстрационный плеер: отсчёт 4 доли только при старте с начала, восьмые по BPM, петля; звука нет.
+   * Пауза сохраняет позицию: «Продолжить» играет следующую ноту без повторного отсчёта.
+   */
+  function player({ steps, bpm = 72, countIn = true, loop = true, onStep, onCount, onFinish, onState }) {
     let timer = null, index = -1, counting = 0, state = { bpm, countIn, loop };
     const interval = () => 60000 / state.bpm / 2;
+    const status = () => timer ? 'playing' : index >= 0 ? 'paused' : 'stopped';
     function tick() {
       if (counting > 0) { onCount?.(5 - counting); counting--; timer = setTimeout(tick, interval() * 2); return; }
-      if (index === -1) onCount?.(null);
+      onCount?.(null);
       index++;
       if (index >= steps) {
-        if (!state.loop) { stop(); onFinish?.(); return; }
+        if (!state.loop) { index = -1; halt(); onFinish?.(); return; }
         index = 0; onFinish?.({ looped: true });
       }
       onStep?.(index);
       timer = setTimeout(tick, interval());
     }
-    function start() { if (timer) return; counting = state.countIn ? 4 : 0; index = -1; tick(); }
-    function stop() { clearTimeout(timer); timer = null; counting = 0; onCount?.(null); }
-    return { start, stop, toggle() { timer ? stop() : start(); return !!timer; }, get playing() { return !!timer; }, get index() { return index; }, set(key, value) { state[key] = value; } };
+    function halt() { clearTimeout(timer); timer = null; counting = 0; onCount?.(null); onState?.(status()); }
+    function play() {
+      if (timer) return;
+      counting = index < 0 && state.countIn ? 4 : 0;
+      timer = setTimeout(tick, 0); onState?.('playing');
+    }
+    const pause = () => { if (timer) halt(); };
+    function restart() { halt(); index = -1; onStep?.(-1); onState?.('stopped'); }
+    return { play, pause, restart, toggle() { timer ? pause() : play(); }, get status() { return status(); }, get index() { return index; }, set(key, value) { state[key] = value; } };
   }
 
   /** Разметка транспорта; data-lr-* подключает bindTransport. */
   function transport({ bpm = 72, ladder = '72 → 96, +4', compact = false } = {}) {
     return `<div class="lr-transport" data-lr-transport>
       <button type="button" class="lr-btn lr-btn-primary lr-play" data-lr-play>▶ Играть <span class="lr-kbd">Пробел</span></button>
+      <button type="button" class="lr-btn lr-restart" data-lr-restart title="Вернуться к первой ноте; следующий старт — с отсчётом">⏮ С начала <span class="lr-kbd">Esc</span></button>
       <div class="lr-bpm"><button type="button" class="lr-icon-btn" data-lr-bpm="-4" aria-label="Медленнее">−</button><output data-lr-bpm-value>${bpm}</output><button type="button" class="lr-icon-btn" data-lr-bpm="4" aria-label="Быстрее">+</button><small>BPM ♩<br>играем восьмыми</small></div>
-      <span class="lr-count" data-lr-count aria-live="polite"></span>
       <button type="button" class="lr-toggle" data-lr-flag="countIn" aria-pressed="true">Отсчёт 4</button>
       <button type="button" class="lr-toggle" data-lr-flag="loop" aria-pressed="true">⟲ По кругу</button>
       ${compact ? '' : `<button type="button" class="lr-toggle" data-lr-ladder aria-pressed="false" title="Лестница темпа">↗ Лестница ${esc(ladder)}</button>`}
       <div class="lr-progress"><div class="lr-meter"><i data-lr-meter style="width:0%"></i></div><small data-lr-position>Нота 0 из ${material.ex1.notes.length}</small></div>
+      <div class="lr-countin" data-lr-count aria-live="assertive" hidden></div>
     </div>`;
   }
 
-  /** Подключает транспорт внутри контейнера к плееру; render(index) перерисовывает сцену. */
+  /** Подключает транспорт внутри контейнера к плееру; render(index) перерисовывает сцену (−1 — до первой ноты). */
   function bindTransport(container, { steps, bpm = 72, render, onPass }) {
-    const play = container.querySelector('[data-lr-play]');
+    const playButton = container.querySelector('[data-lr-play]');
     const out = container.querySelector('[data-lr-bpm-value]');
     const count = container.querySelector('[data-lr-count]');
     const meter = container.querySelector('[data-lr-meter]');
     const position = container.querySelector('[data-lr-position]');
     let passes = 0;
+    const labels = { playing: '❚❚ Пауза', paused: '▶ Продолжить', stopped: '▶ Играть' };
+    const sync = status => { playButton.innerHTML = `${labels[status]} <span class="lr-kbd">Пробел</span>`; container.dataset.lrStatus = status; };
     const p = player({
       steps, bpm,
-      onStep(i) { render(i); if (meter) meter.style.width = `${((i + 1) / steps) * 100}%`; if (position) position.textContent = `Нота ${i + 1} из ${steps} · проход ${passes + 1}`; },
-      onCount(n) { if (count) count.textContent = n ? `Отсчёт ${n}…` : ''; },
-      onFinish(info) { passes++; onPass?.(passes, info); if (!info) sync(); },
+      onStep(i) {
+        render(i);
+        if (meter) meter.style.width = `${i < 0 ? 0 : ((i + 1) / steps) * 100}%`;
+        if (position) position.textContent = i < 0 ? `Нота 0 из ${steps} · с начала` : `Нота ${i + 1} из ${steps} · проход ${passes + 1}`;
+      },
+      onCount(n) { if (!count) return; count.hidden = !n; count.textContent = n ? String(n) : ''; },
+      onFinish(info) { passes++; onPass?.(passes, info); },
+      onState: sync,
     });
-    const sync = () => { play.innerHTML = p.playing ? '■ Стоп <span class="lr-kbd">Пробел</span>' : '▶ Играть <span class="lr-kbd">Пробел</span>'; };
-    play.addEventListener('click', () => { p.toggle(); sync(); });
+    playButton.addEventListener('click', () => p.toggle());
+    container.querySelector('[data-lr-restart]').addEventListener('click', () => { passes = 0; p.restart(); });
     container.querySelectorAll('[data-lr-bpm]').forEach(button => button.addEventListener('click', () => {
       const value = Math.min(200, Math.max(40, Number(out.value || out.textContent) + Number(button.dataset.lrBpm)));
       out.textContent = value; p.set('bpm', value);
@@ -259,10 +280,12 @@
       const button = event.currentTarget; button.setAttribute('aria-pressed', String(button.getAttribute('aria-pressed') !== 'true'));
     });
     document.addEventListener('keydown', event => {
-      if (event.code !== 'Space' || event.target.closest?.('input,textarea,select,button')) return;
+      if (!['Space', 'Escape'].includes(event.code) || event.target.closest?.('input,textarea,select,button')) return;
       if (getComputedStyle(container).display === 'none' || !container.offsetParent) return;
-      event.preventDefault(); p.toggle(); sync();
+      event.preventDefault();
+      if (event.code === 'Space') p.toggle(); else { passes = 0; p.restart(); }
     });
+    sync('stopped');
     return p;
   }
 
