@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>P13: «Проверь себя» (фикстура)</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: grid; grid-template-columns: 208px minmax(0, 1fr); background: var(--surface-canvas); }
+  .fx-nav { background: var(--surface-navigation); border-right: 1px solid var(--border); padding: 24px 14px; display: flex; flex-direction: column; gap: 10px; font: 13px 'Segoe UI', Arial, sans-serif; color: var(--text-secondary); }
+  .fx-nav b { color: var(--text-primary); font-size: 20px; }
+  .fx-nav a { color: var(--accent-text); }
+  main { min-width: 0; height: 100vh; overflow: auto; padding: 22px 26px; box-sizing: border-box; }
+  @media (max-width: 1100px) { body { grid-template-columns: 72px minmax(0, 1fr); } .fx-nav span, .fx-nav b, .fx-nav a { display: none; } main { padding: 18px; } }
+</style>
+</head>
+<body>
+  <nav class="fx-nav" aria-label="Фикстура">
+    <b>bass.study</b>
+    <span>Параметры — в адресе: kind, ear, template, shape, count, theme, deny.</span>
+  </nav>
+  <main><div id="check"></div></main>
+  <script type="module">
+    import '/src/styles.css';
+    import { mountCheck } from '/src/ui/check/view.ts';
+    import { createExerciseSpec } from '/src/exercises/index.ts';
+
+    const params = new URLSearchParams(location.search);
+    document.documentElement.dataset.theme = params.get('theme') === 'dark' ? 'dark' : 'light';
+    const template = params.get('template') ?? 'pentatonic-form';
+    const exercise = template === 'pentatonic-form' ? createExerciseSpec('pentatonic-form', { shapeId: params.get('shape') ?? 'penta-b' }) : createExerciseSpec(template);
+    const spec = { version: 'check-v1', exercise, kind: params.get('kind') === 'find-degree' ? 'find-degree' : 'name-degree', count: Number(params.get('count') ?? 6), ear: params.get('ear') === '1' };
+    /** Журнал фикстуры: итоги серий и намерения навигации. Правильные ответы сюда до итога не попадают. */
+    window.checkLog = [];
+    const view = mountCheck(document.getElementById('check'), {
+      onFinish(summary, answers) { window.checkLog.push({ type: 'finish', summary, answers }); },
+      onBack() { window.checkLog.push({ type: 'back' }); },
+      onNextStep() { window.checkLog.push({ type: 'next-step' }); },
+      onBeforeListen() { window.checkLog.push({ type: 'before-listen' }); return params.get('deny') !== '1'; },
+    });
+    view.start(spec, { backLabel: 'план на сегодня, шаг 4 из 4', nextLabel: 'Шаг 4 из 4 — последний: вернёмся в «Сегодня».' });
+    window.checkView = { stop: () => view.stop(), hide: () => view.setVisible(false), show: () => view.setVisible(true) };
+    window.checkReady = true;
+  </script>
+</body>
+</html>

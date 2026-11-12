@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>P13: раздел «Занятие» (фикстура)</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: grid; grid-template-columns: 208px minmax(0, 1fr); background: var(--surface-canvas); }
+  .fx-nav { background: var(--surface-navigation); border-right: 1px solid var(--border); padding: 24px 14px; display: flex; flex-direction: column; gap: 10px; font: 13px 'Segoe UI', Arial, sans-serif; color: var(--text-secondary); }
+  .fx-nav b { color: var(--text-primary); font-size: 20px; }
+  .fx-nav button { font: inherit; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-input); color: var(--text-primary); padding: 5px 8px; cursor: pointer; }
+  .fx-nav button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+  main { min-width: 0; height: 100vh; overflow: auto; padding: 14px 26px 22px; box-sizing: border-box; }
+  @media (max-width: 1100px) { body { grid-template-columns: 72px minmax(0, 1fr); } .fx-nav span, .fx-nav b { display: none; } main { padding: 14px 18px; } }
+</style>
+</head>
+<body>
+  <nav class="fx-nav" aria-label="Фикстура">
+    <b>bass.study</b>
+    <span>Тема</span>
+    <button type="button" data-theme-set="light">Светлая</button>
+    <button type="button" data-theme-set="dark">Тёмная</button>
+    <span>Демо-данные</span>
+    <button type="button" data-demo="continue">Продолжение</button>
+    <button type="button" data-demo="first">Первый запуск</button>
+  </nav>
+  <main data-scroll><div id="lesson"></div></main>
+  <script type="module">
+    import '/src/styles.css';
+    import { mountLesson } from '/src/ui/lesson/view.ts';
+    import { completeStep, createPlan, planFromTemplate } from '/src/practice/plan.ts';
+    import { createExerciseSpec } from '/src/exercises/index.ts';
+
+    const params = new URLSearchParams(location.search);
+    const setTheme = theme => {
+      document.documentElement.dataset.theme = theme;
+      document.querySelectorAll('[data-theme-set]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.themeSet === theme)));
+    };
+    setTheme(params.get('theme') === 'dark' ? 'dark' : 'light');
+
+    const today = '2026-11-12';
+    const play = (templateId, params, assessment, bpm, localDate, time, title) => ({
+      kind: 'play', exerciseKey: `builtin:${templateId}`, title, spec: createExerciseSpec(templateId, params), assessment, bpm, activeMs: 180000, localDate, occurredAt: `${localDate}T${time}:00.000Z`,
+    });
+    const demoRecords = [
+      play('chromatic-position', {}, 'clean', 84, '2026-11-10', '18:00', 'Хроматика 1-2-3-4 в позиции'),
+      play('pentatonic-form', { shapeId: 'penta-b' }, 'errors', 70, '2026-11-10', '18:05', 'Форма пентатоники вверх-вниз'),
+      play('pentatonic-form', { shapeId: 'penta-b' }, 'errors', 72, '2026-11-11', '18:05', 'Форма пентатоники вверх-вниз'),
+      play('arpeggio-1358', {}, 'clean', 69, '2026-11-11', '18:10', 'Арпеджио 1–3–5–8'),
+      play('connect-forms', {}, 'errors', 76, '2026-11-11', '18:20', 'Связка соседних форм'),
+      play('chromatic-position', {}, 'clean', 84, today, '17:00', 'Хроматика 1-2-3-4 в позиции'),
+      { kind: 'check', exerciseKey: 'builtin:pentatonic-form', title: 'Форма пентатоники вверх-вниз', activeMs: 120000, localDate: '2026-11-11', occurredAt: '2026-11-11T18:30:00.000Z',
+        answers: [{ degree: 'b7', outcome: 'corrected', errors: 1 }, { degree: '1', outcome: 'correct', errors: 0 }, { degree: 'b3', outcome: 'revealed', errors: 0 }] },
+    ];
+    const continuePlan = () => { const plan = planFromTemplate(today, 'standard'); return completeStep(plan, plan.steps[0].id); };
+    const firstPlan = () => planFromTemplate(today, 'firstRun');
+    const demos = {
+      continue: () => ({ plan: continuePlan(), records: demoRecords, userExercises: [], firstRun: false, playFrom: null }),
+      first: () => ({ plan: firstPlan(), records: [], userExercises: [], firstRun: true, playFrom: null }),
+      empty: () => ({ plan: createPlan(today), records: demoRecords, userExercises: [], firstRun: false, playFrom: null }),
+    };
+    const initialTab = ['today', 'library', 'basics'].includes(params.get('tab')) ? params.get('tab') : 'today';
+    let state = { ...demos[demos[params.get('demo')] ? params.get('demo') : 'continue'](), tab: initialTab };
+    /** Журнал действий фикстуры: только намерения пользователя, без правильных ответов. */
+    window.lessonLog = [];
+    const view = mountLesson(document.getElementById('lesson'), {
+      onPlay(content, stepId) { window.lessonLog.push({ type: 'play', kind: content.kind, templateId: content.kind === 'exercise' ? content.spec.templateId : content.spec.exercise.templateId, stepId }); },
+      onPlanChange(plan) { state = { ...state, plan }; window.lessonLog.push({ type: 'plan', steps: plan.steps.length }); view.update(state); },
+      onTabChange(tab) { state = { ...state, tab }; window.lessonLog.push({ type: 'tab', tab }); },
+      onPlayFromChange(root) { state = { ...state, playFrom: root }; window.lessonLog.push({ type: 'play-from', root }); view.update(state); },
+      onOpenConcept(id) { window.lessonLog.push({ type: 'concept', id }); },
+      onSaveExercise(spec, name) {
+        const exercise = { version: 'user-exercise-v1', id: `own-${state.userExercises.length + 1}`, name, spec, createdAt: '2026-11-12T12:00:00.000Z' };
+        state = { ...state, userExercises: [...state.userExercises, exercise] };
+        window.lessonLog.push({ type: 'save', name }); view.update(state);
+      },
+    });
+    view.update(state);
+    document.querySelectorAll('[data-theme-set]').forEach(button => button.addEventListener('click', () => setTheme(button.dataset.themeSet)));
+    document.querySelectorAll('[data-demo]').forEach(button => button.addEventListener('click', () => { state = { ...demos[button.dataset.demo](), tab: state.tab }; view.update(state); }));
+    window.lessonReady = true;
+  </script>
+</body>
+</html>

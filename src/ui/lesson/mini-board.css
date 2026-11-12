@@ -1,0 +1,28 @@
+/* Мини-гриф VIS-10/VIS-02: гриф тёмный в обеих темах, цвета — токены --board-*. */
+.mini-board { display: block; width: 100%; height: auto; }
+.mini-board .mb-fret { fill: var(--board-muted); font: 12px Consolas, monospace; }
+.mini-board .mb-string-name { fill: var(--board-text); font: 600 14px 'Segoe UI', Arial, sans-serif; }
+.mini-board .mb-wire { stroke: var(--board-line); stroke-opacity: .45; stroke-width: 1.2; }
+.mini-board .mb-nut { stroke: var(--board-line); stroke-width: 4; }
+.mini-board .mb-string { stroke: #d7e2d2; opacity: .8; }
+.mini-board .mb-inlay { fill: var(--board-muted); opacity: .45; }
+.mini-board .mb-note { fill: var(--board-dot); }
+.mini-board .mb-root { fill: var(--board-root); }
+.mini-board .mb-b, .mini-board .mb-target { fill: var(--board-same); }
+.mini-board .mb-shared { fill: var(--board-octave); }
+.mini-board .mb-ghost { fill: transparent; stroke: var(--board-muted); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.mini-board .mb-note.is-current { fill: var(--board-playing); }
+.mini-board .mb-current-ring { fill: none; stroke: #ffffff; stroke-width: 4; }
+.mini-board .mb-root-ring { fill: none; stroke: #e0a24f; stroke-width: 4; }
+.mini-board .mb-label { fill: var(--board-dot-text); font-weight: 700; font-family: 'Segoe UI', Arial, sans-serif; }
+.mini-board .mb-label-root, .mini-board .mb-label.is-current { fill: var(--board-root-text); }
+.mini-board .mb-label-b, .mini-board .mb-label-target { fill: #16303f; }
+.mini-board .mb-label-shared { fill: #2a1d3d; }
+.mini-board .mb-label-ghost { fill: var(--board-muted); }
+.mini-board .mb-finger { fill: var(--board-playing); font-weight: 700; font-family: 'Segoe UI', Arial, sans-serif; }
+
+.mb-swatch { display: inline-block; width: 11px; height: 11px; margin-right: 5px; border: 1px solid var(--border-strong); border-radius: 50%; vertical-align: -1px; background: var(--board-dot); }
+.mb-swatch-root { background: var(--board-root); }
+.mb-swatch-b, .mb-swatch-target { background: var(--board-same); }
+.mb-swatch-shared { background: var(--board-octave); }
+.mb-swatch-ghost { background: transparent; border-style: dashed; }
