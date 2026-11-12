@@ -36,7 +36,26 @@
       referenceHz: frequency(samples, buffer.sampleRate, .1, .4), targetHz: frequency(samples, buffer.sampleRate, 1.1, 1.4),
       referenceRms: rms(samples, buffer.sampleRate, .1, .4), targetRms: rms(samples, buffer.sampleRate, 1.1, 1.4), restRms: rms(samples, buffer.sampleRate, .55, .95), tailRms: rms(samples, buffer.sampleRate, 1.52, 1.6) };
   }
-  window.p7ear = { ready: true, cue, config, render, completions, current: config().cue, action: null };
+  // Амплитуды гармоник по окну Ханна (корреляция на точных частотах k·f0), измеренные по отсчётам PCM.
+  function harmonicLevels(samples, sampleRate, hz, from, to, count = 3) {
+    const start = Math.round(from * sampleRate), length = Math.round(to * sampleRate) - start;
+    return Array.from({ length: count }, (_, index) => {
+      const frequency = hz * (index + 1); let re = 0, im = 0, weights = 0;
+      for (let offset = 0; offset < length; offset++) {
+        const weight = .5 - .5 * Math.cos(2 * Math.PI * offset / (length - 1)); const value = samples[start + offset] * weight; const phase = 2 * Math.PI * frequency * offset / sampleRate;
+        re += value * Math.cos(phase); im -= value * Math.sin(phase); weights += weight;
+      }
+      return 2 * Math.hypot(re, im) / weights;
+    });
+  }
+  async function spectrum(midi) {
+    const hz = 440 * 2 ** ((midi - 69) / 12);
+    const buffer = await renderCueOffline({ bpm: 60, totalBeats: 1, notes: [{ midi, beat: 0, durationBeats: 1 }] }); const samples = buffer.getChannelData(0);
+    let peak = 0; for (const value of samples) peak = Math.max(peak, Math.abs(value));
+    const levels = harmonicLevels(samples, buffer.sampleRate, hz, .2, .8);
+    return { midi, hz, peak, levels, ratios: levels.slice(1).map(level => level / levels[0]), tailRms: rms(samples, buffer.sampleRate, 1.02, 1.1) };
+  }
+  window.p7ear = { ready: true, cue, config, render, spectrum, completions, current: config().cue, action: null };
   for (const name of ['play', 'stop']) document.getElementById(name).addEventListener('click', async () => {
     window.p7ear.action = { name, done: false, error: null };
     try { await cue[name](...(name === 'play' ? [window.p7ear.current] : [])); }

@@ -1,4 +1,5 @@
 import { midiToFrequency } from '../music';
+import { BASS_TIMBRE, bassLowpassHz } from './bass-timbre';
 
 export interface CueNote {
   readonly midi: number;
@@ -37,26 +38,33 @@ export function validateCue(configuration: CueConfiguration): CueConfiguration {
   return Object.freeze({ notes: Object.freeze(notes), totalBeats: configuration.totalBeats, bpm: configuration.bpm });
 }
 
-interface Voice { oscillator: OscillatorNode; envelope: GainNode }
+interface Voice { oscillator: OscillatorNode; filter: BiquadFilterNode; envelope: GainNode }
 
 function scheduleNote(context: BaseAudioContext, destination: AudioNode, note: CueNote, startAt: number, beatSeconds: number): Voice {
   const oscillator = context.createOscillator();
+  const filter = context.createBiquadFilter();
   const envelope = context.createGain();
   const start = startAt + note.beat * beatSeconds;
   const end = start + note.durationBeats * beatSeconds;
   const attack = Math.min(.012, (end - start) / 8);
   const release = Math.min(.045, (end - start) / 5);
-  oscillator.type = 'sine';
-  oscillator.frequency.setValueAtTime(midiToFrequency(note.midi), start);
+  const frequency = midiToFrequency(note.midi);
+  oscillator.type = BASS_TIMBRE.waveform;
+  oscillator.frequency.setValueAtTime(frequency, start);
+  filter.type = 'lowpass';
+  filter.frequency.value = Math.min(bassLowpassHz(frequency), context.sampleRate * .45);
+  filter.Q.value = BASS_TIMBRE.filterQ;
   envelope.gain.setValueAtTime(0, start);
   envelope.gain.linearRampToValueAtTime(.22, start + attack);
   envelope.gain.setValueAtTime(.22, end - release);
   envelope.gain.linearRampToValueAtTime(0, end);
-  oscillator.connect(envelope);
+  // Фильтр стоит до огибающей: после её нуля звенящий хвост фильтра не слышен.
+  oscillator.connect(filter);
+  filter.connect(envelope);
   envelope.connect(destination);
   oscillator.start(start);
   oscillator.stop(end);
-  return { oscillator, envelope };
+  return { oscillator, filter, envelope };
 }
 
 export function createAudioCue(options: CueOptions = {}) {
@@ -79,6 +87,7 @@ export function createAudioCue(options: CueOptions = {}) {
     for (const voice of voices) {
       try { voice.oscillator.stop(context?.currentTime ?? 0); } catch { /* A completed voice may already be stopped. */ }
       voice.oscillator.disconnect();
+      voice.filter.disconnect();
       voice.envelope.disconnect();
     }
     voices = [];

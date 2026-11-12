@@ -10,6 +10,7 @@
   <button id="stop">Стоп</button>
   <button id="start-pause">Старт и немедленная пауза</button>
   <script type="module">
+    import * as Tone from 'tone';
     import { createPlayer } from '/src/audio/engine.ts';
     import { annotatePositions, createStructure, getPosition } from '/src/music/index.ts';
     const notes = annotatePositions([0, 1, 3, 5].map(fret => getPosition('E', fret)), createStructure('C', 'major'));
@@ -18,7 +19,33 @@
       notes, bpm: 120, duration: 'quarter', countIn: false, repeat: 'once',
       metronome: { enabled: false, mode: 'all', subdivision: 'quarter' }, ...overrides,
     });
-    window.p4 = { player, makeConfig, config: makeConfig(), ready: true, action: null };
+    // Амплитуды гармоник по окну Ханна (корреляция на точных частотах k·f0), измеренные по отсчётам PCM.
+    function harmonicLevels(samples, sampleRate, hz, from, to, count = 3) {
+      const start = Math.round(from * sampleRate), length = Math.round(to * sampleRate) - start;
+      return Array.from({ length: count }, (_, index) => {
+        const frequency = hz * (index + 1); let re = 0, im = 0, weights = 0;
+        for (let offset = 0; offset < length; offset++) {
+          const weight = .5 - .5 * Math.cos(2 * Math.PI * offset / (length - 1)); const value = samples[start + offset] * weight; const phase = 2 * Math.PI * frequency * offset / sampleRate;
+          re += value * Math.cos(phase); im -= value * Math.sin(phase); weights += weight;
+        }
+        return 2 * Math.hypot(re, im) / weights;
+      });
+    }
+    /** Продуктовый голос последовательности в Tone.Offline: отдельный проигрыватель на offline-контексте, только бас. */
+    async function bassSpectrum(fret) {
+      const position = getPosition('E', fret);
+      let offlinePlayer = null;
+      const buffer = await Tone.Offline(async () => {
+        offlinePlayer = createPlayer(); offlinePlayer.setVolumes({ bass: 1, click: 0 });
+        await offlinePlayer.start(makeConfig({ notes: annotatePositions([position], createStructure('C', 'major')), bpm: 60 }));
+      }, 1.2, 1, 44100);
+      offlinePlayer?.dispose();
+      const samples = buffer.getChannelData(0).slice(); const sampleRate = buffer.sampleRate;
+      let peak = 0; for (const value of samples) peak = Math.max(peak, Math.abs(value));
+      const levels = harmonicLevels(samples, sampleRate, position.frequency, .15, .65);
+      return { fret, hz: position.frequency, peak, levels, ratios: levels.slice(1).map(level => level / levels[0]) };
+    }
+    window.p4 = { player, makeConfig, bassSpectrum, config: makeConfig(), ready: true, action: null };
     for (const name of ['start', 'pause', 'resume', 'stop']) {
       document.getElementById(name).addEventListener('click', async () => {
         window.p4.action = { name, done: false, error: null };

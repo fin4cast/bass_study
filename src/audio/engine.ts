@@ -1,4 +1,5 @@
 import * as Tone from 'tone';
+import { BASS_TIMBRE, bassLowpassHz } from './bass-timbre';
 import { createPlaybackPlan, eventAtGrid, finiteDurationSeconds, validateBpm, type GridEvent, type PlaybackConfig, type PlaybackPlan } from './plan';
 
 export type { PlaybackConfig, NoteDuration, RepeatMode, MetronomeMode } from './plan';
@@ -56,6 +57,8 @@ function createGraph(context: ToneContext, separateChannels: boolean) {
   const bassBus = new Tone.Gain({ context, gain: 0.65 });
   const clickBus = new Tone.Gain({ context, gain: 0.45 });
   const analyser = new Tone.Analyser({ context, type: 'waveform', size: 1024 });
+  // Голос баса — пила через lowpass (общий тембр с cue), фильтр живёт вместе с шиной.
+  const bassFilter = new Tone.Filter({ context, type: 'lowpass', frequency: bassLowpassHz(41.2), Q: BASS_TIMBRE.filterQ, rolloff: -12 }).connect(bassBus);
   master.connect(analyser);
   const merger = separateChannels ? new Tone.Merge({ context, channels: 2 }).connect(master) : null;
   if (merger) { bassBus.connect(merger, 0, 0); clickBus.connect(merger, 0, 1); }
@@ -67,14 +70,18 @@ function createGraph(context: ToneContext, separateChannels: boolean) {
   return {
     activate() {
       discardVoices();
-      bass = new Tone.Synth({ context, oscillator: { type: 'sine' }, volume: -12,
-        envelope: { attack: 0.002, decay: 0.008, sustain: 0.65, release: 0.004 } }).connect(bassBus);
+      bass = new Tone.Synth({ context, oscillator: { type: BASS_TIMBRE.waveform }, volume: -12,
+        envelope: { attack: 0.003, decay: 0.008, sustain: 0.65, release: 0.006 } }).connect(bassFilter);
       click = new Tone.Synth({ context, oscillator: { type: 'triangle' }, volume: -18,
         envelope: { attack: 0.001, decay: 0.004, sustain: 0.3, release: 0.003 } }).connect(clickBus);
       master.gain.cancelScheduledValues(context.immediate());
       master.gain.setValueAtTime(1, context.immediate());
     },
-    bass(frequency: number, duration: number, time: number) { bass?.triggerAttackRelease(frequency, duration, time); },
+    bass(frequency: number, duration: number, time: number) {
+      if (!bass) return;
+      bassFilter.frequency.setValueAtTime(bassLowpassHz(frequency), time);
+      bass.triggerAttackRelease(frequency, duration, time);
+    },
     click(accent: boolean, time: number) { click?.triggerAttackRelease(accent ? 2093.004522 : 1046.502261, 0.018, time, accent ? 1 : 0.7); },
     gateAt(time: number) { master.gain.setValueAtTime(0, time); },
     silence() {
@@ -96,7 +103,7 @@ function createGraph(context: ToneContext, separateChannels: boolean) {
       return { peak, rms: Math.sqrt(squares / samples.length) };
     },
     voices() { return Number(bass !== null) + Number(click !== null); },
-    dispose() { discardVoices(); bassBus.dispose(); clickBus.dispose(); merger?.dispose(); master.dispose(); analyser.dispose(); },
+    dispose() { discardVoices(); bassFilter.dispose(); bassBus.dispose(); clickBus.dispose(); merger?.dispose(); master.dispose(); analyser.dispose(); },
   };
 }
 

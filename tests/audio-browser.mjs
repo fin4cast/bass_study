@@ -67,6 +67,19 @@ check('offline-quarter-notes-use-real-PCM-and-finish-with-silence', 'api', async
   return result;
 });
 
+check('offline-sequence-bass-timbre-has-second-and-third-harmonics', 'api', async ({ page }) => {
+  // Синус E1 (41 Гц) почти не слышен на динамиках ноутбука; тембр должен нести заметные 2f и 3f.
+  const results = [];
+  for (const fret of [0, 5, 12]) {
+    const result = await page.evaluate(fret => window.p4.bassSpectrum(fret), fret);
+    assert.ok(result.levels[0] > .01, `fundamental present at E${fret}: ${JSON.stringify(result)}`);
+    assert.ok(result.ratios[0] >= .2 && result.ratios[1] >= .12, `2nd/3rd harmonics at E${fret}: ${JSON.stringify(result)}`);
+    assert.ok(result.peak < .9, `headroom at E${fret}: ${result.peak}`);
+    results.push(result);
+  }
+  return { method: 'Tone.Offline PCM of the product player, Hann-window correlation at k·f0; perceived timbre/speaker audibility not inferred', results };
+});
+
 check('offline-four-quarter-count-in-precedes-eighth-notes', 'api', async ({ page }) => {
   const result = await offline(page, { countIn: true, duration: 'eighth' });
   pcm(result, [2, 2.25, 2.5, 2.75], [0, 0.5, 1, 1.5]); near(result.finishAt, 3, 0.0001);

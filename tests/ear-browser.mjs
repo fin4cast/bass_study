@@ -97,6 +97,19 @@ for (const fixture of [
   return { expectedHz: fixture.expected, ...result };
 });
 
+check('pcm-cue-bass-timbre-has-second-and-third-harmonics', 'api', async ({ page }) => {
+  // Чистый синус до E1 (41 Гц) почти не воспроизводится маленькими динамиками; слышимость дают гармоники 2f/3f.
+  const results = [];
+  for (const midi of [28, 36, 52]) {
+    const result = await page.evaluate(midi => window.p7ear.spectrum(midi), midi);
+    assert.ok(result.levels[0] > .02, `fundamental present for MIDI ${midi}: ${JSON.stringify(result)}`);
+    assert.ok(result.ratios[0] >= .2 && result.ratios[1] >= .12, `2nd/3rd harmonics for MIDI ${midi}: ${JSON.stringify(result)}`);
+    assert.ok(result.peak < .9, `headroom for MIDI ${midi}: ${result.peak}`); assert.equal(result.tailRms, 0, 'silence after the release');
+    results.push(result);
+  }
+  return { method: 'renderCueOffline PCM, Hann-window correlation at k·f0; perceived timbre/speaker audibility not inferred', results };
+});
+
 check('live-user-gesture-real-signal-and-completion-follow-actual-cue-clock', 'api', async ({ page }) => {
   await fixtureAction(page, 'play'); const started = await cueSnapshot(page); assert.equal(started.state, 'playing'); assert.ok(started.audioTime < started.finishAt);
   await page.waitForFunction(() => window.__earAudioObserved.read().levels.some(level => level.rms > .02));
