@@ -1,6 +1,7 @@
 import './route.css';
 import { createActiveFrame } from './active-frame';
 import { escapeHtml } from './html';
+import { onPageVisibility } from './page-visibility';
 import {
   ROUTE_STEPS, advanceRouteSession, getRouteResult, nextRouteStep, pauseRouteSession,
   resumeRouteSession, startRouteSession, stopRouteSession, createRouteMaterial, getRouteInstruction, validateRouteMaterial, type RouteMaterial, type RouteResult, type RouteSession,
@@ -164,7 +165,7 @@ export function mountRoute(container: HTMLElement, barContainer: HTMLElement, op
 
   container.addEventListener('click', action, { signal: controller.signal });
   barContainer.addEventListener('click', action, { signal: controller.signal });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) pause('hidden'); }, { signal: controller.signal });
+  onPageVisibility(controller.signal, () => pause('hidden'));
   page();
   return {
     stop, pause, start,

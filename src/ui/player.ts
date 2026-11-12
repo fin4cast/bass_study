@@ -2,7 +2,8 @@ import './player.css';
 import type { AppPreferences } from '../storage';
 import { formatMidi, type AnnotatedPosition } from '../music';
 import { createPlayer, type PlaybackConfig } from '../audio/engine';
-import { allowsTransportShortcut } from './transport-shortcut';
+import { handleTransportKey } from './transport-shortcut';
+import { onPageVisibility } from './page-visibility';
 
 type Engine = ReturnType<typeof createPlayer>;
 type Snapshot = ReturnType<Engine['playbackState']>;
@@ -291,24 +292,25 @@ export function mountPlayer(container: HTMLElement, getNotes: () => readonly Ann
     }
   }, { signal: controller.signal });
 
-  document.addEventListener('visibilitychange', () => {
+  onPageVisibility(controller.signal, () => {
     const snapshot = player.playbackState();
-    if (document.hidden && ['starting', 'running', 'finishing'].includes(snapshot.state)) {
+    if (['starting', 'running', 'finishing'].includes(snapshot.state)) {
       measurePractice(snapshot);
       player.pause('hidden');
       message('player-notice', 'Вкладка была скрыта. Воспроизведение на паузе — для продолжения нажми «Продолжить».');
       renderSnapshot();
     }
-  }, { signal: controller.signal });
+  });
 
   document.addEventListener('keydown', event => {
-    if (disposed || !allowsTransportShortcut(event, container)) return;
-    if (event.key === 'Escape') { event.preventDefault(); void act('stop'); }
-    else if (event.code === 'Space' || event.key === ' ') {
-      const state = player.playbackState().state;
-      event.preventDefault();
-      void act(state === 'running' || state === 'finishing' ? 'pause' : state === 'paused' ? 'resume' : 'start');
-    }
+    if (disposed) return;
+    handleTransportKey(event, container, {
+      stop: () => void act('stop'),
+      toggle: () => {
+        const state = player.playbackState().state;
+        void act(state === 'running' || state === 'finishing' ? 'pause' : state === 'paused' ? 'resume' : 'start');
+      },
+    });
   }, { signal: controller.signal });
 
   function refreshContext() {

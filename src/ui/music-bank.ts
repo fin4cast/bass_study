@@ -7,7 +7,8 @@ import {
 } from '../music-bank/model';
 import { createMusicBankCatalog, searchMusicBankCatalog, type MusicBankCatalogEntry } from '../music-bank/catalog';
 import type { PageHeightObservation } from '../app/page-layout';
-import { allowsTransportShortcut } from './transport-shortcut';
+import { handleTransportKey } from './transport-shortcut';
+import { onPageVisibility } from './page-visibility';
 
 interface PendingEngine {
   host: HTMLElement;
@@ -485,17 +486,13 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     if (event.key === 'Escape' && preferences.mixerOpen && container.clientWidth <= 900 && element('mixer').contains(target)) {
       setMixer(false, true); event.preventDefault(); return;
     }
-    if (!allowsTransportShortcut(event, container)) return;
-    if (event.key === 'Escape') { stop(); event.preventDefault(); return; }
-    if (event.code !== 'Space') return;
-    event.preventDefault(); if (api?.playerState === 1) api.pause(); else play();
+    handleTransportKey(event, container, { stop, toggle: () => { if (api?.playerState === 1) api.pause(); else play(); } });
   }, listen);
-  document.addEventListener('visibilitychange', () => {
+  onPageVisibility(abort.signal, () => {
     if (disposed) return;
-    if (!document.hidden) { controls(); return; }
     cancelLoad(false); api?.pause(); controls();
     if (bound) message('Пауза: вкладка скрыта. Для продолжения нажми «Старт».');
-  }, listen);
+  }, () => { if (!disposed) controls(); });
   const heightObservation = options.observeHeight(container, available => {
     const height = `${Math.max(360, available)}px`;
     if (container.style.getPropertyValue('--mb-height') !== height) container.style.setProperty('--mb-height', height);

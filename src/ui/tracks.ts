@@ -4,6 +4,7 @@ import { TRACK_LIMITS, TracksError, setTracksPlayback, validateTracksManifest, t
 import { confirmAction } from './confirm';
 import { createActiveFrame } from './active-frame';
 import { escapeHtml } from './html';
+import { onPageVisibility } from './page-visibility';
 
 export interface TracksOptions {
   readonly onPreferencesChange?: () => void;
@@ -260,9 +261,9 @@ export function mountTracks(container: HTMLElement, options: TracksOptions = {})
       error = ''; changed(); render(); container.querySelector<HTMLInputElement>(`[data-tracks-setting="${setting}"]`)?.focus({ preventScroll: true });
     } catch (failure) { error = failure instanceof Error ? failure.message : String(failure); input.setAttribute('aria-invalid', 'true'); refreshMessage(); }
   }, { signal: controller.signal });
-  document.addEventListener('visibilitychange', () => {
-    if (visible && document.hidden && ['playing', 'starting'].includes(snapshot().state)) { pause('hidden'); notice = 'Вкладка скрывалась. Продолжи воспроизведение явно.'; refreshMessage(); }
-  }, { signal: controller.signal });
+  onPageVisibility(controller.signal, () => {
+    if (visible && ['playing', 'starting'].includes(snapshot().state)) { pause('hidden'); notice = 'Вкладка скрывалась. Продолжи воспроизведение явно.'; refreshMessage(); }
+  });
   render();
   return {
     getPreferences, applyPreferences,

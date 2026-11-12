@@ -4,6 +4,7 @@ import { PITCH_DIAGNOSTIC } from '../input/pitch';
 import { formatMidi } from '../music';
 import { createActiveFrame } from './active-frame';
 import { escapeHtml } from './html';
+import { onPageVisibility } from './page-visibility';
 
 export interface InputPreferences { readonly deviceId: string }
 export interface InputOptions {
@@ -166,9 +167,9 @@ export function mountInput(container: HTMLElement, options: InputOptions = {}) {
     stop('Выбор входа изменён. Подключение остановлено; снова нажми «Подключить».');
     preferences = { deviceId: picker.value }; options.onPrefsChange?.();
   }, { signal: controller.signal });
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && ['running', 'starting'].includes(monitor.getSnapshot().state)) stop('При скрытии вкладки аудиовход был отключён. Для нового подключения нажми «Подключить».');
-  }, { signal: controller.signal });
+  onPageVisibility(controller.signal, () => {
+    if (['running', 'starting'].includes(monitor.getSnapshot().state)) stop('При скрытии вкладки аудиовход был отключён. Для нового подключения нажми «Подключить».');
+  });
   function tick(time: number) {
     if (time - lastFrame >= 100) { lastFrame = time; refresh(); }
   }

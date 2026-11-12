@@ -8,6 +8,7 @@ import {
 import { formatMidi, parseNote } from '../music';
 import type { RouteMaterial, RouteRef } from '../route';
 import { escapeHtml } from './html';
+import { onPageVisibility } from './page-visibility';
 
 export interface EarPreferences { readonly root: string; readonly quality: EarQuality; readonly count: number; readonly bpm: number }
 export interface EarOptions {
@@ -265,11 +266,11 @@ export function mountEar(container: HTMLElement, options: EarOptions = {}) {
     } catch (failure) { fail(failure); }
   }, { signal: controller.signal });
 
-  document.addEventListener('visibilitychange', () => {
-    if (!visible || !document.hidden) return;
+  onPageVisibility(controller.signal, () => {
+    if (!visible) return;
     stopAudio(session?.status === 'active' ? 'Вкладка скрывалась. Прослушай оба звука заново, когда вернёшься.' : 'Образец остановлен при скрытии вкладки.');
     render();
-  }, { signal: controller.signal });
+  });
 
   render();
   return {

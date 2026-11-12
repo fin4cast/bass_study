@@ -18,6 +18,7 @@ import { createSessionHistory } from './session-history';
 import { createThemeController } from './theme';
 import { createPracticeDrafts, type PracticeBinding } from './practice-drafts';
 import { mountIntroduction } from '../ui/introduction';
+import { onPageVisibility } from '../ui/page-visibility';
 import { createRouteMaterial, type RouteSession } from '../route';
 import { acquireWriterLease } from './writer-lock';
 import { createStudyStore, createMemoryStudyStore, exportRawDatabase, describeSkippedRecords, DEFAULT_PREFERENCES, DEFAULT_PROFILE, type AppPreferences, type HistoryCommit, type GlobalProfile, type PracticeDraft, type StudySnapshot } from '../storage';
@@ -577,8 +578,8 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     void retire().catch(() => {});
   }, listen);
   const draftCheckpoint = setInterval(() => { if (!retiring && !main.inert) void drafts.flush().catch(() => {}); }, 5000);
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && !retiring) { audio.forget(); void drafts.flush().catch(() => {}); }
-  }, listen);
+  onPageVisibility(lifetime.signal, () => {
+    if (!retiring) { audio.forget(); void drafts.flush().catch(() => {}); }
+  });
   return { dispose: retire };
 }

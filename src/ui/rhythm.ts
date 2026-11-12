@@ -10,7 +10,8 @@ import {
 import { applyRhythmProjectEdit, copyRhythmBar, metronomeTempo, playbackForRhythmRun, withProjectTempo, type RhythmBarCopy, type RhythmProjectEdit } from '../rhythm/editor';
 import { confirmAction } from './confirm';
 import { bindPageTabs } from './page-tabs';
-import { allowsTransportShortcut } from './transport-shortcut';
+import { handleTransportKey } from './transport-shortcut';
+import { onPageVisibility } from './page-visibility';
 import { rhythmInstrumentArt } from './rhythm/instrument-art';
 import { bindRhythmDial, paintRhythmDial, rhythmButton, rhythmMarkup } from './rhythm/view';
 import { createRhythmLibrary, type RhythmLibrary, type RhythmLibraryOperation } from './rhythm/library';
@@ -963,15 +964,17 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     }
   }, listen);
   document.addEventListener('keydown', event => {
-    if (!visible || disposed || !allowsTransportShortcut(event, container)) return;
-    if (event.code === 'Space' && event.target instanceof Element && event.target.matches('[role="region"][tabindex], .rhythm-rack-scroll, .rhythm-side-scroll')) return;
-    if (event.key === 'Escape') { stop(); event.preventDefault(); }
-    else if (event.code === 'Space') { event.preventDefault(); if (playing()) pause(); else void sound(snapshot?.state === 'paused' ? 'resume' : 'start'); }
+    if (!visible || disposed) return;
+    handleTransportKey(event, container, {
+      stop,
+      toggle: () => { if (playing()) pause(); else void sound(snapshot?.state === 'paused' ? 'resume' : 'start'); },
+      keepSpaceOn: '[role="region"][tabindex], .rhythm-rack-scroll, .rhythm-side-scroll',
+    });
   }, listen);
-  document.addEventListener('visibilitychange', () => {
-    if (visible && document.hidden) { cancelFader(); pause('hidden'); }
+  onPageVisibility(listener.signal, () => {
+    if (visible) { cancelFader(); pause('hidden'); }
     syncTransport();
-  }, listen);
+  }, syncTransport);
 
   function applyPreferences(next: RhythmPreferences) {
     if (disposed) return;
