@@ -3,14 +3,12 @@ import { join, posix, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+// Разделы интерфейса `src/ui`. Координаторы `src/app/*` (оболочка, «Занятие», «Настройки») связывают разделы и в них не входят.
 const sections = {
   foundation: ['foundation', 'foundation-view', 'fretboard', 'player', 'training', 'notation', 'study-details'],
-  ear: ['ear'],
   harmony: ['rhythm', 'rhythm/library', 'rhythm/view', 'rhythm/instrument-art', 'rhythm/editor-dom'],
   tracks: ['studio', 'music-bank', 'tracks'],
   input: ['input'],
-  route: ['route'],
-  auxiliary: ['history', 'introduction'],
   // «Проверь себя» — шаг занятия (D-043): общий мини-гриф и подписи материала.
   lesson: ['lesson/material', 'lesson/mini-board', 'lesson/model', 'lesson/view', 'check/session', 'check/view'],
   play: ['play/board', 'play/model', 'play/port', 'play/tab', 'play/view'],

@@ -30,6 +30,9 @@ export interface ProgressOptions extends Partial<ProgressData> {
   /** Открыть упражнение; для игры — с лучшим или последним темпом. */
   readonly onPlay?: (exerciseKey: string, bpm: number | null) => void;
   readonly onGoToLesson?: () => void;
+  /** Смена вкладки и источника — чтобы хост запомнил выбор. */
+  readonly onTabChange?: (tab: ProgressTab) => void;
+  readonly onSourceChange?: (source: SourceFilter) => void;
 }
 export interface ProgressView {
   update(data: ProgressData): void;
@@ -326,8 +329,11 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
     if (!target || !container.contains(target)) return;
     if (target.dataset.tab) { selectTab(target.dataset.tab as ProgressTab); return; }
     if (target.dataset.source) {
-      state.source = target.dataset.source as SourceFilter;
+      const source = target.dataset.source as SourceFilter;
+      const changed = source !== state.source;
+      state.source = source;
       renderAll();
+      if (changed) options.onSourceChange?.(source);
       focusSame(`[data-source="${state.source}"]`);
       return;
     }
@@ -365,7 +371,9 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
     if (target.dataset.highlightClear !== undefined) { state.highlight = null; renderBest(); renderCalendar(); $<HTMLElement>(`[data-day="${state.day}"]`)?.focus(); }
   }
   function selectTab(tab: ProgressTab, focus = false) {
+    const changed = tab !== state.tab;
     state.tab = tab;
+    if (changed) options.onTabChange?.(tab);
     renderTabs();
     if (tab === 'exercises' && state.open) fillDetail(state.open);
     if (focus) $<HTMLElement>(`[data-tab="${tab}"]`)?.focus();

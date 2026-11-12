@@ -18,7 +18,7 @@ export function mountStudio(container: HTMLElement, options: {
   container.innerHTML = `
     ${renderPageHeader('tracks', {
       descriptionText: 'Открой партитуру или локальную запись и повторяй фрагменты.',
-      navigation: `<div class="workspace-tabs" role="tablist" aria-label="Материал раздела «Табулатура и ноты»">
+      navigation: `<div class="workspace-tabs" role="tablist" aria-label="Материал раздела «Песни»">
         <button id="bank-scores-tab" type="button" role="tab" data-bank-view="scores" aria-controls="music-bank-mount">Партитуры</button>
         <button id="bank-audio-tab" type="button" role="tab" data-bank-view="audio" aria-controls="bank-audio-panel">Аудиозаписи</button>
       </div>`,

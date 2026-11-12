@@ -1,7 +1,7 @@
 import { suspendAudioWhenIdle } from '../audio/context';
 
-export type AudioOwner = 'sequence' | 'ear' | 'rhythm' | 'tracks' | 'scores' | 'input' | 'introduction';
-export type AudioExit = 'owner' | 'section' | 'route' | 'settings' | 'restore' | 'retire';
+export type AudioOwner = 'sequence' | 'play' | 'check' | 'rhythm' | 'tracks' | 'scores' | 'input';
+export type AudioExit = 'owner' | 'section' | 'settings' | 'restore' | 'retire';
 
 /**
  * The application arbitrates starts. Each participant owns cancellation of its pending work.

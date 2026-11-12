@@ -33,10 +33,16 @@ export interface MountPlayOptions {
   readonly port?: PlaybackPort;
   readonly initialView?: PlayView;
   readonly bpm?: number;
+  /** Отсчёт 4 доли перед стартом; по умолчанию включён. */
+  readonly countIn?: boolean;
+  /** Подписи на грифе при открытии; по умолчанию — ноты. */
+  readonly labels?: Exclude<BoardLabelMode, 'none'>;
   /** Подпись кнопки возврата, например «← Занятие · шаг 2 из 4». */
   readonly backLabel?: string;
   readonly onBack?: () => void;
   readonly onRate?: (event: RateEvent) => void;
+  /** Владелец звука разрешает старт или продолжение; `false` — звук не начинается. */
+  readonly onBeforeStart?: () => boolean;
   readonly onViewChange?: (view: PlayView) => void;
   /** «Сначала услышь»: эталон до игры. Без обработчика кнопка скрыта. */
   readonly onListen?: () => void;
@@ -51,6 +57,8 @@ export interface PlayHandle {
   getView(): PlayView;
   /** Экран скрыт хостом: игра ставится на паузу, клавиши не обрабатываются. Продолжение — только действием. */
   setVisible(visible: boolean): void;
+  /** Пауза по требованию хоста (другой владелец звука, уход из раздела); продолжение — только действием. */
+  pause(): void;
   stop(): void;
   dispose(): void;
 }
@@ -167,8 +175,8 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   let junctionList: Junction[] = [];
   let concept: { id: ConceptId; card: ReferenceConcept } | null = null;
   let view: PlayView = isPlayView(options.initialView) ? options.initialView : 'both';
-  let labels: BoardLabelMode = 'name';
-  let settings: PlaySettings = { bpm: clampBpm(options.bpm ?? 72), countIn: true, loop: true, ladder: false, range: null };
+  let labels: BoardLabelMode = options.labels ?? 'name';
+  let settings: PlaySettings = { bpm: clampBpm(options.bpm ?? 72), countIn: options.countIn ?? true, loop: true, ladder: false, range: null };
   let runSettings: PlaySettings | null = null;
   let state: PlayState = port.state();
   let shownIndex: number | null = null;
@@ -526,9 +534,17 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   }
   const message = (failure: unknown) => failure instanceof Error ? failure.message : String(failure);
 
+  /** Хост не разрешил звук: ничего не начинается, причина видна у транспорта. */
+  function allowed() {
+    if (!options.onBeforeStart || options.onBeforeStart()) return true;
+    errorText = 'Звук сейчас не запускается: вкладка не активна или звук занят другим разделом.';
+    update();
+    return false;
+  }
   async function begin(restart = false) {
     if (!plan || disposed) return;
     errorText = '';
+    if (!allowed()) return;
     const config = playbackConfig(plan, settings);
     runSettings = { ...settings };
     lastPass = 0; completedPass = -1; activeMs = 0; passBpm = settings.bpm; previous = null; fromStart = false; shownIndex = null;
@@ -548,6 +564,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (status === 'counting' || status === 'playing') port.pause('manual');
     else if (status === 'paused') {
       errorText = '';
+      if (!allowed()) return;
       busy = true;
       port.resume().catch(failure => { errorText = `Звук не продолжился: ${message(failure)}`; }).finally(() => { busy = false; update(); });
     } else void begin();
@@ -629,7 +646,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
 
   /* ---------- Запуск ---------- */
   setView(view, false);
-  setLabels('name');
+  setLabels(labels);
   renderHeader();
   update();
 
@@ -653,6 +670,12 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       visible = next;
       if (!visible) { pauseHidden(); if (raf) cancelAnimationFrame(raf); raf = 0; observe(port.state()); renderTransport(); }
       else update();
+    },
+    pause() {
+      if (disposed) return;
+      const status = port.state().status;
+      if (status === 'counting' || status === 'playing') port.pause('manual');
+      update();
     },
     stop() {
       if (disposed) return;

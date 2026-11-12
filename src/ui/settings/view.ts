@@ -12,7 +12,8 @@ import {
   type BackupChoice, type BackupPreview, type BackupRejection, type BoardLabels, type PlayDefaults, type PlayView, type SectionId, type SettingsState, type ThemeChoice,
 } from './model';
 
-type ActionResult = void | { readonly error: string };
+/** `notice` — действие выполнено с оговоркой (например, копия без несохранённых изменений). */
+type ActionResult = void | { readonly error: string } | { readonly notice: string };
 export interface SettingsOptions {
   readonly state: SettingsState;
   readonly initialSection?: SectionId;
@@ -90,7 +91,7 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
         <div class="st-cols"><div><strong class="st-text">В копии</strong><ul class="st-list-dots" data-copy-list></ul></div><div><strong class="st-text">Не входят</strong><ul class="st-list-dots"><li>аудиофайлы и партитуры — после восстановления их нужно выбрать заново в «Песнях»</li></ul></div></div>
         <p class="st-note"><strong>Копия подходит только для текущей версии данных (<span data-data-version></span>).</strong> Если обновление тренажёра меняет устройство данных, сохранённое начинается заново, а копии прежней версии не загружаются.</p>
       </div>`,
-    input: `<div class="st-card"><p class="st-info">Это диагностика сигнала: она показывает, доходит ли звук баса до компьютера, но игру не оценивает. Звук входа на динамики не выводится.</p>
+    input: `<div class="st-card"><p class="st-info">Это диагностика сигнала: она показывает, доходит ли звук баса до компьютера, но игру не оценивает.</p>
       <div class="st-input-mount" data-input-mount></div></div>`,
     about: `<div class="st-card"><dl class="st-dl">
       <dt>Версия</dt><dd data-about-version></dd>
@@ -291,7 +292,7 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
       return;
     }
     if (stepAfter) { dialog.close(); }
-    toast('Копия скачана. Сохрани файл вне браузера.');
+    toast(result && 'notice' in result ? result.notice : 'Копия скачана. Сохрани файл вне браузера.');
   }
   async function choose() {
     if (!options.onChooseBackup) return;
