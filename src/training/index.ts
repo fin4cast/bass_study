@@ -4,7 +4,7 @@ import {
 } from '../music';
 import type { IntervalDegree } from './constraints';
 import type { BoxSelection } from '../music/boxes';
-import { checkQuizElapsedV1, createQuestionV1, createQuizQuestionsV1, eligiblePositionsV1, namedPitchClassV1 } from './quiz-rules-v1';
+import { isNamingModeV1, checkQuizElapsedV1, createQuestionV1, createQuizQuestionsV1, eligiblePositionsV1, namedPitchClassV1 } from './quiz-rules-v1';
 import type { RouteRef } from '../route';
 export { INTERVAL_DEGREES, createIntervalTarget, createPitchTarget, spellInterval } from './constraints';
 export type { IntervalDegree } from './constraints';
@@ -12,7 +12,7 @@ export type { IntervalDegree } from './constraints';
 export { createManualPracticeResult } from './results';
 export type { ManualPracticeResult, TrainingResult } from './results';
 
-export type QuizMode = 'name-note' | 'find-note' | 'find-all' | 'find-degree' | 'find-pitch' | 'find-interval';
+export type QuizMode = 'name-note' | 'name-degree' | 'find-note' | 'find-all' | 'find-degree' | 'find-pitch' | 'find-interval';
 export type TrainingScope = 'structure' | 'chromatic';
 export type SequencePattern = 'ascending' | 'descending' | 'round-trip' | 'groups-of-three';
 export type QuizAnswer = string | number;
@@ -157,19 +157,22 @@ export function submitAnswer(session: QuizSession, answer: QuizAnswer, elapsedMs
     return immutable({ ...session, answerState: { ...previous, lastElapsedMs: elapsedMs,
       feedback: { kind: 'duplicate', message: 'Эта позиция уже найдена. Повторный выбор не меняет результат.' } } });
   }
-  const correct = question.mode === 'name-note'
+  const naming = isNamingModeV1(question.mode);
+  const correct = naming
     ? namedPitchClassV1(answer, question.choices) === question.target.pitchClass
     : positionId !== null && question.expectedPositionIds.includes(positionId);
-  const selectedPositionIds = correct && question.mode !== 'name-note'
+  const selectedPositionIds = correct && !naming
     ? [...previous.selectedPositionIds, positionId!]
     : [...previous.selectedPositionIds];
   const complete = correct && (question.mode !== 'find-all' || selectedPositionIds.length === question.expectedPositionIds.length);
   const feedback: AnswerState['feedback'] = !correct
-    ? { kind: 'incorrect', message: question.mode === 'name-note'
+    ? { kind: 'incorrect', message: question.mode === 'name-degree'
+      ? 'Это другая ступень. Сравни расстояние от тоники и попробуй ещё раз.'
+      : question.mode === 'name-note'
       ? `Это нота ${question.target.name}. Сравните её с выбранным ответом и попробуйте ещё раз.`
       : `Эта позиция не подходит. Ищите ${question.targetMidi === null ? question.target.name : formatMidi(question.targetMidi, question.target.name)} в доступных струнах и ладах${question.targetMidi === null ? '' : '; другая октава не подходит'}.` }
     : complete
-      ? { kind: 'correct', message: question.mode === 'find-all' ? 'Все позиции найдены.' : `Верно: ${question.targetMidi === null ? question.target.name : formatMidi(question.targetMidi, question.target.name)}.` }
+      ? { kind: 'correct', message: question.mode === 'find-all' ? 'Все позиции найдены.' : question.mode === 'name-degree' ? `Верно: ступень ${(question.target.degree ?? '').replaceAll('b', '♭').replaceAll('#', '♯')}.` : `Верно: ${question.targetMidi === null ? question.target.name : formatMidi(question.targetMidi, question.target.name)}.` }
       : { kind: 'partial', message: `Найдено ${selectedPositionIds.length} из ${question.expectedPositionIds.length}. Продолжайте поиск.` };
   return immutable({ ...session,
     status: complete ? 'review' : 'active',

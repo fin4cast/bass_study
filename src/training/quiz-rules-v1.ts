@@ -3,7 +3,10 @@ import { getBoxInstanceV1 } from '../music/boxes';
 import { createIntervalTarget, createPitchTarget } from './constraints';
 import type { AnswerEvent, Question, QuestionContext, QuizAnswer, QuizConfig, QuizMode, QuizResult, TrainingConfig } from './index';
 
-const QUIZ_MODES: readonly QuizMode[] = ['name-note', 'find-note', 'find-all', 'find-degree', 'find-pitch', 'find-interval'];
+const QUIZ_MODES: readonly QuizMode[] = ['name-note', 'name-degree', 'find-note', 'find-all', 'find-degree', 'find-pitch', 'find-interval'];
+/** Режимы «назови»: ответ — выбор класса высоты (`pc:N`), а не позиция. */
+export const isNamingModeV1 = (mode: QuizMode) => mode === 'name-note' || mode === 'name-degree';
+const degreeLabel = (degree: string) => degree.replaceAll('b', '♭').replaceAll('#', '♯');
 const CHROMATIC_NAMES = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'] as const;
 
 /** All objects passed here are constructed by this module, not caller-owned inputs. */
@@ -49,14 +52,17 @@ export function createQuestionV1(config: QuizConfig, forcedPitchClass?: number):
   validateSeed(config.seed);
   if (!QUIZ_MODES.includes(config.mode)) throw new RangeError('Неизвестный режим задания.');
   const scope = config.mode === 'find-interval' ? 'chromatic' : config.scope ?? 'structure';
-  if (config.mode === 'find-degree' && scope === 'chromatic') {
+  if ((config.mode === 'find-degree' || config.mode === 'name-degree') && scope === 'chromatic') {
     throw new RangeError('Поиск ступеней работает по выбранной гамме или трезвучию. Выберите «Ноты структуры».');
   }
-  const choices = CHROMATIC_NAMES.map((fallback, pitchClass) => ({
-    id: `pc:${pitchClass}`,
-    label: config.structure.notes.find(note => note.pitchClass === pitchClass)?.name ?? fallback,
-    pitchClass,
-  }));
+  // У «Назови ступень» варианты — ступени структуры; идентификаторы те же `pc:N`, поэтому повтор ответов при проверке истории не меняется.
+  const choices = config.mode === 'name-degree'
+    ? config.structure.notes.map(note => ({ id: `pc:${note.pitchClass}`, label: degreeLabel(note.degree), pitchClass: note.pitchClass }))
+    : CHROMATIC_NAMES.map((fallback, pitchClass) => ({
+      id: `pc:${pitchClass}`,
+      label: config.structure.notes.find(note => note.pitchClass === pitchClass)?.name ?? fallback,
+      pitchClass,
+    }));
   const effectiveIds = config.box && config.mode !== 'find-interval' ? eligiblePositionsV1(config).map(position => position.id) : config.positions.map(position => position.id);
   const context: QuestionContext = { scope, root: config.structure.root, structureId: config.structure.id, positionIds: [...new Set(effectiveIds)], ...(config.box && config.mode !== 'find-interval' ? { box: getBoxInstanceV1(config.box).selection } : {}) };
   if (config.mode === 'find-pitch' || config.mode === 'find-interval') {
@@ -71,7 +77,7 @@ export function createQuestionV1(config: QuizConfig, forcedPitchClass?: number):
   const positions = eligiblePositionsV1(config);
   if (positions.length === 0) throw new RangeError('В выбранной области нет подходящих нот. Измените струны, лады или структуру.');
   const next = randomUint32(config.seed);
-  const targets = config.mode === 'name-note'
+  const targets = isNamingModeV1(config.mode)
     ? positions
     : [...new Map(positions.map(position => [position.pitchClass, position])).values()];
   const selected = forcedPitchClass === undefined ? targets[Math.floor((next() / 0x100000000) * targets.length)] : targets.find(position => position.pitchClass === forcedPitchClass);
@@ -80,20 +86,21 @@ export function createQuestionV1(config: QuizConfig, forcedPitchClass?: number):
   const target = { pitchClass: selected.pitchClass, name: selected.noteName, degree: selected.degree };
   const prompts = {
     'name-note': `Назовите ноту: струна ${selected.string}, лад ${selected.fret}. Октава не влияет на выбор имени.`,
+    'name-degree': `Какая это ступень от ${config.structure.root}: струна ${selected.string}, лад ${selected.fret}?`,
     'find-note': `Найдите ноту ${target.name} в выбранной области. Подходит любая её октава.`,
     'find-all': `Найдите все позиции ноты ${target.name} в выбранной области: ${expectedPositionIds.length}.`,
     'find-degree': `Найдите ступень ${(target.degree ?? '').replaceAll('b', '♭').replaceAll('#', '♯')} от ${config.structure.root} в выбранной структуре.`,
   };
   return immutable({
-    id: `q-${config.seed.toString(16)}-${config.mode}-${config.mode === 'name-note' ? selected.id : selected.pitchClass}`,
+    id: `q-${config.seed.toString(16)}-${config.mode}-${isNamingModeV1(config.mode) ? selected.id : selected.pitchClass}`,
     mode: config.mode,
     prompt: prompts[config.mode],
     seed: config.seed,
     context, target, targetMidi: null,
-    ...(config.mode === 'name-note' ? { targetPositionId: selected.id } : {}),
+    ...(isNamingModeV1(config.mode) ? { targetPositionId: selected.id } : {}),
     expectedPositionIds,
     choices,
-    answerRule: config.mode === 'name-note' ? 'pitch-class' : config.mode === 'find-all' ? 'all-positions' : 'any-position',
+    answerRule: isNamingModeV1(config.mode) ? 'pitch-class' : config.mode === 'find-all' ? 'all-positions' : 'any-position',
   });
 }
 /** Saved series with a v1 policy always use this ordering and these question IDs. */
@@ -159,7 +166,7 @@ export function replayQuizResultV1(
   for (const event of events) {
     checkQuizElapsedV1(lastElapsedMs, event.elapsedMs);
     const positionId = typeof event.answer === 'string' ? event.answer : null;
-    const correct = mode === 'name-note'
+    const correct = isNamingModeV1(mode)
       ? namedPitchClassV1(event.answer) === targetPitchClass
       : positionId !== null && expected.has(positionId);
     if (completionMs !== null || correct !== event.correct || (mode === 'find-all' && positionId !== null && selected.has(positionId))) {
@@ -169,7 +176,7 @@ export function replayQuizResultV1(
     lastElapsedMs = event.elapsedMs;
     if (!correct) errors++;
     else {
-      if (mode !== 'name-note' && positionId !== null) selected.add(positionId);
+      if (!isNamingModeV1(mode) && positionId !== null) selected.add(positionId);
       if (mode !== 'find-all' || selected.size === expected.size) completionMs = lastElapsedMs;
     }
   }
