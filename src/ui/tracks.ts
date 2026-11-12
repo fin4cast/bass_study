@@ -225,7 +225,7 @@ export function mountTracks(container: HTMLElement, options: TracksOptions = {})
   container.addEventListener('input', event => {
     const input = event.target; if (!(input instanceof HTMLInputElement)) return;
     if (input.dataset.trackVolume) {
-      try { player.setTrackMix(input.dataset.trackVolume, { volume: Number(input.value) / 100 }); const out = container.querySelector<HTMLOutputElement>(`[data-track-volume-output="${input.dataset.trackVolume}"]`); if (out) out.value = `${input.value}%`; changed(); }
+      try { player.setTrackMix(input.dataset.trackVolume, { volume: Number(input.value) / 100 }); const out = container.querySelector<HTMLOutputElement>(`[data-track-volume-output="${CSS.escape(input.dataset.trackVolume)}"]`); if (out) out.value = `${input.value}%`; changed(); }
       catch (failure) { error = failure instanceof Error ? failure.message : String(failure); refreshMessage(); }
     }
     if (input.dataset.tracksSetting === 'from') fromDraft = input.value;

@@ -335,6 +335,19 @@ check('ui-errors-and-explicit-load-cancellation-preserve-the-previous-ready-set'
   return { previousManifest: before, nativeDecodeReallyCompleted: true, cancellationMethod: 'Real UI Cancel after actual native decode; test-only async delivery gate, no fake decoded buffer or exception.', preservedAfterCorruptionCountAndCancellation: true };
 });
 
+check('ui-volume-output-updates-for-restored-track-id-with-css-special-characters', 'ui', async ({ page }) => {
+  await setupUi(page); const copy = await exportUi(page);
+  const specialId = `track"] [x='1'\\ id`;
+  copy.preferences.tracks = { ...copy.preferences.tracks, tracks: copy.preferences.tracks.tracks.map((track, index) => index === 0 ? { ...track, id: specialId } : track) };
+  await restoreUi(page, copy); await page.getByTestId('tracks-missing').waitFor();
+  const volume = page.getByLabel('Громкость дорожки 1', { exact: true }); await volume.focus(); await volume.press('Home');
+  for (let index = 0; index < 30; index++) await volume.press('ArrowRight');
+  const output = await page.locator('[data-track-id]').first().locator('output').innerText();
+  assert.equal(output, '30%'); assert.ok(await page.getByTestId('tracks-error').isHidden(), await page.getByTestId('tracks-error').innerText());
+  const saved = (await exportUi(page)).preferences.tracks.tracks[0]; assert.equal(saved.id, specialId); near(saved.volume, .3, 1e-9);
+  return { specialId, output, savedVolume: saved.volume };
+});
+
 check('native-hidden-tab-pauses-real-tracks-and-needs-explicit-resume', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
   await setupUi(page); await page.getByLabel('Повторять аудиофрагмент', { exact: true }).check(); await tracksAction(page, 'play').click(); await stateIs(page, 'playing'); await delay(250);
   const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront();
