@@ -37,7 +37,7 @@ export function portableMusicBankSamples() {
 export async function openMusicBankTestInputs(resultDir, corpus = usePersonalMusicBank()) {
   if (corpus) {
     if (!process.env.BASS_MUSIC_BANK_ROOT) throw new Error('Укажи BASS_MUSIC_BANK_ROOT для проверок личной коллекции.');
-    const { selection, samplePath, sampleBytes, libraryRoot } = await import('../../experiments/music-bank/inspect.mjs');
+    const { selection, samplePath, sampleBytes, libraryRoot } = await import('./music-bank-corpus.mjs');
     await Promise.all(selection.samples.map(sampleBytes));
     return { selection, samplePath, sampleBytes, libraryRoot, corpus, query: 'Jackson Billie Jean', minimumCount: 48001 };
   }

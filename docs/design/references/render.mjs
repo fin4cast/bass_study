@@ -1,15 +1,9 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const revision = process.argv[2] || 'r1';
-if (!['r1', 'r2', 'r3', 'r4', 'r5'].includes(revision)) throw new Error('Ожидается r1, r2, r3, r4 или r5.');
-const isR4 = revision === 'r4';
-const isR5 = revision === 'r5';
-const isSingle = isR4 || isR5;
-const isR2 = revision === 'r2' || revision === 'r3';
-const stem = isR2 || isSingle ? `fretboard-${revision}` : 'fretboard';
-const names = isSingle ? ['Связи на грифе'] : isR2 ? ['Точный гриф', 'Инструментальный', 'Связи на грифе'] : ['Мастерская', 'Пошаговое изучение', 'Атлас связей'];
-const ids = isSingle ? ['A3'] : isR2 ? ['A1', 'A2', 'A3'] : ['A', 'B', 'C'];
-const rootId = isR5 ? 'studio-fretboard-r5' : isR4 ? 'studio-fretboard' : revision === 'r3' ? 'fretboard-readable-study' : isR2 ? 'fretboard-material-study' : 'fretboard-ux-references';
+// Собирает автономный VIS-01 r5 из фрагмента, подготовленного prepare-r5.mjs.
+const revision = process.argv[2] || 'r5';
+if (revision !== 'r5') throw new Error('Ожидается r5: остальные ревизии грифа удалены из каталога.');
+const stem = 'fretboard-r5';
 const fragment = await readFile(new URL(`./${stem}.fragment.html`, import.meta.url), 'utf8');
 const head = `<!doctype html>
 <html lang="ru">
@@ -35,34 +29,19 @@ const head = `<!doctype html>
 <body>
 <div class="review-shell">
   <div class="review-header">
-    <div><strong>VIS-01 · Гриф · ${revision}</strong><p>${isSingle ? 'Мастерская · выбранное направление «Связи на грифе» · экран на рассмотрении' : `${isR2 ? 'Мастерская · три исполнения грифа' : 'Три UX-кандидата'} · ни один не утверждён`}</p></div>
-    ${names.length > 1 ? `<nav class="review-tabs" aria-label="Кандидаты UX">
-      ${names.map((name, i) => `<button type="button" data-ref-choice="${i}" aria-pressed="${i === 0}">${name}</button>`).join('\n      ')}
-    </nav>` : ''}
-    ${isR5 ? '' : '<label>Тема <select id="review-theme"><option value="light dark">Системная</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select></label>'}
+    <div><strong>VIS-01 · Гриф · ${revision}</strong><p>Мастерская · выбранное направление «Связи на грифе» · экран на рассмотрении</p></div>
+
+
   </div>
 `;
 const tail = `
-  <p class="review-footnote">Интерактивные UX-референсы, ${revision} · 08.11.2026. Данные занятия не сохраняются, звук и доступ к микрофону не используются. ${isSingle ? 'Выбрано направление A3; окончательное утверждение экрана ещё не получено.' : 'Выбор вкладки не означает утверждения.'}</p>
+  <p class="review-footnote">Интерактивные UX-референсы, ${revision} · 08.11.2026. Данные занятия не сохраняются, звук и доступ к микрофону не используются. Выбрано направление A3; окончательное утверждение экрана ещё не получено.</p>
 </div>
 <script>
 (() => {
-  ${isSingle ? '' : `const variants = Array.from(document.querySelectorAll('#${rootId} > section[data-variant]'));
-  const ids = ${JSON.stringify(ids)};
-  const buttons = Array.from(document.querySelectorAll('[data-ref-choice]'));
-  const show = index => {
-    variants.forEach((variant, i) => { variant.hidden = i !== index; });
-    buttons.forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));
-  };
-  buttons.forEach((button, i) => button.addEventListener('click', () => {
-    show(i);
-    history.replaceState(null, '', '#VIS-01-' + ids[i]);
-  }));`}
-  ${isR5 ? '' : `document.getElementById('review-theme').addEventListener('change', event => {
-    document.documentElement.style.colorScheme = event.target.value;
-  });`}
-  ${isSingle ? '' : `const initial = ids.map(id => '#VIS-01-' + id).indexOf(location.hash);
-  show(Math.max(0, initial));`}
+
+
+
 })();
 </script>
 </body>

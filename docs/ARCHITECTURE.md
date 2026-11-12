@@ -185,7 +185,7 @@ alphaTab ведёт собственные аудиочасы, синтезат�
 <a id="harmony"></a>
 ### Прежнее сопровождение C–F–G–C
 
-`src/harmony`, `src/audio/harmony.ts` (бас, pad и клик на одном `AudioContext`) и `src/ui/harmony.ts` в приложении не монтируются: ID `harmony` занят «Метрономом и ритмом». В модели остаются `preferences.harmony` и материал ручной отметки `harmony`. Модуль проверяют `tests/harmony*.test.ts` и `tests/harmony-browser.mjs`. Его судьба — открытый вопрос [плана](PLAN.md#open).
+`src/harmony` и `src/audio/harmony.ts` (бас, pad и клик на одном `AudioContext`) в приложении не монтируются; экран сопровождения удалён: ID `harmony` занят «Метрономом и ритмом». В модели остаются `preferences.harmony` и материал ручной отметки `harmony`. Модуль проверяют `tests/harmony*.test.ts` и `tests/harmony-browser.mjs`. Его судьба — открытый вопрос [плана](PLAN.md#open).
 
 <a id="ui"></a>
 ## Интерфейс

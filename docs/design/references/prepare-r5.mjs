@@ -81,5 +81,5 @@ if (modelOnly) {
 } else {
   const inlineCode = code.replace(/<\/script/gi, '<\\/script');
   await writeFile(resolve('fretboard-r5.fragment.html'), `<script>\n${inlineCode}\n</script>\n${view}`);
-  console.log('Собран docs/design/references/fretboard-r5.fragment.html из музыкальной модели и view. r1–r4 не изменялись.');
+  console.log('Собран docs/design/references/fretboard-r5.fragment.html из музыкальной модели и view.');
 }
