@@ -9,8 +9,9 @@
   import '/src/theme.css'; // после модулей приложения, как прежний импорт из theme.ts
   import { APP_SECTIONS } from '/src/app/page-frame.ts';
 
+  // Неполная оболочка P13: без одного раздела меню. «Занятие» — запасной раздел, «Настройки» — место копии и восстановления.
   const omitted = new URL(location.href).searchParams.get('omit');
-  if (omitted !== 'input' && omitted !== 'ear') throw new Error('Неизвестный тестовый состав.');
+  if (!['foundation', 'harmony', 'tracks', 'progress'].includes(omitted)) throw new Error('Неизвестный тестовый состав.');
   mountApplication(document.getElementById('app'), APP_SECTIONS.filter(section => section !== omitted));
 </script>
 </html>

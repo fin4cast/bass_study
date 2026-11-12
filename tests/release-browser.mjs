@@ -3,61 +3,27 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runReleaseBrowserChecks } from './helpers/release-browser-harness.mjs';
-import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
+import { browserCases, markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
+import {
+  answerChoice, answerNameNoteCorrectly, checkHost, checkProgress, currentSection, exportDownload, exportUi, go, nameNoteQuestion, openDrafts,
+  openFormCheck, openSettingsPane, playRhythm, previewCopy, progressPage, rawSnapshot, ready, rhythmBpm, settingsDialog, settingsPage, waitRaw, withoutSection,
+} from './helpers/data-ui.mjs';
 
+// Сценарии выпуска в оболочке P13: «Проверь себя» по форме атласа вместо вкладки «Задания», «Ритм» как источник часов
+// ручной практики вместо проигрывателя последовательностей, «Прогресс» и «Настройки → Данные» вместо панели истории.
 const checks = [];
 const check = (name, run, options = {}) => checks.push({ name, run, ...options });
-const historyAction = (page, name) => page.locator(`[data-history-action="${name}"]`);
-const quizAction = (page, name) => page.locator(`[data-training-action="${name}"]`);
 const OPEN_MIDI = { E: 28, A: 33, D: 38, G: 43 };
 const midiForId = id => { const [string, fret] = id.split(':'); return OPEN_MIDI[string] + Number(fret); };
-
-async function ready(page, keyboard = false) {
-  await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert);
-  const free = page.locator('[data-intro="free"]');
-  if (await free.isVisible()) { if (keyboard) await keyboardActivate(page, free); else await free.click(); }
-}
-async function revealControl(locator, keyboard = false) {
-  const page = locator.page();
-  if (await locator.locator('xpath=ancestor::*[@id="study-settings"]').count() && !await page.locator('#study-settings').isVisible()) {
-    const toggle = page.locator('#toggle-study-settings');
-    if (keyboard) await keyboardActivate(page, toggle); else await toggle.click();
-  }
-  const parents = locator.locator('xpath=ancestor::details');
-  for (let index = 0; index < await parents.count(); index++) {
-    const details = parents.nth(index);
-    if (!await details.evaluate(element => element.open)) { const summary = details.locator(':scope > summary'); if (keyboard) await keyboardActivate(locator.page(), summary); else await summary.click(); }
-  }
-}
-async function saved(page) {
-  await page.waitForFunction(() => document.querySelector('[data-testid="history-save-status"]')?.dataset.status === 'saved');
-}
-async function openHistory(page) {
-  await ready(page); const drawer = page.locator('.history-drawer');
-  if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click();
-  await page.getByLabel('Название пресета', { exact: true }).waitFor();
-}
-async function exportUi(page) {
-  await openHistory(page); const downloading = page.waitForEvent('download'); await historyAction(page, 'export').click();
-  const download = await downloading; return JSON.parse(await readFile(await download.path(), 'utf8'));
-}
-async function scope(page, { root = 'C', structure = 'major', first = 0, last = 0, strings = ['E'] } = {}) {
-  await ready(page); await revealControl(page.getByLabel('Первый лад', { exact: true })); await page.getByLabel('Тоника', { exact: true }).selectOption(root); await page.getByLabel('Структура', { exact: true }).selectOption(structure);
-  const min = page.getByLabel('Первый лад', { exact: true }); const max = page.getByLabel('Последний лад', { exact: true });
-  await max.fill('24'); await max.press('Tab'); await min.fill(String(first)); await min.press('Tab'); await max.fill(String(last)); await max.press('Tab');
-  for (const string of ['E', 'A', 'D', 'G']) await page.getByRole('checkbox', { name: `Струна ${string}`, exact: true }).setChecked(strings.includes(string));
-}
-async function quiz(page, mode, { count = 1, material = 'chromatic' } = {}) {
-  await page.getByRole('button', { name: 'Задания', exact: true }).click(); await page.getByLabel('Тип задания', { exact: true }).selectOption(mode);
-  await revealControl(page.getByLabel('Материал заданий', { exact: true })); const scopeField = page.getByLabel('Материал заданий', { exact: true }); if (await scopeField.isEnabled()) await scopeField.selectOption(material);
-  await page.getByLabel('Количество вопросов', { exact: true }).fill(String(count)); await page.getByLabel('Количество вопросов', { exact: true }).press('Tab');
-}
+const cells = page => checkHost(page).locator('[data-cell]').evaluateAll(nodes => nodes.map(node => node.dataset.cell));
+const feedback = page => checkHost(page).locator('[data-ck-feedback]').innerText();
 function scientificMidi(text) {
   const match = /\b([A-G])([♯♭#b]*)(-?\d+)\b/u.exec(text); assert.ok(match, `No visible scientific height in ${text}`);
   const naturals = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
   const alteration = [...match[2]].reduce((value, mark) => value + (mark === '#' || mark === '♯' ? 1 : -1), 0);
   return 12 * (Number(match[3]) + 1) + naturals[match[1]] + alteration;
 }
+const NATURAL_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
 // Схема 11 (P13): «Упражнения» заменили пресеты. Списки хранилищ отсортированы, как их читает независимый raw-читатель.
 const CURRENT_STORES = ['exercises', 'history', 'practiceDrafts', 'preferences', 'profile', 'rhythmProjects'];
@@ -109,7 +75,7 @@ check('old-version-copy-is-refused-before-preview-and-leaves-native-database-unc
 // Seeds the product origin while a JSON resource of that origin is open: the product does not start and holds neither IDB nor the writer lock.
 async function seedOldProductDatabase(page, origin, literal, version = 10) {
   const response = await page.goto(`${origin}/vendor/music-bank/patch-manifest.json`);
-  assert.equal(response.status(), 200, 'Needs the current product build with its local vendor manifest'); assert.equal(await page.locator('#history-mount').count(), 0);
+  assert.equal(response.status(), 200, 'Needs the current product build with its local vendor manifest'); assert.equal(await page.locator('.site-header').count(), 0);
   return page.evaluate(async ({ literal, version, origin }) => {
     if (location.origin !== origin) throw new Error('Deletion is allowed only on the isolated test origin');
     await new Promise((resolve, reject) => {
@@ -157,6 +123,7 @@ async function rawCounts(page) {
   });
 }
 
+
 check('product-opens-real-v10-database-as-empty-persistent-v11-and-rejects-old-copy', async ({ page, origin }) => {
   const literal = await literalCopy(); assert.equal(literal.schemaVersion, 11);
   await seedOldProductDatabase(page, origin, literal);
@@ -168,302 +135,357 @@ check('product-opens-real-v10-database-as-empty-persistent-v11-and-rejects-old-c
   for (const name of ['exercises', 'history', 'practiceDrafts', 'rhythmProjects']) assert.equal(upgraded.counts[name], 0, `${name} must start empty after the upgrade`);
   assert.equal(Object.hasOwn(upgraded.counts, 'presets'), false, 'The removed presets store must not survive the upgrade');
   assert.notEqual(upgraded.theme, 'dark', 'The old profile must not survive the upgrade');
-  const surface = await page.evaluate(() => ({ storageDetailsHidden: document.querySelector('#open-storage-details')?.hidden, localStatus: document.querySelector('#local-save-status')?.textContent, testApi: ['p5', 'p6'].filter(name => name in window) }));
-  assert.deepEqual(surface, { storageDetailsHidden: true, localStatus: 'Локально · сохранено', testApi: [] }, 'The upgraded product must persist natively, not in page memory');
-  const empty = await exportUi(page);
+  const surface = await page.evaluate(() => ({ storageDetailsHidden: document.querySelector('#open-storage-details')?.hidden, testApi: ['p5', 'p6'].filter(name => name in window) }));
+  assert.deepEqual(surface, { storageDetailsHidden: true, testApi: [] }, 'The upgraded product must persist natively, not in page memory');
+  const empty = await exportUi(page, { stay: true });
   assert.equal(empty.schemaVersion, 11); assert.deepEqual([empty.exercises, empty.history, empty.practiceDrafts, empty.rhythmProjects, empty.activeRhythmProjectId], [[], [], [], [], null]);
-  await page.getByLabel('Тоника', { exact: true }).selectOption('F'); await saved(page);
-  await page.reload(); await ready(page); assert.equal(await page.getByLabel('Тоника', { exact: true }).inputValue(), 'F', 'A setting written after the upgrade must survive reload');
-  const before = await exportUi(page); assert.equal(before.preferences.study.root, 'F');
-  await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name: 'old-v10.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ ...literal, schemaVersion: 10 })) });
-  await page.getByTestId('history-error').waitFor({ state: 'visible' });
-  const error = await page.getByTestId('history-error').innerText(); assert.match(error, /не поддерживается/);
-  assert.equal(await page.getByTestId('backup-preview').count(), 0);
-  assert.deepEqual(await exportUi(page), before, 'A refused old copy must not change confirmed data');
+  assert.match(await settingsPage(page).locator('[data-save-detail]').innerText(), /^Сохранено/);
+  const lesson = await openSettingsPane(page, 'lesson');
+  await lesson.locator('[data-switch="countIn"]').click();
+  await waitRaw(page, db => db.preferences?.play.countIn === false, 'отсчёт выключен');
+  await page.reload(); await ready(page);
+  assert.equal(await settingsPage(page).locator('[data-switch="countIn"]').getAttribute('aria-checked'), 'false', 'A setting written after the upgrade must survive reload');
+  const before = await exportUi(page, { stay: true }); assert.equal(before.preferences.play.countIn, false);
+  const refused = await previewCopy(page, { ...literal, schemaVersion: 10 }, 'old-v10.json');
+  assert.equal(refused.rejected, true);
+  assert.equal(await refused.dialog.locator('h2').innerText(), 'Эта копия не подходит');
+  const error = await refused.dialog.innerText(); assert.match(error, /версии данных 10.*сейчас версия 11/s); assert.match(error, /Ничего не изменилось/);
+  await refused.dialog.locator('[data-dlg="close"]').click();
+  assert.deepEqual(await exportUi(page, { stay: true }), before, 'A refused old copy must not change confirmed data');
   assert.equal((await rawCounts(page)).version, 11);
-  return { seeded, upgraded, surface, persistedAfterUpgrade: 'F', oldCopyError: error };
+  return { seeded, upgraded, surface, persistedAfterUpgrade: { countIn: false }, oldCopyError: error.replace(/\s+/g, ' ') };
 }, { scope: 'ui' });
-check('exact-height-mode-shows-A1-and-accepts-only-current-height', async ({ page }) => {
-  await scope(page, { first: 5, last: 5 }); await quiz(page, 'find-pitch'); await quizAction(page, 'start').click();
-  assert.match(await page.getByTestId('quiz-prompt').innerText(), /A1/); await page.locator('[data-answer-position="E:5"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /Верно.*A1/);
-  await scope(page, { first: 0, last: 12, strings: ['E', 'A'] }); await quiz(page, 'find-pitch'); await quizAction(page, 'start').click();
-  const prompt = await page.getByTestId('quiz-prompt').innerText(); const targetMidi = scientificMidi(prompt);
-  const ids = await page.getByTestId('quiz-answer-board').locator('[data-answer-position]').evaluateAll(nodes => nodes.map(node => node.dataset.answerPosition));
-  const correct = ids.filter(id => midiForId(id) === targetMidi); assert.ok(correct.length);
+
+check('check-find-pitch-accepts-only-current-height-and-stores-target-midi', async ({ page }) => {
+  await ready(page);
+  await openFormCheck(page, 'find-pitch');
+  // «Все ноты участка»: на участке формы у высоты вопроса есть позиции другой октавы.
+  await checkHost(page).locator('[data-act="toggle-scope"]').click();
+  assert.equal(await checkHost(page).locator('[data-act="toggle-scope"]').getAttribute('aria-pressed'), 'true');
+  const title = await checkHost(page).locator('[data-ck-title]').innerText();
+  assert.match(await checkHost(page).locator('.ck-ask .ck-sub').innerText(), /другая октава не подходит/);
+  const targetMidi = scientificMidi(title);
+  const ids = await cells(page);
+  const correct = ids.filter(id => midiForId(id) === targetMidi); assert.ok(correct.length, `${title}: ${ids.join(' ')}`);
   const octaveWrong = ids.find(id => midiForId(id) !== targetMidi && midiForId(id) % 12 === targetMidi % 12);
   const wrong = octaveWrong ?? ids.find(id => midiForId(id) !== targetMidi); assert.ok(wrong);
-  await page.locator(`[data-answer-position="${wrong}"]`).click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /не подходит|октава/);
-  await page.locator(`[data-answer-position="${correct[0]}"]`).click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /Верно/);
-  await quizAction(page, 'next').click(); const output = await exportUi(page);
-  const stored = output.history.find(entry => entry.result.mode === 'find-pitch' && entry.result.questions.some(question => question.errors === 1));
+  await checkHost(page).locator(`[data-cell="${wrong}"]`).click();
+  const refusal = await feedback(page);
+  if (octaveWrong) assert.match(refusal, /та же нота, другая октава/); else assert.match(refusal, /не /);
+  await checkHost(page).locator(`[data-cell="${correct[0]}"]`).click();
+  assert.match(await feedback(page), /^Верно, с исправлением/);
+  const saved = await waitRaw(page, db => db.history.some(entry => entry.result.mode === 'find-pitch' && entry.result.questions[0]?.outcome === 'corrected'), 'ответ «Найди высоту»');
+  const stored = saved.history.find(entry => entry.result.mode === 'find-pitch');
   assert.equal(stored.result.questions[0].targetMidi, targetMidi); assert.equal(stored.result.questions[0].independentCorrect, false);
-  const firstA1 = output.history.find(entry => entry.result.mode === 'find-pitch' && entry.result.questions.some(question => question.targetMidi === 33 && question.errors === 0));
-  assert.ok(firstA1, 'The earlier exact A1 result must remain in history');
-  const historyEntry = page.locator(`[data-history-entry="${firstA1.id}"]`);
-  await historyEntry.locator('.history-question-details > summary').click();
-  assert.match(await historyEntry.locator('.history-question-details strong').innerText(), /\bA1\b/, 'History must retain the octave in the visible exact-height target');
-  return { prompt, targetMidi, acceptedPositions: correct, rejected: wrong, rejectedDifferentOctave: Boolean(octaveWrong), historyRetainsScientificA1: true };
+  assert.equal(stored.result.context.scope, 'chromatic');
+  return { title, targetMidi, acceptedPositions: correct, rejected: wrong, rejectedDifferentOctave: Boolean(octaveWrong), refusal };
 }, { scope: 'ui' });
 
-check('chromatic-interval-mode-accepts-sharp-four-and-flat-five-by-height', async ({ page }) => {
-  await scope(page, { first: 0, last: 3 }); await quiz(page, 'find-interval');
-  const material = page.getByLabel('Материал заданий', { exact: true }); assert.ok(await material.isDisabled()); assert.equal(await material.inputValue(), 'chromatic');
-  await page.getByRole('combobox', { name: 'Интервал от тоники', exact: true }).selectOption('#4'); await quizAction(page, 'start').click();
-  assert.match(await page.getByTestId('quiz-prompt').innerText(), /♯4.*C/);
-  await page.locator('[data-answer-position="E:1"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /не подходит/);
-  await page.locator('[data-answer-position="E:2"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /Верно.*F♯/);
-  await page.getByRole('combobox', { name: 'Интервал от тоники', exact: true }).selectOption('b5'); await quizAction(page, 'start').click();
-  assert.match(await page.getByTestId('quiz-prompt').innerText(), /♭5.*C/); await page.locator('[data-answer-position="E:2"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /Верно.*G♭/);
-  await scope(page, { first: 0, last: 0 }); await page.getByRole('combobox', { name: 'Интервал от тоники', exact: true }).selectOption('#4'); await quizAction(page, 'start').click();
-  assert.equal(await page.getByTestId('quiz-question').count(), 0); assert.match(await page.getByTestId('training-error').innerText(), /отсутствует|диапазон|интервал/i);
-  return { sharpFourPosition: 'E:2', flatFivePosition: 'E:2', scope: 'chromatic', impossibleIntervalExplained: true };
-}, { scope: 'ui' });
+/** Позиции интервала от тоники по высоте: независимый расчёт по строю E–A–D–G. */
+const intervalPositions = (ids, root, semitones) => ids.filter(id => ((midiForId(id) - NATURAL_PC[root]) % 12 + 12) % 12 === semitones).sort();
 
-check('revealed-interval-svg-and-feedback-use-contextual-enharmonic-names', async ({ page }) => {
-  const cases = [{ root: 'C', fret: 2, interval: 'b5', name: 'G♭', rejectedName: 'F♯' }, { root: 'A', fret: 11, interval: '#4', name: 'D♯', rejectedName: 'E♭' }];
+check('check-find-interval-accepts-sharp-four-and-flat-five-by-height', async ({ page }) => {
+  await ready(page);
+  await openFormCheck(page, 'find-interval');
+  const host = checkHost(page);
+  assert.equal(await host.locator('[data-act="toggle-scope"]').count(), 0, 'The interval always uses every note of the area');
   const evidence = [];
-  for (const example of cases) {
-    await scope(page, { root: example.root, first: example.fret, last: example.fret }); await quiz(page, 'find-interval');
-    await page.getByRole('combobox', { name: 'Интервал от тоники', exact: true }).selectOption(example.interval); await quizAction(page, 'start').click();
-    const position = page.locator(`[data-answer-position="E:${example.fret}"]`); assert.equal(await position.locator('text').count(), 0);
-    await quizAction(page, 'hint').click(); assert.deepEqual(await position.locator('text').allTextContents(), [example.name]);
-    const feedback = await page.getByTestId('quiz-feedback').innerText(); assert.ok(feedback.includes(example.name)); assert.ok(!feedback.includes(example.rejectedName));
-    evidence.push({ ...example, feedback });
+  for (const [interval, name] of [['#4', 'D♯'], ['b5', 'E♭']]) {
+    await host.locator('[data-interval]').selectOption(interval);
+    await page.waitForFunction(value => document.querySelector('[data-lesson-screen="check"] [data-interval]')?.value === value, interval);
+    const title = await host.locator('[data-ck-title]').innerText();
+    assert.equal(title, `Найди ${interval.replace('#', '♯').replace('b', '♭')} от A`);
+    const ids = await cells(page);
+    const answers = intervalPositions(ids, 'A', 6);
+    const wrong = ids.find(id => !answers.includes(id));
+    assert.ok(answers.length && wrong);
+    await host.locator(`[data-cell="${wrong}"]`).click();
+    assert.doesNotMatch(await feedback(page), /^Верно/);
+    await host.locator(`[data-cell="${answers[0]}"]`).click();
+    const accepted = await feedback(page);
+    assert.match(accepted, /^Верно/); assert.ok(accepted.includes(name), `${accepted} names ${name}`);
+    evidence.push({ interval, answers, rejected: wrong, accepted });
+    await host.locator('[data-act="finish"]').click(); await host.locator('[data-ck-summary]').waitFor();
+    await host.locator('[data-act="again"]').click(); await host.locator('[data-ck-title]').waitFor();
+  }
+  return { root: 'A', area: 'форма A, лады 5–8', evidence };
+}, { scope: 'ui' });
+
+check('revealed-interval-feedback-and-board-use-contextual-enharmonic-names', async ({ page }) => {
+  await ready(page);
+  await openFormCheck(page, 'find-interval');
+  const host = checkHost(page);
+  const evidence = [];
+  for (const { interval, name, rejectedName } of [{ interval: '#4', name: 'D♯', rejectedName: 'E♭' }, { interval: 'b5', name: 'E♭', rejectedName: 'D♯' }]) {
+    await host.locator('[data-interval]').selectOption(interval);
+    await page.waitForFunction(value => document.querySelector('[data-lesson-screen="check"] [data-interval]')?.value === value, interval);
+    const ids = await cells(page);
+    const answers = intervalPositions(ids, 'A', 6);
+    assert.equal(await host.locator('[data-cell].is-shown').count(), 0, 'Nothing is shown before the reveal');
+    await host.locator('[data-act="reveal"]').click();
+    const text = await feedback(page);
+    assert.ok(text.includes(name) && !text.includes(rejectedName), text);
+    assert.match(text, /^Ответ показан:/);
+    const shown = (await host.locator('[data-cell].is-shown').evaluateAll(nodes => nodes.map(node => node.dataset.cell))).sort();
+    assert.deepEqual(shown, answers, 'Shown cells are exactly the independently computed heights');
+    evidence.push({ interval, name, shown, feedback: text });
+    await host.locator('[data-act="finish"]').click(); await host.locator('[data-ck-summary]').waitFor();
+    await host.locator('[data-act="again"]').click(); await host.locator('[data-ck-title]').waitFor();
   }
   return evidence;
 }, { scope: 'ui' });
 
-check('inactive-invalid-tempo-ladder-does-not-block-ordinary-play-or-canonical-preferences', async ({ page }) => {
-  await scope(page); await page.getByRole('button', { name: 'Последовательности', exact: true }).click(); await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('ladder'); await page.getByLabel('Начальный темп', { exact: true }).fill('200'); await page.getByLabel('Целевой темп', { exact: true }).fill('80'); await page.getByLabel('Целевой темп', { exact: true }).press('Tab');
-  await page.locator('[data-player-action="start"]').click(); assert.match(await page.getByTestId('player-error').innerText(), /не меньше начального/);
-  const player = page.locator('#player-mount');
-  const bpm = player.getByLabel('Темп, BPM', { exact: true });
-  await player.getByLabel('Повтор', { exact: true }).selectOption('once'); await bpm.fill('96'); await bpm.press('Tab');
-  assert.ok(await page.getByTestId('player-error').isHidden()); await page.locator('[data-player-action="start"]').click();
-  await page.waitForFunction(() => ['running', 'finishing', 'finished'].includes(document.querySelector('#player-mount')?.dataset.playerState));
-  await page.locator('[data-player-action="stop"]').click(); await saved(page); const exported = await exportUi(page);
-  assert.equal(exported.preferences.player.repeat, 'once'); assert.equal(exported.preferences.player.bpm, 96); assert.equal(exported.preferences.player.ladderStart, 60); assert.equal(exported.preferences.player.ladderEnd, 100);
-  return { rejectedActiveLadder: [200, 80], ordinaryPlaybackAccepted: true, canonicalPlayer: exported.preferences.player };
-}, { scope: 'ui' });
-
-check('changing-active-quiz-count-archives-original-attempt-and-new-session-focuses-summary', async ({ page }) => {
-  await scope(page); await quiz(page, 'name-note'); await quizAction(page, 'start').click(); await page.locator('[data-choice="pc:5"]').click();
-  const count = page.getByLabel('Количество вопросов', { exact: true }); await count.fill('2'); await count.press('Tab');
-  assert.equal(await page.getByTestId('quiz-question').count(), 0); await page.getByTestId('quiz-summary').waitFor();
-  const before = await exportUi(page); assert.equal(before.history.length, 1); const original = before.history[0];
-  assert.equal(original.result.plannedCount, 1); assert.equal(original.result.questions[0].outcome, 'interrupted'); assert.equal(original.result.questions[0].errors, 1);
-  assert.equal(await page.getByLabel('Количество вопросов', { exact: true }).inputValue(), '2'); await quizAction(page, 'start').click();
-  for (let index = 0; index < 2; index++) { await page.locator('[data-choice="pc:4"]').click(); await quizAction(page, 'next').click(); }
-  await page.getByTestId('quiz-summary').waitFor(); assert.equal(await page.getByTestId('quiz-summary').locator('[data-result="completed"]').innerText(), '2');
-  assert.equal(await page.getByTestId('quiz-summary').locator('h3').evaluate(element => element === document.activeElement), true, 'User completion must focus the new summary');
-  const after = await exportUi(page); assert.equal(after.history.length, 2); assert.deepEqual(after.history.find(entry => entry.id === original.id), original);
-  const next = after.history.find(entry => entry.id !== original.id); assert.equal(next.result.plannedCount, 2); assert.equal(next.result.questions.length, 2);
-  return { oldPlannedCount: 1, oldErrorsPreserved: 1, newPlannedCount: 2, separateIds: [original.id, next.id], summaryFocusedOnCompletion: true };
+check('finishing-active-check-archives-original-attempt-and-new-series-focuses-summary', async ({ page }) => {
+  await ready(page);
+  const host = await openFormCheck(page, 'name-note');
+  const first = await nameNoteQuestion(page);
+  await answerChoice(page, first.wrong);
+  await host.locator('[data-act="finish"]').click(); await host.locator('[data-ck-summary]').waitFor();
+  assert.match(await host.locator('.ck-list').innerText(), /^1\s+Нота [EADG]\/\d+\s+—\s+Без ответа\s+ошибок: 1/);
+  // Открытый вопрос с ошибкой, закрытый «Завершить серию», хранится как прерванный, с ошибкой и без верного ответа.
+  const before = await waitRaw(page, db => db.history.length === 1 && db.history[0].result.questions[0]?.errors === 1, 'досрочно завершённая серия');
+  const original = before.history[0];
+  assert.equal(original.result.plannedCount, 6); assert.equal(original.result.questions[0].outcome, 'interrupted'); assert.equal(original.result.questions[0].independentCorrect, false);
+  await host.locator('[data-act="again"]').click(); await host.locator('[data-ck-title]').waitFor();
+  assert.equal(await checkProgress(page), 'Вопрос 1 из 6');
+  for (let index = 0; index < 6; index++) await answerNameNoteCorrectly(page);
+  await host.locator('[data-ck-summary]').waitFor();
+  assert.ok(await host.locator('[data-ck-summary]').evaluate(summary => summary.contains(document.activeElement)), 'User completion must focus the new summary');
+  const after = await waitRaw(page, db => db.history.length === 2 && db.history.some(entry => entry.id !== original.id && entry.result.questions.length === 6 && entry.result.questions.every(question => question.outcome === 'correct')), 'новая серия');
+  assert.deepEqual(after.history.find(entry => entry.id === original.id), original, 'The archived attempt is unchanged');
+  const next = after.history.find(entry => entry.id !== original.id); assert.equal(next.result.plannedCount, 6);
+  return { originalOutcomes: original.result.questions.map(question => question.outcome), oldErrorsPreserved: 1, newPlannedCount: 6, separateIds: [original.id, next.id], summaryFocusedOnCompletion: true };
 }, { scope: 'ui' });
 
 check('manual-draft-keeps-old-material-and-merges-new-runs-without-double-counting', async ({ page }) => {
-  await scope(page); await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
-  await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic'); await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite');
-  const bpm = page.locator('#player-mount').getByLabel('Темп, BPM', { exact: true });
-  await bpm.fill('120'); await bpm.press('Tab'); await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
-  async function playFor(milliseconds) { await page.locator('[data-player-action="start"]').click(); await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerState === 'running' && document.querySelector('#player-mount')?.dataset.currentPosition === 'E:0'); await delay(milliseconds); await page.locator('[data-player-action="stop"]').click(); }
-  await playFor(650); await openHistory(page);
-  const oldText = 'Заметка к прежнему материалу C.';
-  await page.getByLabel('Заметка к практике', { exact: true }).fill(oldText); await page.getByLabel('Комфортный темп', { exact: true }).fill('72');
-  const withDraft = await exportUi(page); const originalDraft = withDraft.practiceDrafts.find(item => item.note === oldText); assert.ok(originalDraft); assert.equal(withDraft.history.length, 0);
-  await page.locator('[data-app-module="tracks"]').click();
-  assert.equal(await page.locator('#open-history').getAttribute('aria-expanded'), 'false');
-  await openHistory(page);
-  assert.equal(await page.getByLabel('Заметка к практике', { exact: true }).inputValue(), oldText); assert.ok(await historyAction(page, 'use-current-draft').isDisabled());
-  await page.locator('[data-app-module="foundation"]').click();
-  assert.equal(await page.locator('#open-history').getAttribute('aria-expanded'), 'false');
-  await page.getByLabel('Тоника', { exact: true }).selectOption('G'); await openHistory(page); await historyAction(page, 'refresh-draft').click();
-  assert.match(await page.getByTestId('manual-context-notice').innerText(), /прежнему материалу/); assert.match(await page.getByTestId('manual-material').innerText(), /C ·/);
-  await historyAction(page, 'save-manual').click(); await page.getByTestId('history-list').locator('[data-history-kind="manual"]').waitFor();
-  const first = await exportUi(page), oldEntry = first.history.find(entry => entry.result.note === oldText);
-  assert.ok(oldEntry); assert.equal(oldEntry.result.context.root, 'C'); assert.deepEqual(oldEntry.result.context.positionIds, ['E:0']); assert.equal(oldEntry.result.comfortableBpm, 72); assert.equal(oldEntry.result.material.kind, 'sequence');
-  assert.ok(oldEntry.result.durationMs >= 500 && oldEntry.result.durationMs < 1300); assert.equal(first.practiceDrafts.find(item => item.id === originalDraft.id).recordedThroughMs, oldEntry.result.durationMs);
-  // Возврат к тому же материалу C (прежде — через пресет, удалённый в P13).
-  await page.getByLabel('Тоника', { exact: true }).selectOption('C'); await page.waitForFunction(() => document.querySelector('[aria-label="Тоника"]')?.value === 'C');
-  await playFor(1400); await historyAction(page, 'refresh-draft').click();
-  const newText = 'Новый остаток того же материала C.';
-  await page.getByLabel('Заметка к практике', { exact: true }).fill(newText); await page.getByLabel('Комфортный темп', { exact: true }).fill('84'); await historyAction(page, 'save-manual').click();
-  await page.waitForFunction(() => document.querySelectorAll('[data-history-kind="manual"]').length === 2);
-  const after = await exportUi(page), newEntry = after.history.find(entry => entry.result.note === newText); assert.ok(newEntry); assert.equal(newEntry.result.comfortableBpm, 84); assert.ok(newEntry.result.durationMs >= 1300);
-  const accumulated = after.practiceDrafts.find(item => item.id === originalDraft.id); assert.ok(accumulated); assert.equal(accumulated.recordedThroughMs, oldEntry.result.durationMs + newEntry.result.durationMs); assert.equal(accumulated.totalReferenceMs, accumulated.recordedThroughMs);
+  await ready(page);
+  await rhythmBpm(page, 120);
+  await playRhythm(page, 650);
+  const oldText = 'Заметка к прежнему материалу 120.';
+  let box = await openDrafts(page);
+  const original = (await rawSnapshot(page)).practiceDrafts.find(item => item.material.kind === 'rhythm');
+  assert.ok(original && original.totalReferenceMs > 0);
+  const card = box.locator(`[data-draft="${original.id}"]`);
+  await card.locator('[data-draft-field="note"]').fill(oldText); await card.locator('[data-draft-field="bpm"]').fill('72');
+  await waitRaw(page, db => db.practiceDrafts.find(item => item.id === original.id)?.note === oldText, 'заметка черновика');
+  // Другой темп метронома — другой материал: прежняя заметка не переходит к новому черновику.
+  await rhythmBpm(page, 100);
+  await playRhythm(page, 400);
+  box = await openDrafts(page);
+  const withTwo = await rawSnapshot(page);
+  const other = withTwo.practiceDrafts.find(item => item.material.kind === 'rhythm' && item.id !== original.id);
+  assert.ok(other, 'A different tempo starts a separate draft'); assert.equal(other.note, '');
+  assert.equal(await box.locator('[data-draft]').count(), 2);
+  assert.equal(await box.locator(`[data-draft="${original.id}"] [data-draft-field="note"]`).inputValue(), oldText);
+  await box.locator(`[data-draft="${original.id}"] [data-draft-save]`).click();
+  const first = await waitRaw(page, db => db.history.length === 1, 'отметка прежнего материала');
+  const oldEntry = first.history[0];
+  assert.equal(oldEntry.result.note, oldText); assert.equal(oldEntry.result.comfortableBpm, 72); assert.equal(oldEntry.result.material.kind, 'rhythm');
+  assert.deepEqual(oldEntry.result.material, original.material, 'The note stays with the material it was written for');
+  assert.ok(oldEntry.result.durationMs >= 500 && oldEntry.result.durationMs < 1300, `${oldEntry.result.durationMs}`);
+  assert.equal(first.practiceDrafts.find(item => item.id === original.id).recordedThroughMs, oldEntry.result.durationMs);
+  // Возврат к тому же материалу: время копится в прежнем черновике, записанное не учитывается дважды.
+  await rhythmBpm(page, 120);
+  await playRhythm(page, 1400);
+  box = await openDrafts(page);
+  const newText = 'Новый остаток того же материала 120.';
+  const again = box.locator(`[data-draft="${original.id}"]`);
+  await again.locator('[data-draft-field="note"]').fill(newText); await again.locator('[data-draft-field="bpm"]').fill('84');
+  await again.locator('[data-draft-save]').click();
+  const after = await waitRaw(page, db => db.history.length === 2, 'вторая отметка того же материала');
+  const newEntry = after.history.find(entry => entry.result.note === newText);
+  assert.ok(newEntry); assert.equal(newEntry.result.comfortableBpm, 84); assert.ok(newEntry.result.durationMs >= 1300, `${newEntry.result.durationMs}`);
+  const accumulated = after.practiceDrafts.find(item => item.id === original.id);
+  assert.equal(accumulated.recordedThroughMs, oldEntry.result.durationMs + newEntry.result.durationMs); assert.equal(accumulated.totalReferenceMs, accumulated.recordedThroughMs);
   assert.deepEqual(after.history.find(entry => entry.id === oldEntry.id), oldEntry);
-  return { originalDraftId: originalDraft.id, oldEntry, newEntry, mergedSameMaterial: true, differentCurrentContextDidNotReassignOldNote: true };
+  assert.ok(after.practiceDrafts.some(item => item.id === other.id && item.totalReferenceMs > 0 && item.recordedThroughMs === 0), 'The other material keeps its own unsaved time');
+  return { originalDraftId: original.id, oldEntry: { durationMs: oldEntry.result.durationMs, bpm: 72 }, newEntry: { durationMs: newEntry.result.durationMs, bpm: 84 }, mergedSameMaterial: true, otherMaterialSeparate: other.id };
 }, { scope: 'ui' });
 
 check('manual-practice-before-input-survives-reload-without-becoming-history', async ({ page }) => {
-  await scope(page); await page.getByRole('button', { name: 'Последовательности', exact: true }).click(); await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite'); await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
-  await page.locator('[data-player-action="start"]').click(); await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.currentPosition === 'E:0'); await delay(650); await page.locator('[data-player-action="stop"]').click();
-  const before = await exportUi(page); assert.equal(before.history.length, 0); const draft = before.practiceDrafts.find(item => item.totalReferenceMs > 0); assert.ok(draft);
-  await page.reload(); await ready(page); const reopened = await exportUi(page); assert.deepEqual(reopened.practiceDrafts, before.practiceDrafts); assert.equal(reopened.history.length, 0);
-  await page.getByLabel('Заметка к практике', { exact: true }).fill('Сохранено после перезапуска'); await historyAction(page, 'save-manual').click(); await saved(page);
-  const after = await exportUi(page); assert.equal(after.history.length, 1); assert.equal(after.history[0].result.durationMs, draft.totalReferenceMs); assert.equal(after.history[0].result.material.kind, 'sequence');
+  await ready(page);
+  await playRhythm(page, 650);
+  const before = await rawSnapshot(page); assert.equal(before.history.length, 0);
+  const draft = before.practiceDrafts.find(item => item.totalReferenceMs > 0); assert.ok(draft);
+  await page.reload(); await ready(page);
+  const reopened = await rawSnapshot(page); assert.deepEqual(reopened.practiceDrafts, before.practiceDrafts); assert.equal(reopened.history.length, 0);
+  const box = await openDrafts(page);
+  await box.locator(`[data-draft="${draft.id}"] [data-draft-field="note"]`).fill('Сохранено после перезапуска');
+  await box.locator(`[data-draft="${draft.id}"] [data-draft-save]`).click();
+  const after = await waitRaw(page, db => db.history.length === 1, 'отметка после перезапуска');
+  assert.equal(after.history[0].result.durationMs, draft.totalReferenceMs); assert.equal(after.history[0].result.material.kind, 'rhythm');
+  assert.equal((await exportUi(page)).history.length, 1, 'The UI copy contains the saved mark');
   return { survivedWithoutManualInput: true, historyCreatedOnlyBySave: true, draftId: draft.id, measuredMs: draft.totalReferenceMs };
 }, { scope: 'ui' });
 
 check('partial-wrong-answer-survives-reload-without-finish-and-new-session-is-separate', async ({ page }) => {
-  await scope(page); await quiz(page, 'name-note'); await quizAction(page, 'start').click(); await page.locator('[data-choice="pc:5"]').click(); await saved(page);
-  // No Finish, Next, mode switch, export or other session-ending action occurs.
-  await page.reload(); await ready(page); const first = await exportUi(page);
-  assert.equal(first.history.length, 1); const original = first.history[0]; const question = original.result.questions[0];
-  assert.equal(question.outcome, 'interrupted'); assert.equal(question.errors, 1); assert.equal(question.skipped, false); assert.equal(question.independentCorrect, false);
-  assert.equal(question.answerEvents.length, 1); assert.equal(question.answerEvents[0].correct, false); assert.match(await page.getByTestId('history-list').innerText(), /Не завершено/);
-  await quizAction(page, 'start').click(); await page.locator('[data-choice="pc:4"]').click(); await quizAction(page, 'next').click(); await saved(page);
-  const second = await exportUi(page); assert.equal(second.history.length, 2); assert.deepEqual(second.history.find(entry => entry.id === original.id), original);
-  return { preservedOriginal: original, separateHistoryIds: second.history.map(entry => entry.id) };
+  await ready(page);
+  await openFormCheck(page, 'name-note');
+  const question = await nameNoteQuestion(page);
+  await answerChoice(page, question.wrong);
+  await waitRaw(page, db => db.history.length === 1, 'запись после ошибки');
+  // No Finish, Next, kind switch, export or other session-ending action occurs.
+  await page.reload(); await ready(page);
+  const first = await rawSnapshot(page);
+  assert.equal(first.history.length, 1); const original = first.history[0]; const stored = original.result.questions[0];
+  assert.equal(stored.outcome, 'interrupted'); assert.equal(stored.errors, 1); assert.equal(stored.skipped, false); assert.equal(stored.independentCorrect, false);
+  assert.equal(stored.answerEvents.length, 1); assert.equal(stored.answerEvents[0].correct, false); assert.equal(stored.targetPositionId, question.positionId);
+  await openFormCheck(page, 'name-note');
+  await answerNameNoteCorrectly(page);
+  const second = await waitRaw(page, db => db.history.length === 2, 'новая серия');
+  assert.deepEqual(second.history.find(entry => entry.id === original.id), original);
+  return { preservedOriginal: { id: original.id, outcome: stored.outcome, errors: stored.errors }, separateHistoryIds: second.history.map(entry => entry.id) };
 }, { scope: 'ui' });
 
-check('invalid-quiz-count-does-not-break-history-and-short-boards-stay-bounded', async ({ page, resultDir }) => {
-  await scope(page, { first: 0, last: 0 }); await quiz(page, 'name-note');
-  const count = page.getByLabel('Количество вопросов', { exact: true });
-  const rejected = [];
-  for (const value of ['99', '']) {
-    await count.fill(value); await count.press('Tab');
-    await openHistory(page); assert.ok(await page.getByTestId('manual-unavailable').isVisible());
-    assert.ok(await page.getByLabel('Комфортный темп', { exact: true }).isHidden());
-    await quizAction(page, 'start').click(); assert.equal(await page.getByTestId('quiz-question').count(), 0);
-    const error = await page.getByTestId('training-error').innerText(); assert.match(error, /1.*30|число|вопрос/i); rejected.push({ value, error });
-  }
-  await count.fill('1'); await count.press('Tab'); await quizAction(page, 'start').click(); await page.getByTestId('quiz-question').waitFor();
-  const board = page.getByTestId('quiz-answer-board'); const desktop = await board.boundingBox();
-  assert.ok(desktop && desktop.height > 0 && desktop.height < 500, `A one-fret answer board must not stretch vertically: ${JSON.stringify(desktop)}`);
+check('check-board-stays-bounded-at-narrow-width', async ({ page, resultDir }) => {
+  await ready(page);
+  await openFormCheck(page, 'find-note');
+  const board = checkHost(page).locator('.ck-wrap svg').first();
+  const desktop = await board.boundingBox();
+  assert.ok(desktop && desktop.height > 0 && desktop.height < 500, `The answer board must not stretch vertically: ${JSON.stringify(desktop)}`);
   await page.setViewportSize({ width: 390, height: 844 });
   const narrow = await board.boundingBox(); assert.ok(narrow && narrow.height < 500);
   const dimensions = await page.evaluate(() => ({ viewport: document.documentElement.clientWidth, page: document.documentElement.scrollWidth,
     scrollContainers: [...document.querySelectorAll('*')].filter(element => element.scrollWidth > element.clientWidth + 2 && ['auto', 'scroll'].includes(getComputedStyle(element).overflowX)).map(element => ({ className: element.className.baseVal ?? element.className, width: element.clientWidth, content: element.scrollWidth })) }));
   assert.ok(dimensions.page <= dimensions.viewport + 2, `Narrow page overflow escaped the board container: ${JSON.stringify(dimensions)}`);
-  await page.screenshot({ path: join(resultDir, 'p6-short-quiz-narrow.png'), fullPage: true });
-  await page.locator('[data-choice="pc:4"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /Верно/);
-  return { rejected, recoveredCount: 1, desktop, narrow, dimensions, screenshot: 'test-results/p6-short-quiz-narrow.png' };
+  await page.screenshot({ path: join(resultDir, 'p6-check-board-narrow.png'), fullPage: true });
+  const title = await checkHost(page).locator('[data-ck-title]').innerText();
+  const target = /^Найди ([A-G][♯♭]?)$/.exec(title)?.[1]; assert.ok(target, title);
+  const pc = (NATURAL_PC[target[0]] + (target.includes('♯') ? 1 : target.includes('♭') ? -1 : 0) + 12) % 12;
+  // Ячейки «Найди ноту» по нотам материала: подходит любая позиция ноты, видимая в материале.
+  const material = await checkHost(page).evaluate(host => {
+    const all = [...host.querySelectorAll('[data-cell]')].map(cell => ({ id: cell.dataset.cell, rect: cell.getBoundingClientRect() }));
+    return [...host.querySelectorAll('.ck-wrap svg .mb-ghost')].map(ghost => { const box = ghost.getBoundingClientRect(); const x = box.x + box.width / 2, y = box.y + box.height / 2;
+      return all.find(({ rect }) => x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom)?.id; });
+  });
+  const candidates = (material.every(Boolean) && material.length ? material : await cells(page)).filter(id => midiForId(id) % 12 === pc);
+  assert.ok(candidates.length, `${target} есть в материале`);
+  await checkHost(page).locator(`[data-cell="${candidates[0]}"]`).click();
+  assert.match(await feedback(page), /^Верно/);
+  return { desktop, narrow, dimensions, target, answered: candidates[0], screenshot: 'test-results/p6-check-board-narrow.png' };
 }, { scope: 'ui' });
 
-async function tabTo(page, locator, limit = 160) {
+async function tabTo(page, locator, limit = 200) {
   for (let index = 0; index < limit; index++) {
     if (await locator.evaluate(element => element === document.activeElement)) return;
     await page.keyboard.press('Tab');
   }
   throw new Error(`Could not reach ${await locator.getAttribute('aria-label') ?? await locator.innerText()} with Tab`);
 }
-async function keyboardText(page, locator, value) {
-  await revealControl(locator, true); await tabTo(page, locator); await page.keyboard.press('Control+A'); await page.keyboard.type(String(value)); await page.keyboard.press('Tab');
-}
-async function keyboardSelect(page, locator, index) {
-  await revealControl(locator, true);
-  if (await locator.evaluate(element => element.classList.contains('select-picker-native'))) {
-    const trigger = locator.locator('..').locator('.select-picker-trigger');
-    await tabTo(page, trigger); await page.keyboard.press('Enter'); await page.keyboard.press('Home');
-    for (let step = 0; step < index; step++) await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('Enter'); await page.keyboard.press('Tab');
-  } else {
-    await tabTo(page, locator); await page.keyboard.press('Home'); for (let step = 0; step < index; step++) await page.keyboard.press('ArrowDown'); await page.keyboard.press('Tab');
-  }
-}
 async function keyboardActivate(page, locator) { await tabTo(page, locator); await page.keyboard.press('Enter'); }
-async function keyboardExport(page) {
-  const downloading = page.waitForEvent('download'); await keyboardActivate(page, historyAction(page, 'export')); const download = await downloading;
-  return JSON.parse(await readFile(await download.path(), 'utf8'));
+async function keyboardText(page, locator, value) { await tabTo(page, locator); await page.keyboard.press('Control+A'); await page.keyboard.type(String(value)); await page.keyboard.press('Tab'); }
+async function keyboardSection(page, section) {
+  await keyboardActivate(page, page.locator(`.site-header [data-app-module="${section}"]`));
+  await page.waitForFunction(id => document.querySelector(`.site-header [data-app-module="${id}"]`)?.getAttribute('aria-current') === 'page', section);
 }
 
 check('keyboard-only-full-practice-survives-browser-reopen-at-stable-origin', async ({ freshPage, closeContext, restartServer, origin, resultDir }) => {
   const first = await freshPage(origin, false, 'keyboard-release-profile'); let expected;
   try {
-    const page = first.page; await ready(page, true);
-    await keyboardSelect(page, page.getByLabel('Тоника', { exact: true }), 0);
-    await keyboardSelect(page, page.getByLabel('Структура', { exact: true }), 0);
-    await keyboardSelect(page, page.getByLabel('Учебная форма', { exact: true }), 0);
-    await keyboardText(page, page.getByLabel('Первый лад', { exact: true }), 0);
-    await keyboardText(page, page.getByLabel('Последний лад', { exact: true }), 0);
-    for (const string of ['A', 'D', 'G']) {
-      const checkbox = page.getByRole('checkbox', { name: `Струна ${string}`, exact: true });
-      if (await checkbox.isChecked()) { await tabTo(page, checkbox); await page.keyboard.press('Space'); }
+    const page = first.page; await ready(page);
+    await keyboardSection(page, 'foundation');
+    await keyboardActivate(page, page.locator('#atlas-check'));
+    const host = checkHost(page); await page.locator('[data-lesson-screen="check"]:not([hidden]) [data-ck-title]').waitFor();
+    // Смена вида вопроса начинает новую серию и перерисовывает выбор, поэтому к нему возвращаемся Tab перед каждым шагом.
+    const kind = host.locator('[data-kind]');
+    const kinds = await kind.evaluate(select => [...select.options].map(option => option.value));
+    for (let step = 0; step < kinds.length && await kind.inputValue() !== 'name-note'; step++) {
+      const previous = await kind.inputValue();
+      await tabTo(page, kind); await page.keyboard.press('ArrowDown');
+      await page.waitForFunction(value => document.querySelector('[data-lesson-screen="check"] [data-kind]')?.value !== value, previous);
     }
-    assert.deepEqual(await page.locator('.string-switch input:checked').evaluateAll(nodes => nodes.map(node => node.value)), ['E'], 'Keyboard setup must leave exactly the E string');
-    await keyboardActivate(page, page.getByRole('button', { name: 'Задания', exact: true }));
-    await keyboardSelect(page, page.getByLabel('Материал заданий', { exact: true }), 1);
-    await keyboardText(page, page.getByLabel('Количество вопросов', { exact: true }), 1);
-    await keyboardActivate(page, quizAction(page, 'start')); await page.getByTestId('quiz-question').waitFor();
-    assert.match(await page.getByTestId('quiz-prompt').innerText(), /струна E, лад 0/, 'The independent visible question must match E/0 before choosing E');
-    await keyboardActivate(page, page.locator('[data-choice="pc:4"]')); await keyboardActivate(page, quizAction(page, 'next')); await saved(page);
-    await keyboardActivate(page, page.getByRole('button', { name: 'Последовательности', exact: true }));
-    await keyboardSelect(page, page.getByLabel('Материал последовательности', { exact: true }), 1);
-    await keyboardSelect(page, page.getByLabel('Длительность нот', { exact: true }), 0);
-    await keyboardSelect(page, page.locator('#player-mount').getByLabel('Повтор', { exact: true }), 1);
-    await tabTo(page, page.getByLabel('Отсчёт перед стартом', { exact: true })); await page.keyboard.press('Space');
-    await keyboardActivate(page, page.locator('[data-player-action="start"]'));
-    await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.currentPosition === 'E:0');
-    await delay(900); await keyboardActivate(page, page.locator('[data-player-action="stop"]'));
-    await keyboardActivate(page, page.locator('#open-history'));
-    await keyboardText(page, page.getByLabel('Комфортный темп', { exact: true }), 76);
-    await keyboardText(page, page.getByLabel('Заметка к практике', { exact: true }), 'Полный сценарий только клавиатурой.');
-    await keyboardActivate(page, historyAction(page, 'save-manual')); await saved(page);
-    expected = await keyboardExport(page); assert.equal(expected.history.length, 2);
+    assert.equal(await kind.inputValue(), 'name-note');
+    const question = await nameNoteQuestion(page);
+    await keyboardActivate(page, host.locator(`[data-choice="${question.choice}"]`));
+    assert.match(await feedback(page), /^Верно, с первой попытки/, 'The independent visible question must match the chosen note');
+    await keyboardActivate(page, host.locator('[data-act="finish"]')); await host.locator('[data-ck-summary]').waitFor();
+    await keyboardSection(page, 'harmony');
+    await keyboardActivate(page, page.locator('[data-rhythm-action="start"]'));
+    await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState === 'running');
+    await delay(900);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState === 'stopped');
+    await keyboardSection(page, 'progress');
+    const card = progressPage(page).locator('[data-draft]').first(); await card.waitFor();
+    await keyboardText(page, card.locator('[data-draft-field="bpm"]'), 76);
+    await keyboardText(page, card.locator('[data-draft-field="note"]'), 'Полный сценарий только клавиатурой.');
+    await keyboardActivate(page, card.locator('[data-draft-save]'));
+    await waitRaw(page, db => db.history.length === 2, 'две записи');
+    await keyboardSection(page, 'settings');
+    // Разделы «Настроек» — вертикальные вкладки с перемещением стрелками (фокус только у выбранной).
+    await tabTo(page, settingsPage(page).locator('[data-section][aria-selected="true"]'));
+    for (let step = 0; step < 5 && await settingsPage(page).locator('[data-section="data"]').getAttribute('aria-selected') !== 'true'; step++) await page.keyboard.press('ArrowDown');
+    assert.equal(await settingsPage(page).locator('[data-section="data"]').getAttribute('aria-selected'), 'true');
+    await keyboardActivate(page, settingsPage(page).locator('[data-dialog-open="download"]'));
+    const exportButton = settingsDialog(page).locator('[data-dlg="export"]');
+    await page.waitForFunction(() => document.activeElement?.matches('[data-page-frame="settings"] dialog [data-dlg="export"]'));
+    const downloading = page.waitForEvent('download'); await page.keyboard.press('Enter');
+    expected = JSON.parse(await readFile(await (await downloading).path(), 'utf8'));
+    assert.equal(await exportButton.count(), 0);
+    assert.equal(expected.history.length, 2);
     const screen = expected.history.find(entry => entry.result.kind === 'screen'); const manual = expected.history.find(entry => entry.result.kind === 'manual');
-    assert.equal(screen.result.questions[0].independentCorrect, true); assert.equal(manual.result.comfortableBpm, 76); assert.ok(manual.result.durationMs > 0);
-    assert.deepEqual(expected.preferences.study.strings, ['E']); assert.equal(expected.preferences.study.fretMax, 0);
+    assert.equal(screen.result.questions[0].independentCorrect, true); assert.equal(screen.result.questions[0].targetPositionId, question.positionId);
+    assert.equal(manual.result.comfortableBpm, 76); assert.ok(manual.result.durationMs > 0); assert.equal(manual.result.material.kind, 'rhythm');
+    assert.equal(expected.preferences.activeModule, 'settings');
     await page.screenshot({ path: join(resultDir, 'p6-keyboard-practice.png'), fullPage: true });
   } finally { await closeContext(first.context); }
   const staticServerRestart = await restartServer(); const reopened = await freshPage(origin, false, 'keyboard-release-profile');
   try {
-    await ready(reopened.page); const restored = await exportUi(reopened.page); assert.deepEqual(restored, expected);
-    assert.equal(await reopened.page.getByLabel('Последний лад', { exact: true }).inputValue(), '0');
-    return { allScenarioActionsByKeyboard: true, wholeBrowserRestart: true, staticServerRestart, serverRestart: staticServerRestart, stableOrigin: origin, restored, screenshot: 'test-results/p6-keyboard-practice.png' };
+    await ready(reopened.page); assert.equal(await currentSection(reopened.page), 'settings');
+    const restored = await exportUi(reopened.page); assert.deepEqual(restored, expected);
+    return { allScenarioActionsByKeyboard: true, wholeBrowserRestart: true, staticServerRestart, serverRestart: staticServerRestart, stableOrigin: origin, restoredHistory: restored.history.map(entry => entry.result.kind), screenshot: 'test-results/p6-keyboard-practice.png' };
   } finally { await closeContext(reopened.context); }
 }, { scope: 'persistent' });
 
 check('actual-web-lock-prevents-second-writer-and-hands-off-after-close', async ({ page, context, origin }) => {
-  await ready(page); await page.getByLabel('Тоника', { exact: true }).selectOption('F'); await saved(page); await openHistory(page);
-  await page.getByLabel('Заметка к практике', { exact: true }).fill('Одна ведущая вкладка'); await historyAction(page, 'save-manual').click(); await saved(page);
-  const before = await exportUi(page); const second = await context.newPage(); await second.goto(origin);
+  await ready(page);
+  const lesson = await openSettingsPane(page, 'lesson');
+  await lesson.locator('[data-switch="countIn"]').click();
+  await openFormCheck(page, 'name-note'); await answerNameNoteCorrectly(page);
+  await waitRaw(page, db => db.history.length === 1 && db.preferences.play.countIn === false, 'запись первой вкладки');
+  const before = await exportUi(page, { stay: true });
+  const second = await context.newPage(); await second.goto(origin);
   await second.waitForFunction(() => document.querySelector('main')?.inert && !document.querySelector('#retry-tab')?.hidden);
   assert.match(await second.locator('#persistence-message').innerText(), /друг.*вклад|открыт.*вклад/i);
-  assert.equal(await second.locator('[data-theme-choice]').count(), 2);
-  for (const choice of ['light', 'dark']) assert.ok(await second.locator(`[data-theme-choice="${choice}"]`).isDisabled(), 'A blocked second writer cannot change the global theme');
-  assert.ok(await second.locator('#open-introduction').isDisabled(), 'A blocked second writer cannot persist an onboarding choice');
-  assert.deepEqual((await exportUi(page)).profile, before.profile, 'Opening the blocked tab must leave the confirmed owner profile unchanged');
+  // Тема меняется в шапке и в «Настройках»: кнопки шапки выключены, «Настройки» внутри инертного main.
+  const headerThemes = second.locator('.site-header [data-theme-choice]');
+  assert.equal(await headerThemes.count(), 2);
+  for (const button of await headerThemes.all()) assert.ok(await button.isDisabled(), 'A blocked second writer cannot change the global theme');
+  assert.ok(await second.locator('main [data-theme-choice]').evaluateAll(nodes => nodes.length === 2 && nodes.every(node => node.closest('[inert]'))), 'Settings theme cards are unreachable in the blocked tab');
+  for (const button of await second.locator('.site-header [data-app-module]').all()) assert.ok(await button.isDisabled(), 'The blocked tab cannot navigate to an editable section');
+  assert.deepEqual((await rawSnapshot(page)).profile, (await rawSnapshot(second)).profile, 'Both tabs read the same confirmed profile');
+  assert.deepEqual(await exportUi(page, { stay: true }), before, 'Opening the blocked tab must leave the confirmed owner data unchanged');
   const locks = await page.evaluate(async () => (await navigator.locks.query()).held.map(lock => lock.name)); assert.ok(locks.includes('bass-study:writer'));
-  await page.close(); await second.locator('#retry-tab').click(); await ready(second); const after = await exportUi(second);
-  for (const choice of ['light', 'dark']) assert.ok(await second.locator(`[data-theme-choice="${choice}"]`).isEnabled());
-  assert.ok(await second.locator('#open-introduction').isEnabled());
-  assert.deepEqual(after, before); assert.equal(await second.getByLabel('Тоника', { exact: true }).inputValue(), 'F');
-  return { nativeHeldLocks: locks, blockedSecondWriter: true, blockedGlobalProfileControls: true, confirmedOwnerProfileUnchanged: true, explicitReloadAfterRelease: true, preservedHistoryIds: after.history.map(entry => entry.id) };
+  await page.close(); await second.locator('#retry-tab').click(); await ready(second);
+  assert.equal(await currentSection(second), 'settings');
+  for (const button of await second.locator('.site-header [data-theme-choice]').all()) assert.ok(await button.isEnabled());
+  assert.equal(await second.locator('main').evaluate(element => element.inert), false);
+  const after = await exportUi(second, { stay: true });
+  assert.deepEqual(after, before);
+  assert.equal(await settingsPage(second).locator('[data-switch="countIn"]').getAttribute('aria-checked'), 'false');
+  return { nativeHeldLocks: locks, blockedSecondWriter: true, blockedGlobalProfileControls: true, confirmedOwnerDataUnchanged: true, explicitReloadAfterRelease: true, preservedHistoryIds: after.history.map(entry => entry.id) };
 }, { scope: 'ui' });
 
-check('p12-sequence-retirement-saves-pending-note-before-next-writer', async ({ page, context, origin }) => {
+check('p12-rhythm-draft-retirement-saves-pending-note-before-next-writer', async ({ page, context, origin }) => {
   await ready(page);
-  await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
-  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite');
-  await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
-  await page.locator('[data-player-action="start"]').click();
-  await page.waitForFunction(() => {
-    const player = document.querySelector('#player-mount');
-    return player?.dataset.playerState === 'running' && player.dataset.playerPhase === 'practice' && !!player.dataset.currentPosition;
-  });
-  await delay(300);
-  await page.locator('[data-player-action="stop"]').click();
-  const before = await exportUi(page);
-  const draft = before.practiceDrafts.find(value => value.material.kind === 'sequence' && value.totalReferenceMs > 0);
-  assert.ok(draft);
-  assert.equal(draft.note, '');
-
+  await playRhythm(page, 300);
+  const box = await openDrafts(page);
+  const before = await rawSnapshot(page);
+  const draft = before.practiceDrafts.find(value => value.material.kind === 'rhythm' && value.totalReferenceMs > 0);
+  assert.ok(draft); assert.equal(draft.note, '');
   const next = await context.newPage();
   await next.goto(origin);
   await next.waitForFunction(() => document.querySelector('main')?.inert && !document.querySelector('#retry-tab')?.hidden);
   await page.bringToFront();
-  await page.getByLabel('Заметка к практике', { exact: true }).focus();
+  await box.locator(`[data-draft="${draft.id}"] [data-draft-field="note"]`).focus();
   const note = 'Черновик перед закрытием';
-  await page.evaluate(note => {
-    const editor = document.querySelector('[data-history-field="manualNote"]');
+  await page.evaluate(({ id, note }) => {
+    const editor = document.querySelector(`[data-draft="${id}"] [data-draft-field="note"]`);
     editor.value = note;
     editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: note }));
     // Keep the real document alive for IndexedDB while invoking its retirement listener before debounce.
     window.dispatchEvent(new PageTransitionEvent('pagehide'));
-  }, note);
+  }, { id: draft.id, note });
   await waitWriterReleased(next);
   await next.locator('#retry-tab').click();
   await ready(next);
@@ -487,12 +509,11 @@ markFullOnly(checks, [
 markFullOnly(checks, [
   'genuine-v10-indexeddb-upgrades-to-v11-by-recreating-empty-stores',
   'product-opens-real-v10-database-as-empty-persistent-v11-and-rejects-old-copy',
-  'chromatic-interval-mode-accepts-sharp-four-and-flat-five-by-height',
-  'revealed-interval-svg-and-feedback-use-contextual-enharmonic-names',
-  'inactive-invalid-tempo-ladder-does-not-block-ordinary-play-or-canonical-preferences',
-  'changing-active-quiz-count-archives-original-attempt-and-new-session-focuses-summary',
+  'check-find-interval-accepts-sharp-four-and-flat-five-by-height',
+  'revealed-interval-feedback-and-board-use-contextual-enharmonic-names',
+  'finishing-active-check-archives-original-attempt-and-new-series-focuses-summary',
   'manual-draft-keeps-old-material-and-merges-new-runs-without-double-counting',
-  'invalid-quiz-count-does-not-break-history-and-short-boards-stay-bounded',
-  'p12-sequence-retirement-saves-pending-note-before-next-writer',
+  'check-board-stays-bounded-at-narrow-width',
+  'p12-rhythm-draft-retirement-saves-pending-note-before-next-writer',
 ], FULL_ONLY.smoke);
-await runReleaseBrowserChecks(checks);
+await runReleaseBrowserChecks(browserCases(checks).checks);

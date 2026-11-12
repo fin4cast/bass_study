@@ -52,7 +52,7 @@ export async function runReleaseBrowserChecks(allChecks) {
     await cdp.send('Network.enable'); await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
     await page.goto(url);
     if (url === fixtureUrl) await page.waitForFunction(() => window.p6?.ready);
-    else await page.waitForSelector('#history-mount', { state: 'attached' });
+    else await page.waitForSelector('[data-page-frame="lesson"]', { state: 'attached' });
     return { page, context, cdp };
   }
   async function closeContext(context) { await context.close(); contexts.delete(context); }

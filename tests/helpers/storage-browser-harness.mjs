@@ -52,7 +52,7 @@ export async function runStorageBrowserChecks(allChecks) {
     await cdp.send('Network.enable'); await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
     await page.goto(url);
     if (url === fixtureUrl) await page.waitForFunction(() => window.p5?.ready);
-    else await page.waitForSelector('[data-position="E:5"]');
+    else await page.waitForSelector('[data-page-frame="lesson"]', { state: 'attached' });
     return { page, context, cdp };
   }
   async function closeContext(context) { await context.close(); contexts.delete(context); }

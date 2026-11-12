@@ -43,8 +43,7 @@
     function seedSnapshot() {
       const preferences = structuredClone(DEFAULT_PREFERENCES);
       preferences.study = { root: 'C', structureId: 'major', labelMode: 'degrees', strings: ['E'], fretMin: 0, fretMax: 3, box: null, showFingers: false };
-      preferences.training.mode = 'sequence'; preferences.training.sequenceScope = 'chromatic';
-      preferences.player.bpm = 96; preferences.player.countIn = false;
+      preferences.play.bpm = 96; preferences.play.countIn = false;
       return validateSnapshot({ ...emptySnapshot(), profile: { theme: 'system', onboarding: { version: 1, choice: 'free', completed: false } }, preferences,
         exercises: [exercise('fixture-exercise-a', 'Нижняя форма'), exercise('fixture-exercise-b', 'Вторая форма', 'penta-b')], history: [screen(), manual()] });
     }

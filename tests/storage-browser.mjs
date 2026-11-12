@@ -2,9 +2,14 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import {
+  answerChoice, answerNameNoteCorrectly, cancelCopy, checkHost, checkProgress, currentSection, draftCard, exportDownload, exportUi, go, nameNoteQuestion,
+  openData, openDrafts, openFormCheck, openSettingsPane, playRhythm, previewCopy, progressPage, rawSnapshot, ready, replaceCopy, restoreCopy,
+  rhythmRoot, rhythmState, rhythmWait, settingsDialog, settingsPage, waitRaw, withoutSection,
+} from './helpers/data-ui.mjs';
 import { runStorageBrowserChecks } from './helpers/storage-browser-harness.mjs';
 import { p12CompositionChecks } from './helpers/p12-composition-cases.mjs';
-import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
+import { browserCases, markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
 const checks = [];
 const check = (name, run, options = {}) => checks.push({ name, run, ...options });
@@ -173,7 +178,7 @@ check('native-indexeddb-schema-preferences-exercises-and-distinct-results', asyn
   const empty = await snapshot(page); assert.equal(empty.schemaVersion, 11); assert.deepEqual(empty.exercises, []); assert.deepEqual(empty.history, []);
   assert.deepEqual(empty.rhythmProjects, []); assert.equal(empty.activeRhythmProjectId, null);
   const state = await seed(page);
-  assert.equal(state.format, 'bass-study-backup'); assert.equal(state.preferences.player.bpm, 96);
+  assert.equal(state.format, 'bass-study-backup'); assert.equal(state.preferences.play.bpm, 96);
   assert.deepEqual(state.exercises.map(item => item.name), ['Нижняя форма', 'Вторая форма']);
   assert.deepEqual(state.history.map(item => item.result.kind), ['manual', 'screen']);
   const manual = state.history[0]; const screen = state.history[1];
@@ -196,12 +201,12 @@ check('native-preferences-queue-preserves-concurrent-history-and-exercises', asy
     const preferences = (await window.p5.store.readSnapshot()).preferences;
     const pending = [];
     for (let index = 0; index < 8; index++) {
-      pending.push(window.p5.store.savePreferences({ ...preferences, player: { ...preferences.player, bpm: 100 + index } }));
+      pending.push(window.p5.store.savePreferences({ ...preferences, play: { ...preferences.play, bpm: 100 + index } }));
       pending.push(window.p5.store.addHistory(window.p5.manual(`concurrent-${index}`)));
     }
     await Promise.all(pending); return window.p5.store.readSnapshot({ fresh: true });
   });
-  assert.equal(state.preferences.player.bpm, 107); assert.equal(state.exercises.length, 2); assert.equal(state.history.length, 10);
+  assert.equal(state.preferences.play.bpm, 107); assert.equal(state.exercises.length, 2); assert.equal(state.history.length, 10);
   assert.deepEqual(state.history.filter(item => item.id.startsWith('fixture-')).map(item => item.id), ['fixture-manual', 'fixture-screen']);
   await page.reload(); await page.waitForFunction(() => window.p5?.ready); assert.deepEqual(await snapshot(page), state);
   return state;
@@ -245,7 +250,7 @@ check('native-cancel-and-validation-refusals-never-change-existing-data', async 
       ['unknown-format', JSON.stringify({ ...clone(), format: 'another-app' }), 'UNSUPPORTED_FORMAT'],
       ['previous-version', JSON.stringify({ ...clone(), schemaVersion: 10 }), 'UNSUPPORTED_VERSION'],
       ['future-version', JSON.stringify({ ...clone(), schemaVersion: 12 }), 'UNSUPPORTED_VERSION'],
-      ['wrong-bpm-type', (() => { const value = clone(); value.preferences.player.bpm = '96'; return JSON.stringify(value); })(), 'INVALID_DATA'],
+      ['wrong-bpm-type', (() => { const value = clone(); value.preferences.play.bpm = '96'; return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['duplicate-exercises', (() => { const value = clone(); value.exercises.push(value.exercises[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['exercise-extra-field', (() => { const value = clone(); value.exercises[0].preferences = {}; return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['legacy-presets-field', (() => { const value = clone(); value.presets = []; return JSON.stringify(value); })(), 'INVALID_DATA'],
@@ -531,13 +536,13 @@ check('native-cache-explicit-fresh-read-sees-external-writer-and-reopen', async 
   const evidence = await page.evaluate(async () => {
     const store = window.p5.store; const first = await store.readSnapshot(); const second = await store.readSnapshot();
     const other = window.p5.createStore();
-    try { await other.savePreferences({ ...first.preferences, player: { ...first.preferences.player, bpm: 109 } }); }
+    try { await other.savePreferences({ ...first.preferences, play: { ...first.preferences.play, bpm: 109 } }); }
     finally { await other.close(); }
     const known = await store.readSnapshot(); const refreshed = await store.readSnapshot({ fresh: true }); const cachedRefreshed = await store.readSnapshot();
     await store.close(); const reopened = await store.readSnapshot();
     return { sameCachedReference: first === second, externalWriteDoesNotPretendAutoSync: known === first,
       cacheIsFrozen: Object.isFrozen(first) && Object.isFrozen(first.preferences) && Object.isFrozen(first.history),
-      knownBpm: known.preferences.player.bpm, refreshedBpm: refreshed.preferences.player.bpm,
+      knownBpm: known.preferences.play.bpm, refreshedBpm: refreshed.preferences.play.bpm,
       freshBecomesCached: refreshed === cachedRefreshed, refreshed, reopened, raw: await window.p5.readRaw() };
   });
   assert.equal(evidence.sameCachedReference, true); assert.equal(evidence.cacheIsFrozen, true); assert.equal(evidence.externalWriteDoesNotPretendAutoSync, true);
@@ -558,11 +563,11 @@ check('native-successful-commits-update-cache-without-full-read-and-match-fresh-
       const fresh = await store.readSnapshot({ fresh: true });
       rows.push({ name, callsBeforeFresh, explicitFreshCalls: { ...counts }, referenceChanged: cached !== before,
         frozen: Object.isFrozen(cached), cacheMatchesFresh: JSON.stringify(cached) === JSON.stringify(fresh),
-        exercises: fresh.exercises.length, history: fresh.history.length, bpm: fresh.preferences.player.bpm });
+        exercises: fresh.exercises.length, history: fresh.history.length, bpm: fresh.preferences.play.bpm });
     }
     try {
       const preferences = (await store.readSnapshot()).preferences;
-      await verify('savePreferences', () => store.savePreferences({ ...preferences, player: { ...preferences.player, bpm: 108 } }));
+      await verify('savePreferences', () => store.savePreferences({ ...preferences, play: { ...preferences.play, bpm: 108 } }));
       await verify('saveExercise', () => store.saveExercise(window.p5.exercise('cache-exercise', 'Кеш после commit')));
       await verify('addHistory', () => store.addHistory(window.p5.manual('cache-history')));
       await verify('deleteExercise', () => store.deleteExercise('fixture-exercise-b'));
@@ -604,125 +609,135 @@ check('native-unexpected-database-close-invalidates-cache-after-isolated-browser
   return { clearedOnlyIsolatedOrigin: fixtureOrigin, observedRealDatabaseClose: true, cleared, recoveredIds: recovered.history.map(entry => entry.id) };
 });
 
-// Product scenarios follow the visible storage controls; no product test API is used.
+// Product scenarios follow the visible storage controls of the P13 shell; no product test API is used.
+// Copy and restore live in «Настройки → Данные», drafts, history and error review in «Прогресс»,
+// screen tasks in «Проверь себя» (opened from the «Гриф» atlas), manual practice clocks in «Ритм».
 
-const historyAction = (page, name) => page.locator(`[data-history-action="${name}"]`);
-async function uiReady(page) {
-  await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert);
-  const free = page.locator('[data-intro="free"]'); if (await free.isVisible()) await free.click();
-}
-async function revealControl(locator) {
-  const page = locator.page();
-  if (await locator.locator('xpath=ancestor::*[@id="study-settings"]').count() && !await page.locator('#study-settings').isVisible()) await page.locator('#toggle-study-settings').click();
-  const parents = locator.locator('xpath=ancestor::details');
-  for (let index = 0; index < await parents.count(); index++) { const details = parents.nth(index); if (!await details.evaluate(element => element.open)) await details.locator(':scope > summary').click(); }
-}
-async function openHistory(page) {
-  await uiReady(page);
-  const drawer = page.locator('.history-drawer');
-  if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click();
-  await page.getByLabel('Название пресета', { exact: true }).waitFor({ state: 'visible' });
-}
-async function uiBackup(page) {
-  await openHistory(page);
-  const downloading = page.waitForEvent('download'); await historyAction(page, 'export').click();
-  const download = await downloading; assert.match(download.suggestedFilename(), /^bass-study-backup-.*\.json$/);
-  const path = await download.path(); assert.ok(path);
-  return JSON.parse(await readFile(path, 'utf8'));
-}
 async function fixtureBackup(page, fixtureUrl) {
   const tab = await page.context().newPage();
   try { await tab.goto(fixtureUrl); await tab.waitForFunction(() => window.p5?.ready); return await tab.evaluate(() => window.p5.seedSnapshot()); }
   finally { await tab.close(); await page.bringToFront(); }
 }
-async function upload(page, value, name = 'study-copy.json') {
-  await openHistory(page);
-  const json = typeof value === 'string' ? value : JSON.stringify(value);
-  await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name, mimeType: 'application/json', buffer: Buffer.from(json) });
+async function fixtureValue(page, fixtureUrl, expression) {
+  const tab = await page.context().newPage();
+  try { await tab.goto(fixtureUrl); await tab.waitForFunction(() => window.p5?.ready); return await tab.evaluate(expression); }
+  finally { await tab.close(); await page.bringToFront(); }
 }
-async function confirmImport(page, value) {
-  await upload(page, value); await page.getByTestId('backup-preview').waitFor({ state: 'visible' });
-  const confirmation = page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true });
-  assert.ok(await historyAction(page, 'confirm-restore').isDisabled()); await confirmation.check(); await historyAction(page, 'confirm-restore').click();
-  await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
-  await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
-}
-checks.push(...p12CompositionChecks({ confirmImport, uiBackup }));
-
-async function uiRange(page, last = 3) {
-  await uiReady(page); await revealControl(page.getByLabel('Первый лад', { exact: true }));
-  await page.getByLabel('Тоника', { exact: true }).selectOption('C');
-  await page.getByLabel('Структура', { exact: true }).selectOption('major');
-  const minimum = page.getByLabel('Первый лад', { exact: true }), maximum = page.getByLabel('Последний лад', { exact: true });
-  await maximum.fill('24'); await maximum.press('Tab'); await minimum.fill('0'); await minimum.press('Tab'); await maximum.fill(String(last)); await maximum.press('Tab');
-  for (const string of ['A', 'D', 'G']) await page.getByRole('checkbox', { name: `Струна ${string}`, exact: true }).uncheck();
-}
-async function uiSaved(page) {
-  await page.waitForFunction(() => document.querySelector('[data-testid="history-save-status"]')?.dataset.status === 'saved');
-}
+/** Копия, которую «Настройки» скачивают без изменения: раздел меню уже `settings`. */
+const inSettings = copy => ({ ...copy, preferences: { ...copy.preferences, activeModule: 'settings' } });
+async function confirmImport(page, value) { await restoreCopy(page, value); }
+checks.push(...p12CompositionChecks({ confirmImport, rawSnapshot, ready }));
 
 check('ui-settings-reload-and-download-export', async ({ page }) => {
-  await uiRange(page);
-  await page.getByRole('button', { name: 'Ступени', exact: true }).click();
-  await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
-  await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  const bpm = page.locator('#player-mount').getByLabel('Темп, BPM', { exact: true });
-  await bpm.fill('96'); await bpm.press('Tab');
-  await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
-  await uiSaved(page);
-  const exported = await uiBackup(page); assert.equal(exported.schemaVersion, 11); assert.deepEqual(exported.exercises, []);
-  assert.deepEqual(exported.preferences.study, { root: 'C', structureId: 'major', labelMode: 'degrees', strings: ['E'], fretMin: 0, fretMax: 3, box: null, showFingers: false });
-  assert.equal(exported.preferences.player.bpm, 96); assert.equal(exported.preferences.player.countIn, false);
-  await page.reload(); await openHistory(page);
-  assert.equal(await page.getByLabel('Тоника', { exact: true }).inputValue(), 'C'); assert.equal(await page.getByLabel('Последний лад', { exact: true }).inputValue(), '3');
-  assert.equal(await bpm.inputValue(), '96');
-  assert.deepEqual((await uiBackup(page)).preferences, exported.preferences);
-  return { exportedPreferences: exported.preferences, survivedReload: true };
+  await ready(page);
+  const settings = await openSettingsPane(page, 'lesson');
+  const countIn = settings.locator('[data-switch="countIn"]');
+  assert.equal(await countIn.getAttribute('aria-checked'), 'true');
+  await countIn.click(); assert.equal(await countIn.getAttribute('aria-checked'), 'false');
+  await settings.getByRole('button', { name: /^Быстрее на/ }).click();
+  const bpm = Number(await settings.locator('[data-bpm-out]').innerText()); assert.ok(bpm > 72);
+  await settings.locator('[data-set="labels"][data-value="degrees"]').click();
+  await go(page, 'foundation'); await page.locator('[data-label-mode="degrees"]').click();
+  const exported = await exportUi(page);
+  assert.equal(exported.schemaVersion, 11); assert.deepEqual(exported.exercises, []);
+  assert.deepEqual(exported.preferences.play, { ...exported.preferences.play, countIn: false, bpm, labels: 'degree' });
+  assert.equal(exported.preferences.study.labelMode, 'degrees');
+  const raw = await rawSnapshot(page);
+  assert.equal(raw.profile, undefined, 'Nothing has written the profile yet; the copy carries the default profile');
+  assert.deepEqual(withoutSection({ ...raw, profile: exported.profile }), withoutSection(exported), 'Downloaded copy equals the confirmed native database');
+  await page.reload(); await ready(page);
+  assert.equal(await currentSection(page), 'foundation', 'The section chosen last survives reload');
+  assert.equal(await page.locator('[data-label-mode="degrees"]').getAttribute('aria-pressed'), 'true');
+  const reopened = await openSettingsPane(page, 'lesson');
+  assert.equal(await reopened.locator('[data-switch="countIn"]').getAttribute('aria-checked'), 'false');
+  assert.equal(await reopened.locator('[data-bpm-out]').innerText(), String(bpm));
+  assert.equal(await reopened.locator('[data-set="labels"][data-value="degrees"]').getAttribute('aria-pressed'), 'true');
+  assert.deepEqual(withoutSection(await exportUi(page)), withoutSection(exported));
+  return { exportedPlay: exported.preferences.play, labelMode: exported.preferences.study.labelMode, survivedReload: true };
 }, { scope: 'ui' });
 
 check('ui-finger-display-setting-survives-reload-and-backup-restore', async ({ page }) => {
-  await uiReady(page); await revealControl(page.locator('#show-fingers')); await page.locator('#show-fingers').check(); await uiSaved(page);
-  const expected = await uiBackup(page); assert.equal(expected.preferences.study.showFingers, true); assert.equal(expected.preferences.study.box.shapeId, 'penta-a');
-  await page.reload(); await openHistory(page); assert.ok(await page.locator('#show-fingers').isChecked()); assert.deepEqual(await uiBackup(page), expected);
-  await revealControl(page.locator('#show-fingers')); await page.locator('#show-fingers').uncheck(); await uiSaved(page); await confirmImport(page, expected);
-  assert.ok(await page.locator('#show-fingers').isChecked()); assert.deepEqual(await uiBackup(page), expected);
+  await ready(page); await go(page, 'foundation');
+  const fingers = page.locator('#show-fingers');
+  if (!await page.locator('#study-settings').isVisible()) await page.locator('#toggle-study-settings').click();
+  if (!await page.locator('#display-settings').evaluate(element => element.open)) await page.locator('#display-settings > summary').click();
+  await fingers.check();
+  await waitRaw(page, db => db.preferences?.study.showFingers === true, 'номера пальцев');
+  const expected = inSettings(await exportUi(page));
+  assert.equal(expected.preferences.study.showFingers, true); assert.equal(expected.preferences.study.box.shapeId, 'penta-a');
+  await page.reload(); await ready(page); await go(page, 'foundation');
+  if (!await page.locator('#study-settings').isVisible()) await page.locator('#toggle-study-settings').click();
+  if (!await page.locator('#display-settings').evaluate(element => element.open)) await page.locator('#display-settings > summary').click();
+  assert.ok(await fingers.isChecked());
+  await fingers.uncheck(); await waitRaw(page, db => db.preferences?.study.showFingers === false, 'пальцы выключены');
+  await confirmImport(page, expected);
+  assert.deepEqual(await rawSnapshot(page), expected, 'Restored copy replaces the native database');
+  await go(page, 'foundation');
+  if (!await page.locator('#study-settings').isVisible()) await page.locator('#toggle-study-settings').click();
+  if (!await page.locator('#display-settings').evaluate(element => element.open)) await page.locator('#display-settings > summary').click();
+  assert.ok(await fingers.isChecked(), 'Restored setting is applied to the visible atlas');
   return { initialBox: expected.preferences.study.box, displayStoredIndependently: true, reloadAndRestore: true };
 }, { scope: 'ui' });
 
-check('ui-user-text-in-history-stays-text-not-markup', async ({ page }) => {
-  const filename = `<img src=x onerror="window.__u1=2">.json`;
-  const backup = await uiBackup(page);
-  await upload(page, backup, filename); const preview = page.getByTestId('backup-preview'); await preview.waitFor();
-  assert.ok((await preview.innerText()).includes(filename));
-  const injected = await page.evaluate(() => ({ images: document.querySelectorAll('.history-drawer img, dialog img').length, flag: window.__u1 ?? null }));
+check('ui-user-text-in-history-stays-text-not-markup', async ({ page, fixtureUrl }) => {
+  await ready(page);
+  const markup = '<img src=x onerror="window.__u1=2">';
+  const incoming = inSettings(await fixtureBackup(page, fixtureUrl));
+  incoming.history = incoming.history.map(entry => entry.result.kind === 'manual' ? { ...entry, result: { ...entry.result, note: `Заметка ${markup}` } } : entry);
+  const filename = `${markup}.json`;
+  const preview = await previewCopy(page, incoming, filename);
+  assert.equal(preview.rejected, false);
+  assert.ok((await preview.dialog.innerText()).includes(filename), 'The file name is shown literally');
+  assert.equal(await preview.dialog.locator('img').count(), 0);
+  await replaceCopy(page, preview);
+  await go(page, 'progress');
+  await progressPage(page).locator('[data-tab="calendar"]').click();
+  const day = progressPage(page).locator('[data-day="2026-11-09"]');
+  if (await day.count()) await day.click();
+  const note = progressPage(page).locator('.pg-entry-note');
+  await note.first().waitFor();
+  assert.ok((await note.first().innerText()).includes(markup), 'The history note is shown literally');
+  const injected = await page.evaluate(() => ({ images: document.querySelectorAll('[data-page-frame="progress"] img, [data-page-frame="settings"] img, dialog img').length, flag: window.__u1 ?? null }));
   assert.deepEqual(injected, { images: 0, flag: null });
-  await historyAction(page, 'cancel-restore').click();
-  return { importFilenameIsText: true, injected };
+  return { importFilenameIsText: true, historyNoteIsText: true, injected };
 }, { scope: 'ui' });
 
 check('ui-import-preview-cancel-confirm-and-full-replacement', async ({ page, fixtureUrl }) => {
-  const incoming = await fixtureBackup(page, fixtureUrl); await openHistory(page); const before = await uiBackup(page);
-  await upload(page, incoming); await page.getByTestId('backup-preview').waitFor();
-  assert.match(await page.getByTestId('backup-preview').innerText(), /2 записей истории/);
-  assert.deepEqual(await uiBackup(page), before, 'Preview and export before confirmation must leave data unchanged');
-  await historyAction(page, 'cancel-restore').click(); assert.equal(await page.getByTestId('backup-preview').count(), 0); assert.deepEqual(await uiBackup(page), before);
-  await confirmImport(page, incoming); const restored = await uiBackup(page);
-  assert.deepEqual(restored, incoming); assert.equal(await page.getByLabel('Тоника', { exact: true }).inputValue(), 'C');
-  assert.equal(await page.getByTestId('history-list').locator('[data-history-entry]').count(), 2);
-  await page.reload(); await openHistory(page); assert.deepEqual(await uiBackup(page), incoming);
-  return { previewDidNotWrite: true, cancelled: true, restored, survivedReload: true };
+  await ready(page);
+  const incoming = inSettings(await fixtureBackup(page, fixtureUrl));
+  const before = await rawSnapshot(page);
+  const preview = await previewCopy(page, incoming, 'fixture-copy.json');
+  const rows = await preview.dialog.locator('table.st-cmp tbody tr').evaluateAll(list => list.map(row => [...row.children].map(cell => cell.textContent.trim())));
+  assert.deepEqual(rows.find(row => row[0] === 'История занятий'), ['История занятий', '2', '0']);
+  assert.deepEqual(rows.find(row => row[0] === 'Свои упражнения'), ['Свои упражнения', '2', '0']);
+  assert.match(await preview.dialog.innerText(), /Предпросмотр ничего не изменил/);
+  assert.deepEqual(withoutSection(await rawSnapshot(page)), withoutSection(before), 'Preview leaves the native database unchanged');
+  await cancelCopy(page, preview);
+  assert.equal(await settingsDialog(page).evaluate(element => element.open), false);
+  assert.deepEqual(withoutSection(await rawSnapshot(page)), withoutSection(before), 'Cancel leaves the native database unchanged');
+  const confirmed = await previewCopy(page, incoming, 'fixture-copy.json');
+  assert.equal((await replaceCopy(page, confirmed)).step, 'done');
+  assert.deepEqual(await rawSnapshot(page), incoming, 'Confirmed restore replaces every store');
+  const restored = await exportUi(page); assert.deepEqual(restored, incoming, 'The UI copy downloads the restored data');
+  await go(page, 'progress'); assert.equal(await progressPage(page).locator('.pg-empty').count(), 0, '«Прогресс» shows restored history');
+  await page.reload(); await ready(page);
+  assert.equal(await currentSection(page), 'progress');
+  assert.deepEqual(withoutSection(await rawSnapshot(page)), withoutSection(incoming));
+  return { previewRows: rows, previewDidNotWrite: true, cancelled: true, survivedReload: true };
 }, { scope: 'ui' });
 
-check('ui-draft-abort-still-downloads-confirmed-bytes-and-offers-retry', async ({ page }) => {
-  await uiReady(page); await openHistory(page);
-  const note = page.getByLabel('Заметка к практике', { exact: true });
+check('ui-draft-abort-still-downloads-confirmed-bytes-and-offers-retry', async ({ page, fixtureUrl }) => {
+  await ready(page);
+  const incoming = inSettings(await fixtureBackup(page, fixtureUrl));
+  incoming.practiceDrafts = [await fixtureValue(page, fixtureUrl, () => window.p5.draft('storage-draft'))];
+  await confirmImport(page, incoming);
+  const box = await openDrafts(page);
+  const note = draftCard(page, 'storage-draft').locator('[data-draft-field="note"]');
   await note.fill('Подтверждённая заметка');
-  async function download() {
-    const pending = page.waitForEvent('download'); await historyAction(page, 'export').click();
-    return readFile(await (await pending).path());
-  }
-  const confirmed = await download();
-  assert.equal(JSON.parse(confirmed).practiceDrafts[0].note, 'Подтверждённая заметка');
+  await waitRaw(page, db => db.practiceDrafts[0]?.note === 'Подтверждённая заметка', 'заметка черновика');
+  const confirmed = await exportDownload(page, { stay: true });
+  assert.equal(confirmed.copy.practiceDrafts[0].note, 'Подтверждённая заметка');
+  assert.match(confirmed.notice, /^Копия скачана/); assert.doesNotMatch(confirmed.notice, /только сохранённые/);
   await page.evaluate(() => {
     const put = IDBObjectStore.prototype.put;
     window.storageProbe = { abortedAfterPut: 0, restore() { IDBObjectStore.prototype.put = put; } };
@@ -734,25 +749,30 @@ check('ui-draft-abort-still-downloads-confirmed-bytes-and-offers-retry', async (
       return request;
     };
   });
+  let refused;
   try {
+    await go(page, 'progress');
     await note.fill('Изменение после отказа');
-    const exported = await download();
-    assert.deepEqual(exported, confirmed);
-    await page.getByText('Копия содержит подтверждённые данные. Несохранённые изменения в неё не вошли.', { exact: false }).waitFor();
+    refused = await exportDownload(page, { stay: true });
+    assert.ok(refused.bytes.equals(confirmed.bytes), 'Only confirmed bytes are exported after the aborted put');
+    assert.match(refused.notice, /вошли только сохранённые данные/);
     assert.ok(await page.evaluate(() => window.storageProbe.abortedAfterPut) > 0);
+    const banner = settingsPage(page).locator('[data-banners] [role="alert"]');
+    await banner.waitFor(); assert.match(await banner.innerText(), /Не сохранилось/);
+    assert.equal((await rawSnapshot(page)).practiceDrafts[0].note, 'Подтверждённая заметка', 'The aborted put left the confirmed draft');
   } finally { await page.evaluate(() => window.storageProbe.restore()); }
-  const details = page.locator('#open-storage-details');
-  if (!await page.locator('#retry-save').isVisible()) await details.click();
-  await page.locator('#retry-save').click();
-  await page.waitForFunction(() => document.querySelector('#retry-save')?.hidden === true);
-  const recovered = await download();
-  assert.equal(JSON.parse(recovered).practiceDrafts[0].note, 'Изменение после отказа');
-  return { confirmedBytesPreserved: true, retryRecoveredNote: true };
+  await settingsPage(page).locator('[data-retry]').click();
+  await settingsPage(page).locator('[data-banners] [role="alert"]').waitFor({ state: 'detached' });
+  const recovered = await exportDownload(page, { stay: true });
+  assert.equal(recovered.copy.practiceDrafts[0].note, 'Изменение после отказа');
+  assert.doesNotMatch(recovered.notice, /только сохранённые/);
+  await go(page, 'progress'); assert.equal(await box.isVisible(), true);
+  return { confirmedBytesPreserved: true, refusedNotice: refused.notice, retryRecoveredNote: true };
 }, { scope: 'ui' });
 
-check('ui-restore-waits-for-successful-preliminary-writes-and-keeps-preview-for-retry', async ({ page }) => {
-  await uiReady(page);
-  const original = await uiBackup(page);
+check('ui-restore-waits-for-successful-preliminary-writes-and-retries-after-save-repair', async ({ page }) => {
+  await ready(page);
+  const original = await exportUi(page, { stay: true });
   await page.evaluate(() => {
     const put = IDBObjectStore.prototype.put;
     window.restoreProfileWrites = () => { IDBObjectStore.prototype.put = put; };
@@ -762,22 +782,24 @@ check('ui-restore-waits-for-successful-preliminary-writes-and-keeps-preview-for-
       return request;
     };
   });
-  await page.locator('[data-theme-choice="dark"]').click();
-  await page.locator('#retry-save').waitFor();
-  await upload(page, original);
-  await page.locator('[data-history-confirm]').check();
-  await historyAction(page, 'confirm-restore').click();
-  await page.getByText('Текущие изменения не сохранены. Повтори сохранение перед восстановлением.', { exact: true }).waitFor();
-  assert.equal(await page.getByTestId('backup-preview').count(), 1);
-  assert.deepEqual(await uiBackup(page), original);
+  const look = await openSettingsPane(page, 'look');
+  await look.locator('[data-theme-choice="dark"]').click();
+  const banner = settingsPage(page).locator('[data-banners] [role="alert"]');
+  await banner.waitFor();
+  const before = await rawSnapshot(page);
+  const preview = await previewCopy(page, original);
+  const failed = await replaceCopy(page, preview);
+  assert.deepEqual(failed, { step: 'failed', text: 'Текущие изменения не сохранены. Повтори сохранение перед восстановлением. Сохранённое осталось прежним.' });
+  assert.deepEqual(await rawSnapshot(page), before, 'Refused restore keeps the confirmed data');
   await page.evaluate(() => window.restoreProfileWrites());
-  await page.locator('#retry-save').click();
-  await page.waitForFunction(() => document.querySelector('#retry-save')?.hidden === true);
-  assert.equal((await uiBackup(page)).profile.theme, 'dark');
-  await historyAction(page, 'confirm-restore').click();
-  await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
-  assert.deepEqual(await uiBackup(page), original);
-  return { restoreBlockedOnFailedProfileWrite: true, samePreviewRetried: true };
+  await preview.dialog.locator('[data-dlg="close"]').click();
+  await openData(page);
+  await settingsPage(page).locator('[data-retry]').click();
+  await banner.waitFor({ state: 'detached' });
+  assert.equal((await rawSnapshot(page)).profile.theme, 'dark');
+  await restoreCopy(page, original);
+  assert.deepEqual(await rawSnapshot(page), original);
+  return { restoreBlockedOnFailedProfileWrite: true, refusal: failed.text, retriedAfterSaveRepair: true };
 }, { scope: 'ui' });
 
 check('ui-preview-and-cancel-leave-active-practice-and-native-data-untouched', async ({ page }) => {
@@ -788,13 +810,14 @@ check('ui-preview-and-cancel-leave-active-practice-and-native-data-untouched', a
       return interval.call(this, ms === 5000 ? () => {} : callback, ms, ...args);
     };
   });
-  await page.reload(); await uiReady(page);
-  await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
-  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite');
-  await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
-  const previous = await uiBackup(page);
-  await page.locator('[data-player-action="start"]').click();
-  await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerState === 'running');
+  await page.reload(); await ready(page);
+  const previous = await exportUi(page, { stay: true });
+  await go(page, 'harmony');
+  await rhythmRoot(page).locator('[data-rhythm-action="start"]').click(); await rhythmWait(page, 'running');
+  await delay(300);
+  const preview = await previewCopy(page, previous);
+  assert.equal(await rhythmState(page), 'paused', 'Leaving «Ритм» pauses the practice instead of ending it');
+  const before = await rawSnapshot(page);
   await page.evaluate(() => {
     const transaction = IDBDatabase.prototype.transaction;
     window.storagePreviewWrites = 0;
@@ -803,134 +826,184 @@ check('ui-preview-and-cancel-leave-active-practice-and-native-data-untouched', a
       return transaction.call(this, stores, mode, ...args);
     };
   });
-  await upload(page, previous);
-  await page.getByTestId('backup-preview').waitFor({ state: 'visible' });
-  await historyAction(page, 'cancel-restore').click();
-  await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
+  await preview.dialog.locator('[data-dlg="back"]').click();
+  const again = await previewCopy(page, previous);
+  await cancelCopy(page, again);
   assert.equal(await page.evaluate(() => window.storagePreviewWrites), 0);
-  assert.equal(await page.locator('#player-mount').getAttribute('data-player-state'), 'running');
-  await page.locator('[data-player-action="stop"]').click();
-  return { activePracticePreserved: true, attributableReadwriteTransactions: 0 };
+  assert.deepEqual(await rawSnapshot(page), before);
+  await go(page, 'harmony');
+  assert.equal(await rhythmState(page), 'paused', 'The paused practice is still there after preview and cancel');
+  await rhythmRoot(page).locator('[data-rhythm-action="resume"]').click(); await rhythmWait(page, 'running');
+  await rhythmRoot(page).locator('[data-rhythm-action="stop"]').click(); await rhythmWait(page, 'stopped');
+  return { activePracticePreserved: 'paused', attributableReadwriteTransactions: 0 };
 }, { scope: 'ui' });
 
 check('ui-restore-after-nonzero-practice-does-not-add-old-clock-to-imported-draft', async ({ page }) => {
-  await uiRange(page, 0); await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
-  await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite'); await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
-  async function playFor(milliseconds) {
-    await page.locator('[data-player-action="start"]').click();
-    await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerState === 'running' && document.querySelector('#player-mount')?.dataset.currentPosition === 'E:0');
-    await delay(milliseconds); await page.locator('[data-player-action="stop"]').click();
-  }
-  await playFor(650); const exported = await uiBackup(page);
-  const oldDraft = exported.practiceDrafts.find(draft => draft.totalReferenceMs > 0); assert.ok(oldDraft); assert.equal(exported.history.length, 0);
+  await ready(page);
+  await playRhythm(page, 650);
+  const exported = inSettings(await exportUi(page));
+  const oldDraft = exported.practiceDrafts.find(draft => draft.material.kind === 'rhythm' && draft.totalReferenceMs > 0);
+  assert.ok(oldDraft); assert.equal(exported.history.length, 0);
   assert.equal(exported.profile.onboarding.choice, null, 'Starting practice must not silently record an onboarding choice');
-  await playFor(750); const later = await uiBackup(page);
-  assert.ok(later.practiceDrafts.find(draft => draft.id === oldDraft.id).totalReferenceMs >= oldDraft.totalReferenceMs + 500);
-  await confirmImport(page, exported); const restored = await uiBackup(page); assert.deepEqual(restored, exported);
-  assert.equal(await page.locator('#player-mount').getAttribute('data-player-state'), 'stopped');
-  await page.reload(); await openHistory(page); assert.deepEqual(await uiBackup(page), exported);
-  return { exportedReferenceMs: oldDraft.totalReferenceMs, laterReferenceMs: later.practiceDrafts.find(draft => draft.id === oldDraft.id).totalReferenceMs,
+  await playRhythm(page, 750);
+  const later = await rawSnapshot(page);
+  const grown = later.practiceDrafts.find(draft => draft.id === oldDraft.id);
+  assert.ok(grown.totalReferenceMs >= oldDraft.totalReferenceMs + 500, `${grown.totalReferenceMs} after ${oldDraft.totalReferenceMs}`);
+  await confirmImport(page, exported);
+  assert.deepEqual(await rawSnapshot(page), exported);
+  await go(page, 'harmony'); assert.equal(await rhythmState(page), 'stopped');
+  await page.reload(); await ready(page);
+  assert.deepEqual(withoutSection(await rawSnapshot(page)), withoutSection(exported));
+  return { exportedReferenceMs: oldDraft.totalReferenceMs, laterReferenceMs: grown.totalReferenceMs,
     importedSnapshotUnchanged: true, staleAudioClockNotAdded: true, nativeUiRestoreAndReload: true };
 }, { scope: 'ui' });
 
 check('ui-invalid-import-shows-error-and-preserves-valid-data', async ({ page, fixtureUrl }) => {
-  const incoming = await fixtureBackup(page, fixtureUrl); await confirmImport(page, incoming); const before = await uiBackup(page);
+  await ready(page);
+  const incoming = inSettings(await fixtureBackup(page, fixtureUrl)); await confirmImport(page, incoming);
+  const before = await rawSnapshot(page);
   const mutations = [
-    ['broken.json', '{broken'],
-    ['previous.json', JSON.stringify({ ...incoming, schemaVersion: 10 })],
-    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 12 })],
-    ['corrupt.json', (() => { const value = structuredClone(incoming); value.history[1].result.questions[0].errors = 0; return JSON.stringify(value); })()],
+    ['broken.json', '{broken', 'Это не копия тренажёра'],
+    ['previous.json', JSON.stringify({ ...incoming, schemaVersion: 10 }), 'Эта копия не подходит'],
+    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 12 }), 'Эта копия не подходит'],
+    ['corrupt.json', (() => { const value = structuredClone(incoming); value.history.find(entry => entry.result.kind === 'screen').result.questions[0].errors = 0; return JSON.stringify(value); })(), 'Это не копия тренажёра'],
   ];
   const errors = [];
-  for (const [name, json] of mutations) {
-    await upload(page, json, name); await page.getByTestId('history-error').waitFor({ state: 'visible' });
-    errors.push(await page.getByTestId('history-error').innerText()); assert.equal(await page.getByTestId('backup-preview').count(), 0);
-    assert.deepEqual(await uiBackup(page), before, name);
+  for (const [name, json, title] of mutations) {
+    const preview = await previewCopy(page, json, name);
+    assert.equal(preview.rejected, true, name);
+    assert.equal(await preview.dialog.locator('h2').innerText(), title, name);
+    const text = await preview.dialog.innerText();
+    assert.match(text, /Ничего не изменилось/); assert.ok(text.includes(name));
+    errors.push({ name, title, text: text.replace(/\s+/g, ' ').slice(0, 300) });
+    await cancelCopy(page, preview);
+    assert.deepEqual(await rawSnapshot(page), before, name);
   }
   return { errors, retainedHistory: before.history.length };
 }, { scope: 'ui' });
 
 check('ui-completed-screen-result-is-saved-once-and-survives-preference-changes', async ({ page }) => {
-  await uiRange(page, 0); await page.getByRole('button', { name: 'Задания', exact: true }).click();
-  await page.getByLabel('Тип задания', { exact: true }).selectOption('name-note');
-  await revealControl(page.getByLabel('Материал заданий', { exact: true })); await page.getByLabel('Материал заданий', { exact: true }).selectOption('chromatic');
-  await page.getByLabel('Количество вопросов', { exact: true }).fill('1');
-  await page.locator('[data-training-action="start"]').click(); await page.getByTestId('quiz-question').waitFor();
-  assert.match(await page.getByTestId('quiz-prompt').innerText(), /струна E, лад 0/);
-  await page.locator('[data-choice="pc:5"]').click(); await page.locator('[data-choice="pc:4"]').click();
-  await page.locator('[data-training-action="next"]').click(); await page.getByTestId('quiz-summary').waitFor();
-  await openHistory(page); await page.getByTestId('history-list').locator('[data-history-kind="screen"]').waitFor();
-  const first = await uiBackup(page); assert.equal(first.history.length, 1);
-  const entry = first.history[0]; assert.equal(entry.result.kind, 'screen'); assert.equal(entry.result.questions[0].errors, 1); assert.equal(entry.result.questions[0].corrected, true); assert.equal(entry.result.questions[0].independentCorrect, false);
-  await page.getByLabel('Тоника', { exact: true }).selectOption('G'); await page.getByRole('button', { name: 'Изучение', exact: true }).click();
-  const changed = await uiBackup(page); assert.deepEqual(changed.history, first.history);
-  await page.reload(); await openHistory(page); assert.deepEqual((await uiBackup(page)).history, first.history);
-  return { entry, savedOnce: true, preferenceChangePreservedHistory: true };
+  await ready(page);
+  const host = await openFormCheck(page, 'name-note');
+  assert.equal(await checkProgress(page), 'Вопрос 1 из 6');
+  const first = await nameNoteQuestion(page);
+  await answerChoice(page, first.wrong); await answerChoice(page, first.choice);
+  assert.match(await host.locator('[data-ck-feedback]').innerText(), /^Верно, с исправлением \(ошибок: 1\)/);
+  await host.locator('[data-act="next"]').click();
+  for (let index = 1; index < 6; index++) await answerNameNoteCorrectly(page);
+  await host.locator('[data-ck-summary]').waitFor();
+  const saved = await waitRaw(page, db => db.history.length === 1 && db.history[0].result.questions.length === 6 && db.history[0].result.questions.every(question => question.outcome !== 'interrupted'), 'законченная серия');
+  const entry = saved.history[0];
+  assert.equal(entry.result.kind, 'screen'); assert.equal(entry.result.source, 'screen-input'); assert.equal(entry.result.mode, 'name-note');
+  assert.equal(entry.result.questions[0].targetPositionId, first.positionId);
+  assert.equal(entry.result.questions[0].errors, 1); assert.equal(entry.result.questions[0].corrected, true); assert.equal(entry.result.questions[0].independentCorrect, false);
+  assert.deepEqual(entry.result.questions.slice(1).map(question => question.independentCorrect), [true, true, true, true, true]);
+  const settings = await openSettingsPane(page, 'lesson');
+  await settings.getByRole('button', { name: /^Медленнее на/ }).click();
+  await go(page, 'foundation'); await page.locator('[data-label-mode="degrees"]').click();
+  await waitRaw(page, db => db.preferences.study.labelMode === 'degrees', 'подписи ступенями');
+  const changed = await exportUi(page); assert.deepEqual(changed.history, saved.history);
+  await page.reload(); await ready(page); assert.deepEqual((await rawSnapshot(page)).history, saved.history);
+  return { entry: { id: entry.id, mode: entry.result.mode, first: entry.result.questions[0].outcome, context: entry.result.context }, savedOnce: true, preferenceChangePreservedHistory: true };
 }, { scope: 'ui' });
 
-check('ui-lazy-history-opens-current-own-commits-and-partial-upsert-keeps-one-id', async ({ page }) => {
-  await uiRange(page, 0); await page.getByRole('button', { name: 'Задания', exact: true }).click();
-  await page.getByLabel('Тип задания', { exact: true }).selectOption('name-note'); await revealControl(page.getByLabel('Материал заданий', { exact: true })); await page.getByLabel('Материал заданий', { exact: true }).selectOption('chromatic');
-  await page.getByLabel('Количество вопросов', { exact: true }).fill('1'); await page.getByLabel('Количество вопросов', { exact: true }).press('Tab');
-  assert.equal(await page.locator('.history-drawer').evaluate(element => element.open), false);
-  await page.locator('[data-training-action="start"]').click(); await page.locator('[data-choice="pc:5"]').click(); await uiSaved(page);
-  await openHistory(page); const initial = await uiBackup(page); assert.equal(initial.history.length, 1);
-  const id = initial.history[0].id; assert.equal(initial.history[0].result.questions[0].outcome, 'interrupted');
-  assert.equal(await page.locator(`[data-history-entry="${id}"]`).count(), 1);
-  await page.locator('.history-drawer > summary').click();
-  await page.locator('[data-choice="pc:4"]').click(); await page.locator('[data-training-action="next"]').click(); await uiSaved(page);
-  await openHistory(page); const completed = await uiBackup(page);
-  assert.equal(completed.history.length, 1); assert.equal(completed.history[0].id, id); assert.equal(completed.history[0].result.questions[0].outcome, 'corrected');
-  assert.equal(completed.history[0].result.questions[0].errors, 1); assert.equal(completed.history[0].result.questions[0].independentCorrect, false);
-  assert.equal(await page.locator(`[data-history-entry="${id}"]`).count(), 1); assert.match(await page.locator(`[data-history-entry="${id}"]`).innerText(), /ошибок 1/);
-  await page.locator('.history-drawer > summary').click(); await page.getByLabel('Тоника', { exact: true }).selectOption('G'); await uiSaved(page);
-  await openHistory(page); assert.equal(await page.locator(`[data-history-entry="${id}"]`).count(), 1);
-  const afterPreference = await uiBackup(page); assert.deepEqual(afterPreference.history, completed.history);
-  return { sameSessionHistoryId: id, initiallyClosed: true, partialOutcome: 'interrupted', completedOutcome: 'corrected', historyCount: completed.history.length, latestOwnCommitsVisibleOnOpen: true };
+check('ui-lazy-progress-stays-unbuilt-while-hidden-and-partial-upsert-keeps-one-id', async ({ page }) => {
+  await ready(page);
+  await go(page, 'progress'); await go(page, 'lesson');
+  await page.evaluate(() => {
+    window.progressMutations = 0;
+    new MutationObserver(list => { window.progressMutations += list.length; }).observe(document.querySelector('#progress-mount'), { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class', 'aria-pressed'] });
+  });
+  const host = await openFormCheck(page, 'name-note');
+  const first = await nameNoteQuestion(page);
+  await answerChoice(page, first.wrong);
+  const initial = await waitRaw(page, db => db.history.length === 1, 'запись после первого ответа');
+  const id = initial.history[0].id;
+  assert.equal(initial.history[0].result.questions[0].outcome, 'interrupted'); assert.equal(initial.history[0].result.questions[0].errors, 1);
+  await answerChoice(page, first.choice); await host.locator('[data-act="next"]').click();
+  await answerNameNoteCorrectly(page);
+  const partial = await waitRaw(page, db => db.history[0]?.result.questions[1]?.outcome === 'correct', 'второй ответ');
+  assert.equal(partial.history.length, 1); assert.equal(partial.history[0].id, id, 'Upsert keeps the session ID');
+  assert.equal(partial.history[0].result.questions[0].outcome, 'corrected'); assert.equal(partial.history[0].result.questions[0].independentCorrect, false);
+  assert.equal(await page.evaluate(() => window.progressMutations), 0, 'Hidden «Прогресс» does not rebuild after each answer');
+  await host.locator('[data-act="finish"]').click(); await host.locator('[data-ck-summary]').waitFor();
+  const finished = await waitRaw(page, db => db.history[0]?.result.questions.length >= 2 && db.history[0].result.questions.every(question => question.outcome !== 'interrupted'), 'досрочное завершение');
+  assert.equal(finished.history.length, 1); assert.equal(finished.history[0].id, id);
+  assert.deepEqual(finished.history[0].result.questions.map(question => question.outcome).slice(0, 2), ['corrected', 'correct']);
+  assert.equal(await page.evaluate(() => window.progressMutations), 0, 'Finishing the series does not build hidden «Прогресс» either');
+  await go(page, 'progress');
+  const review = progressPage(page).locator('[data-repeat-errors]').first();
+  await review.waitFor();
+  assert.match(await review.getAttribute('aria-label'), /^Повторить в «Проверь себя»/);
+  const mutationsOnOpen = await page.evaluate(() => window.progressMutations);
+  assert.ok(mutationsOnOpen > 0, 'Opening «Прогресс» renders the latest own commits');
+  return { sameSessionHistoryId: id, hiddenProgressMutations: 0, mutationsOnOpen, outcomes: finished.history[0].result.questions.map(question => question.outcome) };
 }, { scope: 'ui' });
 
 check('ui-manual-practice-has-self-report-source-and-consumes-duration', async ({ page }) => {
-  await uiRange(page, 0); await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
-  await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck(); await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite');
-  await page.locator('[data-player-action="start"]').click();
-  await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerState === 'running' && document.querySelector('#player-mount')?.dataset.currentPosition);
-  await delay(700); await page.locator('[data-player-action="stop"]').click();
-  await openHistory(page); await page.getByLabel('Комфортный темп', { exact: true }).fill('72'); await page.getByLabel('Заметка к практике', { exact: true }).fill('Играю вместе с эталоном; это моя оценка.');
-  await historyAction(page, 'save-manual').click(); await page.getByTestId('history-list').locator('[data-history-kind="manual"]').waitFor();
-  const first = await uiBackup(page); const entry = first.history[0];
+  await ready(page);
+  await playRhythm(page, 700);
+  const box = await openDrafts(page);
+  const card = box.locator('[data-draft]').first();
+  assert.match(await card.innerText(), /Ручная отметка · Ритм/);
+  await card.locator('[data-draft-field="bpm"]').fill('72');
+  await card.locator('[data-draft-field="note"]').fill('Играю вместе с эталоном; это моя оценка.');
+  await card.locator('[data-draft-save]').click();
+  await box.waitFor({ state: 'hidden' });
+  const first = await waitRaw(page, db => db.history.length === 1, 'ручная отметка');
+  const entry = first.history[0];
   assert.equal(entry.result.kind, 'manual'); assert.equal(entry.result.source, 'self-report'); assert.equal(entry.result.comfortableBpm, 72);
-  assert.ok(entry.result.durationMs > 0 && entry.result.durationMs < 3000); assert.deepEqual(entry.result.context.positionIds, ['E:0']);
-  assert.ok(!Object.hasOwn(entry.result, 'accuracy')); assert.match(await page.getByTestId('history-list').innerText(), /Самооценка, не измерение точности игры/);
-  await historyAction(page, 'save-manual').click();
-  await page.waitForFunction(() => document.querySelectorAll('[data-history-kind="manual"]').length === 2);
-  const second = await uiBackup(page); const extra = second.history.find(item => item.id !== entry.id); assert.equal(extra.result.durationMs, 0);
-  await page.reload(); await openHistory(page); assert.equal((await uiBackup(page)).history.length, 2);
-  return { first: entry, noDoubleCountedDuration: extra.result.durationMs };
+  assert.equal(entry.result.material.kind, 'rhythm'); assert.equal(entry.result.context, null);
+  assert.ok(entry.result.durationMs > 0 && entry.result.durationMs < 3000, `${entry.result.durationMs}`);
+  assert.ok(!Object.hasOwn(entry.result, 'accuracy'));
+  const draft = first.practiceDrafts.find(item => item.material.kind === 'rhythm');
+  assert.equal(draft.recordedThroughMs, entry.result.durationMs); assert.equal(draft.totalReferenceMs, draft.recordedThroughMs, 'Saved time is consumed');
+  assert.match(await progressPage(page).locator('.pg-note').innerText(), /ставишь ты/);
+  await playRhythm(page, 400);
+  const card2 = (await openDrafts(page)).locator('[data-draft]').first();
+  await card2.locator('[data-draft-save]').click();
+  await box.waitFor({ state: 'hidden' });
+  const second = await waitRaw(page, db => db.history.length === 2, 'вторая отметка');
+  const extra = second.history.find(item => item.id !== entry.id);
+  const total = second.practiceDrafts.find(item => item.id === draft.id);
+  assert.ok(extra.result.durationMs > 0 && extra.result.durationMs < 2000);
+  assert.equal(total.recordedThroughMs, entry.result.durationMs + extra.result.durationMs, 'No double-counted duration');
+  await page.reload(); await ready(page); assert.equal((await rawSnapshot(page)).history.length, 2);
+  return { first: { durationMs: entry.result.durationMs, bpm: entry.result.comfortableBpm, title: entry.result.material.kind }, second: extra.result.durationMs, recordedThroughMs: total.recordedThroughMs };
 }, { scope: 'ui' });
 
 check('ui-history-filters-and-exact-error-review-subset-preserve-original-context', async ({ page, fixtureUrl, resultDir }) => {
-  const incoming = await fixtureBackup(page, fixtureUrl); await confirmImport(page, incoming);
-  await page.getByLabel('Тип записей истории', { exact: true }).selectOption('manual');
-  assert.equal(await page.getByTestId('history-list').locator('[data-history-kind="manual"]').count(), 1); assert.equal(await page.getByTestId('history-list').locator('[data-history-kind="screen"]').count(), 0);
-  await page.getByLabel('Тип записей истории', { exact: true }).selectOption('screen');
-  assert.equal(await page.getByTestId('history-list').locator('[data-history-kind="screen"]').count(), 1);
-  const original = incoming.history.find(entry => entry.result.kind === 'screen'); const expectedId = original.result.questions[0].targetPositionId;
-  await historyAction(page, 'review-errors').click(); await page.getByTestId('review-banner').waitFor();
-  assert.match(await page.getByTestId('review-banner').innerText(), /только 1 выбранных позиций/); assert.equal(await page.getByLabel('Тоника', { exact: true }).inputValue(), 'A');
-  await page.locator('[data-training-action="start"]').click(); await page.getByTestId('quiz-question').waitFor();
-  assert.deepEqual(await page.getByTestId('quiz-answer-board').locator('[data-answer-position]').evaluateAll(nodes => nodes.map(node => node.dataset.answerPosition)), [expectedId]);
-  assert.match(await page.getByTestId('quiz-prompt').innerText(), new RegExp(`струна E, лад ${expectedId.split(':')[1]}`));
-  await page.locator('[data-choice="pc:4"]').click();
-  await page.getByRole('button', { name: 'Изучение', exact: true }).click();
-  const after = await uiBackup(page); assert.ok(after.history.some(entry => entry.id === original.id));
+  await ready(page);
+  const incoming = inSettings(await fixtureBackup(page, fixtureUrl)); await confirmImport(page, incoming);
+  await go(page, 'progress');
+  const progress = progressPage(page);
+  const review = progress.locator('[data-repeat-errors]').first();
+  await progress.locator('[data-source="play"]').click();
+  assert.equal(await progress.locator('[data-repeat-errors]').count(), 0, 'The screen-task review is not a play source');
+  await progress.locator('[data-source="check"]').click(); await review.waitFor();
+  await progress.locator('[data-source="all"]').click(); await review.waitFor();
+  const original = incoming.history.find(entry => entry.result.kind === 'screen');
+  const expectedId = original.result.questions[0].targetPositionId;
+  await review.click();
+  const host = checkHost(page);
+  await page.locator('[data-lesson-screen="check"]:not([hidden]) [data-ck-title]').waitFor();
+  assert.equal(await currentSection(page), 'lesson');
+  assert.equal(await host.locator('h1').innerText(), 'Проверь себя: повтор ошибок');
+  assert.ok(await host.locator('[data-kind]').isDisabled(), 'The review fixes the question kind');
+  const question = await nameNoteQuestion(page);
+  assert.equal(question.positionId, expectedId, 'Only the original wrong position is asked');
+  await answerChoice(page, question.choice);
+  const after = await waitRaw(page, db => db.history.length === 3, 'запись повтора');
+  assert.deepEqual(after.history.find(entry => entry.id === original.id), original, 'The original record is unchanged');
+  const repeat = after.history.find(entry => !incoming.history.some(item => item.id === entry.id));
+  assert.deepEqual({ root: repeat.result.context.root, structureId: repeat.result.context.structureId, positionIds: repeat.result.context.positionIds },
+    { root: original.result.context.root, structureId: original.result.context.structureId, positionIds: [expectedId] });
   await page.screenshot({ path: join(resultDir, 'p5-history-desktop.png'), fullPage: true });
-  return { expectedId, originalContext: original.result.context, screenshot: 'test-results/p5-history-desktop.png' };
+  return { expectedId, originalContext: original.result.context, repeatContext: repeat.result.context, screenshot: 'test-results/p5-history-desktop.png' };
 }, { scope: 'ui' });
 
 check('ui-unavailable-indexeddb-falls-back-to-explicit-memory-and-export', async ({ page }) => {
-  await uiReady(page);
+  await ready(page);
   const details = page.getByRole('button', { name: 'Без сохранения · подробнее', exact: true });
   assert.equal(await details.isVisible(), true); assert.equal(await details.getAttribute('aria-expanded'), 'false');
   assert.equal(await page.locator('#persistence-banner').isVisible(), false);
@@ -938,13 +1011,12 @@ check('ui-unavailable-indexeddb-falls-back-to-explicit-memory-and-export', async
   assert.equal(await page.locator('#persistence-banner').isVisible(), true);
   const reason = await page.locator('#persistence-message').innerText();
   assert.match(reason, /памяти|не сохран/); assert.match(reason, /Браузерное хранилище недоступно/);
-  await openHistory(page);
-  assert.match(await page.getByTestId('history-body').innerText(), /только в памяти.*не переживут закрытие/s);
-  await page.getByLabel('Заметка к практике', { exact: true }).fill('Временная ручная отметка'); await historyAction(page, 'save-manual').click();
-  await page.getByTestId('history-list').locator('[data-history-kind="manual"]').waitFor();
-  const exported = await uiBackup(page); assert.equal(exported.history.length, 1); assert.equal(exported.history[0].result.source, 'self-report');
-  await page.reload(); await uiReady(page); assert.equal(await details.isVisible(), true); assert.equal(await details.getAttribute('aria-expanded'), 'false');
-  await openHistory(page); assert.equal((await uiBackup(page)).history.length, 0);
+  const host = await openFormCheck(page, 'name-note');
+  const first = await nameNoteQuestion(page); await answerChoice(page, first.choice);
+  assert.match(await host.locator('[data-ck-feedback]').innerText(), /^Верно/);
+  const exported = await exportUi(page); assert.equal(exported.history.length, 1); assert.equal(exported.history[0].result.source, 'screen-input');
+  await page.reload(); await ready(page); assert.equal(await details.isVisible(), true); assert.equal(await details.getAttribute('aria-expanded'), 'false');
+  assert.equal((await exportUi(page)).history.length, 0);
   return { explicitlyMemoryOnly: true, detailsOpenedByVisibleButton: true, reason, exportedRecords: exported.history.length, reloadClearedTemporaryHistory: true, nativePersistenceClaimed: false };
 }, { scope: 'ui', memory: true });
 
@@ -952,16 +1024,16 @@ markFullOnly(checks, [
   'native-full-browser-process-restart-keeps-original-history-date',
 ], FULL_ONLY.separateProcess);
 markFullOnly(checks, [
-  'composition-without-input-retains-unavailable-schema11-data',
-  'composition-without-ear-retains-unavailable-schema11-data',
+  'composition-without-progress-retains-unavailable-schema11-data',
+  'composition-without-tracks-retains-unavailable-schema11-data',
   'ui-finger-display-setting-survives-reload-and-backup-restore',
   'ui-draft-abort-still-downloads-confirmed-bytes-and-offers-retry',
-  'ui-restore-waits-for-successful-preliminary-writes-and-keeps-preview-for-retry',
+  'ui-restore-waits-for-successful-preliminary-writes-and-retries-after-save-repair',
   'ui-preview-and-cancel-leave-active-practice-and-native-data-untouched',
   'ui-restore-after-nonzero-practice-does-not-add-old-clock-to-imported-draft',
   'ui-completed-screen-result-is-saved-once-and-survives-preference-changes',
-  'ui-lazy-history-opens-current-own-commits-and-partial-upsert-keeps-one-id',
+  'ui-lazy-progress-stays-unbuilt-while-hidden-and-partial-upsert-keeps-one-id',
   'ui-manual-practice-has-self-report-source-and-consumes-duration',
   'ui-history-filters-and-exact-error-review-subset-preserve-original-context',
 ], FULL_ONLY.smoke);
-await runStorageBrowserChecks(checks);
+await runStorageBrowserChecks(browserCases(checks).checks);
