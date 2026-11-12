@@ -77,7 +77,7 @@ check('offline-sequence-bass-timbre-has-second-and-third-harmonics', 'api', asyn
     assert.ok(result.peak < .9, `headroom at E${fret}: ${result.peak}`);
     results.push(result);
   }
-  return { method: 'Tone.Offline PCM of the product player, Hann-window correlation at k·f0; perceived timbre/speaker audibility not inferred', results };
+  return { method: 'OfflineAudioContext PCM of the product player, Hann-window correlation at k·f0; perceived timbre/speaker audibility not inferred', results };
 });
 
 check('offline-four-quarter-count-in-precedes-eighth-notes', 'api', async ({ page }) => {

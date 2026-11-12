@@ -1,6 +1,7 @@
 import { midiToFrequency } from '../music';
 import { BASS_TIMBRE, bassLowpassHz } from './bass-timbre';
 import { audioContext, resumeAudio } from './context';
+import { LEAD } from './scheduler';
 
 export interface CueNote {
   readonly midi: number;
@@ -134,7 +135,7 @@ export function createAudioCue(options: CueOptions = {}) {
         if (disposed || expectedRun !== runId) return snapshot();
         if (context.state !== 'running') throw new Error('Браузер не разрешил звук. Нажми «Прослушать» ещё раз.');
         const seconds = 60 / configuration.bpm;
-        startAt = context.currentTime + .035;
+        startAt = context.currentTime + LEAD;
         finishAt = startAt + configuration.totalBeats * seconds;
         output.gain.setValueAtTime(1, context.currentTime);
         for (const note of configuration.notes) voices.push(scheduleNote(context, output, note, startAt, seconds));

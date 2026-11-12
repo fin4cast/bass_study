@@ -281,8 +281,9 @@ check('live-product-pause-owner-switch-and-explicit-resume', 'ui', async ({ page
   await state(page, 'running');
   assert.ok((await sample(page)).peak > .001);
   const contexts = await page.evaluate(() => window.__rhythmObservation.count());
-  assert.equal(contexts - initialContexts, 1);
-  return { initialContexts, rhythmContexts: contexts - initialContexts, liveSignal: true, pausedSilence: true, noAutomaticResume: true };
+  // Ритм работает на общем AudioContext страницы и не создаёт своего при старте и продолжении.
+  assert.equal(contexts, 1);
+  return { initialContexts, pageContexts: contexts, rhythmContexts: contexts - initialContexts, liveSignal: true, pausedSilence: true, noAutomaticResume: true };
 });
 
 check('leaving-section-cancels-audition-waiting-for-audio-context', 'ui', async ({ page, context }) => {

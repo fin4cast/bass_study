@@ -22,7 +22,7 @@ export async function runAudioBrowserChecks(allChecks) {
   const report = {
     generatedAt: new Date().toISOString(), platform: process.platform, architecture: process.arch,
     node: process.version, browserChannel: 'msedge', browserVersion: null, origin, fixtureOrigin,
-    scope: 'P4 actual Tone/Web Audio scheduling, OfflineAudioContext PCM, live analyser and product player UI; physical speakers muted; no physical output latency measurement.',
+    scope: 'P4 actual Web Audio lookahead scheduling, OfflineAudioContext PCM, live analyser and product player UI; physical speakers muted; no physical output latency measurement.',
     networkIsolation: 'Fresh Edge contexts with cache disabled; non-loopback page HTTP requests aborted. No user profile or Windows network adapter change.',
     checks: [], externalRequests: [], pageErrors: [], cleanupErrors: [],
   };

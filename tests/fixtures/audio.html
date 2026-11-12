@@ -10,8 +10,7 @@
   <button id="stop">Стоп</button>
   <button id="start-pause">Старт и немедленная пауза</button>
   <script type="module">
-    import * as Tone from 'tone';
-    import { createPlayer } from '/src/audio/engine.ts';
+    import { createPlayer, renderSequenceOffline } from '/src/audio/engine.ts';
     import { annotatePositions, createStructure, getPosition } from '/src/music/index.ts';
     const notes = annotatePositions([0, 1, 3, 5].map(fret => getPosition('E', fret)), createStructure('C', 'major'));
     const player = createPlayer();
@@ -31,15 +30,11 @@
         return 2 * Math.hypot(re, im) / weights;
       });
     }
-    /** Продуктовый голос последовательности в Tone.Offline: отдельный проигрыватель на offline-контексте, только бас. */
+    /** Продуктовый голос последовательности в OfflineAudioContext: отдельный проигрыватель, канал баса. */
     async function bassSpectrum(fret) {
       const position = getPosition('E', fret);
-      let offlinePlayer = null;
-      const buffer = await Tone.Offline(async () => {
-        offlinePlayer = createPlayer(); offlinePlayer.setVolumes({ bass: 1, click: 0 });
-        await offlinePlayer.start(makeConfig({ notes: annotatePositions([position], createStructure('C', 'major')), bpm: 60 }));
-      }, 1.2, 1, 44100);
-      offlinePlayer?.dispose();
+      const { buffer } = await renderSequenceOffline(makeConfig({ notes: annotatePositions([position], createStructure('C', 'major')), bpm: 60 }),
+        { durationSeconds: 1.2, volumes: { bass: 1, click: 0 } });
       const samples = buffer.getChannelData(0).slice(); const sampleRate = buffer.sampleRate;
       let peak = 0; for (const value of samples) peak = Math.max(peak, Math.abs(value));
       const levels = harmonicLevels(samples, sampleRate, position.frequency, .15, .65);
