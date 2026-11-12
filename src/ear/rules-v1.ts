@@ -1,8 +1,11 @@
 import { createStructure } from '../music';
 import type { RouteRef } from '../route';
 
-export type EarQuality = 'major' | 'minor';
-export type EarDegree = '1' | '3' | 'b3' | '5';
+/** Трезвучия — исходный слух R-016; пентатоники — ступени «Проверь себя» (R-016, расширение P13). */
+export type EarQuality = 'major' | 'minor' | 'minor-pentatonic' | 'major-pentatonic';
+export type EarDegree = '1' | '2' | '3' | 'b3' | '4' | '5' | '6' | 'b7';
+const EAR_STRUCTURES = { major: 'major-triad', minor: 'minor-triad', 'minor-pentatonic': 'minor-pentatonic', 'major-pentatonic': 'major-pentatonic' } as const;
+export const isEarQuality = (value: unknown): value is EarQuality => typeof value === 'string' && Object.hasOwn(EAR_STRUCTURES, value);
 export interface EarContext { readonly root: string; readonly quality: EarQuality; readonly referenceMidi: number }
 export interface EarConfig { readonly root: string; readonly quality: EarQuality; readonly count: number; readonly seed: number; readonly referenceMidi?: number; readonly routeRef?: RouteRef | null }
 export interface EarQuestion {
@@ -63,9 +66,10 @@ function initialAnswer(): EarAnswerState {
 }
 
 export function createEarQuestionV1(config: Omit<EarConfig, 'count'>): EarQuestion {
-  if (config.quality !== 'major' && config.quality !== 'minor') throw new RangeError('Выберите мажорное или минорное трезвучие.');
-  const structure = createStructure(config.root, config.quality === 'major' ? 'major-triad' : 'minor-triad');
-  const selected = structure.notes[Math.floor(seedValue(config.seed) / 0x100000000 * 3)];
+  if (!isEarQuality(config.quality)) throw new RangeError('Выберите трезвучие или пентатонику.');
+  const structure = createStructure(config.root, EAR_STRUCTURES[config.quality]);
+  // Для трезвучий это прежний выбор из трёх ступеней: сохранённые вопросы v1 воспроизводятся без изменений.
+  const selected = structure.notes[Math.floor(seedValue(config.seed) / 0x100000000 * structure.notes.length)];
   const referenceMidi = config.referenceMidi ?? 36 + structure.rootPitchClass;
   if (!Number.isInteger(referenceMidi) || referenceMidi < 0 || referenceMidi > 120 || referenceMidi % 12 !== structure.rootPitchClass) throw new RangeError('Опорная высота должна быть тоникой и оставлять место для квинты в MIDI 0–127.');
   return immutable({ id: `ear-${config.seed.toString(16)}-${config.quality}-${structure.root}`, seed: config.seed,
@@ -77,9 +81,9 @@ export function createEarQuestionV1(config: Omit<EarConfig, 'count'>): EarQuesti
 /** Labelled study/review cues have no answer state and never contribute to a score. */
 export function createEarExample(context: { readonly root: string; readonly quality: EarQuality; readonly referenceMidi?: number }, degree: EarDegree): EarQuestion {
   const question = createEarQuestionV1({ ...context, seed: 0 });
-  const structure = createStructure(context.root, context.quality === 'major' ? 'major-triad' : 'minor-triad');
+  const structure = createStructure(context.root, EAR_STRUCTURES[context.quality]);
   const note = structure.notes.find(candidate => candidate.degree === degree);
-  if (!note) throw new RangeError('В выбранном трезвучии нет такой ступени.');
+  if (!note) throw new RangeError('В выбранной структуре нет такой ступени.');
   return immutable({ ...question, id: `example-${question.referenceMidi}-${context.quality}-${degree}`, targetDegree: degree, targetMidi: question.referenceMidi + note.semitones, targetName: note.name });
 }
 
