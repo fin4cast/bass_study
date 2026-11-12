@@ -384,7 +384,9 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     onLibraryRetry: () => retryWrites('rhythm-library'),
     onBeforeStart: () => audio.claim('rhythm'),
     onPracticeEnd(value) {
-      drafts.captureClosed(rhythmPracticeBinding(value));
+      // Остановленный запуск — тоже «последнее занятие»: при смене раздела `capture()` его уже не вернёт.
+      const closed = drafts.captureClosed(rhythmPracticeBinding(value));
+      if (closed) progressDraftId = closed.id;
       void drafts.flush().catch(() => {});
     },
     onPracticeChange: syncPracticeBinding,

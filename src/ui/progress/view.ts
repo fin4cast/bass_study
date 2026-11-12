@@ -40,7 +40,7 @@ export interface ProgressOptions extends Partial<ProgressData> {
   /** Смена вкладки и источника — чтобы хост запомнил выбор. */
   readonly onTabChange?: (tab: ProgressTab) => void;
   readonly onSourceChange?: (source: SourceFilter) => void;
-  /** «Повторить» в карточке «Задания на грифе»: открыть «Гриф» с повтором ошибочных позиций. */
+  /** «Повторить» в карточке «Задания на грифе»: открыть «Проверь себя» с повтором ошибочных позиций (P13-08). */
   readonly onRepeatErrors?: () => void;
   /** Удалить запись истории (после подтверждения на экране); промис завершается после записи. */
   readonly onDeleteRecord?: (id: string) => Promise<ProgressActionResult>;
@@ -173,7 +173,7 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
   function renderHard() {
     const views = difficultyViews(state.records, state.source);
     const review = state.review && state.review.count > 0 && showsFretboardReview(state.source) ? state.review : null;
-    const reviewItem = review ? `<li class="is-check is-board"><span class="pg-src is-check">Гриф · экранные задания</span><button type="button" class="secondary-button button-compact pg-plan" data-repeat-errors aria-label="${escapeHtml(`Повторить на «Грифе»: ${review.title}`)}">Повторить</button><b>${escapeHtml(review.title)}</b><p>${escapeHtml(review.detail)}${review.reasons ? `. ${escapeHtml(review.reasons)}` : ''}</p></li>` : '';
+    const reviewItem = review ? `<li class="is-check is-board"><span class="pg-src is-check">Гриф · экранные задания</span><button type="button" class="secondary-button button-compact pg-plan" data-repeat-errors aria-label="${escapeHtml(`Повторить в «Проверь себя»: ${review.title}`)}">Повторить</button><b>${escapeHtml(review.title)}</b><p>${escapeHtml(review.detail)}${review.reasons ? `. ${escapeHtml(review.reasons)}` : ''}</p></li>` : '';
     const html = !hasHistory() && !review
       ? '<p class="pg-quiet">Сюда попадут места с отметками «С ошибками» и «Не успевал», а также ошибки в «Проверь себя» и в заданиях на грифе. Каждое можно повторить одной кнопкой.</p>'
       : !views.length && !review ? '<p class="pg-quiet">Для этого источника трудных мест нет.</p>'
@@ -237,7 +237,7 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
     const focusField = active?.dataset.draftField ?? (active?.hasAttribute('data-draft-save') ? 'save' : active?.hasAttribute('data-draft-delete') ? 'delete' : null);
     const selection = active instanceof HTMLTextAreaElement ? [active.selectionStart, active.selectionEnd] as const : null;
     box.innerHTML = `<h2 class="pg-h2" id="${uid}-drafts" tabindex="-1">Не сохранено <small>${escapeHtml(countWord(list.length, 'черновик', 'черновика', 'черновиков'))}</small></h2>
-      <p class="pg-hint">Время под звук на «Грифе» и в «Ритме». Поставь удобный темп и сохрани отметку — она попадёт в календарь.</p>
+      <p class="pg-hint">Время под звук в «Ритме» и прежние черновики «Грифа». Поставь удобный темп и сохрани отметку — она попадёт в календарь.</p>
       <ul class="pg-draftlist">${list.map(draftCard).join('')}</ul>`;
     if (focusDraft && focusField) {
       const card = $(`[data-draft="${css(focusDraft)}"]`, box);

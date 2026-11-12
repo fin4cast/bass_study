@@ -3,7 +3,7 @@ import { createExerciseSpec } from '../src/exercises';
 import type { CheckRecord, PlayRecord, PracticeRecord } from '../src/practice/results';
 import {
   addDays, calendarWeeks, checkTally, datePeriod, dayRecords, defaultDay, describeDifficulty, difficultyViews, formatActive, formatLongDate,
-  formatShortDate, intensityLevel, joinDates, mondayOf, plural, progressRows, tallyText, weekRangeLabel, weekSummary,
+  formatShortDate, intensityLevel, joinDates, missedDegrees, mondayOf, plural, progressRows, tallyText, weekRangeLabel, weekSummary,
 } from '../src/ui/progress/model';
 import { dateTicks, markerSvg, placeByDate, sparkSvg, sparkText, tempoChartSvg, tempoScale } from '../src/ui/progress/charts';
 
@@ -68,6 +68,8 @@ describe('строки упражнений', () => {
     expect(row.last.missed).toEqual(['♭7', '5']);
     expect(tallyText(row.last.tally)).toBe('самостоятельно 1 · с исправлением 1 · пропущено 1');
     expect(checkTally(check(TODAY, 'x', [{ degree: '1', outcome: 'unanswered', errors: 0 }])).unanswered).toBe(1);
+    // Цель вопроса без ответа (досрочное завершение, прерванный сигнал слуха) не раскрывается как «трудная» (R-016).
+    expect(missedDegrees(check(TODAY, 'x', [{ degree: '1', outcome: 'correct', errors: 0 }, { degree: 'b7', outcome: 'unanswered', errors: 0 }]))).toEqual([]);
   });
 });
 

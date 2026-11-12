@@ -103,9 +103,12 @@ export function checkTally(record: CheckRecord): CheckTally {
 }
 /** «самостоятельно 3 · с исправлением 2 · показано 1» — только ненулевые исходы. */
 export const tallyText = (tally: CheckTally) => OUTCOME_ORDER.filter(group => tally[group]).map(group => `${OUTCOME_LABELS[group]} ${tally[group]}`).join(' · ');
-/** Ступени, где были ошибки, показ или пропуск. */
+/**
+ * Ступени, где были ошибки, показ или пропуск. Вопросы «без ответа» (досрочное завершение, прерванный сигнал слуха)
+ * не входят: их цель не была открыта и в «Прогрессе» не раскрывается (R-016), как и в `difficulties`.
+ */
 export const missedDegrees = (record: CheckRecord) =>
-  [...new Set(record.answers.filter(answer => answer.errors > 0 || answer.outcome !== 'correct').map(answer => degreeLabel(answer.degree)))];
+  [...new Set(record.answers.filter(answer => answer.errors > 0 || answer.outcome === 'corrected' || answer.outcome === 'revealed' || answer.outcome === 'skipped').map(answer => degreeLabel(answer.degree)))];
 
 /* ---------- Строки упражнений (A) ---------- */
 
@@ -218,7 +221,7 @@ export interface DraftView {
   readonly maxBpm: number;
   readonly note: string;
   readonly localDate: string;
-  /** Черновик последнего занятия на «Грифе» или в «Ритме». */
+  /** Черновик последнего занятия в «Ритме» (новых черновиков «Гриф» после P13-08 не создаёт). */
   readonly current: boolean;
   /** Ошибка последнего действия; видна до успешного повтора. */
   readonly error?: string;

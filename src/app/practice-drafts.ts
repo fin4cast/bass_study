@@ -186,7 +186,8 @@ export function createPracticeDrafts(options: Options) {
 
   return {
     capture(force = false) { return clone(capture(force)); },
-    captureClosed(source: PracticeBinding) { capture(false, source); },
+    /** Итог закрытого запуска; возвращает его черновик (или `null`, если время не накопилось). */
+    captureClosed(source: PracticeBinding) { return clone(capture(false, source)); },
     bind(next: PracticeBinding | null) { capture(); binding = next; currentId = null; capture(); },
     current(force = false) { return clone(capture(force)); },
     peek() { return clone(currentId === null || retired.has(currentId) ? null : records.get(currentId) ?? null); },

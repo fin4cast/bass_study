@@ -107,6 +107,21 @@ describe('durable practice draft coordinator', () => {
     f.manager.dispose();
   });
 
+  it('captureClosed returns the draft of a closed run and nothing when no time accrued', () => {
+    const f = fixture();
+    const project = createDefaultRhythmProject();
+    const closed = (epoch: string, durationMs: number): PracticeBinding => ({
+      context: null, routeRef: null, label: 'Ритм-секция',
+      material: { kind: 'rhythm', playback: { preferences: { ...DEFAULT_RHYTHM_PREFERENCES, view: 'rhythm' }, project } },
+      readClock: () => ({ runtimeContextKey: epoch, durationMs, comfortableBpm: project.bpm }),
+    });
+    expect(f.manager.captureClosed(closed('rhythm:9:1', 0))).toBeNull();
+    const draft = f.manager.captureClosed(closed('rhythm:9:2', 450));
+    expect(draft).toMatchObject({ totalReferenceMs: 450, material: { kind: 'rhythm' } });
+    expect(f.manager.all().map(item => item.id)).toContain(draft!.id);
+    f.manager.dispose();
+  });
+
   it('does not merge practice across a local calendar day and preserves the original date', async () => {
     const f = fixture(); const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     // These instants are safely on distinct local days in every supported IANA zone.
