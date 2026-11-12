@@ -9,6 +9,23 @@ function noise(seed = 12345) {
   return Float32Array.from({ length: 8192 }, () => { state = (1664525 * state + 1013904223) >>> 0; return (state / 0x100000000 - 0.5) * 0.5; });
 }
 const opens = [[28, 41.20344461410875], [33, 55], [38, 73.41619197935188], [43, 97.99885899543733]] as const;
+const RICH = [[1, 0.5], [2, 0.25], [3, 0.16], [4, 0.1]] as const;
+const SAW = Array.from({ length: 16 }, (_, index) => [index + 1, 0.5 / (index + 1)] as const);
+/** Синтетический вход через тот же low-pass 1 кГц (biquad RBJ, Q 0,707), что стоит перед анализатором высоты в src/audio/input.ts. */
+function inputChain(hz: number, sampleRate: number, components: readonly (readonly [number, number])[], phase = 0.3) {
+  const length = 8192 + 4096;
+  const w = 2 * Math.PI * 1000 / sampleRate, alpha = Math.sin(w) / (2 * Math.SQRT1_2), c = Math.cos(w), a0 = 1 + alpha;
+  const b0 = (1 - c) / 2 / a0, b1 = (1 - c) / a0, a1 = -2 * c / a0, a2 = (1 - alpha) / a0;
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  const output = new Float32Array(8192);
+  for (let index = 0; index < length; index++) {
+    const x = components.reduce((sum, [harmonic, amplitude]) => hz * harmonic < sampleRate / 2 ? sum + amplitude * Math.sin(2 * Math.PI * hz * harmonic * index / sampleRate + phase * harmonic) : sum, 0);
+    const y = b0 * x + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2;
+    x2 = x1; x1 = x; y2 = y1; y1 = y;
+    if (index >= length - 8192) output[index - (length - 8192)] = y;
+  }
+  return output;
+}
 
 describe('экспериментальная диагностика синтетического монофонического PCM', () => {
   it.each([44100, 48000])('%sГц: все открытые струны и ±25центов без подсказки ожидаемой ноты', sampleRate => {
@@ -32,7 +49,7 @@ describe('экспериментальная диагностика синтет
   });
 
   it('чистые тоны разных фаз не делятся на два; значения близко к пределам остаются оценками', () => {
-    for (const hz of [35.1, 41.20344461410875, 82.4068892282175, 349.9]) for (const phase of [0, 0.8, 1.9, 3.5, 5.4]) {
+    for (const hz of [35.1, 41.20344461410875, 82.4068892282175, 349.9, 419.9]) for (const phase of [0, 0.8, 1.9, 3.5, 5.4]) {
       const result = estimatePitch(tone(hz, 48000, [[1, 0.5]], phase), 48000);
       expect(result.voiced, JSON.stringify({ hz, phase, result })).toBe(true);
       if (result.voiced) expect(Math.abs(1200 * Math.log2(result.hz / hz))).toBeLessThan(2);
@@ -69,8 +86,31 @@ describe('экспериментальная диагностика синтет
     expect(estimatePitch(tone(55), 48000)).toMatchObject({ voiced: true, nearestMidi: 33 });
   });
 
+  it.each([44100, 48000])('%sГц: верх грифа до G4 (струна G, 24-й лад) распознаётся — синус и гармонический сигнал', sampleRate => {
+    const top = [[64, 329.6275569128699], [65, 349.2282314330039], [66, 369.9944227116344], [67, 391.99543598174927]] as const;
+    for (const [midi, hz] of top) for (const cents of [-20, 0, 20]) for (const components of [[[1, 0.5]], RICH] as const) {
+      const result = estimatePitch(inputChain(hz * 2 ** (cents / 1200), sampleRate, components), sampleRate);
+      expect(result.voiced, JSON.stringify({ midi, cents, components, result })).toBe(true);
+      if (result.voiced) { expect(result.nearestMidi).toBe(midi); expect(Math.abs(result.cents - cents)).toBeLessThan(3); }
+    }
+  });
+
+  it('расширение до 420 Гц: E1–G4 после входного low-pass 1 кГц без октавных ошибок; почти без основной — отказ, а не октава вверх', () => {
+    const mixes: readonly (readonly (readonly [number, number])[])[] = [[[1, 0.5]], RICH, SAW, [[1, 0.07], [2, 0.7], [3, 0.06]], [[1, 0.15], [2, 0.7], [3, 0.1], [4, 0.2]]];
+    const weak = [[1, 0.01], [2, 0.8], [3, 0.01]] as const;
+    for (let midi = 28; midi <= 67; midi++) for (const sampleRate of [44100, 48000]) {
+      const hz = 440 * 2 ** ((midi - 69) / 12), phase = (midi % 5) * 0.7;
+      for (const components of mixes) {
+        const result = estimatePitch(inputChain(hz, sampleRate, components, phase), sampleRate);
+        expect(result.voiced && result.nearestMidi, JSON.stringify({ midi, sampleRate, components, result })).toBe(midi);
+      }
+      const ambiguous = estimatePitch(inputChain(hz, sampleRate, weak, phase), sampleRate);
+      expect(ambiguous, JSON.stringify({ midi, sampleRate, ambiguous })).toMatchObject({ voiced: false, reason: 'uncertain' });
+    }
+  }, 30_000);
+
   it('известные тоны вне поддерживаемого диапазона не притягиваются к его нотам', () => {
-    for (const hz of [25, 30, 400, 500, 800]) expect(estimatePitch(tone(hz), 48000), String(hz)).toMatchObject({ voiced: false, reason: 'out-of-range', hz: null });
+    for (const hz of [25, 30, 450, 500, 800]) expect(estimatePitch(tone(hz), 48000), String(hz)).toMatchObject({ voiced: false, reason: 'out-of-range', hz: null });
   });
 
   it('сообщает длительность окна, не выдаёт её за аппаратную задержку и не изменяет PCM', () => {
@@ -83,7 +123,7 @@ describe('экспериментальная диагностика синтет
     expect(result).not.toHaveProperty('string');
     expect(result).not.toHaveProperty('correct');
     expect(Object.isFrozen(result)).toBe(true);
-    expect(PITCH_DIAGNOSTIC).toMatchObject({ minHz: 35, maxHz: 350, frameSize: 8192 });
+    expect(PITCH_DIAGNOSTIC).toMatchObject({ minHz: 35, maxHz: 420, frameSize: 8192 });
   });
 
   it('проверяет размер, тип, конечность отсчётов и фактическую sampleRate', () => {

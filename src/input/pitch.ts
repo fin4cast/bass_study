@@ -13,7 +13,7 @@
  * 8192 samples span 170.67ms at48k /185.76ms at44.1k; this is window duration,
  * not measured input latency. Physical bass/interface/noise tests remain required.
  */
-export const PITCH_DIAGNOSTIC = Object.freeze({ frameSize: 8192, minHz: 35, maxHz: 350, minRms: 0.003, threshold: 0.1, downsampleFactor: 4 });
+export const PITCH_DIAGNOSTIC = Object.freeze({ frameSize: 8192, minHz: 35, maxHz: 420, minRms: 0.003, threshold: 0.1, downsampleFactor: 4 });
 export type UnvoicedReason = 'silence' | 'noise' | 'uncertain' | 'out-of-range';
 interface DiagnosticBase {
   readonly confidence: number; readonly rms: number; readonly acRms: number;
@@ -29,6 +29,25 @@ const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 function interpolatedOffset(values: Float64Array, index: number): number {
   const denominator = values[index - 1] - 2 * values[index] + values[index + 1];
   return Math.abs(denominator) < 1e-20 ? 0 : Math.max(-1, Math.min(1, 0.5 * (values[index - 1] - values[index + 1]) / denominator));
+}
+
+/**
+ * Scale-free squared difference at a full-rate lag: Σ(x[i]−x[i+L])² / Σ(x[i]²+x[i+L]²).
+ * Near a trough it is close to the YIN-normalized value but without the 4× lag quantization.
+ */
+function fullRateRatio(centered: Float64Array, lag: number, width: number): number {
+  let difference = 0; let energy = 0;
+  for (let index = 0; index < width; index++) {
+    const left = centered[index]; const right = centered[index + lag];
+    const delta = left - right; difference += delta * delta; energy += left * left + right * right;
+  }
+  return energy > 1e-20 ? difference / energy : 1;
+}
+/** Parabolic minimum of the full-rate ratio around 4·(reduced lag); used only to compare octave candidates. */
+function refinedScore(centered: Float64Array, reducedLag: number, width: number): number {
+  const center = Math.round(reducedLag * 4);
+  const values = Float64Array.of(fullRateRatio(centered, center - 1, width), fullRateRatio(centered, center, width), fullRateRatio(centered, center + 1, width));
+  return Math.max(0, values[1] - 0.25 * (values[0] - values[2]) * interpolatedOffset(values, 1));
 }
 
 /** Call on one complete 8192-sample mono PCM frame, using the actual context rate. */
@@ -87,12 +106,20 @@ export function estimatePitch(samples: Float32Array | Float64Array | readonly nu
   // A materially deeper trough near twice/three-times the first candidate can
   // expose a dominant second harmonic. Near the numerical/noise floor, refuse
   // that ambiguity instead of asserting a fundamental. PureE2 is not halved.
+  // The decisive comparison uses full-rate refined scores: at high notes the
+  // reduced lag is short (~30 samples near 400Hz) and its quantization residual
+  // alone would otherwise look like a weak fundamental (or a deeper subharmonic).
+  const refinedWidth = centered.length - Math.ceil((maxTau + 1) * 4) - 2;
   for (const multiple of [2, 3]) {
     const reference = selected;
-    const alternate = troughs.find(trough => Math.abs(trough.tau - reference.tau * multiple) <= Math.max(2, reference.tau * 0.02)
-      && trough.score < reference.score * 0.2);
-    if (!alternate) continue;
-    const improvement = reference.score - alternate.score;
+    const nearby = troughs.filter(trough => Math.abs(trough.tau - reference.tau * multiple) <= Math.max(2, reference.tau * 0.02));
+    if (!nearby.length) continue;
+    const alternate = nearby.reduce((best, trough) => trough.score < best.score ? trough : best);
+    const lagOf = (trough: Trough) => trough.tau + interpolatedOffset(difference, trough.tau);
+    const referenceScore = refinedScore(centered, lagOf(reference), refinedWidth);
+    const alternateScore = refinedScore(centered, lagOf(alternate), refinedWidth);
+    if (!(alternateScore < referenceScore * 0.2)) continue;
+    const improvement = referenceScore - alternateScore;
     if (improvement > 0.003) { selected = alternate; break; }
     if (improvement > 0.0003) return reject('uncertain', 1 - selected.score);
   }
