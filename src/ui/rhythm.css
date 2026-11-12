@@ -1,4 +1,5 @@
-/* The shared theme surrounds one darker playing surface in each tab. */
+/* The shared theme surrounds one darker playing surface in each tab.
+   Цвета, зависящие от темы, берутся из theme.css; постоянные цвета пульта заданы здесь. */
 .rhythm-view {
   --rhythm-paper: var(--surface-canvas);
   --rhythm-wide: 0;
@@ -16,6 +17,24 @@
   --rhythm-board-key-alt: #36513f;
   --rhythm-board-key-hover: #40614c;
   --rhythm-board-key-low: #1e3026;
+  --rhythm-hit-edge: #1a2b2240;
+  --rhythm-accent-edge: #3c291340;
+  --rhythm-muted-hit: #a3afa3;
+  --rhythm-plate-highlight: #ffffff26;
+  --rhythm-wood: #59402c;
+  --rhythm-wood-edge: #4027196b;
+  --rhythm-wood-shadow: #281b1666;
+  --rhythm-glass: #18231b;
+  --rhythm-glass-edge: #101610;
+  --rhythm-glass-shadow: #000a;
+  --rhythm-glass-highlight: #fff5;
+  --rhythm-glass-ink: #ffdba0;
+  --rhythm-glass-glow: #ffac4d45;
+  --rhythm-knob: #353530;
+  --rhythm-knob-shadow: #231b1480;
+  --rhythm-pause-ink: #fff6e2;
+  --rhythm-control-shadow: #0006;
+  --rhythm-thumb-shadow: #0009;
   --rhythm-head: var(--board-playing);
   --instrument-ink: var(--rhythm-ink);
   --instrument-fill: var(--surface-muted);
@@ -178,13 +197,13 @@
   color: var(--board-dot-text);
   border-color: var(--board-dot);
   background: var(--board-dot);
-  box-shadow: inset 0 -2px #1a2b2240;
+  box-shadow: inset 0 -2px var(--rhythm-hit-edge);
 }
 .rhythm-view :is(button.rhythm-beat, button.rhythm-step)[data-level="2"] {
   color: var(--board-root-text);
   border-color: var(--board-root);
   background: var(--board-root);
-  box-shadow: inset 0 -2px #3c291340;
+  box-shadow: inset 0 -2px var(--rhythm-accent-edge);
 }
 .rhythm-view :is(button.rhythm-beat[data-level="2"], button.rhythm-step:is([data-level="1"], [data-level="2"]), button.rhythm-substep[aria-pressed="true"]):hover:not(:disabled) {
   background-color: color-mix(in srgb, currentColor 12%, var(--board-playing));
@@ -382,7 +401,7 @@
 .rhythm-view button.rhythm-step.is-selected { outline: 2px solid var(--board-text); outline-offset: 1px; }
 .rhythm-view button.rhythm-step.is-selected:focus-visible { outline-color: var(--board-focus); }
 .rhythm-view .rhythm-rack-row.is-muted .rhythm-lane-name span { color: var(--board-muted); text-decoration: line-through; }
-.rhythm-view .rhythm-rack-row.is-muted .rhythm-step:is([data-level="1"], [data-level="2"]) { background: #a3afa3; border-color: #a3afa3; }
+.rhythm-view .rhythm-rack-row.is-muted .rhythm-step:is([data-level="1"], [data-level="2"]) { background: var(--rhythm-muted-hit); border-color: var(--rhythm-muted-hit); }
 
 .rhythm-view .rhythm-rack:has(.rhythm-step.is-playing) {
   --bank-width: calc((100% - var(--rack-label) - 4 * var(--rack-gap)) / 4);
@@ -523,14 +542,14 @@
   --rhythm-photo-count: url('/images/rhythm-panel/count-in.webp');
   --rhythm-photo-wood: url('/images/rhythm-panel/wood.webp');
   --amp-ink: var(--text-primary);
-  --amp-muted: light-dark(#4f564a, #d2cbbb);
+  --amp-muted: var(--rhythm-amp-muted);
   --amp-focus: var(--focus-ring);
-  --amp-divider: light-dark(#bcad98, #6b6255);
-  --amp-recess: light-dark(#5d5549, #181b17);
-  --amp-key: light-dark(#f1ebdf, #46443b);
+  --amp-divider: var(--rhythm-amp-divider);
+  --amp-recess: var(--rhythm-amp-recess);
+  --amp-key: var(--rhythm-amp-key);
   --amp-key-ink: var(--text-primary);
-  --amp-plate: light-dark(#dfd6c6, #34352f);
-  --amp-plate-top: light-dark(#ede7da, #42413a);
+  --amp-plate: var(--rhythm-amp-plate);
+  --amp-plate-top: var(--rhythm-amp-plate-top);
   --amp-dial-size: 63px;
   --amp-fader-height: 74px;
   --amp-cap-width: 40px;
@@ -543,7 +562,7 @@
   border: 1px solid var(--amp-divider);
   border-radius: 8px;
   background: linear-gradient(165deg, var(--amp-plate-top), var(--amp-plate));
-  box-shadow: inset 0 1px #ffffff26, 0 2px 6px var(--shadow);
+  box-shadow: inset 0 1px var(--rhythm-plate-highlight), 0 2px 6px var(--shadow);
   color: var(--amp-ink);
 }
 
@@ -551,10 +570,10 @@
   position: absolute;
   inset: auto 0 0;
   height: var(--amp-wood-height);
-  border-top: 1px solid #4027196b;
+  border-top: 1px solid var(--rhythm-wood-edge);
   border-radius: 0 0 7px 7px;
-  background: #59402c var(--rhythm-photo-wood) center / cover;
-  box-shadow: inset 0 1px 2px #281b1666;
+  background: var(--rhythm-wood) var(--rhythm-photo-wood) center / cover;
+  box-shadow: inset 0 1px 2px var(--rhythm-wood-shadow);
   pointer-events: none;
   content: "";
 }
@@ -605,11 +624,11 @@
   min-width: 0;
   min-height: 66px;
   padding: 5px 7px;
-  border: 1px solid #101610;
+  border: 1px solid var(--rhythm-glass-edge);
   border-radius: 6px;
-  background: #18231b var(--rhythm-photo-glass) center / cover;
-  box-shadow: inset 0 2px 6px #000a, 0 1px #fff5;
-  color: #ffdba0;
+  background: var(--rhythm-glass) var(--rhythm-photo-glass) center / cover;
+  box-shadow: inset 0 2px 6px var(--rhythm-glass-shadow), 0 1px var(--rhythm-glass-highlight);
+  color: var(--rhythm-glass-ink);
 }
 
 .rhythm-view .rhythm-bpm-caption,
@@ -641,7 +660,7 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: -.045em;
   text-align: left;
-  text-shadow: 0 0 8px #ffac4d45;
+  text-shadow: 0 0 8px var(--rhythm-glass-glow);
 }
 
 .rhythm-view .rhythm-bpm-display input::-webkit-inner-spin-button { appearance: none; }
@@ -717,8 +736,8 @@
   width: calc(var(--amp-dial-size) - 10px);
   aspect-ratio: 1;
   border-radius: 50%;
-  background: #353530 var(--rhythm-photo-knob) center / contain no-repeat;
-  box-shadow: 0 2px 3px #231b1480;
+  background: var(--rhythm-knob) var(--rhythm-photo-knob) center / contain no-repeat;
+  box-shadow: 0 2px 3px var(--rhythm-knob-shadow);
   transform: rotate(var(--dial-angle, 0deg));
 }
 
@@ -872,10 +891,10 @@
   background: var(--rhythm-photo-start) center / contain no-repeat;
   color: transparent;
   font-size: 13px;
-  filter: drop-shadow(0 1px 1px #0006);
+  filter: drop-shadow(0 1px 1px var(--rhythm-control-shadow));
 }
 .rhythm-view [data-rhythm-action="stop"] .rhythm-key-face { background-image: var(--rhythm-photo-stop); }
-.rhythm-view [data-rhythm-action="pause"] .rhythm-key-face { background-image: var(--rhythm-photo-pause); color: #fff6e2; }
+.rhythm-view [data-rhythm-action="pause"] .rhythm-key-face { background-image: var(--rhythm-photo-pause); color: var(--rhythm-pause-ink); }
 .rhythm-view .rhythm-photo-key:active:not(:disabled) .rhythm-key-face { transform: translateY(1px); }
 
 .rhythm-view .rhythm-position {
@@ -916,10 +935,10 @@
 }
 
 .rhythm-view .rhythm-mix-module {
-  --amp-mixer-face: light-dark(#e4dacb, #32332d);
-  --amp-mixer-master: light-dark(#dcd0bc, #3d3e36);
-  --amp-scale-ink: light-dark(#807660, #a29b87);
-  --amp-strip-rule: light-dark(#b9aa936e, #8c826260);
+  --amp-mixer-face: var(--rhythm-amp-mixer-face);
+  --amp-mixer-master: var(--rhythm-amp-mixer-master);
+  --amp-scale-ink: var(--rhythm-amp-scale-ink);
+  --amp-strip-rule: var(--rhythm-amp-strip-rule);
   --amp-strip-height: calc(52px + var(--amp-fader-height));
   display: grid;
   align-content: center;
@@ -1030,7 +1049,7 @@
   border: 1px solid var(--amp-scale-ink);
   border-radius: 4px;
   background-color: var(--amp-recess);
-  box-shadow: inset 1px 0 2px #0006;
+  box-shadow: inset 1px 0 2px var(--rhythm-control-shadow);
 }
 
 .rhythm-view input.rhythm-fader::-moz-range-track {
@@ -1038,7 +1057,7 @@
   border: 1px solid var(--amp-scale-ink);
   border-radius: 4px;
   background-color: var(--amp-recess);
-  box-shadow: inset 1px 0 2px #0006;
+  box-shadow: inset 1px 0 2px var(--rhythm-control-shadow);
 }
 
 .rhythm-view input.rhythm-fader::-webkit-slider-thumb {
@@ -1048,7 +1067,7 @@
   appearance: none;
   border: 0;
   background: var(--rhythm-photo-fader) center / contain no-repeat;
-  filter: drop-shadow(0 1px 1px #0009);
+  filter: drop-shadow(0 1px 1px var(--rhythm-thumb-shadow));
 }
 
 .rhythm-view input.rhythm-fader::-moz-range-thumb {
@@ -1056,7 +1075,7 @@
   height: var(--amp-cap-height);
   border: 0;
   background: var(--rhythm-photo-fader) center / contain no-repeat;
-  filter: drop-shadow(0 1px 1px #0009);
+  filter: drop-shadow(0 1px 1px var(--rhythm-thumb-shadow));
 }
 
 .rhythm-view .rhythm-channel-keys { display: contents; }

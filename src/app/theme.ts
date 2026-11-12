@@ -1,5 +1,3 @@
-import '../theme.css';
-
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';
 export const THEME_CACHE_KEY = 'bass-study-theme-v1';

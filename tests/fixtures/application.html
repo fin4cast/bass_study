@@ -6,6 +6,7 @@
 <script type="module">
   import '/src/styles.css';
   import { mountApplication } from '/src/app/application.ts';
+  import '/src/theme.css'; // после модулей приложения, как прежний импорт из theme.ts
   import { APP_SECTIONS } from '/src/app/page-frame.ts';
 
   const omitted = new URL(location.href).searchParams.get('omit');
