@@ -6,11 +6,12 @@ import { root, playingField, settingsToggle, settingsAside, action, setting, out
 export const layoutChecks = [];
 const check = (name, scope, run) => layoutChecks.push({ name, scope, run });
 
-check('product-layout-keeps-transport-and-local-grid-in-two-themes', 'ui', async ({ page, context, resultDir }) => {
+// Быстрый набор проверяет типичный 1366×768 в обеих темах. Полный добавляет шесть других профилей; 1366×768 идёт в нём
+// первым как эталон высоты дока и фейдера для профилей высотой от 1000 px.
+const transportLayout = profiles => async ({ page, context, resultDir }) => {
   const samples = [];
   const settingsChecks = [];
   const lightDocks = new Map();
-  const profiles = [[1366, 768], [1280, 720], [1440, 900], [1890, 1000], [2048, 1000], [1782, 1220], [2028, 1000, 1.25]];
   const headingTypography = locator => locator.evaluate(heading => {
     const { fontFamily, fontSize, fontWeight, letterSpacing, lineHeight } = getComputedStyle(heading);
     return { fontFamily, fontSize, fontWeight, letterSpacing, lineHeight };
@@ -448,7 +449,10 @@ check('product-layout-keeps-transport-and-local-grid-in-two-themes', 'ui', async
     }
   }
   return { samples, settingsChecks, shellAndNavigationMatchFretboard: true, controlsFitWorkspace: true, sharedHeadingTypography: true, underlinedTabs: true, playbackControlsGrouped: true, dockAlignedToWorkspace: true, dockMatchesAcrossTabs: true, dockMatchesAcrossThemes: true, contrastFieldAlignment: true, dockStableWhenEditorsOpen: true, defaultGridAndChainFit: true, allClipsReachable: true, instrumentNamesFit: true };
-});
+};
+check('product-layout-keeps-transport-and-local-grid-in-two-themes-at-1366x768', 'ui', transportLayout([[1366, 768]]));
+check('product-layout-keeps-transport-and-local-grid-in-two-themes-at-six-more-viewports', 'ui',
+  transportLayout([[1366, 768], [1280, 720], [1440, 900], [1890, 1000], [2048, 1000], [1782, 1220], [2028, 1000, 1.25]]));
 
 check('product-layout-keeps-local-grid-and-chain-scrollable-in-narrow-view', 'ui', async ({ page }) => {
   await page.setViewportSize({ width: 500, height: 720 });

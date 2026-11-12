@@ -1,10 +1,12 @@
 import { browserRun, startBrowserBuild, writeBrowserReport } from './browser-runner.mjs';
+import { browserTier } from './browser-case.mjs';
 import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-export async function runTrainingBrowserChecks(checks) {
+export async function runTrainingBrowserChecks(allChecks) {
+  const { checks, skipped: skippedChecks } = browserTier(allChecks);
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   const config = browserRun(root);
   let origin = config.origin;
@@ -71,6 +73,6 @@ export async function runTrainingBrowserChecks(checks) {
     await cleanup('browser-context', async () => { await context?.close(); });
     await cleanup('browser', async () => { await browser?.close(); });
     await cleanup('local-server', async () => { await server?.close(); });
-    await writeBrowserReport(resultDir, 'p3-edge.json', report, checks.length);
+    await writeBrowserReport(resultDir, 'p3-edge.json', report, checks.length, skippedChecks);
   }
 }

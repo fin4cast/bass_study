@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runInputBrowserChecks } from './helpers/input-browser-harness.mjs';
+import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
 const checks = [];
 const check = (name, scope, run, options = {}) => checks.push({ name, scope, run, ...options });
@@ -157,4 +158,7 @@ check('native-real-hidden-tab-stops-all-tracks-and-return-needs-explicit-connect
   await openInput(page); await connectUi(page, context, origin); const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront(); await page.waitForFunction(() => document.hidden && document.querySelector('#input-mount').dataset.inputState === 'stopped', undefined, { polling: 100 }); assert.equal(await liveTracks(page), 0); await page.bringToFront(); await page.waitForFunction(() => !document.hidden); await delay(250); assert.equal(await calls(page), 1); await action(page, 'connect').click(); await stateIs(page, 'running'); assert.equal(await calls(page), 2); await action(page, 'stop').click(); assert.equal(await liveTracks(page), 0); return { actualDocumentHidden: true, method: 'Isolated Edge/CDP noDefaults:true with native fake WAV device; real tab activation', stoppedTracks: true, explicitReconnectRequired: true };
 }));
 
+markFullOnly(checks, [
+  'native-real-hidden-tab-stops-all-tracks-and-return-needs-explicit-connect',
+], FULL_ONLY.hiddenTab);
 await runInputBrowserChecks(checks);

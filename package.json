@@ -22,7 +22,6 @@
     "test:storage": "node tests/storage-browser.mjs",
     "test:release": "node tests/release-browser.mjs",
     "test:ear": "node tests/ear-browser.mjs",
-    "test:harmony": "node tests/harmony-browser.mjs",
     "test:tracks": "node tests/tracks-browser.mjs",
     "test:notation": "node tests/notation-browser.mjs",
     "test:input": "node tests/input-browser.mjs",
@@ -33,7 +32,9 @@
     "test:design": "node tests/design-browser.mjs",
     "test:music-bank": "node tests/music-bank-browser.mjs",
     "test:rhythm": "node tests/rhythm-browser.mjs",
-    "test:regression": "node scripts/test-regression.mjs"
+    "test:music-bank-storage": "node tests/music-bank-storage-browser.mjs",
+    "test:regression": "node scripts/test-regression.mjs",
+    "test:full": "node scripts/test-regression.mjs --full"
   },
   "devDependencies": {
     "playwright": "1.65.0",

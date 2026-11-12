@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runTracksBrowserChecks } from './helpers/tracks-browser-harness.mjs';
+import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
 const checks = [];
 const check = (name, scope, run) => checks.push({ name, scope, run });
@@ -345,4 +346,7 @@ check('native-hidden-tab-pauses-real-tracks-and-needs-explicit-resume', 'native'
   return { realNativeVisibilityTransition: true, pausePosition: paused, noSyntheticVisibilityEvent: true, explicitResumeRequired: true };
 }));
 
+markFullOnly(checks, [
+  'native-hidden-tab-pauses-real-tracks-and-needs-explicit-resume',
+], FULL_ONLY.hiddenTab);
 await runTracksBrowserChecks(checks);

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runAudioBrowserChecks } from './helpers/audio-browser-harness.mjs';
+import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
 const checks = [];
 const check = (name, scope, run) => checks.push({ name, scope, run });
@@ -412,4 +413,7 @@ check('native-tab-hiding-pauses-product-and-return-requires-explicit-resume', 'n
   return { nativeDocumentHidden: true, notice, remainedPausedOnReturn: true, explicitResume: true, method: 'Isolated Edge, connectOverCDP(noDefaults:true), actual tab activation; no synthetic visibility events or patched document.hidden' };
 }));
 
+markFullOnly(checks, [
+  'native-tab-hiding-pauses-product-and-return-requires-explicit-resume',
+], FULL_ONLY.hiddenTab);
 await runAudioBrowserChecks(checks);

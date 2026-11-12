@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runEarBrowserChecks } from './helpers/ear-browser-harness.mjs';
+import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
 const checks = [];
 const check = (name, scope, run) => checks.push({ name, scope, run });
@@ -413,4 +414,8 @@ check('native-hidden-tab-cancels-cue-and-requires-new-complete-listen', 'native'
   assert.equal(question.listensCancelled, 1); assert.equal(question.listensCompleted, 1); return { oracle, actualDocumentHidden: true, newFullListenRequired: true, historyReadMethod: persisted.method, databaseVersion: persisted.databaseVersion, question, method: 'Separate Edge/CDP noDefaults:true, real tab activation; no synthetic visibility event' };
 }));
 
+markFullOnly(checks, [
+  'native-hidden-tab-pauses-timed-route-and-return-requires-explicit-resume',
+  'native-hidden-tab-cancels-cue-and-requires-new-complete-listen',
+], FULL_ONLY.hiddenTab);
 await runEarBrowserChecks(checks);

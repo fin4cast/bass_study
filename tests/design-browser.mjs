@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { runNotationBrowserChecks } from './helpers/notation-browser-harness.mjs';
+import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
 const checks = [];
 const check = (name, run) => checks.push({ name, scope: 'ui', run });
@@ -33,7 +34,8 @@ async function geometry(page, min, max) {
   return { parts: await page.locator('svg.study-fretboard').count(), positions: ids.length, large: rows.length };
 }
 
-check('approved-default-and-both-themes-at-five-widths', async ({ page, resultDir }) => {
+// Типичная ширина 1366 в обеих темах — быстрый набор; остальные четыре ширины — полный (FULL_ONLY.viewports).
+const approvedDefault = (widths, { screenshots }) => async ({ page, resultDir }) => {
   await ready(page);
   assert.equal(await page.locator('#fret-min').inputValue(), '0'); assert.equal(await page.locator('#fret-max').inputValue(), '12');
   assert.equal(await page.locator('[data-position]').count(), 52); assert.equal(await page.locator('.position.is-large').count(), 8);
@@ -42,17 +44,20 @@ check('approved-default-and-both-themes-at-five-widths', async ({ page, resultDi
   const layouts = [];
   for (const theme of ['light', 'dark']) {
     await page.locator(`[data-theme-choice="${theme}"]`).click();
-    for (const width of [1440, 1366, 1024, 736, 320]) {
+    for (const width of widths) {
       await page.setViewportSize({ width, height: 1100 });
       for (const limits of [[0, 12], [12, 24]]) { await range(page, ...limits); layouts.push({ theme, width, range: limits, ...await geometry(page, ...limits) }); }
     }
+    if (!screenshots) continue;
     await page.setViewportSize({ width: 1440, height: 1300 }); await range(page, 0, 12);
     await page.locator('[data-position="A:7"]').click(); await page.locator('#toggle-study-settings').focus();
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.screenshot({ path: join(resultDir, `p9-${theme}.png`), fullPage: true });
   }
   return { layouts, brandBars: await page.locator('.brand-mark i').evaluateAll(elements => elements.map(element => getComputedStyle(element).height)) };
-});
+};
+check('approved-default-and-both-themes-at-1366', approvedDefault([1366], { screenshots: true }));
+check('approved-default-and-both-themes-at-four-other-widths', approvedDefault([1440, 1024, 736, 320], { screenshots: false }));
 
 check('octave-semantics-independent-layers-and-shared-tonic', async ({ page }) => {
   await ready(page);
@@ -634,10 +639,11 @@ check('notation-explicitly-reveals-offscreen-form-position-without-changing-mate
   return { selectedPosition: 'E:5', expandedDisplay: [0, 5], exactFormRetained: true };
 });
 
-check('default-desktop-fits-height-and-scroll-follows-explicit-disclosure', async ({ page, resultDir }) => {
+// Типичный размер 1366×768 в обеих темах — быстрый набор; остальные четыре размера — полный (FULL_ONLY.viewports).
+const defaultDesktop = viewports => async ({ page, resultDir }) => {
   const layouts = [];
   for (const theme of ['light', 'dark']) {
-    for (const [width, height] of [[1440, 1080], [1440, 900], [1366, 768], [1280, 720], [1024, 768]]) {
+    for (const [width, height] of viewports) {
       await page.setViewportSize({ width, height }); await page.reload(); await ready(page);
       await page.locator(`[data-theme-choice="${theme}"]`).click();
       await page.locator('.sidebar-art img').evaluate(img => img.decode());
@@ -661,6 +667,12 @@ check('default-desktop-fits-height-and-scroll-follows-explicit-disclosure', asyn
     }
   }
   return { layouts, explicitDisclosureEnablesScroll: true, noteDiameter: 46, completeDefaultRange: [0, 12] };
-});
+};
+check('default-desktop-fits-height-and-scroll-follows-explicit-disclosure-at-1366x768', defaultDesktop([[1366, 768]]));
+check('default-desktop-fits-height-and-scroll-follows-explicit-disclosure-at-four-other-sizes', defaultDesktop([[1440, 1080], [1440, 900], [1280, 720], [1024, 768]]));
 
+markFullOnly(checks, [
+  'approved-default-and-both-themes-at-four-other-widths',
+  'default-desktop-fits-height-and-scroll-follows-explicit-disclosure-at-four-other-sizes',
+], FULL_ONLY.viewports);
 await runNotationBrowserChecks(checks, { reportName: 'p9-design-edge.json', scope: 'Approved VIS-01 r5 with compact default shell: complete 46/18 fretboard, height-fit desktop, explicit disclosures, local photo, musical intervals/octaves and hidden quiz explorer. No physical bass or full WCAG certification.' });

@@ -1,11 +1,13 @@
 import { browserRun, startBrowserBuild, writeBrowserReport, startBrowserFixture } from './browser-runner.mjs';
+import { browserTier } from './browser-case.mjs';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-export async function runNotationBrowserChecks(checks, suite = {}) {
+export async function runNotationBrowserChecks(allChecks, suite = {}) {
+  const { checks, skipped: skippedChecks } = browserTier(allChecks);
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   const config = browserRun(root);
   let origin = config.origin, fixtureOrigin = null;
@@ -64,6 +66,6 @@ export async function runNotationBrowserChecks(checks, suite = {}) {
     for (const context of contexts) await cleanup('remaining-context', () => context.close());
     await cleanup('browser', async () => { await browser?.close(); }); await cleanup('fixture-server', async () => { await fixtureServer?.close(); });
     await cleanup('owned-static-server', async () => { await server?.close(); });
-    await writeBrowserReport(resultDir, suite.reportName ?? 'p7-notation-edge.json', report, checks.length);
+    await writeBrowserReport(resultDir, suite.reportName ?? 'p7-notation-edge.json', report, checks.length, skippedChecks);
   }
 }

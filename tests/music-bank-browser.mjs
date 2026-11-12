@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runTracksBrowserChecks } from './helpers/tracks-browser-harness.mjs';
-import { browserCases } from './helpers/browser-case.mjs';
+import { browserCases, markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 import { browserRun } from './helpers/browser-runner.mjs';
 import { openMusicBankTestInputs } from './helpers/music-bank-fixtures.mjs';
 
@@ -284,11 +284,12 @@ check('product-module-switches-coordinate-bank-and-ear-audio-owners', 'ui', asyn
   return { bankStoppedOnLeave: stoppedBank, bankRestartedAfterEar: resumedBank };
 });
 
-check('product-studio-scroll-and-both-themes-remain-visible-at-real-viewports', 'ui', async ({ page, resultDir }) => {
+// Типичная ширина 1366×768 в обеих темах входит в быстрый набор; остальные реальные размеры — в полный.
+const studioViewports = (viewports, { finalChecks }) => async ({ page, resultDir }) => {
   await enter(page); await load(page, 'sample-08'); const layouts = [];
   for (const theme of ['light','dark']) {
     await page.locator(`[data-theme-choice="${theme}"]`).click();
-    for (const [width, height] of [[1440,1000],[1366,768],[1024,768],[736,900]]) {
+    for (const [width, height] of viewports) {
       await page.setViewportSize({ width, height }); await delay(150);
       await page.waitForFunction(() => document.querySelectorAll('#music-bank-mount [data-mb="score"] svg text, #music-bank-mount [data-mb="score"] svg path').length > 5);
       const result = await bank(page).evaluate(root => {
@@ -300,6 +301,7 @@ check('product-studio-scroll-and-both-themes-remain-visible-at-real-viewports', 
       assert.equal(result.bodyOverflow, false); assert.equal(result.delta, 0); assert.ok(result.top >= 0 && result.bottom <= height); assert.ok(result.scroll > 0);
       layouts.push({ theme, width, height, ...result });
     }
+    if (!finalChecks) continue;
     await page.setViewportSize({ width: 1440, height: 1000 }); await field(page, 'sheet-scroll').evaluate(el => el.scrollTop = 0);
     await page.waitForFunction(() => {
       const pane = document.querySelector('#music-bank-mount [data-mb="sheet-scroll"]').getBoundingClientRect();
@@ -308,6 +310,7 @@ check('product-studio-scroll-and-both-themes-remain-visible-at-real-viewports', 
     await delay(250);
     await page.screenshot({ path: join(resultDir, `p10-music-bank-${theme}.png`) });
   }
+  if (!finalChecks) return { layouts };
   const banner = await page.evaluate(() => {
     const element = document.getElementById('persistence-banner'), text = document.getElementById('persistence-message');
     const before = { hidden: element.hidden, className: element.className, text: text.textContent };
@@ -319,7 +322,9 @@ check('product-studio-scroll-and-both-themes-remain-visible-at-real-viewports', 
   assert.ok(afterBanner.bottom <= afterBanner.viewport + 1, JSON.stringify(afterBanner));
   await page.evaluate(before => { const element = document.getElementById('persistence-banner'); element.hidden = before.hidden; element.className = before.className; document.getElementById('persistence-message').textContent = before.text; }, banner);
   return { layouts, bannerPresentationOnly: afterBanner, actualQuotaNotSimulated: true };
-});
+};
+check('product-studio-scroll-and-both-themes-remain-visible-at-1366x768', 'ui', studioViewports([[1366,768]], { finalChecks: true }));
+check('product-studio-scroll-and-both-themes-remain-visible-at-other-real-viewports', 'ui', studioViewports([[1440,1000],[1024,768],[736,900]], { finalChecks: false }));
 
 check('product-native-tab-hide-pauses-and-return-waits-for-explicit-start', 'native', async ({ withNativeBrowser, origin }) => withNativeBrowser(async ({ page, context }) => {
   await observe(page); await enter(page); await load(page, 'sample-05'); await row(page, 1).locator('[data-control=solo]').check(); await field(page, 'play').click();
@@ -404,6 +409,10 @@ check('product-engine-failure-keeps-committed-score-and-latest-selection-wins', 
   return { retainedAfterSoundFontFailure: true, lastFileIntentWins: true, unchangedDescriptorAndMix: true };
 });
 
+markFullOnly(checks, [
+  'product-native-tab-hide-pauses-and-return-waits-for-explicit-start',
+], FULL_ONLY.hiddenTab);
+markFullOnly(checks, ['product-studio-scroll-and-both-themes-remain-visible-at-other-real-viewports'], FULL_ONLY.viewports);
 const selection = browserCases(checks);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 inputs = await openMusicBankTestInputs(browserRun(root).resultDir);

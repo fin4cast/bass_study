@@ -1,3 +1,43 @@
+/**
+ * Режим набора: быстрый по умолчанию, полный — по `--full` или `BASS_FULL=1`.
+ * Полный режим добавляет сценарии, помеченные `full: '<причина>'`: настоящие скрытые вкладки Edge через CDP
+ * и визуальные матрицы на дополнительных ширинах. В быстром режиме они не исчезают, а попадают в отчёт как skipped.
+ */
+export function suiteMode(argv = process.argv.slice(2), env = process.env) {
+  if (argv.includes('--full')) return 'full';
+  if (env.BASS_FULL === undefined || env.BASS_FULL === '' || env.BASS_FULL === '0') return 'fast';
+  if (env.BASS_FULL === '1') return 'full';
+  throw new Error(`BASS_FULL допускает только 0 или 1, получено ${JSON.stringify(env.BASS_FULL)}.`);
+}
+
+/** Делит сценарии на выполняемые и пропущенные в быстром режиме; у пропущенных сохраняется причина. */
+export function browserTier(checks, mode = suiteMode()) {
+  for (const check of checks) {
+    if (check.full !== undefined && !(typeof check.full === 'string' && check.full.trim())) throw new Error(`Сценарий ${check.name}: full должен содержать причину.`);
+  }
+  if (mode === 'full') return { mode, checks, skipped: [] };
+  return {
+    mode,
+    checks: checks.filter(check => !check.full),
+    skipped: checks.filter(check => check.full).map(({ name, scope, full }) => ({ name, ...(scope ? { scope } : {}), status: 'skipped', reason: `Только полный набор: ${full}` })),
+  };
+}
+
+export const FULL_ONLY = {
+  hiddenTab: 'настоящая скрытая вкладка отдельного Edge через CDP',
+  viewports: 'дополнительные ширины визуальной матрицы; типичная ширина в обеих темах проверяется в быстром наборе',
+};
+
+/** Помечает сценарии полного набора по точным именам; неизвестное имя — ошибка, чтобы переименование не теряло отметку. */
+export function markFullOnly(checks, names, reason) {
+  for (const name of names) {
+    const matches = checks.filter(check => check.name === name);
+    if (matches.length !== 1) throw new Error(`Сценарий полного набора не найден однозначно: ${name}`);
+    matches[0].full = reason;
+  }
+  return checks;
+}
+
 export function browserCases(checks, argv = process.argv.slice(2)) {
   const args = argv.filter(arg => arg === '--case' || arg.startsWith('--case='));
   if (args.length === 0) return { checks, filtered: false };

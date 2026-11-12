@@ -1,4 +1,5 @@
 import { browserRun, startBrowserBuild, writeBrowserReport, startBrowserFixture, launchTestBuild } from './browser-runner.mjs';
+import { browserTier } from './browser-case.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -6,7 +7,8 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-export async function runReleaseBrowserChecks(checks) {
+export async function runReleaseBrowserChecks(allChecks) {
+  const { checks, skipped: skippedChecks } = browserTier(allChecks);
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   const config = browserRun(root);
   let origin = config.origin;
@@ -110,6 +112,6 @@ export async function runReleaseBrowserChecks(checks) {
       assert.ok(inside.startsWith('bass-study-p6-') && !inside.startsWith('..') && !inside.includes(sep), 'Refusing cleanup outside the isolated temp root');
       await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 });
     });
-    await writeBrowserReport(resultDir, 'p6-edge.json', report, checks.length);
+    await writeBrowserReport(resultDir, 'p6-edge.json', report, checks.length, skippedChecks);
   }
 }

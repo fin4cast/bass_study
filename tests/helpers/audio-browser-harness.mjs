@@ -1,4 +1,5 @@
 import { browserRun, startBrowserBuild, writeBrowserReport, startBrowserFixture } from './browser-runner.mjs';
+import { browserTier } from './browser-case.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -9,7 +10,8 @@ import { DEFAULT_EDGE_PATH, launchIsolatedEdge } from './native-edge.mjs';
 
 const loopback = url => ['localhost', '127.0.0.1', '[::1]'].includes(new URL(url).hostname);
 
-export async function runAudioBrowserChecks(checks) {
+export async function runAudioBrowserChecks(allChecks) {
+  const { checks, skipped: skippedChecks } = browserTier(allChecks);
 
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   const config = browserRun(root);
@@ -110,6 +112,6 @@ export async function runAudioBrowserChecks(checks) {
       assert.ok(inside.startsWith('bass-study-p4-') && !inside.includes(sep) && !inside.startsWith('..'), 'Temporary profile escaped the intended temp directory');
       await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 });
     });
-    await writeBrowserReport(resultDir, 'p4-edge.json', report, checks.length);
+    await writeBrowserReport(resultDir, 'p4-edge.json', report, checks.length, skippedChecks);
   }
 }

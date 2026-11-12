@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { inspectStaticServer } from './static-server-ownership.mjs';
+import { suiteMode } from './browser-case.mjs';
 
 export function browserRun(root) {
   const isolated = Boolean(process.env.BASS_REGRESSION_RUN);
@@ -84,15 +85,18 @@ export async function startBrowserFixture(root, config, legacyPort, report) {
   }
 }
 
-export async function writeBrowserReport(resultDir, file, report, expected = report.checks.length) {
+export async function writeBrowserReport(resultDir, file, report, expected = report.checks.length, skipped = []) {
+  report.checks.push(...skipped);
+  report.mode = suiteMode();
   report.passed = report.checks.filter(check => check.status === 'passed').length;
   report.failed = report.checks.filter(check => check.status === 'failed').length;
+  report.skipped = report.checks.filter(check => check.status === 'skipped').length;
   report.expected = expected;
   report.runId = process.env.BASS_REGRESSION_RUN ?? null;
   report.profile = process.env.BASS_REGRESSION_PROFILE ?? null;
   report.status = !report.setupError && expected > 0 && report.passed === expected && !report.failed && !report.cleanupErrors.length ? 'passed' : 'failed';
   await mkdir(resultDir, { recursive: true });
   await writeFile(join(resultDir, file), JSON.stringify(report, null, 2) + '\n');
-  console.log(`${report.status}: ${report.passed} passed, ${report.failed} failed; ${join(resultDir, file)}`);
+  console.log(`${report.status}: ${report.passed} passed, ${report.failed} failed, ${report.skipped} skipped (${report.mode}); ${join(resultDir, file)}`);
   process.exitCode = report.status === 'passed' ? 0 : 1;
 }
