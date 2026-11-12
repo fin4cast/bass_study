@@ -487,7 +487,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     void retryWrites().then(retried => { if (retried && phase.writable) return history?.refresh(); }).catch(() => {});
   }, listen);
   byId('retry-tab').addEventListener('click', () => location.reload(), listen);
-  const screens = new Map<AppSection, { setVisible(visible: boolean): void; dispose(): void }>();
+  const screens = new Map<AppSection, { setVisible(visible: boolean): void; dispose(): void | Promise<void> }>();
   if (foundation) screens.set('foundation', foundation);
   if (ear) screens.set('ear', ear);
   if (rhythm) screens.set('harmony', rhythm);
@@ -559,13 +559,14 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     retiring = true;
     phase.retire();
     lifetime.abort();
-    for (const screen of screens.values()) screen.dispose();
+    // Синхронная часть dispose каждого экрана выполняется здесь; асинхронная (например, остановка аудиовхода) завершается до закрытия хранилища и освобождения права записи.
+    const disposals = Promise.allSettled([...screens.values()].map(screen => screen.dispose()));
     route?.dispose(); introduction?.dispose(); history?.dispose();
     clearInterval(draftCheckpoint);
     retirement = (async () => {
       try { await retryingWrites; if (shouldCheckpoint) await flushAll(); else await writes.flush(); }
       finally {
-        try { await store.close(); }
+        try { await disposals; await store.close(); }
         finally { drafts.dispose(); theme.dispose(); writerLease?.release(); }
       }
     })();
