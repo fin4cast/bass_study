@@ -1,12 +1,11 @@
 import { browserRun, startBrowserBuild, writeBrowserReport, startBrowserFixture } from './browser-runner.mjs';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
+import { DEFAULT_EDGE_PATH, launchIsolatedEdge } from './native-edge.mjs';
 
 const loopback = url => ['localhost', '127.0.0.1', '[::1]'].includes(new URL(url).hostname);
 
@@ -89,27 +88,12 @@ export async function runEarBrowserChecks(checks) {
   }
   async function withNativeBrowser(run) {
     const nativeProfile = `visibility-${++nativeSequence}`;
-    const edge = process.env.BASS_EAR_EDGE_PATH || join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe');
-    const child = spawn(edge, [
-      '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${join(temporary, nativeProfile)}`,
-      '--no-first-run', '--no-default-browser-check', '--mute-audio', 'about:blank',
-    ], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    let nativeBrowser, output = '', launchError;
-    child.on('error', error => { launchError = error; });
-    child.stderr.on('data', data => { output += data; });
+    const executablePath = process.env.BASS_EAR_EDGE_PATH || DEFAULT_EDGE_PATH;
+    let nativeEdge;
     try {
-      let endpoint;
-      for (let attempt = 0; attempt < 100; attempt++) {
-        if (launchError) throw launchError;
-        endpoint = output.match(/DevTools listening on (ws:\/\/[^\s]+)/)?.[1];
-        if (endpoint) break;
-        if (child.exitCode !== null) throw new Error(`Isolated Edge exited: ${output.slice(-500)}`);
-        await delay(100);
-      }
-      assert.ok(endpoint, 'No isolated Edge CDP endpoint');
-      nativeBrowser = await chromium.connectOverCDP(endpoint, { noDefaults: true });
-      const context = nativeBrowser.contexts()[0]; await isolate(context);
-      const page = context.pages()[0]; page.setDefaultTimeout(6000);
+      nativeEdge = await launchIsolatedEdge({ executablePath, userDataDir: join(temporary, nativeProfile), args: ['--mute-audio'] });
+      const context = nativeEdge.context; await isolate(context);
+      const page = nativeEdge.page; page.setDefaultTimeout(6000);
       page.on('pageerror', error => report.pageErrors.push(error.message));
       await page.goto(origin);
       await page.waitForFunction(() => document.querySelector('#history-mount'), undefined, { polling: 100 });
@@ -124,13 +108,9 @@ export async function runEarBrowserChecks(checks) {
         throw new Error(`${error.stack || error}\nIsolated native Edge diagnostics: ${JSON.stringify({ nativeProfile, tabs })}`, { cause: error });
       }
     } finally {
-      await cleanup('native-browser-cdp', async () => {
-        if (!nativeBrowser) return;
-        try { await (await nativeBrowser.newBrowserCDPSession()).send('Browser.close'); } catch { /* already closed */ }
-        await nativeBrowser.close();
-      });
-      await cleanup('native-browser-process', async () => {
-        if (child.pid && child.exitCode === null) { const done = new Promise(resolve => child.once('exit', resolve)); child.kill(); await done; }
+      await cleanup('native-browser', async () => {
+        const closed = await nativeEdge?.close();
+        if (closed) (report.nativeBrowsers ??= []).push(closed);
       });
     }
   }
