@@ -28,7 +28,6 @@ const transportLayout = profiles => async ({ page, context, resultDir }) => {
       sidebar: measure(sidebar),
       brand: measure(sidebar.querySelector('.brand')),
       navigation: measure(sidebar.querySelector('.module-navigation')),
-      sidebarArt: measure(sidebar.querySelector('.sidebar-art')),
       themeControl: measure(sidebar.querySelector('.theme-control')),
     };
   });
@@ -40,8 +39,8 @@ const transportLayout = profiles => async ({ page, context, resultDir }) => {
       if (metrics) await metrics.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor, mobile: false });
       await page.reload(); await ready(page);
       assert.deepEqual(await page.evaluate(() => [innerWidth, innerHeight, devicePixelRatio]), [width, height, deviceScaleFactor]);
-      await page.locator(`[data-theme-choice="${theme}"]`).click();
-      await page.locator('[data-app-module="foundation"]').click();
+      await page.locator(`.site-header [data-theme-choice="${theme}"]`).click();
+      await page.locator('.site-header [data-app-module="foundation"]').click();
       await page.locator('#fretboard-container').waitFor();
       await page.evaluate(() => { window.scrollTo(0, 0); });
       const fretboardFrame = await frame();
@@ -136,7 +135,7 @@ const transportLayout = profiles => async ({ page, context, resultDir }) => {
           assert.ok(Math.abs(openedMaster.y - layout.at(-1).y) <= 1, `Master fader moved after opening ${editor} at ${viewport}`);
         };
         const header = root(page).locator('.rhythm-header');
-        const heading = header.getByRole('heading', { level: 1, name: 'Метроном и ритм', exact: true });
+        const heading = header.getByRole('heading', { level: 1, name: 'Ритм', exact: true });
         assert.deepEqual(await headingTypography(heading), fretboardTypography, `Heading typography matches the fretboard at ${viewport}`);
         const [headerBox, headingBox, toggleBox, tablistBox] = await Promise.all([
           header.boundingBox(), heading.boundingBox(), settingsToggle(page).boundingBox(), tablist.boundingBox(),
@@ -623,7 +622,7 @@ check('product-photo-panel-uses-local-images-and-keeps-shared-controls-compact',
   }
 
   for (const theme of ['light', 'dark']) {
-    await page.locator(`[data-theme-choice="${theme}"]`).click();
+    await page.locator(`.site-header [data-theme-choice="${theme}"]`).click();
     const before = await dock.boundingBox();
     assert.ok(before && before.height <= desktopDockHeightLimit && before.y + before.height <= 768, `Compact visible dock in ${theme}`);
     for (const [mode, bpm] of [['metronome', 113], ['rhythm', 127]]) {
@@ -708,7 +707,7 @@ check('product-photo-panel-uses-local-images-and-keeps-shared-controls-compact',
 check('product-photo-panel-keeps-controls-and-inline-settings-in-narrow-view', 'ui', async ({ page }) => {
   await page.setViewportSize({ width: 500, height: 720 });
   await enter(page);
-  await page.locator('[data-theme-choice="dark"]').click();
+  await page.locator('.site-header [data-theme-choice="dark"]').click();
   const dock = root(page).locator('.rhythm-transport');
   await root(page).locator('[data-rhythm-mode="metronome"]').press('Enter');
   await setSettings(page, true);

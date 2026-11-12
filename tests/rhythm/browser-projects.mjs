@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
-import { root, settingsAside, action, setting, output, choice, near, assertSettings, setSettings, openGroup, ready, enter, edit, state, start, openHistory, exported, raw } from './browser-context.mjs';
+import { root, settingsAside, action, setting, output, choice, near, assertSettings, setSettings, openGroup, ready, enter, go, edit, state, start, exported, previewCopy, cancelCopy, confirmCopy, restoreCopy, openDrafts, raw } from './browser-context.mjs';
 
 export const projectsChecks = [];
 const check = (name, scope, run) => projectsChecks.push({ name, scope, run });
@@ -150,27 +150,19 @@ check('project-steps-and-full-chain-survive-reload-and-export', 'ui', async ({ p
   const restored = await exported(page);
   assert.deepEqual(restored.rhythmProjects, copy.rhythmProjects);
   assert.equal(restored.activeRhythmProjectId, project.id);
-  const choose = async (name, snapshot) => {
-    await page.locator('[data-history-file]').setInputFiles({ name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(snapshot)) });
-    await page.getByTestId('backup-preview').waitFor();
-  };
-  await choose('preview-only.json', { ...copy, rhythmProjects: [], activeRhythmProjectId: null });
-  assert.match(await page.getByTestId('backup-preview').innerText(), /0 проектов ритма/);
+  const preview = await previewCopy(page, { ...copy, rhythmProjects: [], activeRhythmProjectId: null }, 'preview-only.json');
+  const rhythmRow = preview.dialog.locator('tr').filter({ has: page.getByRole('rowheader', { name: 'Ритм-проекты', exact: true }) });
+  assert.deepEqual(await rhythmRow.locator('td').allInnerTexts(), ['0', '1']);
   assert.deepEqual((await raw(page)).rhythmProjects, copy.rhythmProjects);
-  await page.locator('[data-history-action="cancel-restore"]').click();
-  await page.locator('#open-history').click();
+  await cancelCopy(page, preview);
   await root(page).locator('.rhythm-library > summary').click();
   await edit(page, 'project-name', 'Переименованный проект');
   await action(page, 'save-project').click();
   const renamed = await exported(page);
   assert.equal(renamed.rhythmProjects[0].name, 'Переименованный проект');
-  await choose('rhythm-project.json', copy);
-  await page.getByLabel('Понимаю, что текущие данные будут заменены', { exact: true }).check();
-  await page.locator('[data-history-action="confirm-restore"]').click();
-  await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
+  await confirmCopy(page, await previewCopy(page, copy, 'rhythm-project.json'));
   assert.deepEqual((await raw(page)).rhythmProjects, copy.rhythmProjects);
   await state(page, 'stopped');
-  await page.locator('#open-history').click();
   await bar(3).click();
   assert.equal(await thirdBarStep.getAttribute('aria-pressed'), 'true');
   const library = root(page).locator('.rhythm-groove-detail-scroll .rhythm-library');
@@ -191,39 +183,33 @@ check('manual-note-keeps-rhythm-material-and-time-after-changing-project', 'ui',
   await start(page);
   await delay(450);
   await action(page, 'stop').click();
-  const grooveGeometry = () => root(page).evaluate(view => {
-    const stage = view.querySelector('.rhythm-content').getBoundingClientRect();
-    const editors = view.querySelector('.rhythm-groove-detail-scroll').getBoundingClientRect();
-    const dock = view.querySelector('.rhythm-transport').getBoundingClientRect();
-    return { stageHeight: stage.height, editorHeight: editors.height, dockGap: dock.top - stage.bottom };
-  });
-  const grooveBeforeHistory = await grooveGeometry();
-  await openHistory(page);
-  const drafts = page.getByLabel('Черновики ручной практики', { exact: true });
-  await drafts.waitFor();
-  const id = await drafts.locator('option').last().getAttribute('value');
+  // Черновик ручной практики «Ритма» теперь в «Прогрессе → Не сохранено»; последнее занятие — первым.
   const before = await raw(page);
-  const original = before.practiceDrafts.find(item => item.id === id);
-  assert.equal(original.material.kind, 'rhythm');
+  const rhythmDrafts = before.practiceDrafts.filter(item => item.material.kind === 'rhythm');
+  assert.equal(rhythmDrafts.length, 1);
+  const [original] = rhythmDrafts;
+  const id = original.id;
   assert.equal(original.context, null);
   assert.ok(original.totalReferenceMs > 150);
-  await root(page).locator('.rhythm-header').scrollIntoViewIfNeeded();
-  assert.equal(await page.locator('#history-mount').isVisible(), true);
-  const grooveWithHistory = await grooveGeometry();
-  assert.ok(grooveWithHistory.editorHeight > 0, 'The lower groove editor remains available with history open');
-  for (const key of ['stageHeight', 'editorHeight', 'dockGap']) near(grooveWithHistory[key], grooveBeforeHistory[key], 1);
-  await page.locator('#open-history').click();
+  let drafts = await openDrafts(page);
+  const card = drafts.locator(`[data-draft="${id}"]`);
+  await card.waitFor();
+  assert.equal(await drafts.locator('[data-draft]').first().getAttribute('data-draft'), id);
+  // Остановленный запуск «Ритма» — «последнее занятие»: карточка первая и с пометкой.
+  assert.match(await card.getAttribute('class'), /is-current/);
+  assert.match(await card.locator('.pg-src').innerText(), /последнее занятие/);
+  await enter(page);
   await root(page).locator('.rhythm-library > summary').click();
   await action(page, 'duplicate-project').click();
   // waitForFunction не дожидается Promise из предиката: опрашиваем нативную IndexedDB из Node.
   const duplicated = Date.now() + 6000;
   while ((await raw(page)).rhythmProjects.length !== 2) { assert.ok(Date.now() < duplicated, 'duplicated rhythm project was not committed to IndexedDB'); await delay(25); }
-  await openHistory(page);
-  await drafts.selectOption(id);
-  await page.getByLabel('Заметка к практике', { exact: true }).fill('Исходный грув');
-  await page.getByLabel('Комфортный темп', { exact: true }).fill('235');
-  await page.locator('[data-history-action="save-manual"]').click();
-  await page.locator('[data-history-kind="manual"]').waitFor();
+  drafts = await openDrafts(page);
+  await card.locator('[data-draft-field="note"]').fill('Исходный грув');
+  await card.locator('[data-draft-field="bpm"]').fill('235');
+  await card.locator('[data-draft-save]').click();
+  const saved = Date.now() + 6000;
+  while (!(await raw(page)).history.some(item => item.result.note === 'Исходный грув')) { assert.ok(Date.now() < saved, 'manual note was not committed'); await delay(25); }
   const after = await raw(page);
   const entry = after.history.find(item => item.result.note === 'Исходный грув');
   assert.ok(entry);
@@ -233,7 +219,7 @@ check('manual-note-keeps-rhythm-material-and-time-after-changing-project', 'ui',
   assert.equal(entry.result.durationMs, original.totalReferenceMs - original.recordedThroughMs);
   assert.equal(entry.occurredAt, original.createdAt);
   assert.equal(entry.timeZone, original.timeZone);
-  return { draftId: id, originalProject: original.material.playback.project.id, currentProject: after.activeRhythmProjectId, durationMs: entry.result.durationMs, grooveBeforeHistory, grooveWithHistory };
+  return { draftId: id, originalProject: original.material.playback.project.id, currentProject: after.activeRhythmProjectId, durationMs: entry.result.durationMs, draftInProgress: true };
 });
 
 check('product-step-accents-use-project-owned-channel-defaults', 'ui', async ({ page }) => {
@@ -342,7 +328,6 @@ check('product-step-accents-use-project-owned-channel-defaults', 'ui', async ({ 
     await row.click();
     await row.and(activeProjectRow).waitFor();
   };
-  await page.locator('#open-history').click();
   await openGroup(page, '.rhythm-velocity');
   await openGroup(page, '.rhythm-library');
   await action(page, 'new-project').click();
@@ -378,12 +363,7 @@ check('product-step-accents-use-project-owned-channel-defaults', 'ui', async ({ 
   await closeVelocity();
   await step('kick', 6).click();
   await hit('kick', 6, 1, 61);
-  await openHistory(page);
-  await page.locator('[data-history-file]').setInputFiles({ name: 'rhythm-defaults-v11.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(copy)) });
-  await page.getByTestId('backup-preview').waitFor();
-  await page.getByLabel('Понимаю, что текущие данные будут заменены', { exact: true }).check();
-  await page.locator('[data-history-action="confirm-restore"]').click();
-  await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
+  await restoreCopy(page, copy, 'rhythm-defaults-v11.json');
   assert.deepEqual((await raw(page)).rhythmProjects, copy.rhythmProjects);
   return { cleanDefaults: [72, 100], trackDefaults: { kick: [61, 82], snare: [74, 89] }, otherProjectKickDefaults: [67, 93], cloneCopiesDefaults: true, editedAccentVelocity: 88, existingHitsUnchanged: true, gesturesWithEditorClosed: true, keyboardAccent: true, rackContextMenuAllowed: true, survivesReload: true, exactUiRestore: true };
 });

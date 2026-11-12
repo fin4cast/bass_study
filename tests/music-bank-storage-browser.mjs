@@ -69,7 +69,7 @@ async function seedNativeV10(page, origin) {
   const response = await page.goto(`${origin}/vendor/music-bank/patch-manifest.json`);
   assert.equal(response.status(), 200, 'Нужна текущая product build с локальным vendor manifest');
   assert.match(response.headers()['content-type'], /application\/json/);
-  assert.equal(await page.locator('#history-mount').count(), 0);
+  assert.equal(await page.locator('.site-header').count(), 0);
   // Старая база создаётся без продуктового кода: шесть хранилищ версии 10 с непустыми записями.
   return page.evaluate(async ({ snapshot, origin }) => {
     if (location.origin !== origin) throw new Error('Очистка допустима только на изолированном тестовом origin');
@@ -255,9 +255,16 @@ checks.push({ name: 'product-skips-one-damaged-record-keeps-database-and-offers-
   assert.match(persistence, /Не прочитано повреждённых записей: 1 \(история — 1\)/);
   assert.doesNotMatch(persistence, /Только в памяти/);
   assert.equal(await page.evaluate(() => window.__persistRequests), 1, 'База просит браузер не вытеснять данные');
-  await page.locator('#open-history').click(); await page.locator('[data-history-action="export-raw"]').waitFor();
-  assert.match(await page.locator('[data-history-count]').innerText(), /^1 записей/);
-  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('[data-history-action="export-raw"]').click()]);
+  // «Настройки → Данные»: прочитанное считается в копии, а повреждённое предлагается скачать сырой копией базы.
+  await page.locator('.site-header [data-app-module="settings"]').click();
+  const settings = page.locator('[data-page-frame="settings"]');
+  await settings.locator('[data-section="data"]').click();
+  const warning = settings.locator('[data-raw-warning]');
+  await warning.waitFor();
+  assert.match(await warning.innerText(), /Не прочитано повреждённых записей: 1 \(история — 1\)/);
+  assert.match(await settings.locator('[data-copy-list]').innerText(), /история занятий — 1 запись$/m);
+  const [download] = await Promise.all([page.waitForEvent('download'), warning.locator('[data-raw-export]').click()]);
+  assert.match(download.suggestedFilename(), /^bass-study-raw-.*\.json$/);
   const dump = JSON.parse(await readFile(await download.path(), 'utf8'));
   assert.equal(dump.format, 'bass-study-raw-indexeddb');
   assert.deepEqual(dump.stores.history.map(record => record.key).sort(), ['broken-entry', valid.id].sort());

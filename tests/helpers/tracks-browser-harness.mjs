@@ -50,7 +50,7 @@ export async function runTracksBrowserChecks(allChecks, suite = {}) {
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
     await page.goto(url);
     if (url === fixtureUrl) await page.waitForFunction(() => window.p7tracks?.ready);
-    else await page.waitForSelector('#history-mount', { state: 'attached' });
+    else await page.waitForSelector('.site-header [data-app-module="tracks"]', { state: 'attached' });
     return { context, page };
   }
   async function withNativeBrowser(run) {
@@ -63,7 +63,7 @@ export async function runTracksBrowserChecks(allChecks, suite = {}) {
       const page = nativeEdge.page; page.setDefaultTimeout(6000);
       page.on('pageerror', error => report.pageErrors.push(error.message));
       await page.goto(origin);
-      await page.waitForFunction(() => document.querySelector('#history-mount'), undefined, { polling: 100 });
+      await page.waitForFunction(() => document.querySelector('.site-header [data-app-module="tracks"]'), undefined, { polling: 100 });
       await page.bringToFront();
       try { return await run({ page, context }); }
       catch (error) {

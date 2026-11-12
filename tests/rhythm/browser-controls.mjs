@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
-import { root, playingField, settingsAside, action, setting, output, choice, near, assertSettings, setSettings, openGroup, meterFieldCoverage, ready, enter, edit, state, start, exported, raw, observe, sample, audioTime, untilAudio } from './browser-context.mjs';
+import { root, playingField, settingsAside, action, setting, output, choice, near, assertSettings, setSettings, openGroup, meterFieldCoverage, ready, enter, go, edit, state, start, exported, raw, observe, sample, audioTime, untilAudio } from './browser-context.mjs';
 
 export const controlsChecks = [];
 const check = (name, scope, run) => controlsChecks.push({ name, scope, run });
@@ -80,7 +80,7 @@ check('product-meter-group-tempo-unit-offbeats-and-invalid-range', 'ui', async (
   await enter(page);
   const defaultField = await playingField(page).boundingBox();
   assert.ok(defaultField);
-  assert.equal(await page.locator('[data-app-module="harmony"]').textContent(), 'Метроном и ритм');
+  assert.equal(await page.locator('.site-header [data-app-module="harmony"]').textContent(), 'Ритм');
   const pulses = output(page, 'beats');
   const beats = pulses.locator('[data-rhythm-beat]');
   const subdivisions = pulses.locator('[data-rhythm-substep]');
@@ -129,7 +129,6 @@ check('product-meter-group-tempo-unit-offbeats-and-invalid-range', 'ui', async (
   assert.equal(copy.preferences.rhythm.metronome.substeps.length, 7);
   assert.equal(copy.preferences.rhythm.metronome.substeps[0], false);
   assert.equal(copy.preferences.rhythm.metronome.swingMode, 'sixteenth');
-  await page.locator('#open-history').click();
   const groupedAccent = root(page).locator('[data-rhythm-beat="3"]');
   assert.equal(await groupedAccent.getAttribute('data-level'), '2');
   await groupedAccent.click();
@@ -287,7 +286,7 @@ check('live-product-pause-owner-switch-and-explicit-resume', 'ui', async ({ page
   assert.ok((await sample(page, 160)).peak < 1e-6);
   await action(page, 'resume').click();
   await state(page, 'running');
-  await page.locator('[data-app-module="ear"]').click();
+  await go(page, 'foundation');
   await state(page, 'paused');
   await enter(page);
   await state(page, 'paused');
@@ -328,7 +327,7 @@ check('leaving-section-cancels-audition-waiting-for-audio-context', 'ui', async 
   });
   await action(page, 'preview').click();
   await page.waitForFunction(() => window.__rhythmPreviewWaiting);
-  await page.locator('[data-app-module="ear"]').click();
+  await go(page, 'foundation');
   await page.evaluate(() => window.__releaseRhythmPreview());
   await delay(100);
   const signal = await sample(page);
@@ -383,7 +382,6 @@ check('product-amplifier-dials-faders-and-playhead-use-real-rhythm-state', 'ui',
   assert.equal(project.channels.find(channel => channel.sound === 'kick').volume, .75);
   assert.equal(project.channels.find(channel => channel.sound === 'kick').muted, true);
   assert.equal(project.channels.find(channel => channel.sound === 'snare').solo, true);
-  await page.locator('#open-history').click();
   assert.equal(await root(page).locator('.rhythm-lane-name .rhythm-instrument-art').count(), 4);
   await openGroup(page, '.rhythm-velocity');
   const velocity = root(page).locator('[data-rhythm-velocity="8"]');

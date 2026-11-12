@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { root, action, output, ready, enter, edit, state, start, openGroup, openHistory, raw, seedDatabase, currentCopy } from './browser-context.mjs';
+import { setTimeout as delay } from 'node:timers/promises';
+import { root, action, output, ready, enter, edit, state, start, openGroup, previewCopy, openDrafts, raw, seedDatabase, currentCopy } from './browser-context.mjs';
 
 export const nativeChecks = [];
 const check = (name, scope, run) => nativeChecks.push({ name, scope, run });
 
 check('native-p12-rhythm-retry-commits-project-while-profile-write-still-fails', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
   await enter(page);
-  await page.locator('[data-theme-choice="light"]').click();
+  await page.locator('.site-header [data-theme-choice="light"]').click();
   await root(page).locator('[data-rhythm-mode="rhythm"]').click();
   await openGroup(page, '.rhythm-library');
   await action(page, 'new-project').click();
@@ -37,7 +38,7 @@ check('native-p12-rhythm-retry-commits-project-while-profile-write-still-fails',
       return request;
     };
   });
-  await page.locator('[data-theme-choice="dark"]').click();
+  await page.locator('.site-header [data-theme-choice="dark"]').click();
   const retry = page.locator('#retry-save');
   await retry.waitFor();
   await action(page, 'new-project').click();
@@ -74,17 +75,13 @@ check('native-p12-rhythm-retry-commits-project-while-profile-write-still-fails',
 
 check('native-p12-restore-and-retry-are-exclusive-and-post-commit-hydration-requires-reload', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
   await ready(page);
-  await page.locator('[data-theme-choice="light"]').click();
-  await openHistory(page);
+  await page.locator('.site-header [data-theme-choice="light"]').click();
+  for (let attempt = 0; attempt < 40 && (await raw(page)).profile?.theme !== 'light'; attempt++) await delay(50);
   assert.equal((await raw(page)).profile.theme, 'light');
   const copy = JSON.parse(await readFile(new URL('../fixtures/backup.json', import.meta.url), 'utf8'));
-  copy.preferences.activeModule = 'input';
+  // Раздел, отличный от стартового «Занятия» и от «Настроек», где идёт восстановление: после перезагрузки виден сохранённый.
+  copy.preferences.activeModule = 'progress';
   copy.profile.theme = 'light';
-  await page.locator('[data-history-file]').setInputFiles({ name: 'p12-post-commit.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(copy)) });
-  const preview = page.getByTestId('backup-preview');
-  const confirm = page.locator('[data-history-action="confirm-restore"]');
-  await preview.waitFor();
-  await page.getByLabel('Понимаю, что текущие данные будут заменены', { exact: true }).check();
   await page.evaluate(() => {
     const probe = window.p12RestoreProbe = { profileAttempts: 0, restoredWrites: 0, attemptedRestoreDuringRetry: false, retryDisabledDuringRestore: false, mainInertDuringRestore: false, restoreCommitted: false, hydrationFailures: 0 };
     const put = IDBObjectStore.prototype.put;
@@ -102,7 +99,7 @@ check('native-p12-restore-and-retry-are-exclusive-and-post-commit-hydration-requ
         } else if (++probe.profileAttempts === 1) transaction.abort();
         else if (probe.profileAttempts === 2) {
           probe.attemptedRestoreDuringRetry = true;
-          document.querySelector('[data-history-action="confirm-restore"]').click();
+          document.querySelector('[data-page-frame="settings"] [data-dlg="replace"]').click();
         }
       });
       return request;
@@ -125,24 +122,31 @@ check('native-p12-restore-and-retry-are-exclusive-and-post-commit-hydration-requ
     };
   });
 
-  await page.locator('[data-theme-choice="dark"]').click();
+  await page.locator('.site-header [data-theme-choice="dark"]').click();
   const retry = page.locator('#retry-save');
   await retry.waitFor();
-  await retry.click();
-  const historyError = page.getByTestId('history-error');
-  await historyError.filter({ hasText: 'Дождись завершения сохранения перед восстановлением.' }).waitFor();
-  assert.equal(await preview.isVisible(), true);
+  const { dialog } = await previewCopy(page, copy, 'p12-post-commit.json');
+  await dialog.getByLabel('Понимаю, что текущие данные будут заменены', { exact: true }).check();
+  // Модальный диалог копии делает остальную страницу inert: повтор сохранения, идущий одновременно
+  // с подтверждённой заменой, моделируется событием на настоящей кнопке баннера.
+  await retry.dispatchEvent('click');
+  await dialog.getByRole('alert').filter({ hasText: 'Дождись завершения сохранения перед восстановлением.' }).waitFor();
   await retry.waitFor({ state: 'hidden' });
   assert.equal((await raw(page)).profile.theme, 'dark');
   assert.equal(await page.evaluate(() => window.p12RestoreProbe.restoredWrites), 0);
 
-  await confirm.click();
+  // Отказ ничего не меняет; тот же файл выбирается заново и заменяет данные после подтверждения.
+  await dialog.locator('[data-dlg="back"]').click();
+  const chooser = page.waitForEvent('filechooser');
+  await dialog.locator('[data-dlg="choose"]').click();
+  await (await chooser).setFiles({ name: 'p12-post-commit.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(copy)) });
+  await dialog.getByLabel('Понимаю, что текущие данные будут заменены', { exact: true }).check();
+  await dialog.locator('[data-dlg="replace"]').click();
   const reloadMessage = 'Данные восстановлены. Перезагрузи страницу, чтобы применить настройки.';
   await page.locator('#persistence-message').filter({ hasText: reloadMessage }).waitFor();
-  await preview.waitFor({ state: 'detached' });
-  await historyError.filter({ hasText: reloadMessage }).waitFor();
-  assert.doesNotMatch(await page.getByTestId('history-save-status').innerText(), /изменения не подтверждены/);
-  assert.equal(await confirm.count(), 0);
+  // Страница стала inert до перезагрузки: диалог закрыт, чтобы не перехватывать указатель у «Проверить снова».
+  await page.waitForFunction(() => !document.querySelector('[data-page-frame="settings"] dialog[data-dialog]')?.open);
+  assert.equal(await dialog.locator('[data-dlg="replace"]').count(), 0);
   assert.equal(await page.locator('main').getAttribute('aria-busy'), 'true');
   assert.deepEqual(await page.evaluate(() => window.p12RestoreProbe), {
     profileAttempts: 2, restoredWrites: 1, attemptedRestoreDuringRetry: true,
@@ -153,7 +157,7 @@ check('native-p12-restore-and-retry-are-exclusive-and-post-commit-hydration-requ
   assert.deepEqual(committed.preferences, copy.preferences);
   await page.locator('#retry-tab').click();
   await ready(page);
-  assert.equal(await page.locator('[data-app-module="input"]').getAttribute('aria-current'), 'page');
+  assert.equal(await page.locator('.site-header [data-app-module="progress"]').getAttribute('aria-current'), 'page');
   assert.deepEqual(await raw(page), committed);
   return { restoreBlockedDuringRetry: true, retryBlockedDuringRestore: true, nativeCommitBeforeHydrationError: true, candidateConsumed: true, reloadUsesCommittedData: true };
 }));
@@ -196,12 +200,14 @@ check('native-current-database-saves-fretboard-sequence-draft', 'native', async 
   await page.goto(origin);
   await ready(page);
   assert.deepEqual(await raw(page), before, 'Opening a current database must not rewrite it');
-  await openHistory(page);
   const draft = before.practiceDrafts.find(item => item.id === 'fixture-sequence-draft');
   assert.ok(draft);
-  await page.getByLabel('Черновики ручной практики', { exact: true }).selectOption(draft.id);
-  await page.locator('[data-history-action="save-manual"]').click();
-  await page.waitForFunction(() => document.querySelectorAll('[data-history-kind="manual"]').length >= 2);
+  // Сохранённый черновик последовательности «Грифа» остаётся в «Прогрессе → Не сохранено» и после P13-08.
+  const drafts = await openDrafts(page);
+  const card = drafts.locator(`[data-draft="${draft.id}"]`);
+  await card.locator('[data-draft-save]').click();
+  const deadline = Date.now() + 6000;
+  while ((await raw(page)).history.length <= before.history.length) { assert.ok(Date.now() < deadline, 'Manual note from the draft was not committed'); await delay(25); }
   const saved = (await raw(page)).history.find(item => item.id.startsWith('manual-') && !before.history.some(old => old.id === item.id));
   assert.deepEqual(saved.result.material, draft.material);
   assert.deepEqual(saved.result.context, draft.context);

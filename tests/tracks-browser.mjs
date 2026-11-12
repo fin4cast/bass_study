@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runTracksBrowserChecks } from './helpers/tracks-browser-harness.mjs';
 import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
+import { go, exported, restoreCopy } from './helpers/shell-data-ui.mjs';
 
 const checks = [];
 const check = (name, scope, run) => checks.push({ name, scope, run });
@@ -30,21 +31,17 @@ function wavPayload({ name = 'long.wav', duration = 2, frequency = 55 } = {}) {
 }
 const uiFiles = () => [wavPayload({ name: 'long.wav', duration: 2, frequency: 55 }), wavPayload({ name: 'short.wav', duration: .75, frequency: 110 })];
 const tracksAction = (page, name) => page.locator(`[data-tracks-action="${name}"]`);
-async function ready(page) { await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert); const free = page.locator('[data-intro="free"]'); if (await free.isVisible()) await free.click(); }
+async function ready(page) { await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert); }
 async function setupUi(page, files = uiFiles()) {
-  await ready(page); await page.locator('[data-app-module="tracks"]').click();
+  await ready(page); await go(page, 'tracks');
   await page.locator('[data-bank-view="audio"]').click();
   if (files) { await page.getByLabel('Новый набор аудиофайлов', { exact: true }).setInputFiles(files); await page.waitForFunction(() => document.querySelector('#legacy-tracks-mount')?.dataset.tracksReady === 'true'); }
 }
 async function stateIs(page, value) { await page.waitForFunction(value => document.querySelector('#legacy-tracks-mount')?.dataset.tracksState === value, value, { polling: 20 }); }
 async function fieldValue(page, label, value) { const field = page.getByLabel(label, { exact: true }); await field.fill(String(value)); await field.press('Tab'); }
-async function openHistory(page) { await ready(page); const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click(); await page.getByLabel('Название пресета', { exact: true }).waitFor(); }
-async function exportUi(page) { await openHistory(page); const pending = page.waitForEvent('download'); await page.locator('[data-history-action="export"]').click(); const download = await pending; return JSON.parse(await readFile(await download.path(), 'utf8')); }
-async function restoreUi(page, backup) {
-  await openHistory(page); await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name: 'tracks-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
-  await page.getByTestId('backup-preview').waitFor(); await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check(); await page.locator('[data-history-action="confirm-restore"]').click();
-  await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); await ready(page);
-}
+// Копия и восстановление — через «Настройки → Данные» (P13); после действия возврат в «Песни».
+const exportUi = page => exported(page);
+async function restoreUi(page, backup) { await restoreCopy(page, backup, 'tracks-backup.json'); await ready(page); }
 
 check('pcm-native-decoder-aligns-stems-at-common-zero-and-keeps-short-tail-silent', 'api', async ({ page }) => {
   const source = await load(page, pulseSpecs), result = await render(page);
@@ -202,9 +199,9 @@ check('ui-local-file-selection-shows-shared-material-and-clear-scope-limits', 'u
   assert.equal(await page.locator('[data-track-id]').count(), 2); assert.equal(await page.locator('[data-track-bound="true"]').count(), 2);
   assert.match(await page.getByTestId('tracks-rate-warning').innerText(), /исходная высота.*B исключается.*тишиной/);
   assert.equal(await page.getByLabel('Начало фрагмента A', { exact: true }).inputValue(), '0'); assert.equal(await page.getByLabel('Конец фрагмента B', { exact: true }).inputValue(), '2');
-  const copy = await exportUi(page); assert.equal(copy.schemaVersion, 11); assert.equal(copy.preferences.activeModule, 'tracks'); assert.equal(copy.preferences.tracks.tracks.length, 2);
-  assert.ok(await page.getByTestId('manual-unavailable').isVisible());
-  assert.ok(await page.locator('[data-history-action="save-manual"]').isHidden());
+  // Копия скачивается из «Настроек», поэтому сохранённый раздел в ней — «Настройки»; аудиодорожки черновиков ручной практики не создают.
+  const copy = await exportUi(page); assert.equal(copy.schemaVersion, 11); assert.equal(copy.preferences.activeModule, 'settings'); assert.equal(copy.preferences.tracks.tracks.length, 2);
+  assert.deepEqual(copy.practiceDrafts, []);
   return { loadStatus: await page.getByTestId('tracks-load-status').innerText(), manifest: copy.preferences.tracks, externalUploadRequests: 0 };
 });
 
@@ -289,8 +286,8 @@ check('ui-live-mute-seek-pause-and-module-leave-preserve-one-common-timeline', '
   await page.waitForFunction(() => Number(document.querySelector('[data-tracks-setting="seek"]').value) > 1.05);
   await tracksAction(page, 'pause').click(); await stateIs(page, 'paused'); await delay(50);
   const paused = Number(await page.getByLabel('Позиция аудиофрагмента', { exact: true }).inputValue()); await delay(180); near(Number(await page.getByLabel('Позиция аудиофрагмента', { exact: true }).inputValue()), paused, .000001);
-  await tracksAction(page, 'play').click(); await stateIs(page, 'playing'); await page.locator('[data-app-module="foundation"]').click(); await stateIs(page, 'stopped');
-  await page.locator('[data-app-module="tracks"]').click(); near(Number(await page.getByLabel('Позиция аудиофрагмента', { exact: true }).inputValue()), 0, .000001);
+  await tracksAction(page, 'play').click(); await stateIs(page, 'playing'); await go(page, 'foundation'); await stateIs(page, 'stopped');
+  await go(page, 'tracks'); near(Number(await page.getByLabel('Позиция аудиофрагмента', { exact: true }).inputValue()), 0, .000001);
   const copy = await exportUi(page); assert.equal(copy.preferences.tracks.tracks[0].muted, true); near(copy.preferences.tracks.tracks[1].volume, .25, .000001);
   return { before, afterMute, paused, savedMix: copy.preferences.tracks.tracks.map(({ volume, muted }) => ({ volume, muted })) };
 });

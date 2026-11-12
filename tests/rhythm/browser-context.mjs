@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
+export { go, currentSection, openData, exported, previewCopy, cancelCopy, confirmCopy, restoreCopy, openDrafts } from '../helpers/shell-data-ui.mjs';
+import { go } from '../helpers/shell-data-ui.mjs';
+
 export const currentCopy = JSON.parse(await readFile(new URL('../fixtures/backup.json', import.meta.url), 'utf8'));
 
 export const root = page => page.getByTestId('rhythm-view');
@@ -71,7 +74,7 @@ export async function ready(page) {
 }
 export async function enter(page) {
   await ready(page);
-  await page.locator('[data-app-module="harmony"]').click();
+  await go(page, 'harmony');
   await root(page).waitFor();
 }
 export async function edit(page, name, value) {
@@ -85,16 +88,6 @@ export async function state(page, expected) {
 export async function start(page) {
   await action(page, 'start').click();
   await state(page, 'running');
-}
-export async function openHistory(page) {
-  if (!await page.locator('.history-drawer').evaluate(node => node.open)) await page.locator('#open-history').click();
-  await page.getByLabel('Название пресета', { exact: true }).waitFor();
-}
-export async function exported(page) {
-  await openHistory(page);
-  const download = page.waitForEvent('download');
-  await page.locator('[data-history-action="export"]').click();
-  return JSON.parse(await readFile(await (await download).path(), 'utf8'));
 }
 export async function raw(page) {
   return page.evaluate(async () => {
@@ -133,7 +126,7 @@ export async function raw(page) {
 export async function seedDatabase(page, origin, snapshot) {
   const response = await page.goto(`${origin}/vendor/music-bank/patch-manifest.json`);
   assert.equal(response.status(), 200);
-  assert.equal(await page.locator('#history-mount').count(), 0);
+  assert.equal(await page.locator('.site-header').count(), 0);
   await page.evaluate(async ({ snapshot, origin }) => {
     if (location.origin !== origin) throw new Error('Unexpected test origin');
     await new Promise((resolve, reject) => {

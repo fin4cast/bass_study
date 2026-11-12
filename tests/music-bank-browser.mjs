@@ -7,6 +7,7 @@ import { runTracksBrowserChecks } from './helpers/tracks-browser-harness.mjs';
 import { browserCases, markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 import { browserRun } from './helpers/browser-runner.mjs';
 import { openMusicBankTestInputs } from './helpers/music-bank-fixtures.mjs';
+import { go, currentSection, exported, previewCopy, confirmCopy, restoreCopy } from './helpers/shell-data-ui.mjs';
 
 const checks = [], check = (name, scope, run) => checks.push({ name, scope, run });
 const bank = page => page.locator('#music-bank-mount');
@@ -18,9 +19,23 @@ const samplePath = item => inputs.samplePath(item);
 const sampleBytes = item => inputs.sampleBytes(item);
 async function ready(page) {
   await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main')?.inert);
-  if (await page.locator('[data-intro="free"]').isVisible()) await page.locator('[data-intro="free"]').click();
 }
-async function enter(page) { await ready(page); await page.locator('[data-app-module="tracks"]').click(); await page.locator('[data-bank-view="scores"]').click(); }
+async function enter(page) { await ready(page); await go(page, 'tracks'); await page.locator('[data-bank-view="scores"]').click(); }
+/** Readonly-чтение сохранённых настроек нативной IndexedDB: без продуктового API и без создания базы. */
+async function storedPreferences(page) {
+  return page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('bass-study');
+      request.onupgradeneeded = () => { request.transaction.abort(); reject(new Error('Readonly reader encountered a missing database')); };
+      request.onerror = () => reject(request.error); request.onsuccess = () => resolve(request.result);
+    });
+    try {
+      const transaction = db.transaction('preferences', 'readonly');
+      const request = transaction.objectStore('preferences').get('current');
+      return await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+    } finally { db.close(); }
+  });
+}
 async function load(page, id) {
   await sampleBytes(sample(id));
   await field(page, 'file').setInputFiles(samplePath(sample(id)));
@@ -28,12 +43,6 @@ async function load(page, id) {
   await field(page, 'score').locator('svg').first().waitFor();
   await page.waitForFunction(() => document.querySelectorAll('#music-bank-mount [data-mb="score"] svg text, #music-bank-mount [data-mb="score"] svg path').length > 5);
 }
-async function exported(page) {
-  if (!await page.locator('.history-drawer').evaluate(element => element.open)) await page.locator('#open-history').click();
-  const pending = page.waitForEvent('download'); await page.locator('[data-history-action="export"]').click();
-  const file = await pending; return JSON.parse(await readFile(await file.path(), 'utf8'));
-}
-async function closeHistory(page) { if (await page.locator('.history-drawer').evaluate(element => element.open)) await page.locator('#open-history').click(); }
 function studioWav() {
   const sampleRate = 16000, frames = sampleRate * 2, buffer = Buffer.alloc(44 + frames * 2);
   buffer.write('RIFF', 0); buffer.writeUInt32LE(buffer.length - 8, 4); buffer.write('WAVEfmt ', 8);
@@ -61,8 +70,8 @@ async function observe(page) {
 }
 
 check('product-files-render-independent-track-controls-and-reject-unsupported-input', 'ui', async ({ page }) => {
-  await enter(page); assert.equal(await page.locator('[data-app-module="tracks"]').innerText(), 'Табулатура и ноты');
-  assert.equal(await page.locator('#tracks-mount').getByRole('heading', { level: 1 }).innerText(), 'Табулатура и ноты'); const results = [];
+  await enter(page); assert.equal(await page.locator('.site-header [data-app-module="tracks"]').innerText(), 'Песни');
+  assert.equal(await page.locator('#tracks-mount').getByRole('heading', { level: 1 }).innerText(), 'Песни'); const results = [];
   for (const item of inputs.selection.samples) {
     if (item.extension === '.gtp') {
       const before = await field(page, 'song-info').innerText(); await field(page, 'file').setInputFiles(samplePath(item));
@@ -137,22 +146,21 @@ check('product-save-reload-content-rebind-export-restore-keep-original-context',
   await page.waitForFunction(() => document.querySelector('#music-bank-mount')?.dataset.musicBankReady === 'true');
   const rebound = await exported(page); const actual = rebound.preferences.musicBank;
   assert.deepEqual(actual.tracks, expected.tracks); assert.deepEqual(actual.notation, expected.notation); assert.deepEqual(actual.range, expected.range); assert.equal(actual.file.sha256, expected.file.sha256);
-  await page.locator('[data-history-file]').setInputFiles({ name: 'bank.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(original)) });
-  await page.getByTestId('backup-preview').waitFor(); assert.equal((await exported(page)).preferences.musicBank.file.name, actual.file.name);
-  await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check(); await page.locator('[data-history-action="confirm-restore"]').click();
-  await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
+  const preview = await previewCopy(page, original, 'bank.json');
+  assert.equal((await storedPreferences(page)).musicBank.file.name, actual.file.name, 'Предпросмотр копии ничего не записывает');
+  await confirmCopy(page, preview);
   assert.equal(await bank(page).getAttribute('data-music-bank-state'), 'missing');
   const restored = await exported(page); assert.deepEqual(restored.preferences.musicBank, expected);
   return { schema: 7, renameByContent: true, previewDidNotWrite: true, exactRestoredPreferences: true, rebindRequired: true };
 });
 
-check('product-studio-bindings-survive-foundation-shortcuts', 'ui', async ({ page }) => {
+check('product-studio-bindings-survive-atlas-and-progress-shortcuts', 'ui', async ({ page }) => {
   const wav = studioWav();
   const audio = page.locator('#legacy-tracks-mount');
   const audioAction = name => audio.locator(`[data-tracks-action="${name}"]`);
   const audioTab = page.locator('[data-bank-view="audio"]');
   const scoreTab = page.locator('[data-bank-view="scores"]');
-  const activeSection = () => page.locator('[data-app-module][aria-current="page"]').getAttribute('data-app-module');
+  const activeSection = () => currentSection(page);
   const audioReady = () => page.waitForFunction(() => document.querySelector('#legacy-tracks-mount')?.dataset.tracksReady === 'true');
   const timeline = panel => panel.locator('.studio-timeline').evaluate(element => {
     const seek = element.querySelector('input[type="range"]');
@@ -180,11 +188,7 @@ check('product-studio-bindings-survive-foundation-shortcuts', 'ui', async ({ pag
   await ready(page);
   const initial = await exported(page);
   initial.history.push(JSON.parse(await readFile(new URL('./fixtures/screen-shape-v1.json', import.meta.url), 'utf8')));
-  await page.locator('[data-history-file]').setInputFiles({ name: 'studio-practice.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(initial)) });
-  await page.getByTestId('backup-preview').waitFor();
-  await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check();
-  await page.locator('[data-history-action="confirm-restore"]').click();
-  await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
+  await restoreCopy(page, initial, 'studio-practice.json');
 
   await enter(page); await load(page, 'sample-05');
   const scoreTimeline = await timeline(bank(page));
@@ -197,25 +201,25 @@ check('product-studio-bindings-survive-foundation-shortcuts', 'ui', async ({ pag
   await audio.getByLabel('Повторять аудиофрагмент', { exact: true }).check();
   const studio = (await exported(page)).preferences;
   assert.ok(studio.musicBank.file && studio.tracks);
-  await closeHistory(page);
 
+  // Переходы, которые открывают другой раздел не из меню: мостик атласа «Сыграть эту форму» и «Повторить» ошибки заданий в «Прогрессе».
   await scoreTab.click(); await playScore();
-  await page.locator('#open-introduction').click(); await page.locator('[data-intro="guided"]').click();
-  assert.equal(await activeSection(), 'foundation');
-  assert.match(await page.locator('#onboarding-mount').innerText(), /Введение: 1 из 4/);
+  await go(page, 'foundation'); await page.locator('#atlas-play').click();
+  await page.waitForFunction(() => document.querySelector('.site-header [aria-current="page"]')?.dataset.appModule === 'lesson');
+  assert.equal(await activeSection(), 'lesson');
   await enter(page); await playScore(); await field(page, 'stop').click();
   await audioTab.click(); await playAudio();
 
-  await page.locator('#open-history').click(); await page.locator('[data-history-action="review-errors"]').click();
-  await page.getByTestId('review-banner').waitFor();
-  assert.equal(await activeSection(), 'foundation');
+  await go(page, 'progress'); await page.locator('[data-page-frame="progress"] [data-repeat-errors]:visible').first().click();
+  await page.waitForFunction(() => document.querySelector('.site-header [aria-current="page"]')?.dataset.appModule === 'lesson');
+  assert.equal(await activeSection(), 'lesson');
   await enter(page); await playScore(); await field(page, 'stop').click();
   await audioTab.click(); await playAudio(); await audioAction('stop').click();
   const afterShortcuts = (await exported(page)).preferences;
   assert.deepEqual(afterShortcuts.musicBank, studio.musicBank);
   assert.deepEqual(afterShortcuts.tracks, studio.tracks);
 
-  return { playedAfterGuidedIntroduction: ['score', 'audio'], playedAfterReview: ['score', 'audio'],
+  return { playedAfterAtlasPlayBridge: ['score', 'audio'], playedAfterProgressRepeatErrors: ['score', 'audio'],
     exactDescriptorsAndMixPreserved: true, sharedTimeline: scoreTimeline };
 });
 
@@ -248,29 +252,33 @@ check('product-invalid-range-cannot-continue-previous-valid-loop', 'ui', async (
   assert.equal(await field(page, 'play').isEnabled(), false); assert.equal(await field(page, 'loop').isChecked(), false);
   assert.match(await field(page, 'error').innerText(), /Недопустимый диапазон/);
   const copy = await exported(page); assert.equal(copy.preferences.musicBank.range, null); assert.equal(copy.preferences.musicBank.loop, false);
-  await closeHistory(page); await field(page, 'full-range').click(); assert.equal(await field(page, 'play').isEnabled(), true);
+  await field(page, 'full-range').click(); assert.equal(await field(page, 'play').isEnabled(), true);
   return { oldRangeCleared: true, noStalePlayback: true, fullSongExplicitRecovery: true };
 });
 
-check('product-module-switches-coordinate-bank-and-ear-audio-owners', 'ui', async ({ page }) => {
+check('product-module-switches-coordinate-bank-and-rhythm-audio-owners', 'ui', async ({ page }) => {
   await observe(page); await enter(page); await load(page, 'sample-05'); await row(page, 1).locator('[data-control=solo]').check();
   await field(page, 'play').click(); await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState === 'playing');
   assert.ok((await page.evaluate(() => window.__bankLive(700))).peak > 1e-5);
-  await page.locator('[data-app-module="ear"]').click(); await delay(150);
+  await go(page, 'harmony'); await delay(150);
   assert.notEqual(await bank(page).getAttribute('data-music-bank-state'), 'playing');
   const stoppedBank = await page.evaluate(() => window.__bankLive(350)); assert.ok(stoppedBank.peak < 1e-7);
-  await page.locator('[data-ear-action="start"]').click(); await page.locator('[data-ear-action="listen"]').click();
-  await page.locator('[data-app-module="tracks"]').click(); await field(page, 'play').click();
+  // Другой владелец звука: метроном «Ритма» начинает играть, пока партитура остановлена.
+  await page.locator('[data-rhythm-action="start"]').click();
+  await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState === 'running');
+  await go(page, 'tracks');
+  await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState !== 'running');
+  await field(page, 'play').click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState === 'playing');
   const resumedBank = await page.evaluate(() => window.__bankLive(700)); assert.ok(resumedBank.peak > 1e-5);
-  return { bankStoppedOnLeave: stoppedBank, bankRestartedAfterEar: resumedBank };
+  return { bankStoppedOnLeave: stoppedBank, rhythmOwnerPausedOnReturn: true, bankRestartedAfterRhythm: resumedBank };
 });
 
 // Типичная ширина 1366×768 в обеих темах входит в быстрый набор; остальные реальные размеры — в полный.
 const studioViewports = (viewports, { finalChecks }) => async ({ page, resultDir }) => {
   await enter(page); await load(page, 'sample-08'); const layouts = [];
   for (const theme of ['light','dark']) {
-    await page.locator(`[data-theme-choice="${theme}"]`).click();
+    await page.locator(`.site-header [data-theme-choice="${theme}"]`).click();
     for (const [width, height] of viewports) {
       await page.setViewportSize({ width, height }); await delay(150);
       await page.waitForFunction(() => document.querySelectorAll('#music-bank-mount [data-mb="score"] svg text, #music-bank-mount [data-mb="score"] svg path').length > 5);
@@ -330,11 +338,11 @@ check('product-switching-away-cancels-pending-module-load-with-no-late-audio-own
   try {
     await field(page, 'file').setInputFiles(samplePath(sample('sample-03')));
     for (let i = 0; i < 100 && !requested; i++) await delay(20); assert.equal(requested, true);
-    await page.locator('[data-app-module="ear"]').click(); release(); await delay(500);
+    await go(page, 'foundation'); release(); await delay(500);
     const after = await page.evaluate(() => ({ contexts: window.__bankContexts.length, states: window.__bankContexts.map(ctx => ctx.state), info: window.__bankContextInfo }));
     assert.equal(after.contexts, before.contexts, JSON.stringify({ before, after }));
     assert.deepEqual(after.states, before.states, 'Отменённая загрузка активировала прежний контекст');
-    await page.locator('[data-app-module="tracks"]').click(); assert.notEqual(await bank(page).getAttribute('data-music-bank-state'), 'playing');
+    await go(page, 'tracks'); assert.notEqual(await bank(page).getAttribute('data-music-bank-state'), 'playing');
   } finally { release?.(); }
   return { pendingImportCancelled: true, existingContextCount: before.contexts, existingContextStates: before.states, lateAudioContexts: 0 };
 });
@@ -348,7 +356,6 @@ check('product-engine-failure-keeps-committed-score-and-latest-selection-wins', 
   await field(page, 'to').fill('3');
   await field(page, 'apply-range').click();
   const saved = (await exported(page)).preferences.musicBank;
-  await closeHistory(page);
   await field(page, 'play').click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState === 'playing');
   let blocked = 0;
@@ -362,7 +369,6 @@ check('product-engine-failure-keeps-committed-score-and-latest-selection-wins', 
   assert.equal(await field(page, 'play').isEnabled(), true);
   assert.equal(await bank(page).getAttribute('data-music-bank-state'), 'paused');
   assert.deepEqual((await exported(page)).preferences.musicBank, saved);
-  await closeHistory(page);
   await field(page, 'play').click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState === 'playing');
   await context.unroute(soundFont, rejectSoundFont);
@@ -400,9 +406,9 @@ markFullOnly(checks, [
 ], FULL_ONLY.liveAudio);
 markFullOnly(checks, [
   'product-directory-search-pages-read-only-selected-file-and-no-full-catalogue-backup',
-  'product-studio-bindings-survive-foundation-shortcuts',
+  'product-studio-bindings-survive-atlas-and-progress-shortcuts',
   'product-pending-file-disables-old-mixer-and-cancel-retains-exact-context',
-  'product-module-switches-coordinate-bank-and-ear-audio-owners',
+  'product-module-switches-coordinate-bank-and-rhythm-audio-owners',
   'product-engine-failure-keeps-committed-score-and-latest-selection-wins',
 ], FULL_ONLY.smoke);
 const selection = browserCases(checks);
