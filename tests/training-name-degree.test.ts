@@ -51,4 +51,3 @@ describe('режим «Назови ступень» на материале у�
     expect(() => startQuiz({ ...config, scope: 'chromatic' }, 3)).toThrow(RangeError);
   });
 });
-
