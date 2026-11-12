@@ -165,7 +165,10 @@ check('check-find-pitch-accepts-only-current-height-and-stores-target-midi', asy
   const title = await checkHost(page).locator('[data-ck-title]').innerText();
   assert.match(await checkHost(page).locator('.ck-ask .ck-sub').innerText(), /другая октава не подходит/);
   const targetMidi = scientificMidi(title);
-  const ids = await cells(page);
+  // Доска шире участка: клетки вне участка тоже кликабельны и получают отказ «вне материала». Участок формы A
+  // ля-минорной пентатоники по независимому расчёту (R-014) — лады 5–8 на всех струнах.
+  assert.match(await checkHost(page).innerText(), /Am · минорная пентатоника · форма A/);
+  const ids = (await cells(page)).filter(id => { const fret = Number(id.split(':')[1]); return fret >= 5 && fret <= 8; });
   const correct = ids.filter(id => midiForId(id) === targetMidi); assert.ok(correct.length, `${title}: ${ids.join(' ')}`);
   const octaveWrong = ids.find(id => midiForId(id) !== targetMidi && midiForId(id) % 12 === targetMidi % 12);
   const wrong = octaveWrong ?? ids.find(id => midiForId(id) !== targetMidi); assert.ok(wrong);
