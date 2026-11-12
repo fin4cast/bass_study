@@ -1,11 +1,12 @@
-import { readFileSync } from 'node:fs';
-import { posix } from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, posix, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const sections = {
-  foundation: ['foundation', 'fretboard', 'player', 'training', 'notation', 'study-details'],
+  foundation: ['foundation', 'foundation-view', 'fretboard', 'player', 'training', 'notation', 'study-details'],
   ear: ['ear'],
-  harmony: ['rhythm', 'rhythm/library', 'rhythm/view', 'rhythm/instrument-art'],
+  harmony: ['rhythm', 'rhythm/library', 'rhythm/view', 'rhythm/instrument-art', 'rhythm/editor-dom'],
   tracks: ['studio', 'music-bank', 'tracks'],
   input: ['input'],
   route: ['route'],
@@ -28,5 +29,22 @@ describe('границы экранов', () => {
       }
     }
     expect(violations).toEqual([]);
+  });
+});
+
+describe('единое экранирование', () => {
+  it('в src нет локальных копий экранирования вне src/ui/html.ts', () => {
+    const root = fileURLToPath(new URL('../src', import.meta.url));
+    const files = [];
+    const walk = directory => {
+      for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        const path = join(directory, entry.name);
+        if (entry.isDirectory()) walk(path);
+        else if (entry.name.endsWith('.ts')) files.push(relative(root, path).split(/[\\/]/).join('/'));
+      }
+    };
+    walk(root);
+    const copies = files.filter(file => file !== 'ui/html.ts' && /'&amp;'|"&amp;"|replace\(\/\[&<>/.test(readFileSync(join(root, file), 'utf8')));
+    expect(copies).toEqual([]);
   });
 });

@@ -1,6 +1,7 @@
 import { createAudioCue } from '../audio/cue';
 import { createEarExample, getEarAudioEvents, type EarDegree } from '../ear';
 import type { GlobalProfile } from '../storage';
+import { onPageVisibility } from './page-visibility';
 
 interface Options {
   onChoice(choice: 'guided' | 'free', completed: boolean): void;
@@ -47,7 +48,7 @@ export function mountIntroduction(container: HTMLElement, options: Options) {
     if (action === 'back') { stop(); step = Math.max(0, step - 1); render(); container.querySelector<HTMLElement>('h2')?.focus(); }
     if (action === 'next') { stop(); if (step === 3) { options.onChoice('guided', true); close(); } else { step++; render(); container.querySelector<HTMLElement>('h2')?.focus(); } }
   }, { signal: controller.signal });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); }, { signal: controller.signal });
+  onPageVisibility(controller.signal, stop);
   return { open(value?: GlobalProfile) { guided = value?.onboarding.choice === 'guided' && !value.onboarding.completed; step = 0; if (guided) options.onMaterial(); container.hidden = false; render(); }, stop,
     dispose() { stop(); controller.abort(); void cue.dispose(); container.replaceChildren(); } };
 }

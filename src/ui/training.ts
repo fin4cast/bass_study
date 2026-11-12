@@ -18,6 +18,7 @@ import {
   type QuestionContext,
   type QuestionPolicy,
 } from '../training';
+import { escapeHtml } from './html';
 
 type Session = ReturnType<typeof startQuiz>;
 type Summary = ReturnType<typeof getQuizSummary>;
@@ -54,7 +55,6 @@ const PATTERNS: readonly { id: SequencePattern; name: string }[] = [
   { id: 'groups-of-three', name: 'Группы по три' },
 ];
 
-const escapeHtml = (value: string) => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
 
 /** Screen training owns its answer board; the explorer never submits quiz answers. */
 export function mountTraining(container: HTMLElement, getContext: () => TrainingContext, options: TrainingOptions = {}) {

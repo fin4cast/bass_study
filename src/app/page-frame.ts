@@ -1,4 +1,5 @@
 import type { AppPreferences } from '../storage';
+import { escapeHtml } from '../ui/html';
 
 export type AppSection = AppPreferences['activeModule'];
 
@@ -35,11 +36,11 @@ interface PageHeaderOptions {
   readonly navigation?: string;
 }
 
-/** Options are trusted markup owned by the calling screen. Set changing text via the DOM. */
+/** `actions` and `navigation` are trusted markup owned by the calling screen; `descriptionText` is escaped. Set changing text via the DOM. */
 export function renderPageHeader(section: AppSection, options: PageHeaderOptions = {}) {
   const { id = `page-title-${section}`, className = '', descriptionId, descriptionText = '', actions = '', navigation = '' } = options;
   const description = descriptionId || descriptionText
-    ? `<p${descriptionId ? ` id="${descriptionId}"` : ''} class="page-header-context">${descriptionText}</p>`
+    ? `<p${descriptionId ? ` id="${descriptionId}"` : ''} class="page-header-context">${escapeHtml(descriptionText)}</p>`
     : '';
   return `<header class="page-header ${className}">
     <div class="page-header-row"><div class="page-header-copy"><h1 id="${id}" data-page-heading="${section}">${sections[section].title}</h1>${description}</div>${actions}</div>

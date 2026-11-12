@@ -56,6 +56,6 @@ svg.study-fretboard { display: block; width: 100%; height: 346px; min-width: 0; 
 .study-octave-item strong { font-size: 13px; font-weight: 600; }
 .study-octave-item small { color: var(--text-secondary); font-size: 11px; margin-top: 1px; }
 .study-octave-swatch { width: 13px; height: 25px; border-radius: 4px; flex-shrink: 0; margin-top: 3px; }
-.study-octave-item.octave-tone-0 .study-octave-swatch { background: var(--study-octave-first-swatch, light-dark(#c6d6b9, #48633e)); }
-.study-octave-item.octave-tone-1 .study-octave-swatch { background: var(--study-octave-second-swatch, light-dark(#bed8e0, #3d6877)); }
+.study-octave-item.octave-tone-0 .study-octave-swatch { background: var(--study-octave-first-swatch, var(--octave-swatch-first)); }
+.study-octave-item.octave-tone-1 .study-octave-swatch { background: var(--study-octave-second-swatch, var(--octave-swatch-second)); }
 .study-octave-description { flex-basis: 100%; margin: 0; color: var(--text-secondary); font-size: 11px; }

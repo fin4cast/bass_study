@@ -3,12 +3,13 @@ import { createTracksPlayer } from '../audio/tracks';
 import { TRACK_LIMITS, TracksError, setTracksPlayback, validateTracksManifest, type TracksManifest } from '../tracks';
 import { confirmAction } from './confirm';
 import { createActiveFrame } from './active-frame';
+import { escapeHtml } from './html';
+import { onPageVisibility } from './page-visibility';
 
 export interface TracksOptions {
   readonly onPreferencesChange?: () => void;
   readonly onBeforePlay?: () => boolean | void;
 }
-const escapeHtml = (value: string) => value.replace(/[&<>"']/g, mark => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[mark]!);
 function timeText(seconds: number) { const hundredths = Math.max(0, Math.round(seconds * 100)); return `${Math.floor(hundredths / 6000)}:${String(Math.floor(hundredths / 100) % 60).padStart(2, '0')},${String(hundredths % 100).padStart(2, '0')}`; }
 function inputTime(seconds: number) { return String(seconds); }
 function megabytes(bytes: number) { return `${(bytes / 1024 / 1024).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} МиБ`; }
@@ -260,9 +261,9 @@ export function mountTracks(container: HTMLElement, options: TracksOptions = {})
       error = ''; changed(); render(); container.querySelector<HTMLInputElement>(`[data-tracks-setting="${setting}"]`)?.focus({ preventScroll: true });
     } catch (failure) { error = failure instanceof Error ? failure.message : String(failure); input.setAttribute('aria-invalid', 'true'); refreshMessage(); }
   }, { signal: controller.signal });
-  document.addEventListener('visibilitychange', () => {
-    if (visible && document.hidden && ['playing', 'starting'].includes(snapshot().state)) { pause('hidden'); notice = 'Вкладка скрывалась. Продолжи воспроизведение явно.'; refreshMessage(); }
-  }, { signal: controller.signal });
+  onPageVisibility(controller.signal, () => {
+    if (visible && ['playing', 'starting'].includes(snapshot().state)) { pause('hidden'); notice = 'Вкладка скрывалась. Продолжи воспроизведение явно.'; refreshMessage(); }
+  });
   render();
   return {
     getPreferences, applyPreferences,

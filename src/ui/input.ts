@@ -3,6 +3,8 @@ import { createInputMonitor, type InputDevice, type InputMonitorSnapshot } from 
 import { PITCH_DIAGNOSTIC } from '../input/pitch';
 import { formatMidi } from '../music';
 import { createActiveFrame } from './active-frame';
+import { escapeHtml } from './html';
+import { onPageVisibility } from './page-visibility';
 
 export interface InputPreferences { readonly deviceId: string }
 export interface InputOptions {
@@ -10,7 +12,6 @@ export interface InputOptions {
   readonly onPrefsChange?: () => void;
 }
 
-const escapeHtml = (value: string) => value.replace(/[&<>"']/g, mark => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[mark]!);
 const fixed = (value: number, digits = 1) => value.toLocaleString('ru-RU', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 const db = (value: number) => value <= 0.000001 ? '−∞ dBFS' : `${fixed(20 * Math.log10(value))} dBFS`;
 function parameter(value: unknown): string {
@@ -166,9 +167,9 @@ export function mountInput(container: HTMLElement, options: InputOptions = {}) {
     stop('Выбор входа изменён. Подключение остановлено; снова нажми «Подключить».');
     preferences = { deviceId: picker.value }; options.onPrefsChange?.();
   }, { signal: controller.signal });
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && ['running', 'starting'].includes(monitor.getSnapshot().state)) stop('При скрытии вкладки аудиовход был отключён. Для нового подключения нажми «Подключить».');
-  }, { signal: controller.signal });
+  onPageVisibility(controller.signal, () => {
+    if (['running', 'starting'].includes(monitor.getSnapshot().state)) stop('При скрытии вкладки аудиовход был отключён. Для нового подключения нажми «Подключить».');
+  });
   function tick(time: number) {
     if (time - lastFrame >= 100) { lastFrame = time; refresh(); }
   }

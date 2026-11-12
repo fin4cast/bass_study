@@ -1,6 +1,7 @@
 import { formatMidi, type AnnotatedPosition, type LabelMode, type MusicalStructure, type StringId } from '../music';
 import type { BoxInstance } from '../music/boxes';
 import { getOctaveSections, type OctaveSection } from '../music/octaves';
+import { escapeHtml } from './html';
 
 export interface StudyFretboardOptions {
   readonly width: number;
@@ -25,7 +26,6 @@ const BOARD_BOTTOM = 326;
 const LEFT = 42;
 const RIGHT = 30;
 const y = (string: StringId) => 70 + STRINGS.indexOf(string) * 74;
-const escape = (value: string) => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
 const noteName = (position: AnnotatedPosition) => formatMidi(position.midi, position.noteName);
 
 function sections(options: StudyFretboardOptions): readonly OctaveSection[] {
@@ -75,8 +75,8 @@ export function renderOctaveLegend(options: StudyFretboardOptions): string {
     const last = group.positions.reduce((a, b) => a.midi > b.midi ? a : b);
     const label = group.startsAtTonic ? `От ${from}` : `До ${to}`;
     const status = group.completeVisible ? `Полный участок · до ${to}` : group.completeMaterial && group.partiallyShown ? 'Показан частично' : group.partiallyShown ? 'Фрагмент · показан частично' : `Фрагмент · до ${noteName(last)}`;
-    return `<div class="study-octave-item octave-tone-${group.colorIndex}" data-octave-group="${group.fromMidi}" data-complete="${group.completeVisible}"><i class="study-octave-swatch" aria-hidden="true"></i><span><strong>${escape(label)}</strong><small>${escape(status)}</small></span></div>`;
-  }).join('')}${shared.length ? `<p class="study-octave-description">${shared.map(group => escape(formatMidi(group.fromMidi, options.structure.root))).join(', ')} — общая тоника соседних участков.</p>` : ''}${!options.box ? '<p class="study-octave-description">Участки объединяют ноты по высоте звучания; аппликатура не задана.</p>' : ''}</div>`;
+    return `<div class="study-octave-item octave-tone-${group.colorIndex}" data-octave-group="${group.fromMidi}" data-complete="${group.completeVisible}"><i class="study-octave-swatch" aria-hidden="true"></i><span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(status)}</small></span></div>`;
+  }).join('')}${shared.length ? `<p class="study-octave-description">${shared.map(group => escapeHtml(formatMidi(group.fromMidi, options.structure.root))).join(', ')} — общая тоника соседних участков.</p>` : ''}${!options.box ? '<p class="study-octave-description">Участки объединяют ноты по высоте звучания; аппликатура не задана.</p>' : ''}</div>`;
 }
 
 /** Pure markup; the application owns selection, keyboard handling and resizing. */
@@ -137,7 +137,7 @@ export function renderStudyFretboard(options: StudyFretboardOptions): string {
       const classes = ['position', position.inStructure ? 'in-structure' : 'outside-structure', large ? 'is-large' : 'is-quiet', ...(box ? [ids.has(position.id) ? 'in-box' : 'outside-box'] : []), ...(position.isRoot ? ['root-position'] : []), ...(isSelected ? ['selected-position'] : []), ...(isIntervalTarget ? ['is-interval-target'] : []), ...(samePitch ? ['same-pitch-position'] : []), ...(options.sharedIds.has(position.id) ? ['shared-box-position'] : [])];
       const text = options.labelMode === 'notes' ? position.noteName : position.degree?.replaceAll('b', '♭') ?? '—';
       const hitWidth = large ? Math.max(46, Math.min(58, cell)) : Math.min(34, cell);
-      return `<g role="button" class="${classes.join(' ')}" data-position="${position.id}" data-note-name="${escape(position.noteName)}" data-midi="${position.midi}" data-root="${position.isRoot}" data-in-structure="${position.inStructure}" transform="translate(${x(position.fret)},${y(position.string)})" tabindex="${position.id === options.activeId ? 0 : -1}" aria-label="${escape(label)}" aria-pressed="${isSelected}"><title>${escape(positionLabel(position))}</title><rect class="position-hit" x="${-hitWidth / 2}" y="-31" width="${hitWidth}" height="62" rx="5"/><circle class="position-focus" r="30"/><circle class="position-selection" r="27"/><circle class="note-marker" r="${large ? 23 : 3}"/>${position.isRoot && large ? '<circle class="root-ring" r="17"/>' : ''}${options.labelMode !== 'hidden' && large ? `<text data-position-label text-anchor="middle" dy=".35em">${escape(text)}</text>` : ''}${finger ? `<rect class="finger-background" x="15" y="-31" width="17" height="17" rx="3"/><text class="finger-label" x="23.5" y="-18" text-anchor="middle">${finger}</text>` : ''}</g>`;
+      return `<g role="button" class="${classes.join(' ')}" data-position="${position.id}" data-note-name="${escapeHtml(position.noteName)}" data-midi="${position.midi}" data-root="${position.isRoot}" data-in-structure="${position.inStructure}" transform="translate(${x(position.fret)},${y(position.string)})" tabindex="${position.id === options.activeId ? 0 : -1}" aria-label="${escapeHtml(label)}" aria-pressed="${isSelected}"><title>${escapeHtml(positionLabel(position))}</title><rect class="position-hit" x="${-hitWidth / 2}" y="-31" width="${hitWidth}" height="62" rx="5"/><circle class="position-focus" r="30"/><circle class="position-selection" r="27"/><circle class="note-marker" r="${large ? 23 : 3}"/>${position.isRoot && large ? '<circle class="root-ring" r="17"/>' : ''}${options.labelMode !== 'hidden' && large ? `<text data-position-label text-anchor="middle" dy=".35em">${escapeHtml(text)}</text>` : ''}${finger ? `<rect class="finger-background" x="15" y="-31" width="17" height="17" rx="3"/><text class="finger-label" x="23.5" y="-18" text-anchor="middle">${finger}</text>` : ''}</g>`;
     }).join('');
     svg += '</svg>';
     return `<section class="study-fretboard-part" aria-label="Лады ${part.from}–${part.to}">${parts.length > 1 ? `<p class="study-board-part-caption">Лады ${part.from}–${part.to}${index ? ' · продолжение' : ''}</p>` : ''}${svg}</section>`;

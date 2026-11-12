@@ -10,9 +10,13 @@ import {
 import { applyRhythmProjectEdit, copyRhythmBar, metronomeTempo, playbackForRhythmRun, withProjectTempo, type RhythmBarCopy, type RhythmProjectEdit } from '../rhythm/editor';
 import { confirmAction } from './confirm';
 import { bindPageTabs } from './page-tabs';
-import { allowsTransportShortcut } from './transport-shortcut';
-import { rhythmInstrumentArt } from './rhythm/instrument-art';
-import { bindRhythmDial, paintRhythmDial, rhythmButton, rhythmMarkup } from './rhythm/view';
+import { handleTransportKey } from './transport-shortcut';
+import { onPageVisibility } from './page-visibility';
+import { bindRhythmDial, paintRhythmDial, rhythmMarkup } from './rhythm/view';
+import {
+  RHYTHM_KITS, paintRhythmFader as paintFader, rhythmBarButtons, rhythmBeatGroups, rhythmChainClips, rhythmClipEditor, rhythmKitButtons,
+  rhythmMixerStrips, rhythmPatternButtons, rhythmPresetButtons, rhythmProjectRows, rhythmRackRows, rhythmSoundButtons, rhythmVelocityRow,
+} from './rhythm/editor-dom';
 import { createRhythmLibrary, type RhythmLibrary, type RhythmLibraryOperation } from './rhythm/library';
 
 export type { RhythmLibrary, RhythmLibraryOperation } from './rhythm/library';
@@ -28,12 +32,6 @@ export interface RhythmOptions {
 type Mutable<T> = T extends readonly (infer Item)[] ? Mutable<Item>[] : T extends object ? { -readonly [Key in keyof T]: Mutable<T[Key]> } : T;
 const clone = <T,>(value: T) => structuredClone(value) as Mutable<T>;
 const nextPatternLength = (bars: RhythmPatternBars) => RHYTHM_PATTERN_LENGTHS.find(length => length > bars);
-const LEVELS = ['Без щелчка', 'Доля', 'Акцент'];
-const KITS: ReadonlyArray<readonly [RhythmKit, string, string]> = [
-  ['wood', 'Дерево', 'Мягкий короткий щелчок'], ['classic', 'Классический', 'Чёткий механический пульс'],
-  ['electronic', 'Электронный', 'Чистый короткий тон'], ['bell', 'Колокольчик', 'Светлый звонкий акцент'],
-  ['clave', 'Клавес', 'Сухой деревянный удар'], ['drum', 'Ударные', 'Бочка и малый'],
-];
 const TRAINING_NUMBERS = ['soundBars', 'silentBars', 'stepBpm', 'everyBars', 'targetBpm'] as const;
 const TRAINING_FLAGS = ['silentEnabled', 'rampEnabled'] as const;
 const STARTED = new Set(['starting', 'running', 'finishing']);
@@ -242,11 +240,6 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
       stop(); audioError = failureText(failure); showError();
     }
   }
-  function paintFader(input: HTMLInputElement, value = input.valueAsNumber) {
-    const label = `${Math.round(value * 100)}%`;
-    input.setAttribute('aria-valuetext', label);
-    input.closest('.rhythm-channel')!.querySelector<HTMLOutputElement>('[data-rhythm-level]')!.value = label;
-  }
   function cancelFader() {
     const gesture = faderGesture;
     if (!gesture) return;
@@ -311,7 +304,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     const groups = output('meter-summary');
     groups.hidden = metro.meter.groups.length < 2;
     groups.textContent = groups.hidden ? '' : metro.meter.groups.join('+');
-    output('kit-name').textContent = KITS.find(([key]) => key === metro.kit)![1];
+    output('kit-name').textContent = RHYTHM_KITS.find(([key]) => key === metro.kit)![1];
     const { silentEnabled, rampEnabled, soundBars, silentBars, stepBpm, targetBpm } = metro.training;
     const training = [silentEnabled && `Со звуком: ${soundBars}, без: ${silentBars}`, rampEnabled && `+${stepBpm} BPM до ${targetBpm}`].filter(Boolean);
     output('training-summary').textContent = training.length ? training.join(' · ') : 'Немые такты и рост темпа';
@@ -338,39 +331,12 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     if (key && !before?.isConnected) container.querySelector<HTMLElement>(`[data-rhythm-focus="${CSS.escape(key)}"]`)?.focus({ preventScroll: true });
   }
   function renderBeats() {
-    const metro = preferences.metronome, starts = new Set<number>();
-    let start = 0;
-    for (const group of metro.meter.groups) { starts.add(start); start += group; }
-    const beats = metro.accents.map((level, index) => {
-      const group = document.createElement('div'); group.className = `rhythm-beat-group${starts.has(index) ? ' is-group-start' : ''}`;
-      const beat = rhythmButton(String(index + 1), { rhythmBeat: String(index), rhythmFocus: `beat-${index}`, level: String(level) }, `Доля ${index + 1}. ${LEVELS[level]}`);
-      beat.className = 'rhythm-beat';
-      const lamp = document.createElement('span'); lamp.className = 'rhythm-beat-lamp'; lamp.setAttribute('aria-hidden', 'true');
-      const label = document.createElement('small'); label.textContent = level === 0 ? 'Пауза' : LEVELS[level];
-      beat.append(lamp, label); group.append(beat);
-      if (metro.division > 1) {
-        const subdivisions = document.createElement('div'); subdivisions.className = 'rhythm-substeps';
-        for (let subdivision = 1; subdivision < metro.division; subdivision++) {
-          const key = index * (metro.division - 1) + subdivision - 1;
-          const step = rhythmButton('·', { rhythmSubstep: String(subdivision), rhythmSubIndex: String(key), rhythmFocus: `sub-${key}` }, `Доля ${index + 1}, подразделение ${subdivision}`);
-          step.className = 'rhythm-substep'; step.setAttribute('aria-pressed', String(metro.substeps[key])); subdivisions.append(step);
-        }
-        group.append(subdivisions);
-      }
-      return group;
-    });
+    const beats = rhythmBeatGroups(preferences.metronome);
     withFocus(() => output('beats').replaceChildren(...beats)); paintPosition();
   }
   function renderLibrary() {
     const unavailable = !options.onLibraryChange || library.pending || library.failedKind !== null;
-    const rows = library.projects.map(entry => {
-      const row = document.createElement('div'); row.className = 'rhythm-project-row';
-      const open = rhythmButton(entry.name, { rhythmOpenProject: entry.id, rhythmFocus: `project-${entry.id}` });
-      open.disabled = unavailable; open.setAttribute('aria-pressed', String(entry.id === project.id));
-      const remove = rhythmButton('Удалить', { rhythmDeleteProject: entry.id, rhythmFocus: `delete-${entry.id}` }, `Удалить проект «${entry.name}»`);
-      remove.className = 'text-button button-compact';
-      remove.disabled = unavailable; row.append(open, remove); return row;
-    });
+    const rows = rhythmProjectRows(library.projects, project.id, unavailable);
     withFocus(() => output('projects').replaceChildren(...rows));
     output('project-count').textContent = String(rows.length);
     action('new-project').disabled = unavailable;
@@ -405,24 +371,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     output('velocity-default-track').textContent = `По умолчанию · ${channel.name}`;
     newHitVelocity.valueAsNumber = defaults.hit;
     newAccentVelocity.valueAsNumber = defaults.accent;
-    const row = document.createElement('div'); row.className = 'rhythm-velocity-row';
-    const label = document.createElement('div'); label.className = 'rhythm-velocity-label';
-    const name = document.createElement('strong'); name.textContent = channel.name;
-    const level = document.createElement('output'); level.className = 'rhythm-velocity-value'; level.setAttribute('aria-live', 'off');
-    label.append(name, level); row.append(label);
-    for (let beat = 0; beat < 4; beat++) {
-      const bank = document.createElement('div'); bank.className = 'rhythm-pad-bank';
-      for (let offset = 0; offset < 4; offset++) {
-        const step = beat * 4 + offset;
-        const cell = document.createElement('div'); cell.className = 'rhythm-velocity-cell';
-        const slider = document.createElement('input'); slider.type = 'range'; slider.min = '0'; slider.max = '1'; slider.step = '.01';
-        slider.value = String(lane.velocities[selectedBar * 16 + step]); slider.dataset.rhythmVelocity = String(step);
-        slider.dataset.rhythmFocus = `velocity-${step}`; slider.setAttribute('aria-label', `Сила удара ${channel.name}, шаг ${step + 1}`);
-        const track = document.createElement('span'); track.className = 'rhythm-velocity-track'; track.setAttribute('aria-hidden', 'true');
-        cell.append(track, slider); bank.append(cell);
-      }
-      row.append(bank);
-    }
+    const row = rhythmVelocityRow(channel, lane, selectedBar);
     withFocus(() => output('velocity').replaceChildren(row));
     paintVelocity();
   }
@@ -441,99 +390,26 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     }
   }
   function renderRack() {
-    const ruler = document.createElement('div'); ruler.className = 'rhythm-rack-ruler';
-    const meter = document.createElement('span'); meter.textContent = '4/4'; ruler.append(meter);
-    for (let beat = 1; beat <= 4; beat++) {
-      const span = document.createElement('span'); span.className = 'rhythm-rack-beat'; span.textContent = String(beat); ruler.append(span);
-    }
-    const rows = project.channels.map(channel => {
-      const row = document.createElement('div'); row.className = `rhythm-rack-row${channel.muted ? ' is-muted' : ''}`; row.dataset.rhythmLane = channel.id;
-      const controls = document.createElement('div'); controls.className = 'rhythm-lane-controls';
-      const name = rhythmButton('', { rhythmSelectLane: channel.id, rhythmFocus: `lane-${channel.id}` }, `Выбрать канал ${channel.name}`);
-      name.className = 'rhythm-lane-name'; name.setAttribute('aria-pressed', String(channel.id === selectedLane));
-      name.innerHTML = rhythmInstrumentArt(channel.sound);
-      const label = document.createElement('span'); label.textContent = channel.name; name.append(label);
-      controls.append(name); row.append(controls);
-      for (let beat = 0; beat < 4; beat++) {
-        const bank = document.createElement('div'); bank.className = 'rhythm-pad-bank';
-        for (let offset = 0; offset < 4; offset++) {
-          const step = beat * 4 + offset;
-          const button = rhythmButton('', { rhythmStep: String(step), rhythmChannel: channel.id, rhythmFocus: `step-${channel.id}-${step}` });
-          button.className = 'rhythm-step';
-          button.title = 'Правый клик или Shift+Enter — переключить акцент';
-          button.setAttribute('aria-keyshortcuts', 'Shift+Enter');
-          bank.append(button);
-        }
-        row.append(bank);
-      }
-      return row;
-    });
-    withFocus(() => rack.replaceChildren(ruler, ...rows));
+    const rows = rhythmRackRows(project, selectedLane);
+    withFocus(() => rack.replaceChildren(...rows));
     paintSteps(); renderVelocity();
   }
   function renderMixer() {
     if (faderGesture?.input.dataset.rhythmVolume) cancelFader();
-    const channels = project.channels.map(channel => {
-      const strip = document.createElement('div'); strip.className = 'rhythm-channel';
-      const title = document.createElement('span'); title.className = 'rhythm-channel-name'; title.textContent = channel.name; title.title = channel.name;
-      const slot = document.createElement('span'); slot.className = 'rhythm-fader-slot';
-      const volume = document.createElement('input'); volume.type = 'range'; volume.className = 'rhythm-fader';
-      volume.min = '0'; volume.max = '1.5'; volume.step = '.05'; volume.value = String(channel.volume);
-      volume.dataset.rhythmVolume = channel.id; volume.dataset.rhythmFocus = `volume-${channel.id}`; volume.setAttribute('aria-label', `Громкость ${channel.name}`);
-      slot.append(volume);
-      const level = document.createElement('output'); level.dataset.rhythmLevel = '';
-      const keys = document.createElement('div'); keys.className = 'rhythm-channel-keys';
-      const mute = rhythmButton('M', { rhythmMute: channel.id, rhythmFocus: `mute-${channel.id}` }, `${channel.name}. Заглушить`);
-      mute.className = 'rhythm-lane-mute'; mute.setAttribute('aria-pressed', String(channel.muted)); mute.title = 'Заглушить';
-      const solo = rhythmButton('S', { rhythmSolo: channel.id, rhythmFocus: `solo-${channel.id}` }, `${channel.name}. Соло`);
-      solo.className = 'rhythm-lane-solo'; solo.setAttribute('aria-pressed', String(channel.solo)); solo.title = 'Соло';
-      keys.append(mute, solo); strip.append(title, slot, level, keys); paintFader(volume, channel.volume);
-      return strip;
-    });
+    const channels = rhythmMixerStrips(project);
     withFocus(() => output('mixer').replaceChildren(...channels));
   }
   function renderChain() {
     const selectedIndex = project.chain.findIndex(clip => clip.id === selectedClip);
     if (selectedIndex < 0) selectedClip = null;
-    let bars = 0;
-    const clips = project.chain.map((clip, index) => {
-      const pattern = project.patterns.find(item => item.id === clip.patternId)!;
-      const card = rhythmButton('', { rhythmClip: clip.id, rhythmClipPattern: pattern.id, rhythmFocus: `clip-title-${clip.id}` }, `Блок ${index + 1}. Паттерн ${pattern.id}. ${pattern.name}`);
-      card.className = 'rhythm-clip'; card.setAttribute('aria-pressed', String(index === selectedIndex));
-      card.title = pattern.name;
-      const mark = document.createElement('span'); mark.className = 'rhythm-clip-mark'; mark.textContent = pattern.id;
-      const name = document.createElement('span'); name.className = 'rhythm-clip-name'; name.textContent = pattern.name;
-      const range = document.createElement('span'); range.className = 'rhythm-clip-range';
-      range.textContent = pattern.bars === 1 ? `Такт ${bars + 1}` : `Такты ${bars + 1}–${bars + pattern.bars}`;
-      bars += pattern.bars; card.append(mark, name, range);
-      return card;
-    });
+    const { clips, bars } = rhythmChainClips(project, selectedIndex);
     const editor = output('clip-editor');
     withFocus(() => {
       output('chain').replaceChildren(...clips);
       editor.hidden = selectedIndex < 0;
       editor.replaceChildren();
       if (selectedIndex < 0) return;
-      const clip = project.chain[selectedIndex];
-      const title = document.createElement('strong'); title.className = 'rhythm-clip-editor-title';
-      title.textContent = `Блок ${selectedIndex + 1} · ${project.patterns.find(pattern => pattern.id === clip.patternId)!.name}`;
-      const patterns = document.createElement('div'); patterns.className = 'rhythm-segment';
-      patterns.setAttribute('role', 'group'); patterns.setAttribute('aria-label', `Паттерн блока ${selectedIndex + 1}`);
-      for (const item of project.patterns) {
-        const key = rhythmButton(item.id, {
-          rhythmClipSelect: clip.id, rhythmValue: item.id, rhythmFocus: `clip-${clip.id}-${item.id}`,
-        }, `Паттерн ${item.id}. ${item.name}`);
-        key.title = item.name;
-        key.setAttribute('aria-pressed', String(item.id === clip.patternId)); patterns.append(key);
-      }
-      const controls = document.createElement('div'); controls.className = 'rhythm-clip-actions';
-      for (const [move, label, text] of [['left', 'Переместить влево', '←'], ['right', 'Переместить вправо', '→'], ['remove', 'Убрать', '×']] as const) {
-        const button = rhythmButton(text, { rhythmClipAction: move, rhythmClipId: clip.id, rhythmFocus: `clip-${move}-${clip.id}` }, `${label} блок ${selectedIndex + 1}`);
-        button.title = label;
-        button.disabled = move === 'left' ? selectedIndex === 0 : move === 'right' ? selectedIndex + 1 === project.chain.length : project.chain.length === 1;
-        controls.append(button);
-      }
-      editor.append(title, patterns, controls);
+      editor.append(...rhythmClipEditor(project, selectedIndex));
     });
     output('chain-length').textContent = `${bars} такт. ${project.repeat === 'loop' ? '· по кругу' : '· один проход'}`;
     action('add-clip').disabled = project.chain.length >= 8; paintPosition();
@@ -542,33 +418,15 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     const pattern = activePattern();
     selectedBar = Math.min(selectedBar, pattern.bars - 1);
     if (!project.channels.some(channel => channel.id === selectedLane)) selectedLane = project.channels[0].id;
-    const patternButtons = project.patterns.map(item => {
-      const button = rhythmButton(item.id, { rhythmPattern: item.id, rhythmFocus: `pattern-${item.id}` }, `Паттерн ${item.id}. ${item.name}`);
-      button.setAttribute('aria-pressed', String(item.id === pattern.id)); return button;
-    });
-    const bars = Array.from({ length: pattern.bars }, (_, index) => {
-      const button = rhythmButton(`Такт ${index + 1}`, { rhythmBar: String(index), rhythmFocus: `bar-${index}` });
-      button.setAttribute('aria-pressed', String(index === selectedBar)); return button;
-    });
-    const nextLength = nextPatternLength(pattern.bars);
-    if (nextLength !== undefined) {
-      const addBar = rhythmButton('+ Такт', { rhythmAction: 'add-bar', rhythmFocus: `bar-${pattern.bars}` }, `Добавить такт ${nextLength}`);
-      addBar.className = 'rhythm-add-bar';
-      addBar.title = `Добавить пустой такт ${nextLength}`;
-      bars.push(addBar);
-    }
+    const patternButtons = rhythmPatternButtons(project, pattern.id);
+    const bars = rhythmBarButtons(pattern.bars, selectedBar, nextPatternLength(pattern.bars));
     withFocus(() => { output('patterns').replaceChildren(...patternButtons); output('bars').replaceChildren(...bars); });
     output('pattern-title').textContent = pattern.name;
     setField('pattern-name', pattern.name); syncChoice('bars', pattern.bars);
     const sounds = output('sounds');
     const unused = (Object.keys(SOUND_LABELS) as RhythmSound[]).filter(sound => !project.channels.some(channel => channel.sound === sound));
     if (!selectedSound || !unused.includes(selectedSound)) selectedSound = unused[0] ?? null;
-    const soundButtons = unused.map(sound => {
-      const button = rhythmButton('', { rhythmChoice: 'new-sound', rhythmValue: sound, rhythmFocus: `sound-${sound}` });
-      button.innerHTML = rhythmInstrumentArt(sound);
-      const label = document.createElement('span'); label.textContent = SOUND_LABELS[sound]; button.append(label);
-      return button;
-    });
+    const soundButtons = rhythmSoundButtons(unused);
     withFocus(() => sounds.replaceChildren(...soundButtons));
     syncChoice('new-sound', selectedSound, project.channels.length >= 8);
     sounds.hidden = !unused.length;
@@ -963,15 +821,17 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     }
   }, listen);
   document.addEventListener('keydown', event => {
-    if (!visible || disposed || !allowsTransportShortcut(event, container)) return;
-    if (event.code === 'Space' && event.target instanceof Element && event.target.matches('[role="region"][tabindex], .rhythm-rack-scroll, .rhythm-side-scroll')) return;
-    if (event.key === 'Escape') { stop(); event.preventDefault(); }
-    else if (event.code === 'Space') { event.preventDefault(); if (playing()) pause(); else void sound(snapshot?.state === 'paused' ? 'resume' : 'start'); }
+    if (!visible || disposed) return;
+    handleTransportKey(event, container, {
+      stop,
+      toggle: () => { if (playing()) pause(); else void sound(snapshot?.state === 'paused' ? 'resume' : 'start'); },
+      keepSpaceOn: '[role="region"][tabindex], .rhythm-rack-scroll, .rhythm-side-scroll',
+    });
   }, listen);
-  document.addEventListener('visibilitychange', () => {
-    if (visible && document.hidden) { cancelFader(); pause('hidden'); }
+  onPageVisibility(listener.signal, () => {
+    if (visible) { cancelFader(); pause('hidden'); }
     syncTransport();
-  }, listen);
+  }, syncTransport);
 
   function applyPreferences(next: RhythmPreferences) {
     if (disposed) return;
@@ -991,14 +851,8 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     library.dispose(); ++runIntent; disposed = true;
     listener.abort(); void player.dispose(); container.replaceChildren(); container.classList.remove('rhythm-view');
   }
-  for (const [id, name, description] of KITS) {
-    const button = rhythmButton(name, { rhythmKit: id });
-    const hint = document.createElement('small'); hint.textContent = description; button.append(hint); output('kits').append(button);
-  }
-  for (const preset of RHYTHM_PRESETS) {
-    const button = rhythmButton(preset.name, { rhythmPreset: preset.id });
-    const hint = document.createElement('small'); hint.textContent = `${preset.bpm} BPM · 4/4${preset.swing > 50 ? ' · свинг' : ''}`; button.append(hint); output('presets').append(button);
-  }
+  output('kits').append(...rhythmKitButtons());
+  output('presets').append(...rhythmPresetButtons());
   setField('project-name', project.name); syncFields(); renderBeats(); renderEditor(); renderLibrary(); configure(); syncTransport();
   return {
     getPreferences: () => preferences, applyPreferences, applyLibrary: library.apply,
