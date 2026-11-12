@@ -4,9 +4,9 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const sections = {
-  foundation: ['foundation', 'fretboard', 'player', 'training', 'notation', 'study-details'],
+  foundation: ['foundation', 'foundation-view', 'fretboard', 'player', 'training', 'notation', 'study-details'],
   ear: ['ear'],
-  harmony: ['rhythm', 'rhythm/library', 'rhythm/view', 'rhythm/instrument-art'],
+  harmony: ['rhythm', 'rhythm/library', 'rhythm/view', 'rhythm/instrument-art', 'rhythm/editor-dom'],
   tracks: ['studio', 'music-bank', 'tracks'],
   input: ['input'],
   route: ['route'],
