@@ -234,18 +234,24 @@ check('live-step-edit-and-tempo-edit-use-different-boundaries-and-seal-practice'
       const frames = after.trace.filter(event => event.type === 'frame' && !event.cancelled && event.time <= after.audioTime);
       const firstEdit = frames.find(event => event.epoch !== before.epoch);
       const tempoEdit = frames.find(event => event.bpm === 200);
-      return { queued, lastScheduled, firstEdit, tempoEdit, oldTempo: sealed[0]?.playback.project.bpm,
+      const beforeEdit = frames.filter(event => event.frameIndex < firstEdit.frameIndex);
+      return { queued, lastScheduled, configuredAt: before.audioTime, firstEdit, tempoEdit,
+        oldEpochBeforeEdit: beforeEdit.every(event => event.epoch === before.epoch && event.bpm === 240),
+        contiguous: frames.every((event, index) => event.frameIndex === index), oldTempo: sealed[0]?.playback.project.bpm,
         oldVelocity: sealed[0]?.playback.project.patterns[0].lanes[0].velocities[0],
         sealedDurations: sealed.map(clock => clock.durationMs), runId: after.runId, initialRun: before.runId };
     } finally { await player.dispose(); }
   });
   assert.equal(evidence.queued, 'queued');
-  assert.equal(evidence.firstEdit.frameIndex, evidence.lastScheduled + 1);
-  assert.equal(evidence.firstEdit.bpm, 240);
-  assert.equal(evidence.tempoEdit.frameIndex, 16);
-  assert.equal(evidence.tempoEdit.position.absoluteBar, 2);
-  assert.equal(evidence.oldTempo, 240);
-  assert.equal(evidence.oldVelocity, 1);
+  // Изменение не ждёт весь запас планирования: переигрывается первый кадр, начинающийся не раньше configure + 35 мс.
+  assert.ok(evidence.firstEdit.frameIndex <= evidence.lastScheduled + 1);
+  assert.ok(evidence.firstEdit.time >= evidence.configuredAt + .035 - 1e-6 && evidence.firstEdit.time < evidence.configuredAt + .035 + .0625 + .01, JSON.stringify(evidence));
+  assert.ok(evidence.oldEpochBeforeEdit && evidence.contiguous);
+  // Темп ждёт ближайшую ещё не прозвучавшую границу такта (16 шагов).
+  assert.equal(evidence.tempoEdit.frameIndex, Math.ceil(evidence.firstEdit.frameIndex / 16) * 16);
+  assert.equal(evidence.tempoEdit.position.absoluteBar, evidence.tempoEdit.frameIndex / 16 + 1);
+  if (evidence.firstEdit.frameIndex % 16) assert.equal(evidence.firstEdit.bpm, 240);
+  if (evidence.firstEdit.frameIndex > 0) { assert.equal(evidence.oldTempo, 240); assert.equal(evidence.oldVelocity, 1); }
   assert.ok(evidence.sealedDurations.every(duration => duration > 0));
   assert.equal(evidence.runId, evidence.initialRun);
   return evidence;

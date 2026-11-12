@@ -189,3 +189,79 @@ describe('отложенный запуск Web Audio', () => {
     } finally { await player.dispose(); }
   });
 });
+
+describe('запас планирования метронома', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+  const sixteenths = { ...DEFAULT_RHYTHM_PREFERENCES, metronome: {
+    ...DEFAULT_RHYTHM_PREFERENCES.metronome, bpm: 120, division: 4 as const, substeps: Array<boolean>(12).fill(true), kit: 'classic' as const, countIn: false,
+  } };
+  function clockDriver(audio: { currentTime: number }) {
+    let ms = Math.round(audio.currentTime * 1000);
+    /** Таймер планировщика срабатывает один раз; аудиочасы ушли на step + late мс. */
+    return (step = 20, late = 0) => { ms += step + late; audio.currentTime = ms / 1000; vi.advanceTimersByTime(20); };
+  }
+  const played = <T extends { readonly type: string; readonly cancelled: boolean }>(trace: readonly T[], type: string) => trace.filter(event => event.type === type && !event.cancelled);
+
+  it.each([110, 150, 200])('опоздание таймера на %s мс не ставит метроном на паузу; кадры и удары не теряются и не повторяются', async late => {
+    vi.useFakeTimers();
+    const audio = stubClock();
+    const player = createRhythmPlayer();
+    try {
+      await player.start({ preferences: sixteenths });
+      const tick = clockDriver(audio);
+      // Опоздания приходятся на разные фазы сетки шестнадцатых (0,125 с), включая худшую — сразу после планирования кадра.
+      for (let gap = 3; gap <= 14; gap++) { for (let normal = 0; normal < gap; normal++) tick(); tick(20, late); }
+      for (let normal = 0; normal < 10; normal++) tick();
+      const snapshot = player.getSnapshot();
+      expect(snapshot.state, `pauseReason=${snapshot.pauseReason}`).toBe('running');
+      const frames = played(snapshot.trace, 'frame');
+      expect(frames.map(frame => frame.frameIndex)).toEqual(frames.map((_, index) => index));
+      for (let index = 1; index < frames.length; index++) expect(frames[index].time - frames[index - 1].time).toBeCloseTo(.125, 9);
+      const hits = played(snapshot.trace, 'hit');
+      expect(new Set(hits.map(hit => `${hit.frameIndex}:${hit.source}`)).size).toBe(hits.length);
+      expect(new Set(hits.map(hit => hit.frameIndex))).toEqual(new Set(frames.map(frame => frame.frameIndex)));
+      expect(frames.at(-1)!.time).toBeGreaterThan(audio.currentTime);
+    } finally { await player.dispose(); }
+  });
+
+  it('изменение подразделений не ждёт уже запланированный запас: старые удары не звучат позже прежних 0,1 с', async () => {
+    vi.useFakeTimers();
+    const audio = stubClock();
+    const player = createRhythmPlayer();
+    try {
+      await player.start({ preferences: sixteenths });
+      const tick = clockDriver(audio);
+      for (let normal = 0; normal < 30; normal++) tick();
+      const changedAt = audio.currentTime;
+      const quiet = { ...sixteenths, metronome: { ...sixteenths.metronome, substeps: Array<boolean>(12).fill(false) } };
+      expect(player.configure({ preferences: quiet })).toBe('queued');
+      for (let normal = 0; normal < 40; normal++) tick();
+      const snapshot = player.getSnapshot();
+      expect(snapshot.state).toBe('running');
+      const late = played(snapshot.trace, 'hit').filter(hit => hit.source === 'subdivision' && hit.time > changedAt + .1);
+      expect(late).toEqual([]);
+      const frames = played(snapshot.trace, 'frame');
+      expect(frames.map(frame => frame.frameIndex)).toEqual(frames.map((_, index) => index));
+    } finally { await player.dispose(); }
+  });
+
+  it('новый темп применяется на ближайшей ещё не прозвучавшей границе такта, даже если она уже была в запасе', async () => {
+    vi.useFakeTimers();
+    const audio = stubClock();
+    const player = createRhythmPlayer();
+    try {
+      const { startAt } = await player.start({ preferences: sixteenths });
+      const tick = clockDriver(audio);
+      // Такт 4/4 при 120 BPM длится 2 с; изменение за 0,2 с до второй границы.
+      while (audio.currentTime < startAt! + 1.8 - .0001) tick();
+      expect(player.configure({ preferences: { ...sixteenths, metronome: { ...sixteenths.metronome, bpm: 180 } } })).toBe('queued');
+      for (let normal = 0; normal < 40; normal++) tick();
+      const frames = played(player.getSnapshot().trace, 'frame');
+      const boundary = frames.find(frame => Math.abs(frame.time - (startAt! + 2)) < 1e-9)!;
+      expect(boundary).toMatchObject({ bpm: 180 });
+      const next = frames[frames.indexOf(boundary) + 1];
+      expect(next.time - boundary.time).toBeCloseTo(60 / 180 / 4, 9);
+      expect(frames.filter(frame => frame.time < startAt! + 2).every(frame => frame.bpm === 120)).toBe(true);
+    } finally { await player.dispose(); }
+  });
+});

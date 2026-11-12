@@ -56,8 +56,16 @@ interface RhythmGraph {
 interface LiveGraph extends RhythmGraph { readonly preview: GainNode; readonly analyser: AnalyserNode }
 
 const CLICK_SOURCES = ['accent', 'click', 'subdivision'] as const;
-const LOOKAHEAD = .1;
+/**
+ * Политика времени планировщика. Кадры ставятся в Web Audio на LOOKAHEAD вперёд: опоздание
+ * таймера (20 мс) до ~0,29 с — фон, GC, RDP — поглощается без потерь. Если же следующий кадр
+ * уже должен был прозвучать раньше чем LATE_MARGIN назад, позиция не «догоняется» сдвигом сетки:
+ * транспорт встаёт на паузу 'timing' с точным остатком кадра. Изменение настроек не ждёт весь запас:
+ * ещё не начавшиеся кадры не раньше now + REPLAN_LEAD отменяются и планируются заново.
+ */
+const LOOKAHEAD = .3;
 const LEAD = .035;
+const REPLAN_LEAD = LEAD;
 const LATE_MARGIN = .006;
 const MIX_RAMP = .005;
 const TRACE_LIMIT = 4096;
@@ -364,6 +372,28 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
     updateMix(Object.freeze({ ...next, channels: Object.freeze(channels) }));
     emit();
   }
+  /** Возвращает в план кадры, которые начнутся не раньше now + REPLAN_LEAD: их звук и trace отменяются. */
+  function replanFuture(now: number): boolean {
+    if (state !== 'running' || !graph) return false;
+    const index = queued.findIndex(frame => frame.at >= now + REPLAN_LEAD);
+    if (index < 0) return false;
+    const first = queued[index];
+    const from = first.frame.index;
+    // Удары предыдущих кадров (их части могут звучать и позже) остаются; голоса отменяемых кадров ещё не начались.
+    voices = voices.filter(voice => {
+      if (voice.originAt < first.at - 1e-9) return true;
+      voice.cancel(now);
+      return false;
+    });
+    for (const event of trace) {
+      if (!event.cancelled && event.runId === runId && event.frameIndex !== null && event.frameIndex >= from
+        && (event.type === 'frame' || event.type === 'hit' || event.type === 'gate')) event.cancelled = true;
+    }
+    graph.gate.gain.cancelScheduledValues(first.at);
+    queued.length = index;
+    scheduledPlan = first.version; nextIndex = from; nextAt = first.at;
+    return true;
+  }
   function configure(input: RhythmPlaybackConfig): 'applied' | 'queued' | 'stopped' {
     let next: RhythmPlaybackConfig;
     try { next = createRhythmPlan(input).config; }
@@ -377,6 +407,8 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
     if (updateMix(mixFor(next))) emit();
     if (active && audibleKey(scheduledPlan!.plan.config) !== audibleKey(next)) {
       planDirty = true;
+      // Запас LOOKAHEAD не должен задерживать изменение: переигрываем ещё не начавшиеся кадры сразу.
+      if (replanFuture(clock())) pump();
       return 'queued';
     }
     // Пользователь мог вернуть исходное значение до границы применения.
