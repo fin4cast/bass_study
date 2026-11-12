@@ -5,12 +5,13 @@
  * Данные не сохраняются здесь: итог и ответы уходят в `onFinish`, звук начинается только после `onBeforeListen`.
  */
 import '../lesson/mini-board.css';
+import { onPageVisibility } from '../page-visibility';
 import './check.css';
 import { createAudioCue } from '../../audio/cue';
 import { getEarAudioEvents } from '../../ear';
 import type { CheckSpec } from '../../practice/plan';
 import type { CheckOutcome } from '../../practice/results';
-import { escapeHtml as e } from '../p13/escape';
+import { escapeHtml as e } from '../html';
 import { CHECK_MINUTES, CONCEPT_LABELS, formatDegree, formatPosition } from '../lesson/material';
 import { boardGeometry, boardSvg, BOARD_STRINGS, type BoardNote } from '../lesson/mini-board';
 import {
@@ -476,10 +477,10 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     container.querySelector<HTMLElement>(`[data-cell="${focusCell}"]`)?.focus();
   }, listen);
 
-  document.addEventListener('visibilitychange', () => {
+  onPageVisibility(listen.signal, () => {
     syncClock();
-    if (document.hidden && run?.mode === 'ear' && (listening || run.ear.answerState.activeListen)) { stopAudio('Вкладка скрывалась — прослушай сигнал заново, когда вернёшься.'); render(); }
-  }, listen);
+    if (run?.mode === 'ear' && (listening || run.ear.answerState.activeListen)) { stopAudio('Вкладка скрывалась — прослушай сигнал заново, когда вернёшься.'); render(); }
+  }, syncClock);
 
   function nextSeed() { return crypto.getRandomValues(new Uint32Array(1))[0]; }
 

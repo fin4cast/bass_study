@@ -3,7 +3,7 @@
  * Данные приходят в опциях и через `update`; действия уходят колбэками. Хранилище и звук модуль не трогает.
  */
 import './progress.css';
-import { escapeHtml } from '../p13/escape';
+import { escapeHtml } from '../html';
 import { checkIcon, markIcon, outcomeIcon, sparkSvg, sparkText, tallyStack, tempoChartSvg } from './charts';
 import {
   MARK_LABELS, OUTCOME_LABELS, OUTCOME_ORDER, SOURCE_FILTER_LABELS, SOURCE_LABELS, WEEK_HEADER,

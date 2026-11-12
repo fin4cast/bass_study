@@ -6,7 +6,7 @@
  */
 import type { StringId } from '../../music';
 import type { ExerciseNote, ExercisePlan } from '../../exercises';
-import { escapeHtml } from '../p13/escape';
+import { escapeHtml } from '../html';
 
 export type BoardLabelMode = 'name' | 'degree' | 'finger' | 'none';
 export type BoardNoteKind = 'root' | 'a' | 'b' | 'shared';

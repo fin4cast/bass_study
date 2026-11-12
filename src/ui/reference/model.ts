@@ -3,7 +3,7 @@
  * Ступени (♭3), римские цифры аккордов (vi) и номера пальцев получают разные классы и вид (R-027).
  * Любой текст из данных проходит через `escapeHtml` до вставки в разметку.
  */
-import { escapeHtml } from '../p13/escape';
+import { escapeHtml } from '../html';
 import { getExerciseTemplate, type ExerciseTemplateId } from '../../exercises';
 import { CATEGORY_TITLES } from '../../practice/library';
 import {

@@ -8,7 +8,8 @@ import type { ConceptId, ExercisePlan, ExerciseSpec } from '../../exercises';
 import { createNotationPlan, type NotationEvent } from '../../notation';
 import { conceptForExerciseConcept, parseConceptText, type ReferenceConcept } from '../../practice/concepts';
 import { allowsTransportShortcut } from '../transport-shortcut';
-import { escapeHtml } from '../p13/escape';
+import { onPageVisibility } from '../page-visibility';
+import { escapeHtml } from '../html';
 import { boardGeometry, boardNotesFromPlan, formatDegree, formatPosition, pitchLetter, planFretWindow, renderBoard, type BoardLabelMode } from './board';
 import {
   BPM_MAX, BPM_MIN, BPM_STEP, CONCEPT_LABELS, PLAY_VIEWS, clampBpm, isPlayView, junctionText, junctions, ladderEnd, playbackConfig, plural,
@@ -624,9 +625,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (escape) toStart(); else toggle();
   }, { signal });
 
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') { pauseHidden(); update(); }
-  }, { signal });
+  onPageVisibility(signal, () => { pauseHidden(); update(); });
 
   /* ---------- Запуск ---------- */
   setView(view, false);

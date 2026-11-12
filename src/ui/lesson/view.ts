@@ -9,7 +9,7 @@ import type { ExerciseSpec } from '../../exercises';
 import { getConcept, conceptBoard, parseConceptText, type ConceptBoard, type ConceptRole } from '../../practice/concepts';
 import { PLAN_TEMPLATES, moveStep, plannedMinutes, removeStep, type DayPlan, type PlanStepContent } from '../../practice/plan';
 import { bindPageTabs } from '../page-tabs';
-import { escapeHtml as e } from '../p13/escape';
+import { escapeHtml as e } from '../html';
 import { CONCEPT_LABELS, exercisePlan, materialLabel, STRUCTURE_LABELS } from './material';
 import { boardSvg, boardWindow, type BoardNote } from './mini-board';
 import {

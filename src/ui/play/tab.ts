@@ -4,7 +4,7 @@
  * (контур и полупрозрачная заливка по классам `play.css`), затемнение сыгранного.
  */
 import type { NotationEvent } from '../../notation';
-import { escapeHtml } from '../p13/escape';
+import { escapeHtml } from '../html';
 
 export type TabEvent = Pick<NotationEvent, 'index' | 'tab' | 'bar' | 'beatInBar' | 'durationBeats'>;
 

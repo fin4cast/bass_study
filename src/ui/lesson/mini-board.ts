@@ -3,7 +3,7 @@
  * Цвета задаются классами (`lesson.css`) на токенах `--board-*`, поэтому гриф одинаков в обеих темах.
  * Модуль не обращается к DOM; его можно объединить с доской экрана игры позже.
  */
-import { escapeHtml } from '../p13/escape';
+import { escapeHtml } from '../html';
 
 export type BoardNoteKind = 'root' | 'a' | 'b' | 'shared' | 'plain' | 'ghost' | 'target';
 export interface BoardNote {

@@ -1,5 +1,5 @@
 /** Keep native controls and the foreground dialog in charge of their own keys. */
-function allowsTransportShortcut(event: KeyboardEvent, surface: HTMLElement): boolean {
+export function allowsTransportShortcut(event: KeyboardEvent, surface: HTMLElement): boolean {
   const document = surface.ownerDocument;
   if (event.defaultPrevented || event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey
     || document.hidden || document.querySelector('dialog[open]') || surface.closest('[hidden], [inert]')

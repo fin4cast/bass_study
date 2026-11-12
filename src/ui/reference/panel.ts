@@ -4,7 +4,7 @@
  * и возвращает фокус к термину; Tab не выводит фокус из панели, остальная страница на время панели инертна.
  */
 import './reference.css';
-import { escapeHtml } from '../p13/escape';
+import { escapeHtml } from '../html';
 import { findConcepts, getConcept } from '../../practice/concepts';
 import { createCardController } from './card';
 import { SEARCH_ICON, levelInfo } from './model';

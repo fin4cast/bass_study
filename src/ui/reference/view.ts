@@ -3,7 +3,7 @@
  * «Освоено» отмечается самим пользователем и ничего не блокирует; состояние приходит из опций.
  */
 import './reference.css';
-import { escapeHtml } from '../p13/escape';
+import { escapeHtml } from '../html';
 import { REFERENCE_CONCEPTS, findConcepts, getConcept } from '../../practice/concepts';
 import { createCardController, type CardHandlers } from './card';
 import { SEARCH_ICON, levelGroups } from './model';

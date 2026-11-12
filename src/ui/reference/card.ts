@@ -3,7 +3,7 @@
  * Разметка строится строкой, события обрабатывает контроллер хоста. Верный ответ «Проверь себя»
  * хранится только в данных модуля и не попадает в DOM до выбора варианта.
  */
-import { escapeHtml } from '../p13/escape';
+import { escapeHtml } from '../html';
 import { B_H_NOTE, LABEL_KINDS, OCTAVE_TABLE, conceptBoard, getConcept, type ConceptCheck, type ConceptRole } from '../../practice/concepts';
 import type { ExerciseTemplateId } from '../../exercises';
 import {

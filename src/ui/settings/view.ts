@@ -5,7 +5,7 @@
  * данных честно отклоняются (D-042). Диагностика входа монтируется приложением в `inputMount`.
  */
 import './settings.css';
-import { escapeHtml } from '../p13/escape';
+import { escapeHtml } from '../html';
 import {
   BPM_MAX, BPM_MIN, BPM_STEP, LABEL_LABELS, SAVE_DETAIL, SAVE_TEXT, SECTIONS, THEME_LABELS, VIEW_LABELS,
   compareCounts, countLines, errorText, formatBytes, formatCopyDate, plural, rejectionText, saveKind, sectionSummaries, stepBpm, withDefaults,

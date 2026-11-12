@@ -3,7 +3,7 @@
  * Цвета задаются классами (`pg-m-*`, `pg-b-*`, `pg-g-*`) и токенами темы в progress.css.
  * Отметки различаются формой: «Чисто» — круг, «С ошибками» — ромб, «Не успевал» — крест.
  */
-import { escapeHtml } from '../p13/escape';
+import { escapeHtml } from '../html';
 import {
   MARK_LABELS, OUTCOME_LABELS, OUTCOME_ORDER, addDays, daysBetween, formatShortDate, weekdayOf,
   type Assessment, type CheckRow, type CheckTally, type PlayRow, type ProgressRow,
