@@ -1,10 +1,10 @@
 import {
-  MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError, previewImport, validateHistoryEntry, validatePreferences, validatePreset,
+  STUDY_SCHEMA_VERSION, StudyStorageError, validateHistoryEntry, validatePreferences, validatePreset,
   validateProfile, validatePracticeDraft, mergePracticeDraft, applyDraftDrain,
-  validateRhythmProjectId, validateStoredRhythmProject, readStoredSnapshot,
+  validateRhythmProjectId, readStoredSnapshot,
   type SkippedRecord, type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
 } from './model';
-import type { RhythmProject } from '../rhythm/model';
+import { backupJson, validateRecordId, withRecord, withRhythmChange, withoutRecord, type RecordKind } from './snapshot-ops';
 import { createImportPreparation, type PreparedStudyImport } from './prepared-import';
 import { createHistoryLinks, isRouteEntry, type HistoryCommit } from './history-links';
 import { validateRhythmLibraryChange, type RhythmLibraryChange, type RhythmLibraryCommit } from './rhythm-library';
@@ -76,13 +76,15 @@ export async function exportRawDatabase(name = STUDY_DB_NAME): Promise<string> {
   } finally { db.close(); }
 }
 
+/** Test fixtures observe each successful write here and may abort the transaction after it; the product passes nothing. */
+export interface StudyStoreOptions { readonly observeWrite?: (request: IDBRequest, transaction: IDBTransaction) => void }
+
 /** Native IndexedDB adapter. Each ordinary write only touches its own store. */
-export function createStudyStore() {
+export function createStudyStore(options: StudyStoreOptions = {}) {
   const imports = createImportPreparation();
   let database: IDBDatabase | null = null;
   let opening: Promise<IDBDatabase> | null = null;
   let queue: Promise<void> = Promise.resolve();
-  let lastTransaction = { successfulWrites: 0, aborted: false };
   let cachedSnapshot: StudySnapshot | null = null;
   let skippedRecords: readonly SkippedRecord[] = [];
   let historyLinks: ReturnType<typeof createHistoryLinks> | null = null;
@@ -92,10 +94,8 @@ export function createStudyStore() {
     historyLinks = snapshot ? createHistoryLinks(snapshot.history) : null;
   }
 
-  function rememberRecord(kind: 'presets' | 'history' | 'practiceDrafts', value: Preset | HistoryEntry | PracticeDraft) {
-    if (!cachedSnapshot || !database) return;
-    const records = [...cachedSnapshot[kind].filter(item => item.id !== value.id), value].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-    cachedSnapshot = Object.freeze({ ...cachedSnapshot, [kind]: Object.freeze(records) });
+  function rememberRecord(kind: RecordKind, value: Preset | HistoryEntry | PracticeDraft) {
+    if (cachedSnapshot && database) cachedSnapshot = withRecord(cachedSnapshot, kind, value);
   }
 
   function rememberHistory(commit: HistoryCommit) {
@@ -141,15 +141,24 @@ export function createStudyStore() {
     return result;
   }
 
-  function completion(transaction: IDBTransaction, writing = false, injected: () => boolean = () => false): Promise<void> {
+  function completion(transaction: IDBTransaction): Promise<void> {
     return new Promise((resolve, reject) => {
       transaction.oncomplete = () => resolve();
-      transaction.onabort = () => {
-        if (writing) lastTransaction.aborted = true;
-        reject(injected() ? new StudyStorageError('INJECTED_ABORT', 'Тестовая ошибка после успешной записи: вся транзакция отменена.') : storageError(transaction.error));
-      };
+      transaction.onabort = () => reject(storageError(transaction.error));
       transaction.onerror = () => { /* The transaction abort is the final failure. */ };
     });
+  }
+
+  /** Every write request goes through here so fixtures can observe it. */
+  function written<T extends IDBRequest>(request: T, transaction: IDBTransaction): T {
+    options.observeWrite?.(request, transaction);
+    return request;
+  }
+
+  async function rollback(transaction: IDBTransaction, done: Promise<void>, failure: unknown): Promise<never> {
+    try { transaction.abort(); } catch { /* Already finished by IndexedDB. */ }
+    await done.catch(() => {});
+    throw storageError(failure);
   }
 
   async function read(fresh = false): Promise<StudySnapshot> {
@@ -169,79 +178,64 @@ export function createStudyStore() {
   async function write(name: typeof STORES[number], value: unknown, key?: IDBValidKey): Promise<void> {
     const db = await getDatabase();
     const transaction = db.transaction(name, 'readwrite');
-    lastTransaction = { successfulWrites: 0, aborted: false };
-    const done = completion(transaction, true);
+    const done = completion(transaction);
     const store = transaction.objectStore(name);
-    const request = key === undefined ? store.put(value) : store.put(value, key);
-    request.addEventListener('success', () => { lastTransaction.successfulWrites++; });
+    written(key === undefined ? store.put(value) : store.put(value, key), transaction);
     await done;
   }
 
-  async function remove(name: 'presets' | 'history' | 'practiceDrafts', id: string): Promise<void> {
-    if (typeof id !== 'string' || !id.trim() || id.length > 160) throw new StudyStorageError('INVALID_DATA', 'Некорректный ID удаляемой записи.');
+  async function remove(name: RecordKind, id: string): Promise<void> {
+    validateRecordId(id);
     const db = await getDatabase();
     const transaction = db.transaction(name, 'readwrite');
-    lastTransaction = { successfulWrites: 0, aborted: false };
-    const done = completion(transaction, true);
-    transaction.objectStore(name).delete(id).addEventListener('success', () => { lastTransaction.successfulWrites++; });
+    const done = completion(transaction);
+    written(transaction.objectStore(name).delete(id), transaction);
     await done;
     if (database !== db) return;
     if (name === 'history') historyLinks?.remove(id);
-    if (cachedSnapshot) cachedSnapshot = Object.freeze({ ...cachedSnapshot, [name]: Object.freeze(cachedSnapshot[name].filter(item => item.id !== id)) });
+    if (cachedSnapshot) cachedSnapshot = withoutRecord(cachedSnapshot, name, id);
   }
 
   async function mutateRhythmProjects(change: RhythmLibraryChange): Promise<RhythmLibraryCommit> {
     const db = await getDatabase();
     const transaction = db.transaction(['preferences', 'rhythmProjects'], 'readwrite');
-    lastTransaction = { successfulWrites: 0, aborted: false };
-    const done = completion(transaction, true);
+    const done = completion(transaction);
     const preferences = transaction.objectStore('preferences');
     const projects = transaction.objectStore('rhythmProjects');
-    const observe = (request: IDBRequest) => request.addEventListener('success', () => { lastTransaction.successfulWrites++; });
     let activeRhythmProjectId: string | null;
     try {
       switch (change.kind) {
         case 'save':
           activeRhythmProjectId = change.project.id;
-          observe(projects.put(change.project));
-          observe(preferences.put(activeRhythmProjectId, RHYTHM_SELECTION_KEY));
+          written(projects.put(change.project), transaction);
+          written(preferences.put(activeRhythmProjectId, RHYTHM_SELECTION_KEY), transaction);
           break;
         case 'select':
           activeRhythmProjectId = change.id;
-          if (change.id === null) observe(preferences.delete(RHYTHM_SELECTION_KEY));
+          if (change.id === null) written(preferences.delete(RHYTHM_SELECTION_KEY), transaction);
           else {
             if (await requestValue(projects.getKey(change.id)) === undefined) throw new StudyStorageError('MISSING_RHYTHM_PROJECT', 'Проект ритма отсутствует.');
-            observe(preferences.put(change.id, RHYTHM_SELECTION_KEY));
+            written(preferences.put(change.id, RHYTHM_SELECTION_KEY), transaction);
           }
           break;
         case 'delete': {
           const selection = await requestValue<unknown>(preferences.get(RHYTHM_SELECTION_KEY));
           activeRhythmProjectId = selection == null ? null : validateRhythmProjectId(selection);
-          observe(projects.delete(change.id));
+          written(projects.delete(change.id), transaction);
           if (change.id === activeRhythmProjectId) {
-            observe(preferences.delete(RHYTHM_SELECTION_KEY));
+            written(preferences.delete(RHYTHM_SELECTION_KEY), transaction);
             activeRhythmProjectId = null;
           }
           break;
         }
       }
       await done;
-    } catch (failure) {
-      try { transaction.abort(); } catch { /* Already closed by IndexedDB. */ }
-      await done.catch(() => {});
-      throw storageError(failure);
-    }
+    } catch (failure) { return rollback(transaction, done, failure); }
     const receipt = Object.freeze({ change, activeId: activeRhythmProjectId });
     if (!cachedSnapshot || database !== db) return receipt;
-    let rhythmProjects = cachedSnapshot.rhythmProjects;
-    if (change.kind === 'delete') rhythmProjects = Object.freeze(rhythmProjects.filter(project => project.id !== change.id));
-    if (change.kind === 'save') {
-      rhythmProjects = Object.freeze([...rhythmProjects.filter(project => project.id !== change.project.id), change.project].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-    }
-    if (activeRhythmProjectId !== null && !rhythmProjects.some(project => project.id === activeRhythmProjectId)) {
-      installSnapshot(null);
-      return receipt;
-    }
+    // The database decides the selection; the shared rule only updates the project list.
+    const rhythmProjects = change.kind === 'select' ? cachedSnapshot.rhythmProjects : withRhythmChange(cachedSnapshot, change).snapshot.rhythmProjects;
+    if (activeRhythmProjectId !== null && !rhythmProjects.some(project => project.id === activeRhythmProjectId)) { installSnapshot(null); return receipt; }
     cachedSnapshot = Object.freeze({ ...cachedSnapshot, rhythmProjects, activeRhythmProjectId });
     return receipt;
   }
@@ -251,90 +245,73 @@ export function createStudyStore() {
     const db = await getDatabase();
     const commit = historyLinks?.plan(entry) ?? { entry };
     const transaction = db.transaction('history', 'readwrite');
-    lastTransaction = { successfulWrites: 0, aborted: false };
-    const done = completion(transaction, true);
+    const done = completion(transaction);
     try {
       const history = transaction.objectStore('history');
-      history.put(commit.entry).addEventListener('success', () => { lastTransaction.successfulWrites++; });
-      if (commit.linkedRoute) history.put(commit.linkedRoute).addEventListener('success', () => { lastTransaction.successfulWrites++; });
+      written(history.put(commit.entry), transaction);
+      if (commit.linkedRoute) written(history.put(commit.linkedRoute), transaction);
       await done;
-      if (database === db) rememberHistory(commit);
-      return commit;
-    } catch (failure) { try { transaction.abort(); } catch { /* already completed */ } await done.catch(() => {}); throw failure; }
+    } catch (failure) { return rollback(transaction, done, failure); }
+    if (database === db) rememberHistory(commit);
+    return commit;
   }
 
   async function mutateDraft(id: string, update: (current: PracticeDraft | undefined) => PracticeDraft): Promise<PracticeDraft> {
     const db = await getDatabase();
     const transaction = db.transaction('practiceDrafts', 'readwrite');
-    lastTransaction = { successfulWrites: 0, aborted: false };
-    const done = completion(transaction, true);
+    const done = completion(transaction);
+    let draft: PracticeDraft;
     try {
       const store = transaction.objectStore('practiceDrafts');
       const raw = await requestValue<unknown>(store.get(id));
-      const draft = update(raw === undefined ? undefined : validatePracticeDraft(raw));
-      store.put(draft).addEventListener('success', () => { lastTransaction.successfulWrites++; });
+      draft = update(raw === undefined ? undefined : validatePracticeDraft(raw));
+      written(store.put(draft), transaction);
       await done;
-      if (database === db) rememberRecord('practiceDrafts', draft);
-      return draft;
-    } catch (failure) { try { transaction.abort(); } catch { /* already completed */ } await done.catch(() => {}); throw failure; }
+    } catch (failure) { return rollback(transaction, done, failure); }
+    if (database === db) rememberRecord('practiceDrafts', draft);
+    return draft;
   }
 
   async function drainDraft(request: DrainDraftRequest) {
     if (!historyLinks) await read();
     const db = await getDatabase();
     const transaction = db.transaction(['history', 'practiceDrafts'], 'readwrite');
-    lastTransaction = { successfulWrites: 0, aborted: false };
-    let injectedAbort = false;
-    const done = completion(transaction, true, () => injectedAbort);
+    const done = completion(transaction);
     try {
       const history = transaction.objectStore('history'), drafts = transaction.objectStore('practiceDrafts');
       const [rawDraft, existing] = await Promise.all([requestValue<unknown>(drafts.get(request.draftId)), requestValue<HistoryEntry | undefined>(history.get(request.historyId))]);
       if (!rawDraft) throw new StudyStorageError('MISSING_DRAFT', 'Черновик уже удалён или отсутствует.');
       const result = applyDraftDrain(validatePracticeDraft(rawDraft), request, existing);
       const commit = historyLinks?.plan(result.entry) ?? { entry: result.entry };
-      const writes = existing ? [] : [history.add(result.entry), drafts.put(result.draft)];
-      if (commit.linkedRoute) writes.push(history.put(commit.linkedRoute));
-      for (const write of writes) write.addEventListener('success', () => {
-        lastTransaction.successfulWrites++;
-        if (lastTransaction.successfulWrites === request.failAfterWrite) { injectedAbort = true; transaction.abort(); }
-      });
+      if (!existing) { written(history.add(result.entry), transaction); written(drafts.put(result.draft), transaction); }
+      if (commit.linkedRoute) written(history.put(commit.linkedRoute), transaction);
       await done;
       if (database === db) { rememberHistory(commit); rememberRecord('practiceDrafts', result.draft); }
       return { ...result, ...commit };
-    } catch (failure) { try { transaction.abort(); } catch { /* already completed */ } await done.catch(() => {}); throw failure; }
+    } catch (failure) { return rollback(transaction, done, failure); }
   }
 
-  function restorePrepared(candidate: PreparedStudyImport, options: { failAfterWrite?: number } = {}) {
-    const failAfterWrite = options.failAfterWrite;
+  function restorePrepared(candidate: PreparedStudyImport) {
     return enqueue(async () => {
       const snapshot = imports.snapshot(candidate);
-      const totalWrites = 2 + snapshot.presets.length + snapshot.history.length + snapshot.practiceDrafts.length + snapshot.rhythmProjects.length + Number(snapshot.activeRhythmProjectId !== null);
-      if (failAfterWrite !== undefined && (!Number.isInteger(failAfterWrite) || failAfterWrite < 1 || failAfterWrite > totalWrites)) {
-        throw new StudyStorageError('INVALID_DATA', 'Некорректная точка тестового отказа транзакции.');
-      }
       const db = await getDatabase();
       const transaction = db.transaction([...STORES], 'readwrite');
-      lastTransaction = { successfulWrites: 0, aborted: false };
-      let injectedAbort = false;
-      const done = completion(transaction, true, () => injectedAbort);
+      const done = completion(transaction);
       try {
         STORES.forEach(name => transaction.objectStore(name).clear());
-        const writes: IDBRequest[] = [transaction.objectStore('preferences').put(snapshot.preferences, 'current'), transaction.objectStore('profile').put(snapshot.profile, 'current')];
-        snapshot.presets.forEach(preset => writes.push(transaction.objectStore('presets').put(preset)));
-        snapshot.history.forEach(entry => writes.push(transaction.objectStore('history').put(entry)));
-        snapshot.practiceDrafts.forEach(draft => writes.push(transaction.objectStore('practiceDrafts').put(draft)));
-        snapshot.rhythmProjects.forEach(project => writes.push(transaction.objectStore('rhythmProjects').put(project)));
-        if (snapshot.activeRhythmProjectId !== null) writes.push(transaction.objectStore('preferences').put(snapshot.activeRhythmProjectId, RHYTHM_SELECTION_KEY));
-        writes.forEach(request => request.addEventListener('success', () => {
-          lastTransaction.successfulWrites++;
-          if (lastTransaction.successfulWrites === failAfterWrite) { injectedAbort = true; transaction.abort(); }
-        }));
+        const put = (name: typeof STORES[number], value: unknown, key?: IDBValidKey) => {
+          const store = transaction.objectStore(name);
+          written(key === undefined ? store.put(value) : store.put(value, key), transaction);
+        };
+        put('preferences', snapshot.preferences, 'current');
+        put('profile', snapshot.profile, 'current');
+        snapshot.presets.forEach(preset => put('presets', preset));
+        snapshot.history.forEach(entry => put('history', entry));
+        snapshot.practiceDrafts.forEach(draft => put('practiceDrafts', draft));
+        snapshot.rhythmProjects.forEach(project => put('rhythmProjects', project));
+        if (snapshot.activeRhythmProjectId !== null) put('preferences', snapshot.activeRhythmProjectId, RHYTHM_SELECTION_KEY);
         await done;
-      } catch (failure) {
-        try { transaction.abort(); } catch { /* already completed */ }
-        await done.catch(() => {});
-        throw failure;
-      }
+      } catch (failure) { return rollback(transaction, done, failure); }
       if (database === db) { installSnapshot(snapshot); skippedRecords = []; }
       imports.consume(candidate);
       return { status: 'restored' as const, presets: snapshot.presets.length, history: snapshot.history.length, snapshot };
@@ -349,8 +326,6 @@ export function createStudyStore() {
     skippedRecords: () => skippedRecords,
     async saveProfile(profile: GlobalProfile) { const validated = validateProfile(profile); return enqueue(async () => { await write('profile', validated, 'current'); if (cachedSnapshot && database) cachedSnapshot = Object.freeze({ ...cachedSnapshot, profile: validated }); }); },
     async upsertPracticeDraft(draft: PracticeDraft) { const validated = validatePracticeDraft(draft); return enqueue(() => mutateDraft(validated.id, current => mergePracticeDraft(current, validated))); },
-    updateDraftProgress: (id: string, totalReferenceMs: number, suggestedBpm: number, updatedAt: string) => enqueue(() => mutateDraft(id, current => { if (!current) throw new StudyStorageError('MISSING_DRAFT', 'Черновик отсутствует.'); return validatePracticeDraft({ ...current, totalReferenceMs: Math.max(current.totalReferenceMs, totalReferenceMs), suggestedBpm, updatedAt }); })),
-    updateDraftText: (id: string, change: Pick<PracticeDraft, 'editRevision' | 'note' | 'comfortableBpm' | 'updatedAt'>) => enqueue(() => mutateDraft(id, current => { if (!current) throw new StudyStorageError('MISSING_DRAFT', 'Черновик отсутствует.'); return change.editRevision > current.editRevision ? validatePracticeDraft({ ...current, ...change }) : current; })),
     deletePracticeDraft: (id: string) => enqueue(() => remove('practiceDrafts', id)),
     drainDraft: (request: DrainDraftRequest) => enqueue(() => drainDraft(request)),
     async savePreferences(preferences: AppPreferences) {
@@ -365,33 +340,9 @@ export function createStudyStore() {
     async addHistory(entry: HistoryEntry) { const validated = validateHistoryEntry(entry); return enqueue(() => addHistory(validated)); },
     deleteHistory: (id: string) => enqueue(() => remove('history', id)),
     async changeRhythmLibrary(change: RhythmLibraryChange) { const validated = validateRhythmLibraryChange(change); return enqueue(() => mutateRhythmProjects(validated)); },
-    async saveRhythmProject(project: RhythmProject) {
-      const validated = validateStoredRhythmProject(project);
-      return enqueue(async () => { await mutateRhythmProjects({ kind: 'save', project: validated }); return validated; });
-    },
-    async selectRhythmProject(id: string | null) {
-      const validated = id === null ? null : validateRhythmProjectId(id);
-      await enqueue(() => mutateRhythmProjects({ kind: 'select', id: validated }));
-    },
-    async deleteRhythmProject(id: string) {
-      const validated = validateRhythmProjectId(id);
-      await enqueue(() => mutateRhythmProjects({ kind: 'delete', id: validated }));
-    },
-    exportBackup: () => enqueue(async () => {
-      const json = JSON.stringify(await read());
-      if (new TextEncoder().encode(json).byteLength > MAX_BACKUP_BYTES) throw new StudyStorageError('BACKUP_TOO_LARGE', 'Копия превышает предел 64 МиБ. Данные в базе сохранены; для такого объёма нужен расширенный формат архива.');
-      return json;
-    }),
-    previewImport,
+    exportBackup: () => enqueue(async () => backupJson(await read(), 'Копия превышает предел 64 МиБ. Данные в базе сохранены; для такого объёма нужен расширенный формат архива.')),
     prepareImport: imports.prepare,
     restorePrepared,
-    async restore(json: string, options: { confirmed: boolean; failAfterWrite?: number }) {
-      const candidate = imports.prepare(json);
-      if (!options?.confirmed) return { status: 'cancelled' as const };
-      const { status, presets, history } = await restorePrepared(candidate, options);
-      return { status, presets, history };
-    },
     close: () => enqueue(async () => { imports.clear(); database?.close(); database = null; installSnapshot(null); }),
-    getLastTransaction() { return { ...lastTransaction }; },
   };
 }

@@ -5,7 +5,7 @@
 <body>
   <h1>Изолированная проверка IndexedDB</h1>
   <script type="module">
-    import { createStudyStore, DEFAULT_PREFERENCES, emptySnapshot, makeManualHistory, makeRouteHistory, makeScreenHistory, validateSnapshot } from '/src/storage/index.ts';
+    import { createStudyStore, DEFAULT_PREFERENCES, emptySnapshot, makeManualHistory, makeRouteHistory, makeScreenHistory, previewImport, validateSnapshot } from '/src/storage/index.ts';
     import { annotatePositions, createStructure, getPosition } from '/src/music/index.ts';
     import { createManualPracticeResult, nextQuestion, startQuiz, submitAnswer } from '/src/training/index.ts';
     import { advanceRouteSession, createRouteMaterial, startRouteSession } from '/src/route/index.ts';
@@ -43,7 +43,35 @@
         material: { kind: 'sequence', pattern: 'ascending', routePositionIds: area.positionIds, duration: 'quarter', fragment: { from: 0, toExclusive: 4 }, box: null }, routeRef: null,
         totalReferenceMs: 1200, recordedThroughMs: 0, suggestedBpm: 60, comfortableBpm: 64, note: 'Нативный черновик', editRevision: 1 };
     }
-    const store = createStudyStore();
+    // Fixture-only fault injection through the store's write observer: counts successful
+    // write requests of the latest observed transaction and may abort it after the N-th one.
+    const faults = (() => {
+      let abortAfter = null, last = { successfulWrites: 0, aborted: false }, current = null;
+      const states = new WeakMap(), connections = new WeakSet();
+      return {
+        observeWrite(request, transaction) {
+          if (transaction !== current) {
+            current = transaction; last = { successfulWrites: 0, aborted: false }; states.set(transaction, last);
+            // The store sets transaction.onabort before its first write, and target listeners run in
+            // registration order. The abort event bubbles to the connection, so a capture listener there
+            // marks the abort before the store rejects and the test reads last().
+            if (!connections.has(transaction.db)) {
+              connections.add(transaction.db);
+              transaction.db.addEventListener('abort', event => { const state = states.get(event.target); if (state) state.aborted = true; }, { capture: true });
+            }
+          }
+          const observed = last;
+          request.addEventListener('success', () => {
+            observed.successfulWrites++;
+            if (abortAfter !== null && observed.successfulWrites === abortAfter) { abortAfter = null; transaction.abort(); }
+          });
+        },
+        arm(count) { if (!Number.isInteger(count) || count < 1) throw new Error('Fixture abort point must be a positive integer'); abortAfter = count; },
+        last: () => ({ ...last }),
+      };
+    })();
+    const createStore = () => createStudyStore({ observeWrite: faults.observeWrite });
+    const store = createStore();
     async function seed() {
       const snapshot = seedSnapshot();
       await store.savePreferences(snapshot.preferences); await store.saveProfile(snapshot.profile);
@@ -67,7 +95,7 @@
         await complete; return { version: db.version, preferences: preferences ?? null, presets, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId: activeRhythmProjectId ?? null };
       } finally { db.close(); }
     }
-    window.p5 = { store, seed, seedSnapshot, screen, manual, route, draft, emptySnapshot, readRaw, createStore: createStudyStore, defaults: DEFAULT_PREFERENCES, ready: true };
+    window.p5 = { store, faults, seed, seedSnapshot, screen, manual, route, draft, emptySnapshot, previewImport, readRaw, createStore, defaults: DEFAULT_PREFERENCES, ready: true };
   </script>
 </body>
 </html>

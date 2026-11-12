@@ -143,7 +143,7 @@ check('native-v11-cache-fresh-and-independent-raw-distinguish-external-commit-an
   await fixture(page, fixtureOrigin);
   const evidence = await page.evaluate(async ({ snapshot, bank }) => {
     const store = window.p5.store;
-    await store.restore(JSON.stringify({ ...snapshot, preferences: { ...snapshot.preferences, musicBank: bank } }), { confirmed: true });
+    await store.restorePrepared(store.prepareImport(JSON.stringify({ ...snapshot, preferences: { ...snapshot.preferences, musicBank: bank } })));
     const before = await store.readSnapshot();
     async function externalPreferences(preferences) {
       const db = await new Promise((resolve, reject) => { const request = indexedDB.open('bass-study'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
@@ -159,7 +159,7 @@ check('native-v11-cache-fresh-and-independent-raw-distinguish-external-commit-an
     // A damaged record is skipped and reported; the rest of the database stays readable.
     const invalidFresh = await store.readSnapshot({ fresh: true }), skipped = store.skippedRecords().map(record => record.store);
     const rawInvalid = await window.p5.readRaw();
-    await store.restore(JSON.stringify(before), { confirmed: true }); const recovered = await store.readSnapshot({ fresh: true });
+    await store.restorePrepared(store.prepareImport(JSON.stringify(before))); const recovered = await store.readSnapshot({ fresh: true });
     return { before, cached, sameCachedReference: before === cached, cachedFrozen: Object.isFrozen(cached.preferences.musicBank.tracks[0]), rawExternal, fresh,
       knownBeforeInvalidFresh, sameKnownReference: fresh === knownBeforeInvalidFresh, invalidFresh, skipped, rawInvalid, recovered, skippedAfterRestore: store.skippedRecords().length };
   }, { snapshot: current, bank: metadataBank });
@@ -175,11 +175,13 @@ check('native-v11-cache-fresh-and-independent-raw-distinguish-external-commit-an
 check('native-v11-invalid-copy-preview-cancel-and-abort-after-successful-put-preserve-confirmed-snapshot', async ({ fixtureOrigin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
   await fixture(page, fixtureOrigin);
   const evidence = await page.evaluate(async ({ snapshot, bank }) => {
-    const store = window.p5.store; await store.restore(JSON.stringify(snapshot), { confirmed: true });
+    const { store, faults } = window.p5; await store.restorePrepared(store.prepareImport(JSON.stringify(snapshot)));
     const before = await store.readSnapshot(), rawBefore = await window.p5.readRaw();
     const candidate = { ...snapshot, preferences: { ...snapshot.preferences, musicBank: bank }, profile: { ...snapshot.profile, theme: 'light' } };
-    const preview = store.previewImport(JSON.stringify(candidate));
-    const afterPreview = await store.readSnapshot(); const cancellation = await store.restore(JSON.stringify(candidate), { confirmed: false });
+    const preview = window.p5.previewImport(JSON.stringify(candidate));
+    // Cancel = the copy is prepared for confirmation and never committed.
+    const afterPreview = await store.readSnapshot(); const prepared = store.prepareImport(JSON.stringify(candidate));
+    const cancellation = { requiresConfirmation: prepared.requiresConfirmation, theme: prepared.snapshot.profile.theme };
     const afterCancel = await store.readSnapshot();
     const badCopies = [];
     const duplicate = structuredClone(candidate); duplicate.preferences.musicBank.tracks[1].index = 0; badCopies.push(duplicate);
@@ -187,26 +189,27 @@ check('native-v11-invalid-copy-preview-cancel-and-abort-after-successful-put-pre
     const badPreset = structuredClone(candidate); badPreset.presets[0].preferences.musicBank = { ...bank, fileHandle: {} }; badCopies.push(badPreset);
     const failures = [];
     for (const bad of badCopies) {
-      try { await store.restore(JSON.stringify(bad), { confirmed: true }); failures.push(null); }
+      try { await store.restorePrepared(store.prepareImport(JSON.stringify(bad))); failures.push(null); }
       catch (error) { failures.push({ code: error.code, message: error.message }); }
     }
     const afterInvalid = await store.readSnapshot(), rawAfterInvalid = await window.p5.readRaw();
     let abortFailure;
-    try { await store.restore(JSON.stringify(candidate), { confirmed: true, failAfterWrite: 1 }); }
+    faults.arm(1);
+    try { await store.restorePrepared(store.prepareImport(JSON.stringify(candidate))); }
     catch (error) { abortFailure = { code: error.code, message: error.message }; }
-    const transaction = store.getLastTransaction(), cached = await store.readSnapshot(), rawAfterAbort = await window.p5.readRaw();
+    const transaction = faults.last(), cached = await store.readSnapshot(), rawAfterAbort = await window.p5.readRaw();
     const exportedAfterAbort = JSON.parse(await store.exportBackup()), freshAfterAbort = await store.readSnapshot({ fresh: true });
-    await store.restore(JSON.stringify(candidate), { confirmed: true });
+    await store.restorePrepared(store.prepareImport(JSON.stringify(candidate)));
     const recovered = await store.readSnapshot({ fresh: true });
     return { before, rawBefore, preview: { requiresConfirmation: preview.requiresConfirmation, profile: preview.snapshot.profile }, afterPreview, afterCancel,
       unchangedAfterPreview: before === afterPreview, unchangedAfterCancel: before === afterCancel, cancellation, failures, afterInvalid, rawAfterInvalid,
       abortFailure, transaction, unchangedCachedAfterAbort: before === cached, cached, rawAfterAbort, exportedAfterAbort, freshAfterAbort, recovered };
   }, { snapshot: current, bank: metadataBank });
   assert.equal(evidence.preview.requiresConfirmation, true); assert.equal(evidence.preview.profile.theme, 'light'); assert.equal(evidence.before.profile.theme, 'dark');
-  assert.equal(evidence.unchangedAfterPreview, true); assert.equal(evidence.unchangedAfterCancel, true); assert.equal(evidence.cancellation.status, 'cancelled');
+  assert.equal(evidence.unchangedAfterPreview, true); assert.equal(evidence.unchangedAfterCancel, true); assert.deepEqual(evidence.cancellation, { requiresConfirmation: true, theme: 'light' });
   assert.ok(evidence.failures.every(failure => failure?.code === 'INVALID_DATA'));
   assert.deepEqual(evidence.afterInvalid, evidence.before); assert.deepEqual(evidence.rawAfterInvalid, evidence.rawBefore);
-  assert.equal(evidence.abortFailure?.code, 'INJECTED_ABORT'); assert.deepEqual(evidence.transaction, { successfulWrites: 1, aborted: true });
+  assert.equal(evidence.abortFailure?.code, 'STORAGE_FAILURE'); assert.deepEqual(evidence.transaction, { successfulWrites: 1, aborted: true });
   assert.equal(evidence.unchangedCachedAfterAbort, true); assert.deepEqual(evidence.rawAfterAbort, evidence.rawBefore);
   assert.deepEqual(evidence.exportedAfterAbort, evidence.before); assert.deepEqual(evidence.freshAfterAbort, evidence.before);
   assert.equal(evidence.recovered.profile.theme, 'light'); assert.deepEqual(evidence.recovered.preferences.musicBank, metadataBank);

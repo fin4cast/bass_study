@@ -8,7 +8,7 @@ import { annotatePositions, createStructure, getPosition } from '../src/music';
 import { createManualPracticeResult, nextQuestion, revealAnswer, skipQuestion, startQuiz, submitAnswer, type QuizMode } from '../src/training';
 import {
   DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError, emptySnapshot, getHistorySummary, getReviewPositionIds, makeEarHistory, makeRouteHistory, makeManualHistory, makeScreenHistory,
-  originalLocalDate, parseBackup, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
+  originalLocalDate, parseBackup, previewImport, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
   type HistoryEntry, type ScreenHistoryEntry,
 } from '../src/storage/model';
 
@@ -256,8 +256,8 @@ describe('явное временное хранилище', () => {
     await store.addHistory(completed());
     const before = await store.readSnapshot();
     await expect(store.savePreferences({ ...before.preferences, player: { ...before.preferences.player, bpm: -1 } })).rejects.toMatchObject({ code: 'INVALID_DATA' });
-    await expect(store.restore('{broken', { confirmed: true })).rejects.toMatchObject({ code: 'INVALID_BACKUP' });
-    await store.restore(JSON.stringify(emptySnapshot()), { confirmed: false });
+    await expect(Promise.resolve().then(() => store.restorePrepared(store.prepareImport('{broken')))).rejects.toMatchObject({ code: 'INVALID_BACKUP' });
+    store.prepareImport(JSON.stringify(emptySnapshot())); // предпросмотр без подтверждения
     expect(await store.readSnapshot()).toBe(before);
     const firstEntry = before.history[0];
     await store.addHistory(manual());
@@ -285,12 +285,12 @@ describe('явное временное хранилище', () => {
     const backup = await store.exportBackup();
     expect(parseBackup(backup).history[0]?.result.kind).toBe('manual');
     const empty = JSON.stringify(emptySnapshot());
-    expect(store.previewImport(empty)).toMatchObject({ history: 0, presets: 0, replacement: 'full', requiresConfirmation: true });
-    expect(await store.restore(empty, { confirmed: false })).toEqual({ status: 'cancelled' });
+    expect(previewImport(empty)).toMatchObject({ history: 0, presets: 0, replacement: 'full', requiresConfirmation: true });
+    store.prepareImport(empty); // предпросмотр без подтверждения ничего не меняет
     expect((await store.readSnapshot()).history).toHaveLength(1);
-    expect(await store.restore(empty, { confirmed: true })).toEqual({ status: 'restored', history: 0, presets: 0 });
+    expect(await store.restorePrepared(store.prepareImport(empty))).toMatchObject({ status: 'restored', history: 0, presets: 0 });
     expect((await store.readSnapshot()).history).toHaveLength(0);
-    await store.restore(backup, { confirmed: true });
+    await store.restorePrepared(store.prepareImport(backup));
     await store.close();
     await store.open();
     expect((await store.readSnapshot()).history).toHaveLength(1);
@@ -300,9 +300,8 @@ describe('явное временное хранилище', () => {
   it('отказ не подменяется успехом, последующие операции продолжаются', async () => {
     const store = createMemoryStudyStore();
     await store.addHistory(manual());
-    await expect(store.restore(JSON.stringify(emptySnapshot()), { confirmed: true, failAfterWrite: 1 })).rejects.toMatchObject({ code: 'UNSUPPORTED_OPERATION' });
     await expect(store.deleteHistory('')).rejects.toMatchObject({ code: 'INVALID_DATA' });
-    await expect(store.restore('{broken', { confirmed: true })).rejects.toMatchObject({ code: 'INVALID_BACKUP' });
+    await expect(Promise.resolve().then(() => store.restorePrepared(store.prepareImport('{broken')))).rejects.toMatchObject({ code: 'INVALID_BACKUP' });
     expect((await store.readSnapshot()).history).toHaveLength(1);
     await store.deleteHistory('synthetic-manual');
     expect((await store.readSnapshot()).history).toHaveLength(0);

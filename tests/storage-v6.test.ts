@@ -36,7 +36,7 @@ describe('schema6: truthful material, global profile and durable drafts', () => 
     const store = createMemoryStudyStore(); await store.saveProfile({ theme: 'dark', onboarding: { version: 1, choice: 'free', completed: false } });
     await store.upsertPracticeDraft(draft());
     const snapshot = await store.readSnapshot(); expect(snapshot.profile.theme).toBe('dark'); expect(snapshot.preferences).not.toHaveProperty('theme');
-    const fresh = createMemoryStudyStore(); await fresh.restore(await store.exportBackup(), { confirmed: true }); expect(await fresh.readSnapshot()).toEqual(snapshot);
+    const fresh = createMemoryStudyStore(); await fresh.restorePrepared(fresh.prepareImport(await store.exportBackup())); expect(await fresh.readSnapshot()).toEqual(snapshot);
     expect(Object.isFrozen(snapshot.practiceDrafts[0].material)).toBe(true);
     for (const change of [{ ...DEFAULT_PROFILE, surprise: 1 }, { ...DEFAULT_PROFILE, theme: 'auto' }, { ...DEFAULT_PROFILE, onboarding: { version: 1, choice: null, completed: true } }]) expect(() => validateProfile(change)).toThrow();
   });
@@ -46,7 +46,7 @@ describe('schema6: truthful material, global profile and durable drafts', () => 
     const saved = await store.drainDraft(request()); expect(saved.entry.result.durationMs).toBe(1000); expect(saved.entry.result.material.kind).toBe('sequence');
     expect(saved.entry.localDate).toBe('2026-11-09'); expect(saved.draft.recordedThroughMs).toBe(1000); expect(saved.draft.note).toBe('');
     await store.upsertPracticeDraft({ ...original, totalReferenceMs: 1600 }); // stale editor snapshot after Save
-    await store.updateDraftText(original.id, { editRevision: 2, note: 'Новый остаток', comfortableBpm: 70, updatedAt: original.updatedAt });
+    await store.upsertPracticeDraft({ ...original, editRevision: 2, note: 'Новый остаток', comfortableBpm: 70 });
     await store.drainDraft(request()); const snapshot = await store.readSnapshot();
     expect(snapshot.history).toHaveLength(1); expect(snapshot.practiceDrafts[0]).toMatchObject({ totalReferenceMs: 1600, recordedThroughMs: 1000, editRevision: 2, note: 'Новый остаток' });
     await expect(store.drainDraft({ ...request(), historyId: 'duplicate-with-different-id' })).rejects.toMatchObject({ code: 'STALE_DRAFT' });
@@ -55,7 +55,7 @@ describe('schema6: truthful material, global profile and durable drafts', () => 
 
   it('does not clear newer text written while the Save snapshot was pending', async () => {
     const store = createMemoryStudyStore(); await store.upsertPracticeDraft(draft());
-    await store.updateDraftText('draft-one', { editRevision: 2, note: 'Новая заметка', comfortableBpm: 72, updatedAt: draft().updatedAt });
+    await store.upsertPracticeDraft({ ...draft(), editRevision: 2, note: 'Новая заметка', comfortableBpm: 72 });
     const saved = await store.drainDraft(request()); expect(saved.entry.result.note).toBe('Первая заметка'); expect(saved.draft.note).toBe('Новая заметка');
     const before = await store.readSnapshot(); await expect(store.drainDraft({ ...request(), note: 'Другой результат' })).rejects.toMatchObject({ code: 'SAVE_CONFLICT' }); expect(await store.readSnapshot()).toBe(before);
   });

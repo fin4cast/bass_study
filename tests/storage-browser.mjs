@@ -20,8 +20,9 @@ check('native-v6-draft-drain-aborts-after-real-history-put-and-retries-once', as
     const before = await store.readSnapshot();
     const input = { draftId: draft.id, historyId: 'native-drain', expectedRecordedThroughMs: 0, throughMs: 1200, editRevision: 1, comfortableBpm: 64, note: draft.note, occurredAt: draft.createdAt, timeZone: draft.timeZone };
     let failure;
-    try { await store.drainDraft({ ...input, failAfterWrite: 1 }); } catch (error) { failure = { code: error.code, message: error.message }; }
-    const transaction = store.getLastTransaction(), cached = await store.readSnapshot(), fresh = await store.readSnapshot({ fresh: true });
+    window.p5.faults.arm(1);
+    try { await store.drainDraft(input); } catch (error) { failure = { code: error.code, message: error.message }; }
+    const transaction = window.p5.faults.last(), cached = await store.readSnapshot(), fresh = await store.readSnapshot({ fresh: true });
     const rawDb = await new Promise((resolve, reject) => { const request = indexedDB.open('bass-study'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
     let raw;
     try {
@@ -33,13 +34,14 @@ check('native-v6-draft-drain-aborts-after-real-history-put-and-retries-once', as
     } finally { rawDb.close(); }
     await store.drainDraft(input);
     await store.upsertPracticeDraft({ ...draft, totalReferenceMs: 1800 });
-    await store.updateDraftText(draft.id, { editRevision: 2, note: 'Остаток', comfortableBpm: 70, updatedAt: draft.updatedAt });
+    const current = (await store.readSnapshot()).practiceDrafts.find(value => value.id === draft.id);
+    await store.upsertPracticeDraft({ ...current, editRevision: 2, note: 'Остаток', comfortableBpm: 70 });
     await store.drainDraft(input);
     const after = await store.readSnapshot(), afterFresh = await store.readSnapshot({ fresh: true });
-    const json = await store.exportBackup(); await store.restore(json, { confirmed: true });
+    const json = await store.exportBackup(); await store.restorePrepared(store.prepareImport(json));
     return { failure, transaction, before, unchangedCachedReference: before === cached, cached, fresh, raw, after, afterFresh, restored: await store.readSnapshot({ fresh: true }) };
   });
-  assert.equal(evidence.failure?.code, 'INJECTED_ABORT'); assert.deepEqual(evidence.transaction, { successfulWrites: 1, aborted: true });
+  assert.equal(evidence.failure?.code, 'STORAGE_FAILURE'); assert.deepEqual(evidence.transaction, { successfulWrites: 1, aborted: true });
   assert.equal(evidence.unchangedCachedReference, true); assert.deepEqual(evidence.cached, evidence.before); assert.deepEqual(evidence.fresh, evidence.before);
   assert.deepEqual(evidence.raw, { history: [], practiceDrafts: evidence.before.practiceDrafts, profile: evidence.before.profile });
   assert.equal(evidence.after.history.length, 1); assert.equal(evidence.after.history[0].result.durationMs, 1200);
@@ -69,7 +71,7 @@ check('native-route-link-rollback-retry-old-parent-and-delete', async ({ page })
         return request;
       };
       try { await store.addHistory(entry); return null; }
-      catch (error) { return { code: error.code, ...store.getLastTransaction() }; }
+      catch (error) { return { code: error.code, ...window.p5.faults.last() }; }
       finally { IDBObjectStore.prototype.put = put; }
     }
     const firstAbort = await abortAfterPut(first);
@@ -122,8 +124,9 @@ check('native-route-manual-drain-rolls-back-child-draft-and-parent', async ({ pa
     const input = { draftId: value.id, historyId: 'manual-drain-route', expectedRecordedThroughMs: 0, throughMs: value.totalReferenceMs, editRevision: value.editRevision,
       comfortableBpm: value.comfortableBpm, note: value.note, occurredAt: value.createdAt, timeZone: value.timeZone };
     let aborted;
-    try { await store.drainDraft({ ...input, failAfterWrite: 2 }); }
-    catch (error) { aborted = { code: error.code, ...store.getLastTransaction() }; }
+    window.p5.faults.arm(2);
+    try { await store.drainDraft(input); }
+    catch (error) { aborted = { code: error.code, ...window.p5.faults.last() }; }
     const unchanged = before === await store.readSnapshot();
     const rawAfterAbort = await readRaw();
     const put = IDBObjectStore.prototype.put;
@@ -137,7 +140,7 @@ check('native-route-manual-drain-rolls-back-child-draft-and-parent', async ({ pa
       return request;
     };
     try { await store.drainDraft(input); }
-    catch (error) { abortedAfterParent = { code: error.code, ...store.getLastTransaction() }; }
+    catch (error) { abortedAfterParent = { code: error.code, ...window.p5.faults.last() }; }
     finally { IDBObjectStore.prototype.put = put; }
     const unchangedAfterParent = before === await store.readSnapshot();
     const rawAfterParentAbort = await readRaw();
@@ -146,7 +149,7 @@ check('native-route-manual-drain-rolls-back-child-draft-and-parent', async ({ pa
     const repeated = await store.drainDraft(input);
     return { aborted, unchanged, before, rawAfterAbort, abortedAfterParent, unchangedAfterParent, rawAfterParentAbort, committed, repeated, after: await store.readSnapshot(), raw: await readRaw() };
   });
-  assert.deepEqual(evidence.aborted, { code: 'INJECTED_ABORT', successfulWrites: 2, aborted: true });
+  assert.deepEqual(evidence.aborted, { code: 'STORAGE_FAILURE', successfulWrites: 2, aborted: true });
   assert.equal(evidence.unchanged, true);
   assert.deepEqual(evidence.rawAfterAbort.history, evidence.before.history);
   assert.deepEqual(evidence.rawAfterAbort.practiceDrafts, evidence.before.practiceDrafts);
@@ -221,12 +224,12 @@ check('native-export-clean-context-restore-full-replacement', async ({ page, fre
   const clean = await freshPage(fixtureUrl);
   try {
     assert.deepEqual((await snapshot(clean.page)).history, []);
-    const preview = await clean.page.evaluate(json => window.p5.store.previewImport(json), json);
+    const preview = await clean.page.evaluate(json => window.p5.previewImport(json), json);
     assert.deepEqual({ presets: preview.presets, history: preview.history, replacement: preview.replacement, requiresConfirmation: preview.requiresConfirmation }, { presets: 2, history: 2, replacement: 'full', requiresConfirmation: true });
-    await clean.page.evaluate(json => window.p5.store.restore(json, { confirmed: true }), json);
+    await clean.page.evaluate(async json => { const { store } = window.p5; await store.restorePrepared(store.prepareImport(json)); }, json);
     assert.deepEqual(await snapshot(clean.page), expected);
     await clean.page.evaluate(() => window.p5.store.addHistory(window.p5.manual('remove-on-replacement')));
-    await clean.page.evaluate(json => window.p5.store.restore(json, { confirmed: true }), json);
+    await clean.page.evaluate(async json => { const { store } = window.p5; await store.restorePrepared(store.prepareImport(json)); }, json);
     assert.deepEqual(await snapshot(clean.page), expected);
     return { copiedBytes: Buffer.byteLength(json), cleanContextRestored: true, obsoleteRecordRemoved: true, preview };
   } finally { await closeContext(clean.context); }
@@ -250,16 +253,18 @@ check('native-cancel-and-validation-refusals-never-change-existing-data', async 
       ['manual-fake-accuracy', (() => { const value = clone(); value.history[0].result.accuracy = 100; return JSON.stringify(value); })(), 'INVALID_DATA'],
     ];
     const results = [];
-    const cancelled = await window.p5.store.restore(JSON.stringify(window.p5.emptySnapshot()), { confirmed: false });
+    // Cancel = the copy is prepared for preview and never committed.
+    const prepared = window.p5.store.prepareImport(JSON.stringify(window.p5.emptySnapshot()));
+    const cancelled = { requiresConfirmation: prepared.requiresConfirmation, replacement: prepared.replacement, presets: prepared.presets, history: prepared.history };
     results.push({ name: 'cancel', result: cancelled, unchanged: JSON.stringify(await window.p5.store.readSnapshot({ fresh: true })) === JSON.stringify(current) });
     for (const [name, json, expected] of mutations) {
       let failure = null;
-      try { await window.p5.store.restore(json, { confirmed: true }); } catch (error) { failure = { code: error.code, message: error.message }; }
+      try { await window.p5.store.restorePrepared(window.p5.store.prepareImport(json)); } catch (error) { failure = { code: error.code, message: error.message }; }
       results.push({ name, expected, failure, unchanged: JSON.stringify(await window.p5.store.readSnapshot({ fresh: true })) === JSON.stringify(current) });
     }
     return results;
   });
-  assert.deepEqual(results[0].result, { status: 'cancelled' });
+  assert.deepEqual(results[0].result, { requiresConfirmation: true, replacement: 'full', presets: 0, history: 0 });
   for (const result of results) { assert.equal(result.unchanged, true, result.name); if (result.expected) assert.equal(result.failure?.code, result.expected, result.name); }
   assert.deepEqual(await snapshot(page), before); return results;
 });
@@ -269,13 +274,14 @@ check('native-abort-after-successful-put-rolls-back-clears-and-all-stores', asyn
   const outcome = await page.evaluate(async () => {
     const cachedBefore = await window.p5.store.readSnapshot(); const rawBefore = await window.p5.readRaw();
     const replacement = window.p5.emptySnapshot(); let failure = null;
-    try { await window.p5.store.restore(JSON.stringify(replacement), { confirmed: true, failAfterWrite: 1 }); }
+    window.p5.faults.arm(1);
+    try { await window.p5.store.restorePrepared(window.p5.store.prepareImport(JSON.stringify(replacement))); }
     catch (error) { failure = { code: error.code, message: error.message }; }
-    const transaction = window.p5.store.getLastTransaction();
+    const transaction = window.p5.faults.last();
     const cachedAfter = await window.p5.store.readSnapshot(); const freshAfter = await window.p5.store.readSnapshot({ fresh: true });
     return { failure, transaction, cacheReferenceUnchanged: cachedAfter === cachedBefore, after: cachedAfter, freshAfter, rawBefore, rawAfter: await window.p5.readRaw() };
   });
-  assert.equal(outcome.failure?.code, 'INJECTED_ABORT'); assert.deepEqual(outcome.transaction, { successfulWrites: 1, aborted: true });
+  assert.equal(outcome.failure?.code, 'STORAGE_FAILURE'); assert.deepEqual(outcome.transaction, { successfulWrites: 1, aborted: true });
   assert.equal(outcome.cacheReferenceUnchanged, true); assert.deepEqual(outcome.after, before); assert.deepEqual(outcome.freshAfter, before); assert.deepEqual(outcome.rawAfter, outcome.rawBefore);
   await page.reload(); await page.waitForFunction(() => window.p5?.ready); assert.deepEqual(await snapshot(page), before);
   return outcome;
@@ -285,7 +291,7 @@ check('native-prepared-copy-is-parsed-once-and-retries-the-same-candidate-after-
   await seed(page);
   const literal = await readFile(new URL('./fixtures/backup.json', import.meta.url), 'utf8');
   const evidence = await page.evaluate(async json => {
-    const { store, readRaw, createStore } = window.p5;
+    const { store, readRaw, createStore, faults } = window.p5;
     const before = await store.readSnapshot(), rawBefore = await readRaw();
     const parse = JSON.parse;
     let parses = 0;
@@ -295,8 +301,9 @@ check('native-prepared-copy-is-parsed-once-and-retries-the-same-candidate-after-
       const rawAfterPreview = await readRaw();
       let foreign, failure, consumed;
       try { await createStore().restorePrepared(candidate); } catch (error) { foreign = error.code; }
-      try { await store.restorePrepared(candidate, { failAfterWrite: 2 }); } catch (error) { failure = error.code; }
-      const transaction = store.getLastTransaction();
+      faults.arm(2);
+      try { await store.restorePrepared(candidate); } catch (error) { failure = error.code; }
+      const transaction = faults.last();
       const afterAbort = await store.readSnapshot(), rawAfterAbort = await readRaw();
       const restored = await store.restorePrepared(candidate);
       const publishedCandidate = restored.snapshot === candidate.snapshot && await store.readSnapshot() === restored.snapshot;
@@ -309,7 +316,7 @@ check('native-prepared-copy-is-parsed-once-and-retries-the-same-candidate-after-
   }, literal);
   assert.equal(evidence.parses, 1);
   assert.equal(evidence.foreign, 'INVALID_BACKUP'); assert.equal(evidence.consumed, 'INVALID_BACKUP');
-  assert.equal(evidence.failure, 'INJECTED_ABORT'); assert.deepEqual(evidence.transaction, { successfulWrites: 2, aborted: true });
+  assert.equal(evidence.failure, 'STORAGE_FAILURE'); assert.deepEqual(evidence.transaction, { successfulWrites: 2, aborted: true });
   assert.equal(evidence.cachedUnchanged, true); assert.equal(evidence.publishedCandidate, true);
   assert.deepEqual(evidence.rawAfterPreview, evidence.rawBefore); assert.deepEqual(evidence.rawAfterAbort, evidence.rawBefore);
   assert.deepEqual(evidence.reopened, JSON.parse(literal));
@@ -362,7 +369,7 @@ check('native-project-save-abort-rolls-back-project-and-selection-after-both-put
     const date = '2026-11-08T22:30:00.000Z';
     const previous = createDefaultRhythmProject('previous-rhythm', 'Прежний ритм', date);
     const candidate = createDefaultRhythmProject('candidate-rhythm', 'Новый ритм', date);
-    await store.saveRhythmProject(previous);
+    await store.changeRhythmLibrary({ kind: 'save', project: previous });
     const before = await store.readSnapshot(), rawBefore = await window.p5.readRaw();
     const observation = { projectPut: 0, selectionPut: 0, aborted: false };
     const prototype = IDBObjectStore.prototype, originalPut = prototype.put;
@@ -386,7 +393,7 @@ check('native-project-save-abort-rolls-back-project-and-selection-after-both-put
     try { await store.changeRhythmLibrary(change); }
     catch (error) { failure = { code: error.code, message: error.message }; }
     finally { prototype.put = originalPut; }
-    const transaction = store.getLastTransaction();
+    const transaction = window.p5.faults.last();
     const cached = await store.readSnapshot(), rawAfter = await window.p5.readRaw(), fresh = await store.readSnapshot({ fresh: true });
     const receipt = await store.changeRhythmLibrary(change);
     const retried = await store.readSnapshot(), rawRetried = await window.p5.readRaw(), freshRetried = await store.readSnapshot({ fresh: true });
@@ -424,7 +431,7 @@ check('native-real-browser-quota-refusal-preserves-last-confirmed-commit-and-rec
         const entry = window.p5.manual('quota-native-' + index, note());
         try { await store.addHistory(entry); }
         catch (error) {
-          const transaction = store.getLastTransaction(); const after = await store.readSnapshot();
+          const transaction = window.p5.faults.last(); const after = await store.readSnapshot();
           return { failure: { code: error.code, message: error.message }, failedEntry: entry, attempts: index + 1, boundedAt: 64, interAttemptDelayMs: 550, elapsedMs: Math.round(performance.now() - startedAt), priorCommittedIds,
             baseline, rawBaseline, transaction, cacheReferenceUnchanged: after === baseline, after,
             freshAfter: await store.readSnapshot({ fresh: true }), rawAfter: await window.p5.readRaw() };
@@ -437,7 +444,7 @@ check('native-real-browser-quota-refusal-preserves-last-confirmed-commit-and-rec
         // not a claim that the browser applies a quota override immediately.
         if (index < 63) await new Promise(resolve => setTimeout(resolve, 550));
       }
-      return { failure: null, attempts: 64, boundedAt: 64, interAttemptDelayMs: 550, elapsedMs: Math.round(performance.now() - startedAt), priorCommittedIds, baseline, rawBaseline, transaction: store.getLastTransaction() };
+      return { failure: null, attempts: 64, boundedAt: 64, interAttemptDelayMs: 550, elapsedMs: Math.round(performance.now() - startedAt), priorCommittedIds, baseline, rawBaseline, transaction: window.p5.faults.last() };
     });
     assert.equal(outcome.failure?.code, 'QUOTA', 'Observed native quota refusal after bounded delayed writes: ' + JSON.stringify({ quotaBefore, quotaDuring, attempts: outcome.attempts, elapsedMs: outcome.elapsedMs, transaction: outcome.transaction }));
     assert.equal(outcome.cacheReferenceUnchanged, true); assert.deepEqual(outcome.after, outcome.baseline); assert.deepEqual(outcome.freshAfter, outcome.baseline); assert.deepEqual(outcome.rawAfter, outcome.rawBaseline);
@@ -505,7 +512,7 @@ check('native-successful-commits-update-cache-without-full-read-and-match-fresh-
       await verify('addHistory', () => store.addHistory(window.p5.manual('cache-history')));
       await verify('deletePreset', () => store.deletePreset('fixture-preset-b'));
       await verify('deleteHistory', () => store.deleteHistory('fixture-screen'));
-      await verify('restore', () => store.restore(JSON.stringify(window.p5.emptySnapshot()), { confirmed: true }));
+      await verify('restore', () => store.restorePrepared(store.prepareImport(JSON.stringify(window.p5.emptySnapshot()))));
       return rows;
     } finally { for (const [name, original] of Object.entries(originals)) prototype[name] = original; }
   });

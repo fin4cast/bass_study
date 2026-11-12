@@ -231,34 +231,36 @@ check('native-project-restore-validates-chain-and-rolls-back-after-project-and-s
   await page.waitForFunction(() => window.p5?.ready);
   const result = await page.evaluate(async literal => {
     const { createDefaultRhythmProject } = await import('/src/rhythm/model.ts');
-    const store = window.p5.store;
-    await store.restore(JSON.stringify(literal), { confirmed: true });
+    const { store, faults } = window.p5;
+    await store.restorePrepared(store.prepareImport(JSON.stringify(literal)));
     const first = createDefaultRhythmProject('rhythm-first', 'Первый');
-    await store.saveRhythmProject(first);
+    await store.changeRhythmLibrary({ kind: 'save', project: first });
     const confirmed = await store.readSnapshot();
     const second = createDefaultRhythmProject('rhythm-second', 'Второй');
     const candidate = { ...confirmed, rhythmProjects: [first, second], activeRhythmProjectId: second.id };
     const bad = structuredClone(candidate);
     bad.rhythmProjects[1].chain[0].patternId = 'H';
     let invalidCode, abortCode;
-    try { await store.restore(JSON.stringify(bad), { confirmed: true }); } catch (error) { invalidCode = error.code; }
+    try { await store.restorePrepared(store.prepareImport(JSON.stringify(bad))); } catch (error) { invalidCode = error.code; }
     const afterInvalid = await store.readSnapshot();
+    // Abort right after the last put: every project and the selection were already written successfully.
     const failAfterWrite = 2 + candidate.presets.length + candidate.history.length + candidate.practiceDrafts.length + candidate.rhythmProjects.length + 1;
-    try { await store.restore(JSON.stringify(candidate), { confirmed: true, failAfterWrite }); } catch (error) { abortCode = error.code; }
-    const transaction = store.getLastTransaction();
+    faults.arm(failAfterWrite);
+    try { await store.restorePrepared(store.prepareImport(JSON.stringify(candidate))); } catch (error) { abortCode = error.code; }
+    const transaction = faults.last();
     const cached = await store.readSnapshot();
     const fresh = await store.readSnapshot({ fresh: true });
     return { confirmed, candidate, invalidCode, abortCode, failAfterWrite, transaction, sameCache: cached === confirmed && afterInvalid === confirmed, fresh };
   }, currentCopy);
   assert.equal(result.invalidCode, 'INVALID_DATA');
-  assert.equal(result.abortCode, 'INJECTED_ABORT');
+  assert.equal(result.abortCode, 'STORAGE_FAILURE');
   assert.equal(result.sameCache, true);
   assert.deepEqual(result.transaction, { successfulWrites: result.failAfterWrite, aborted: true });
   assert.deepEqual(result.fresh, result.confirmed);
   const persisted = await raw(page);
   assert.deepEqual(persisted.rhythmProjects, result.confirmed.rhythmProjects);
   assert.equal(persisted.activeRhythmProjectId, result.confirmed.activeRhythmProjectId);
-  await page.evaluate(candidate => window.p5.store.restore(JSON.stringify(candidate), { confirmed: true }), result.candidate);
+  await page.evaluate(async candidate => { const { store } = window.p5; await store.restorePrepared(store.prepareImport(JSON.stringify(candidate))); }, result.candidate);
   const restored = await raw(page);
   assert.deepEqual(restored.rhythmProjects, result.candidate.rhythmProjects);
   assert.equal(restored.activeRhythmProjectId, result.candidate.activeRhythmProjectId);

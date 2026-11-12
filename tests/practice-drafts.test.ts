@@ -114,7 +114,7 @@ describe('durable practice draft coordinator', () => {
     f.date('2026-11-10T12:00:00.000Z'); f.clock.durationMs = 800; const second = f.manager.current()!;
     expect(second.id).not.toBe(first.id); expect(second.totalReferenceMs).toBe(300); expect(first.timeZone).toBe(zone);
     await f.manager.flush(); const before = await f.store.readSnapshot();
-    const reopened = createMemoryStudyStore(); await reopened.restore(await f.store.exportBackup(), { confirmed: true });
+    const reopened = createMemoryStudyStore(); await reopened.restorePrepared(reopened.prepareImport(await f.store.exportBackup()));
     expect(await reopened.readSnapshot()).toEqual(before); f.manager.dispose();
   });
 

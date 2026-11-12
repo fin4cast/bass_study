@@ -684,13 +684,12 @@ export function makeManualHistory(result: ManualPracticeResult, metadata: Histor
 
 export function applyDraftDrain(draftValue: PracticeDraft, request: DrainDraftRequest, existing?: HistoryEntry): { entry: ManualHistoryEntry; draft: PracticeDraft } {
   const draft = validatePracticeDraft(draftValue);
-  object(request, ['draftId', 'historyId', 'expectedRecordedThroughMs', 'throughMs', 'editRevision', 'comfortableBpm', 'note', 'occurredAt', 'timeZone', ...(Object.hasOwn(request, 'failAfterWrite') ? ['failAfterWrite'] : [])], 'Сохранение черновика');
+  object(request, ['draftId', 'historyId', 'expectedRecordedThroughMs', 'throughMs', 'editRevision', 'comfortableBpm', 'note', 'occurredAt', 'timeZone'], 'Сохранение черновика');
   if (request.draftId !== draft.id) invalid('Выбран другой черновик.');
   if (request.occurredAt !== draft.createdAt || request.timeZone !== draft.timeZone) invalid('Отметка должна сохранять исходные время и часовой пояс черновика.');
   const baseline = number(request.expectedRecordedThroughMs, 0, Number.MAX_SAFE_INTEGER, 'Исходная граница сохранения', false);
   const through = number(request.throughMs, baseline, draft.totalReferenceMs, 'Граница сохранения', false);
   number(request.editRevision, 0, draft.editRevision, 'Версия сохраняемой заметки');
-  if (request.failAfterWrite !== undefined && request.failAfterWrite !== 1 && request.failAfterWrite !== 2) invalid('Неизвестная точка отказа сохранения черновика.');
   const entry = makeManualHistory(createManualPracticeResult({ context: draft.context, material: draft.material,
     comfortableBpm: manualBpm(request.comfortableBpm, draft.material, 'Сохраняемый темп'), durationMs: through - baseline, note: text(request.note, 'Сохраняемая заметка', 2000, true) }),
   { id: text(request.historyId, 'ID ручной отметки', 160), occurredAt: request.occurredAt, timeZone: request.timeZone, routeRef: draft.routeRef });

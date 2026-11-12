@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import current from './fixtures/backup.json?raw';
 import { createDefaultRhythmProject, DEFAULT_RHYTHM_PREFERENCES, validateRhythmProject, type RhythmPatternBars, type RhythmProject } from '../src/rhythm/model';
-import { STUDY_SCHEMA_VERSION, createMemoryStudyStore, emptySnapshot, parseBackup, validateHistoryEntry, validatePracticeDraft, validateSnapshot } from '../src/storage';
+import { STUDY_SCHEMA_VERSION, createMemoryStudyStore, previewImport, emptySnapshot, parseBackup, validateHistoryEntry, validatePracticeDraft, validateSnapshot } from '../src/storage';
 
 const createdAt = '2026-11-08T22:31:00.000Z';
 
@@ -52,13 +52,13 @@ describe('целые проекты ритма', () => {
       ...rest,
     ] };
     const second = project('rhythm-a');
-    await store.saveRhythmProject(first);
-    await store.saveRhythmProject(second);
+    await store.changeRhythmLibrary({ kind: 'save', project: first });
+    await store.changeRhythmLibrary({ kind: 'save', project: second });
     const beforeMissing = await store.readSnapshot();
     expect(beforeMissing).toMatchObject({ rhythmProjects: [second, first], activeRhythmProjectId: second.id });
-    await expect(store.selectRhythmProject('missing')).rejects.toMatchObject({ code: 'MISSING_RHYTHM_PROJECT' });
+    await expect(store.changeRhythmLibrary({ kind: 'select', id: 'missing' })).rejects.toMatchObject({ code: 'MISSING_RHYTHM_PROJECT' });
     expect(await store.readSnapshot()).toBe(beforeMissing);
-    await store.selectRhythmProject(first.id);
+    await store.changeRhythmLibrary({ kind: 'select', id: first.id });
     const saved = await store.readSnapshot();
     const json = await store.exportBackup();
     const exported = parseBackup(json);
@@ -74,17 +74,17 @@ describe('целые проекты ритма', () => {
     expect(Object.isFrozen(saved.rhythmProjects[1].channels[0].velocityDefaults)).toBe(true);
     expect(Object.isFrozen(saved.rhythmProjects[1].patterns[1].lanes[0].velocities)).toBe(true);
     const target = createMemoryStudyStore();
-    await target.restore(json, { confirmed: true });
+    await target.restorePrepared(target.prepareImport(json));
     expect(await target.readSnapshot()).toEqual(saved);
-    await target.deleteRhythmProject(second.id);
+    await target.changeRhythmLibrary({ kind: 'delete', id: second.id });
     expect((await target.readSnapshot()).activeRhythmProjectId).toBe(first.id);
-    await target.deleteRhythmProject(first.id);
+    await target.changeRhythmLibrary({ kind: 'delete', id: first.id });
     expect(await target.readSnapshot()).toMatchObject({ rhythmProjects: [], activeRhythmProjectId: null });
 
-    expect(store.previewImport(current)).toMatchObject({ rhythmProjects: 1 });
-    await store.restore(current, { confirmed: false });
+    expect(previewImport(current)).toMatchObject({ rhythmProjects: 1 });
+    await store.prepareImport(current);
     expect(await store.readSnapshot()).toBe(saved);
-    await store.restore(current, { confirmed: true });
+    await store.restorePrepared(store.prepareImport(current));
     expect(await store.readSnapshot()).toEqual(parseBackup(current));
   });
 
@@ -92,7 +92,7 @@ describe('целые проекты ритма', () => {
     const value = project();
     const [first, ...rest] = value.channels;
     const store = createMemoryStudyStore();
-    await store.saveRhythmProject(value);
+    await store.changeRhythmLibrary({ kind: 'save', project: value });
     const before = await store.readSnapshot();
     const malformed = [undefined, null, { hit: 72 }, { accent: 100 }, { hit: 0, accent: 100 },
       { hit: 72, accent: 101 }, { hit: 72.5, accent: 100 }, { hit: '72', accent: 100 }, { hit: 72, accent: 100, unknown: 1 }];
@@ -100,7 +100,7 @@ describe('целые проекты ритма', () => {
       const broken = { ...value, channels: [{ ...first, velocityDefaults }, ...rest] };
       const json = JSON.stringify({ ...before, rhythmProjects: [broken] });
       expect(() => parseBackup(json)).toThrow();
-      await expect(store.restore(json, { confirmed: true })).rejects.toMatchObject({ code: 'INVALID_DATA' });
+      await expect(Promise.resolve().then(() => store.restorePrepared(store.prepareImport(json)))).rejects.toMatchObject({ code: 'INVALID_DATA' });
       expect(await store.readSnapshot()).toBe(before);
     }
   });
@@ -109,7 +109,7 @@ describe('целые проекты ритма', () => {
     const value = project();
     const snapshot = { ...emptySnapshot(), rhythmProjects: [value], activeRhythmProjectId: value.id };
     const store = createMemoryStudyStore();
-    await store.saveRhythmProject(value);
+    await store.changeRhythmLibrary({ kind: 'save', project: value });
     const before = await store.readSnapshot();
     for (const bad of [
       { ...snapshot, activeRhythmProjectId: 'missing' },
@@ -119,7 +119,7 @@ describe('целые проекты ритма', () => {
       { ...snapshot, preferences: { ...snapshot.preferences, rhythm: { ...DEFAULT_RHYTHM_PREFERENCES, activeRhythmProjectId: value.id } } },
     ]) {
       expect(() => validateSnapshot(bad)).toThrow();
-      await expect(store.restore(JSON.stringify(bad), { confirmed: true })).rejects.toThrow();
+      await expect(Promise.resolve().then(() => store.restorePrepared(store.prepareImport(JSON.stringify(bad))))).rejects.toThrow();
       expect(await store.readSnapshot()).toBe(before);
     }
   });
@@ -130,9 +130,9 @@ describe('целые проекты ритма', () => {
     const value = { ...seed, channels: [{ ...kick, velocityDefaults: { hit: 56, accent: 99 } }, ...rest] };
     const draft = rhythmDraft(value);
     const store = createMemoryStudyStore();
-    await store.saveRhythmProject(value);
+    await store.changeRhythmLibrary({ kind: 'save', project: value });
     await store.upsertPracticeDraft(draft);
-    await store.deleteRhythmProject(value.id);
+    await store.changeRhythmLibrary({ kind: 'delete', id: value.id });
     const result = await store.drainDraft({ draftId: draft.id, historyId: 'entry-rhythm', expectedRecordedThroughMs: 500, throughMs: 3500, editRevision: 2,
       comfortableBpm: 240, note: draft.note, occurredAt: createdAt, timeZone: draft.timeZone });
     expect(result.entry.result).toMatchObject({ kind: 'manual', source: 'self-report', context: null, material: draft.material, durationMs: 3000, comfortableBpm: 240 });

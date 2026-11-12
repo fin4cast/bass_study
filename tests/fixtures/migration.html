@@ -70,9 +70,10 @@
     const module = await import('/src/storage/index.ts');
     window.p6.store = module.createStudyStore();
     window.p6.empty = module.emptySnapshot();
+    window.p6.previewImport = module.previewImport;
     return window.p6.store;
   }
-  window.p6 = { ready: true, seedOld, readBackup, rawRead, loadCurrent, store: null, empty: null };
+  window.p6 = { ready: true, seedOld, readBackup, rawRead, loadCurrent, store: null, empty: null, previewImport: null };
 </script>
 </body>
 </html>

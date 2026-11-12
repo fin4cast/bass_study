@@ -34,6 +34,4 @@ export interface DrainDraftRequest {
   readonly note: string;
   readonly occurredAt: string;
   readonly timeZone: string;
-  /** Fixture-only transaction abort after successful put; never supplied by UI. */
-  readonly failAfterWrite?: 1 | 2;
 }

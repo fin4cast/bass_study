@@ -83,13 +83,13 @@ for (const version of [1, 10]) {
 check('old-version-copy-is-refused-before-preview-and-leaves-native-database-unchanged', async ({ page }) => {
   const result = await page.evaluate(async () => {
     const literal = await window.p6.readBackup(); const store = await window.p6.loadCurrent();
-    await store.restore(JSON.stringify(literal), { confirmed: true });
+    await store.restorePrepared(store.prepareImport(JSON.stringify(literal)));
     const before = await store.readSnapshot({ fresh: true }), rawBefore = await window.p6.rawRead();
     const attempts = [];
     for (const schemaVersion of [1, 10]) {
       const json = JSON.stringify({ ...literal, schemaVersion }); let preview = null, restore = null;
-      try { await store.previewImport(json); } catch (error) { preview = { code: error.code, message: error.message }; }
-      try { await store.restore(json, { confirmed: true }); } catch (error) { restore = { code: error.code, message: error.message }; }
+      try { window.p6.previewImport(json); } catch (error) { preview = { code: error.code, message: error.message }; }
+      try { await store.restorePrepared(store.prepareImport(json)); } catch (error) { restore = { code: error.code, message: error.message }; }
       attempts.push({ schemaVersion, preview, restore });
     }
     const after = await store.readSnapshot({ fresh: true }), rawAfter = await window.p6.rawRead();
