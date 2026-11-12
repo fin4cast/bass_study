@@ -2,32 +2,26 @@ import './fretboard.css';
 import { renderStudyFretboard, renderOctaveLegend, type StudyFretboardOptions } from './fretboard';
 import { enhanceSelect } from './select-picker';
 import { renderStudySelection, renderStudyInterval, renderStudyConnections } from './study-details';
-import { mountTraining } from './training';
-import { mountPlayer } from './player';
-import { mountNotation } from './notation';
-import { studyExerciseMaterial, studyWindow } from '../app/study-material';
+import { atlasBridge, type AtlasBridge } from '../app/atlas-bridge';
+import { studyWindow } from '../app/study-material';
+import type { ExerciseSpec } from '../exercises';
 import { getBoxCatalogue, getBoxInstance, type BoxSelection, type BoxInstance } from '../music/boxes';
-import { createRouteMaterial, createFreeRouteMaterial, type RouteMaterial, type RouteSession } from '../route';
-import { DEFAULT_PREFERENCES, type AppPreferences } from '../storage';
-import type { PracticeBinding } from '../app/practice-drafts';
-import type { PracticeMaterial } from '../training/results';
-import type { QuizSession, QuestionContext } from '../training';
+import type { CheckSpec } from '../practice/plan';
+import type { AppPreferences } from '../storage';
 import { createStructure, type AnnotatedPosition, type LabelMode, type StringId, type StructureId } from '../music';
 import { STRING_ORDER, boxLabel, boxOptionsMarkup, foundationMarkup, nearestBoxSelection, positionLabel, structureNotesMarkup } from './foundation-view';
 
+/**
+ * «Гриф» — атлас (P13-08, D-043): изучение форм, нот и связей по утверждённому VIS-01 r5.
+ * Заданий, последовательностей и звука здесь нет: мостики «Сыграть эту форму» и «Проверь себя по этой форме»
+ * открывают экран игры и «Проверь себя» раздела «Занятие» с материалом текущей формы.
+ */
 interface FoundationOptions {
-  onPreferencesChange(value: Pick<AppPreferences, 'study' | 'training' | 'player'>): void;
-  getPlayerFallback(): AppPreferences['player'];
-  onBeforeMaterialChange(): void;
-  onBeforeModeChange(): void;
-  onContextChange(): void;
-  onRouteExit(): void;
-  capturePractice(): void;
-  getRouteSession(): RouteSession | null | undefined;
-  onBeforeStart(): boolean;
-  onPlaybackStopped(): void;
-  onSessionChanged(session: QuizSession): void;
-  onSessionFinished(session: QuizSession): void;
+  onPreferencesChange(value: Pick<AppPreferences, 'study'>): void;
+  /** «Сыграть эту форму»: упражнение по текущему материалу и форме. */
+  onPlayForm(spec: ExerciseSpec): void;
+  /** «Проверь себя по этой форме»: проверка по материалу того же упражнения. */
+  onCheckForm(spec: CheckSpec): void;
   getOuterBottomSpace(): number;
   reveal(target: HTMLElement | SVGElement): void;
 }
@@ -60,36 +54,27 @@ export function mountFoundation(host: HTMLElement, options: FoundationOptions) {
   const selectPickers = [enhanceSelect(rootSelect, { gridColumns: 4 }), enhanceSelect(structureSelect), enhanceSelect(byId<HTMLSelectElement>('box-select')), enhanceSelect(byId<HTMLSelectElement>('box-neighbor'))];
   let positions: readonly AnnotatedPosition[] = [];
   let structure = createStructure(state.root, state.structureId);
-  let exerciseMaterial = studyExerciseMaterial(structure, positions, null);
-  let training: ReturnType<typeof mountTraining> | undefined;
-  let sequencePlayer: ReturnType<typeof mountPlayer> | undefined;
-  let notation: ReturnType<typeof mountNotation> | undefined;
-  let sequenceView: 'board' | 'notation' = 'board';
+  let bridge: AtlasBridge = atlasBridge(state);
+  let ready = false;
   let showFingers = false;
   let showOctaves = true;
   let showInterval = true;
   let showNeighbor = false;
   let settingsOpen = initialSettingsOpen;
   let boxes: readonly BoxInstance[] = [];
-  let foundationMode: 'study' | 'quiz' | 'sequence' = 'study';
   let visible = false;
   let rangeValid = true;
   let formLabel = '';
   function updateModuleVisibility() {
-    const foundation = visible;
-    root.querySelector<HTMLElement>('.selection-section')!.hidden = !foundation || foundationMode === 'quiz';
-    byId('connections').hidden = !foundation || foundationMode === 'quiz';
-    byId('study-more').hidden = !foundation || foundationMode === 'quiz';
-    root.querySelector<HTMLElement>('.board-toolbar')!.hidden = foundationMode === 'quiz';
-    root.querySelector<HTMLElement>('.fretboard-section')!.hidden = foundationMode === 'quiz' || (foundationMode === 'sequence' && sequenceView === 'notation');
-    root.querySelector<HTMLElement>('.structure-summary')!.hidden = foundationMode === 'quiz';
-    root.querySelector<HTMLElement>('.label-field')!.hidden = foundationMode === 'quiz';
-    byId('player-mount').hidden = !foundation || foundationMode !== 'sequence';
-    byId('sequence-view-controls').hidden = !foundation || foundationMode !== 'sequence';
-    byId('notation-mount').hidden = !foundation || foundationMode !== 'sequence' || sequenceView !== 'notation';
-    notation?.setVisible(foundation && foundationMode === 'sequence' && sequenceView === 'notation');
-    root.querySelectorAll<HTMLElement>('[data-sequence-view]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.sequenceView === sequenceView)));
-    byId('study-context').textContent = foundationMode === 'quiz' ? 'Задания на грифе' : `${structure.root} · ${structure.name} · ${formLabel}`;
+    byId('study-context').textContent = `${structure.root} · ${structure.name} · ${formLabel}`;
+  }
+
+  /** Мостики доступны для полной учебной формы с шаблоном упражнения; иначе поясняется причина. */
+  function updateBridge() {
+    bridge = atlasBridge(state);
+    byId<HTMLButtonElement>('atlas-play').disabled = !bridge.exercise;
+    byId<HTMLButtonElement>('atlas-check').disabled = !bridge.check;
+    byId('atlas-bridge-note').textContent = bridge.reason || bridge.note;
   }
 
   function applyStudy(study: AppPreferences['study']) {
@@ -101,56 +86,15 @@ export function mountFoundation(host: HTMLElement, options: FoundationOptions) {
     updateView();
   }
 
-  function currentPlayerPreferences() {
-    try { return sequencePlayer?.getPreferences() ?? options.getPlayerFallback(); }
-    catch { return options.getPlayerFallback(); }
-  }
-
   function savePreferences() {
-    if (training && sequencePlayer) options.onPreferencesChange(readPreferences());
+    if (ready) options.onPreferencesChange(readPreferences());
   }
 
-  function readPreferences() {
+  function readPreferences(): Pick<AppPreferences, 'study'> {
     return {
       study: { root: state.root, structureId: state.structureId, labelMode: state.labelMode, strings: [...state.strings], fretMin: state.fretMin, fretMax: state.fretMax, box: state.box, showFingers },
-      training: training?.getPreferences() ?? DEFAULT_PREFERENCES.training,
-      player: currentPlayerPreferences(),
     };
   }
-
-  function applyRouteMaterial(material: RouteMaterial) {
-    const repairView = !rangeIsValid();
-    const same = JSON.stringify(state.box) === JSON.stringify(material.box) && (state.box !== null || JSON.stringify(positions.map(position => position.id).sort()) === JSON.stringify([...material.referencePositionIds].sort()));
-    const rootNote = material.root.replaceAll('♭', 'b').replaceAll('♯', '#');
-    if (same && !repairView && state.root === rootNote && state.structureId === material.structureId) return;
-    training?.finishCurrentSession('Применён материал маршрута');
-    sequencePlayer?.stop();
-    state.root = rootNote; state.structureId = material.structureId;
-    applyBox(material.box);
-    const frets = material.referencePositionIds.map(id => Number(id.split(':')[1]));
-    if (!material.box) {
-      state.strings = STRING_ORDER.filter(string => material.referencePositionIds.some(id => id.startsWith(`${string}:`)));
-      state.fretMin = Math.min(...frets); state.fretMax = Math.max(...frets);
-    } else if (repairView) {
-      state.fretMin = Math.min(state.fretMin, ...frets); state.fretMax = Math.max(state.fretMax, ...frets);
-    }
-    minInput.value = String(state.fretMin); maxInput.value = String(state.fretMax);
-    setRangeValidity(true);
-    updateView();
-  }
-
-  function practiceBinding(): PracticeBinding | null {
-    if (!rangeIsValid() || foundationMode === 'quiz') return null;
-    const sequence = training?.getCurrentSequence();
-    const player = currentPlayerPreferences();
-    const material: PracticeMaterial = foundationMode === 'sequence' && sequence ? { kind: 'sequence', pattern: training?.getPreferences().pattern ?? 'ascending', routePositionIds: sequence.notes.map(position => position.id), duration: player.duration,
-      fragment: { from: (player.from ?? 1) - 1, toExclusive: player.to ?? sequence.notes.length }, box: state.box } : { kind: 'fretboard', box: state.box };
-    return { context: { root: structure.root, structureId: structure.id, scope: foundationMode === 'sequence' ? training?.getSequenceScope() ?? 'structure' : 'structure', positionIds: exerciseMaterial.exact.map(position => position.id), box: state.box }, material,
-      routeRef: options.getRouteSession()?.status !== 'finished' ? training?.getRouteRef() ?? null : null,
-      label: foundationMode === 'sequence' ? 'Последовательность на грифе' : 'Изучение грифа',
-      readClock: foundationMode === 'sequence' ? () => sequencePlayer?.getPracticeDraft() ?? { durationMs: 0, comfortableBpm: 80 } : () => ({ durationMs: 0, comfortableBpm: player.bpm }) };
-  }
-
 
   function updateView(announce = false, materialChanged = true) {
     if (materialChanged) {
@@ -162,7 +106,6 @@ export function mountFoundation(host: HTMLElement, options: FoundationOptions) {
     const box = state.box ? getBoxInstance(state.box) : null;
     const valid = rangeIsValid();
     positions = studyWindow(structure, valid ? state : null);
-    if (materialChanged) exerciseMaterial = studyExerciseMaterial(structure, positions, valid ? box : null);
     const outside = box && valid && (box.window.fretMin < state.fretMin || box.window.fretMax > state.fretMax);
     byId('show-whole-form').hidden = !outside;
     if (box) byId('box-notice').textContent = outside ? 'Часть формы находится вне области показа. Её учебный материал сохраняется целиком.' : '';
@@ -186,9 +129,7 @@ export function mountFoundation(host: HTMLElement, options: FoundationOptions) {
     updateModuleVisibility();
     if (materialChanged) {
       for (const picker of selectPickers) picker.refresh();
-      training?.refreshContext();
-      sequencePlayer?.refreshContext();
-      options.onContextChange();
+      updateBridge();
     }
     savePreferences();
   }
@@ -229,7 +170,6 @@ export function mountFoundation(host: HTMLElement, options: FoundationOptions) {
     byId('octave-legend').innerHTML = renderOctaveLegend(options);
     byId('material-legend').textContent = state.box ? 'Ноты формы' : state.structureId.endsWith('triad') ? 'Звуки трезвучия' : 'Ноты гаммы';
     byId('interval-legend').hidden = !showInterval;
-    sequencePlayer?.refreshHighlight();
     if (focusedId) focusPosition(focusedId);
   }
 
@@ -259,7 +199,7 @@ export function mountFoundation(host: HTMLElement, options: FoundationOptions) {
   byId('study-more').querySelector('summary')!.addEventListener('click', () => { studyMoreManual = true; });
   function fitStudyMore() {
     const more = byId<HTMLDetailsElement>('study-more');
-    if (studyMoreManual || !visible || foundationMode !== 'study' || more.hidden) return;
+    if (studyMoreManual || !visible || more.hidden) return;
     more.open = true;
     const workspace = root.querySelector<HTMLElement>('.workspace-main')!;
     const bottomSpace = parseFloat(getComputedStyle(workspace).paddingBottom) + options.getOuterBottomSpace() + 1;
@@ -288,10 +228,10 @@ export function mountFoundation(host: HTMLElement, options: FoundationOptions) {
     if (selection) { const box = getBoxInstance(selection); state.strings = STRING_ORDER.filter(string => box.positions.some(position => position.string === string));
       state.selectedId = (box.positions.find(position => position.isRoot) ?? box.positions[0]).id; state.activeId = state.selectedId;
     }
-    byId('box-notice').textContent = selection ? 'Обычные задания и последовательность используют только точные позиции этой полной формы.' : 'Свободная область: позиции выбираются по струнам и ладам.';
+    byId('box-notice').textContent = selection ? 'Упражнение и «Проверь себя» идут по точным позициям этой полной формы.' : 'Свободная область: позиции выбираются по струнам и ладам.';
   }
   function changeMaterial(change: () => void) {
-    options.onBeforeMaterialChange(); sequencePlayer?.stop(); change(); updateView(true);
+    change(); updateView(true);
   }
   function moveBoxToMaterial(previous: BoxSelection | null, newStructure = false) {
     if (!previous) return;
@@ -321,7 +261,7 @@ export function mountFoundation(host: HTMLElement, options: FoundationOptions) {
     syncLabelButtons(); renderBoard(); renderSelection(false); savePreferences();
   }));
   root.querySelectorAll<HTMLInputElement>('.string-switch input').forEach(input => input.addEventListener('change', () => {
-    options.onBeforeMaterialChange(); applyBox(null); byId('box-notice').textContent = 'Струны изменены вручную: включён свободный диапазон. Прежняя форма не обрезается.';
+    applyBox(null); byId('box-notice').textContent = 'Струны изменены вручную: включён свободный диапазон. Прежняя форма не обрезается.';
     state.strings = [...root.querySelectorAll<HTMLInputElement>('.string-switch input:checked')].map(item => item.value as StringId);
     updateView(true);
   }));
@@ -340,18 +280,12 @@ export function mountFoundation(host: HTMLElement, options: FoundationOptions) {
     const max = maxInput.valueAsNumber;
     const valid = Number.isInteger(min) && Number.isInteger(max) && min >= 0 && max <= 24 && min <= max;
     const previouslyValid = rangeValid;
-    if ((previouslyValid && !valid) || (valid && !state.box)) options.onBeforeMaterialChange();
     setRangeValidity(valid);
     if (!valid) {
-      sequencePlayer?.stop();
       byId<HTMLDetailsElement>('area-settings').open = true;
       byId('range-error').textContent = 'Укажи целые лады от 0 до 24: первый не больше последнего.';
       positions = [];
-      exerciseMaterial = studyExerciseMaterial(structure, positions, null);
       renderBoard(); renderSelection(true);
-      training?.refreshContext();
-      sequencePlayer?.refreshContext();
-      options.onContextChange();
       return;
     }
     state.fretMin = min;
@@ -403,109 +337,18 @@ export function mountFoundation(host: HTMLElement, options: FoundationOptions) {
   const boardResizeObserver = new ResizeObserver(entries => { const width = Math.floor(entries[0]?.contentRect.width ?? 0); if (width > 0 && width !== lastBoardWidth) { lastBoardWidth = width; renderBoard(); } });
   boardResizeObserver.observe(container);
 
+  byId('atlas-play').addEventListener('click', () => { if (bridge.exercise) options.onPlayForm(bridge.exercise); });
+  byId('atlas-check').addEventListener('click', () => { if (bridge.check) options.onCheckForm(bridge.check); });
+
   updateView();
-  training = mountTraining(byId('training-mount'), () => ({ positions: exerciseMaterial.exact, fullPositions: exerciseMaterial.interval, box: state.box, structure }), {
-    navigationContainer: byId('mode-nav-mount'),
-    onRouteExit: options.onRouteExit,
-    onPreferencesChange: savePreferences,
-    onSessionFinished: options.onSessionFinished,
-    onSessionChanged: options.onSessionChanged,
-    onModeChange(mode) {
-      options.onBeforeModeChange();
-      foundationMode = mode;
-      if (mode !== 'sequence') sequencePlayer?.stop();
-      updateModuleVisibility();
-      if (mode === 'sequence') sequencePlayer?.refreshContext();
-      options.onContextChange();
-    },
-    onSequenceChange() { options.capturePractice(); sequencePlayer?.refreshContext(); sequencePlayer?.refreshHighlight(); void notation?.refreshContext(); options.onContextChange(); },
-  });
-  let lastPlaybackState = 'stopped';
-  sequencePlayer = mountPlayer(byId('player-mount'), () => training?.getCurrentSequence()?.notes ?? [], {
-    onBeforeStart: options.onBeforeStart,
-    onPreferencesChange() {
-      options.capturePractice();
-      const session = options.getRouteSession();
-      if (training?.getRouteRef() && session?.material && session.status !== 'finished') {
-        const current = currentPlayerPreferences(); const original = session.material.player;
-        const musicalKeys = ['bpm', 'duration', 'repeat', 'countIn', 'from', 'to', 'ladderStart', 'ladderEnd', 'ladderStep', 'ladderRepeats', 'metronome', 'metronomeMode', 'subdivision'] as const;
-        if (musicalKeys.some(key => current[key] !== original[key])) options.onRouteExit();
-      }
-      savePreferences(); void notation?.refreshContext(); options.onContextChange();
-    },
-    onSnapshot(snapshot) {
-      notation?.setPlaybackState(snapshot);
-      if (snapshot.state !== lastPlaybackState) { lastPlaybackState = snapshot.state; if (['paused', 'stopped', 'finished'].includes(snapshot.state)) options.onPlaybackStopped(); }
-    },
-    getContextKey: () => training?.getSequenceContextKey() ?? '',
-    onPositionChange(id, noteIndex) {
-      notation?.setActiveIndex(noteIndex);
-      container.querySelectorAll<SVGGElement>('[data-position]').forEach(element => element.classList.toggle('is-playing', id !== null && element.dataset.position === id));
-      root.querySelectorAll<HTMLElement>('[data-sequence-index]').forEach(element => {
-        const current = id !== null && Number(element.dataset.sequenceIndex) === noteIndex;
-        element.classList.toggle('is-playing', current);
-        if (current) element.setAttribute('aria-current', 'step');
-        else element.removeAttribute('aria-current');
-      });
-    },
-  });
-  notation = mountNotation(byId('notation-mount'), () => { const preferences = sequencePlayer?.getPreferences(); return { positions: training?.getCurrentSequence()?.notes ?? [], duration: sequencePlayer?.getDuration() ?? 'eighth', fragment: { from: preferences?.from ?? 1, to: preferences?.to ?? training?.getCurrentSequence()?.notes.length ?? 1 } }; }, {
-    onSelect: (_index, positionId, action) => {
-      if (action === 'show-position' && rangeIsValid() && !positions.some(position => position.id === positionId)) {
-        const note = training?.getCurrentSequence()?.notes.find(position => position.id === positionId);
-        if (note) { state.fretMin = Math.min(state.fretMin, note.fret); state.fretMax = Math.max(state.fretMax, note.fret); minInput.value = String(state.fretMin); maxInput.value = String(state.fretMax); updateView(false, !state.box); }
-      }
-      selectPosition(positionId, false);
-      if (action === 'show-position' && positions.some(position => position.id === positionId)) { sequenceView = 'board'; updateModuleVisibility(); byId('return-to-notation').hidden = false; focusPosition(positionId, true); }
-    },
-  });
-  root.querySelectorAll<HTMLElement>('[data-sequence-view]').forEach(button => button.addEventListener('click', () => { sequenceView = button.dataset.sequenceView as 'board' | 'notation'; updateModuleVisibility(); }));
-  byId('return-to-notation').addEventListener('click', () => { sequenceView = 'notation'; updateModuleVisibility(); void notation?.refreshContext().then(() => byId('notation-mount').querySelector<SVGElement>('[data-notation-index][tabindex="0"]')?.focus()); });
-  notation.setVisible(false);
+  ready = true;
   return {
     setVisible(next: boolean) { visible = next; root.hidden = !next; updateModuleVisibility(); if (next) fitStudyMore(); },
-    get mode() { return foundationMode; },
-    rangeIsValid, getPreferences: readPreferences, practiceBinding, selectPosition,
-    stop() { sequencePlayer?.stop(); },
-    finishSession(reason?: string) { training?.finishCurrentSession(reason); },
-    clearRouteContext() { training?.clearRouteContext(); },
-    applyPreferences(value: Pick<AppPreferences, 'study' | 'training' | 'player'>) {
-      applyStudy(value.study); training?.applyPreferences(value.training); sequencePlayer?.refreshContext(); sequencePlayer?.applyPreferences(value.player);
-    },
-    introduction() {
-      const box = getBoxInstance(createRouteMaterial().box!);
-      applyStudy({ ...readPreferences().study, root: 'C', structureId: 'major-triad', strings: STRING_ORDER.filter(string => box.positions.some(position => position.string === string)), fretMin: Math.min(state.fretMin, box.window.fretMin), fretMax: Math.max(state.fretMax, box.window.fretMax), box: box.selection });
-      training?.applyPreferences({ ...readPreferences().training, mode: 'study', reviewPositionIds: [], questionPolicy: 'random-v1' });
-    },
-    repeatErrors(ids: readonly string[], context: QuestionContext) {
-      const frets = ids.map(id => Number(id.split(':')[1]));
-      applyStudy({ ...readPreferences().study, root: context.root.replaceAll('♭', 'b').replaceAll('♯', '#'), structureId: context.structureId, strings: STRING_ORDER.filter(string => ids.some(id => id.startsWith(`${string}:`))), fretMin: Math.min(...frets), fretMax: Math.max(...frets), box: null });
-      training?.setReviewPositions(ids, context);
-      byId('training-mount').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    },
-    getFreeMaterial() {
-      if (!rangeIsValid()) throw new Error('Сначала исправь диапазон грифа.');
-      return createFreeRouteMaterial({ box: state.box, root: state.root, structureId: state.structureId, referencePositionIds: positions.map(position => position.id), pattern: training!.getPreferences().pattern, scope: training!.getSequenceScope(), player: currentPlayerPreferences() });
-    },
-    applyRouteMaterial,
-    openRouteStep(step: 'fretboard' | 'sequence', session: RouteSession | null, material: RouteMaterial | null, initial: boolean) {
-      if (!session || !material) { training?.setMode(step === 'fretboard' ? 'quiz' : 'sequence'); return; }
-      training?.applyRouteContext(material, { routeId: session.id, step }, initial);
-      if (step === 'sequence' && initial) sequencePlayer?.applyPreferences(material.player);
-    },
-    routeFocus(step: 'fretboard' | 'sequence') {
-      return step === 'fretboard' ? root.querySelector<HTMLElement>('[data-testid="quiz-prompt"]') ?? byId('training-mount').querySelector<HTMLElement>('h2') : byId('player-mount').querySelector<HTMLElement>('h2');
-    },
-    getPracticeFallback() {
-      return { context: { root: structure.root, structureId: structure.id, scope: 'structure' as const, positionIds: rangeIsValid() ? exerciseMaterial.exact.map(position => position.id) : [], box: state.box },
-        // Без запущенного эталона отметка относится к изучению грифа: этот материал и сохраняется.
-        material: { kind: 'fretboard' as const, box: state.box },
-        durationMs: 0, comfortableBpm: currentPlayerPreferences().bpm, note: '', label: 'Изучение грифа', available: visible && foundationMode !== 'quiz' };
-    },
+    rangeIsValid, getPreferences: readPreferences, selectPosition,
+    applyPreferences(value: Pick<AppPreferences, 'study'>) { applyStudy(value.study); },
     dispose() {
       boardResizeObserver.disconnect();
       for (const picker of selectPickers) picker.dispose();
-      sequencePlayer?.dispose(); training?.dispose(); notation?.dispose();
       host.replaceChildren();
     },
   };

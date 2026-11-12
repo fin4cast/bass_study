@@ -1,6 +1,6 @@
 import { suspendAudioWhenIdle } from '../audio/context';
 
-export type AudioOwner = 'sequence' | 'play' | 'check' | 'rhythm' | 'tracks' | 'scores' | 'input';
+export type AudioOwner = 'play' | 'check' | 'rhythm' | 'tracks' | 'scores' | 'input';
 export type AudioExit = 'owner' | 'section' | 'settings' | 'restore' | 'retire';
 
 /**

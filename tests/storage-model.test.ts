@@ -227,12 +227,12 @@ describe('явное временное хранилище', () => {
     const before = await store.readSnapshot();
     expect(await store.readSnapshot()).toBe(before);
     expect(await store.readSnapshot({ fresh: true })).toBe(before);
-    await store.savePreferences({ ...before.preferences, player: { ...before.preferences.player, bpm: 86 } });
+    await store.savePreferences({ ...before.preferences, play: { ...before.preferences.play, bpm: 86 } });
     const after = await store.readSnapshot();
     expect(after).not.toBe(before);
     expect(after.history).toBe(before.history);
     expect(after.history[0]).toBe(before.history[0]);
-    expect(before.preferences.player.bpm).toBe(80);
+    expect(before.preferences.play.bpm).toBe(72);
     expect(Object.isFrozen(after)).toBe(true);
     const copy = await store.exportBackup();
     expect(copy).toBe(JSON.stringify(after));
@@ -244,7 +244,7 @@ describe('явное временное хранилище', () => {
     const store = createMemoryStudyStore();
     await store.addHistory(completed());
     const before = await store.readSnapshot();
-    await expect(store.savePreferences({ ...before.preferences, player: { ...before.preferences.player, bpm: -1 } })).rejects.toMatchObject({ code: 'INVALID_DATA' });
+    await expect(store.savePreferences({ ...before.preferences, play: { ...before.preferences.play, bpm: -1 } })).rejects.toMatchObject({ code: 'INVALID_DATA' });
     await expect(Promise.resolve().then(() => store.restorePrepared(store.prepareImport('{broken')))).rejects.toMatchObject({ code: 'INVALID_BACKUP' });
     store.prepareImport(JSON.stringify(emptySnapshot())); // предпросмотр без подтверждения
     expect(await store.readSnapshot()).toBe(before);
@@ -258,11 +258,11 @@ describe('явное временное хранилище', () => {
   it('сериализует соседние записи без потери истории и не раскрывает изменяемые ссылки', async () => {
     const store = createMemoryStudyStore();
     expect(await store.open()).toEqual({ name: 'bass-study-memory', version: STUDY_SCHEMA_VERSION });
-    const preferences = { ...DEFAULT_PREFERENCES, player: { ...DEFAULT_PREFERENCES.player, bpm: 99 } };
+    const preferences = { ...DEFAULT_PREFERENCES, play: { ...DEFAULT_PREFERENCES.play, bpm: 99 } };
     await Promise.all([store.addHistory(completed()), store.savePreferences(preferences), store.addHistory(manual())]);
     const snapshot = await store.readSnapshot();
     expect(snapshot.history.map(item => item.id)).toEqual(['synthetic-manual', 'synthetic-screen']);
-    expect(snapshot.preferences.player.bpm).toBe(99);
+    expect(snapshot.preferences.play.bpm).toBe(99);
     expect(Object.isFrozen(snapshot.history)).toBe(true);
     await store.addHistory(completed());
     expect((await store.readSnapshot()).history).toHaveLength(2);
@@ -326,16 +326,15 @@ describe('настройки и собственные упражнения', ()
   it('defaults соответствуют реальным экранным настройкам и полному фрагменту', () => {
     const result = validatePreferences(DEFAULT_PREFERENCES);
     expect(result.study).toMatchObject({ root: 'A', structureId: 'minor-pentatonic', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12, box: { shapeId: 'penta-a', anchorFret: 5 } });
-    expect(result.training).toMatchObject({ mode: 'study', quizMode: 'name-note', count: 10, pattern: 'ascending', reviewPositionIds: [] });
-    expect(result.player).toMatchObject({ bpm: 80, duration: 'eighth', repeat: 'once', from: null, to: null, ladderStart: 60, ladderEnd: 100, bassVolume: 70, clickVolume: 50 });
+    expect(result).not.toHaveProperty('training');
+    expect(result).not.toHaveProperty('player');
     expect(result).not.toBe(DEFAULT_PREFERENCES);
   });
 
-  it('сохраняет диапазон фрагмента отдельно от длины будущего маршрута', () => {
-    const input = clone(DEFAULT_PREFERENCES);
-    const result = validatePreferences({ ...input, player: { ...input.player, from: 3, to: 90 } });
-    expect(result.player.from).toBe(3);
-    expect(result.player.to).toBe(90);
+  it('прежние блоки вкладок «Задания» и «Последовательности» (training, player) в схеме 11 отклоняются (P13-08)', () => {
+    const input = clone(DEFAULT_PREFERENCES) as unknown as Record<string, unknown>;
+    expect(() => validatePreferences({ ...input, training: { mode: 'study' } })).toThrow(/Настройки/);
+    expect(() => validatePreferences({ ...input, player: { bpm: 80 } })).toThrow(/Настройки/);
   });
 
   it.each([
@@ -343,15 +342,7 @@ describe('настройки и собственные упражнения', ()
     ['структура', (x: any) => { x.study.structureId = 'made-up'; }],
     ['тоника UI', (x: any) => { x.study.root = 'H'; }],
     ['диапазон', (x: any) => { x.study.fretMin = 20; x.study.fretMax = 4; }],
-    ['режим', (x: any) => { x.training.mode = 'made-up'; }],
-    ['порядок', (x: any) => { x.training.pattern = 'random-pattern'; }],
-    ['ступень/область', (x: any) => { x.training.quizMode = 'find-degree'; x.training.scope = 'chromatic'; }],
-    ['повтор ошибки', (x: any) => { x.training.reviewPositionIds = ['B:0']; }],
-    ['темп', (x: any) => { x.player.bpm = 221; }],
-    ['фрагмент', (x: any) => { x.player.from = 3; x.player.to = 2; }],
-    ['лестница', (x: any) => { x.player.ladderEnd = 40; }],
-    ['громкость', (x: any) => { x.player.clickVolume = 101; }],
-    ['подразделение', (x: any) => { x.player.subdivision = 'triplet'; }],
+    ['темп экрана игры', (x: any) => { x.play.bpm = 221; }],
   ])('отклоняет неверное поле %s', (_name, change) => {
     const input = clone(DEFAULT_PREFERENCES); change(input);
     expect(() => validatePreferences(input)).toThrow();

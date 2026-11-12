@@ -214,8 +214,6 @@ describe('новые режимы экрана и слуха в истории',
     invalid(() => validateHistoryEntry(forged));
     const chromatic = clone(entry) as any; chromatic.result.context.scope = 'chromatic';
     invalid(() => validateHistoryEntry(chromatic));
-    expect(validatePreferences({ ...clone(DEFAULT_PREFERENCES), training: { ...DEFAULT_PREFERENCES.training, quizMode: 'name-degree' } }).training.quizMode).toBe('name-degree');
-    invalid(() => validatePreferences({ ...clone(DEFAULT_PREFERENCES), training: { ...DEFAULT_PREFERENCES.training, quizMode: 'name-degree', scope: 'chromatic' } }));
   });
 
   it('слух по ступеням пентатоники повторяется при импорте; прежнее трезвучие — без изменений', () => {
