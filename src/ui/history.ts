@@ -237,6 +237,25 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     manualDraft = options.editPracticeDraft(manualDraft.id ?? null, manualNote, bpm);
   }
 
+  const SCROLLABLE = '.history-table-scroll, textarea';
+  /** Ключ элемента, устойчивый к пересборке разметки: запись истории, тег, классы и порядковый номер среди таких же. */
+  function viewKey(element: HTMLElement) {
+    const entry = element.closest<HTMLElement>('[data-history-entry]');
+    const same = [...(entry ?? body).querySelectorAll<HTMLElement>(element.tagName)].filter(item => item.className === element.className);
+    return `${entry?.dataset.historyEntry ?? ''}|${element.tagName}|${element.className}|${same.indexOf(element)}`;
+  }
+  /** Раскрытые блоки и прокрутка внутри панели переживают перерисовку (например, после контрольного сохранения черновика). */
+  function captureView() {
+    const open = new Map<string, boolean>(), scroll = new Map<string, readonly [number, number]>();
+    body.querySelectorAll<HTMLDetailsElement>('details').forEach(details => open.set(viewKey(details), details.open));
+    body.querySelectorAll<HTMLElement>(SCROLLABLE).forEach(element => { if (element.scrollTop || element.scrollLeft) scroll.set(viewKey(element), [element.scrollTop, element.scrollLeft]); });
+    return { open, scroll };
+  }
+  function restoreView(view: ReturnType<typeof captureView>) {
+    if (!view.open.size && !view.scroll.size) return;
+    body.querySelectorAll<HTMLDetailsElement>('details').forEach(details => { const open = view.open.get(viewKey(details)); if (open !== undefined && details.open !== open) details.open = open; });
+    if (view.scroll.size) body.querySelectorAll<HTMLElement>(SCROLLABLE).forEach(element => { const position = view.scroll.get(viewKey(element)); if (position) { element.scrollTop = position[0]; element.scrollLeft = position[1]; } });
+  }
   function render() {
     if (disposed) return;
     const active = document.activeElement instanceof HTMLElement && body.contains(document.activeElement) ? document.activeElement : null;
@@ -278,6 +297,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
     const [manualMin, manualMax] = manualTempoBounds(draft.material);
     const currentManualBpm = manualBpm ?? String(Math.round(draft.comfortableBpm));
     container.querySelector<HTMLElement>('[data-history-count]')!.textContent = `${snapshot.history.length} записей · ${snapshot.presets.length} пресетов`;
+    const view = captureView();
     body.innerHTML = `
       ${summary.earSessions ? `<p class="history-help" data-testid="ear-history-summary"><strong>Слух — отдельно:</strong> ${summary.earSessions} занятий · ${summary.earCompletedQuestions} завершённых вопросов · ${summary.earIndependentCorrect} самостоятельных ответов · ${summary.earErrors} ошибок · ${summary.earReplayCount} повторов прослушивания.</p>` : ''}
       ${summary.routeSessions ? `<p class="history-help" data-testid="route-history-summary"><strong>Маршруты:</strong> ${summary.routeSessions} · активный таймер ${formatDuration(summary.routeActiveMs)}. Это время запущенного таймера, без оценки игры или внимания.</p>` : ''}
@@ -292,6 +312,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
       ${summary.groups.length ? `<details class="history-context-groups"><summary class="section-disclosure">Сводка по одинаковым условиям · ${summary.groups.length} групп</summary><p class="history-help">Время первого ответа сравнивается только внутри одинакового режима и музыкального контекста.</p><div class="history-table-scroll"><table><thead><tr><th>Контекст</th><th>Самостоятельно</th><th>Ошибки</th><th>Первый ответ, среднее</th></tr></thead><tbody>${summary.groups.map(group => `<tr><td>${escapeHtml(MODE_NAMES[group.mode] ?? group.mode)}<small>${escapeHtml(comparisonConditions(group))}</small><small>${escapeHtml(contextName(group.context))}</small></td><td>${group.independentCorrect} / ${group.completedQuestions}</td><td>${group.errors}</td><td>${group.meanFirstResponseMs === null ? '—' : `${(group.meanFirstResponseMs / 1000).toFixed(2)} с`}</td></tr>`).join('')}</tbody></table></div></details>` : ''}</section>
       <section class="history-block backup-block" aria-labelledby="backup-heading"><div class="history-block-heading"><div><p class="eyebrow">ПЕРЕНОСИМАЯ КОПИЯ</p><h3 id="backup-heading">Сохрани данные отдельно</h3></div><span class="history-backup-format">JSON · версия ${snapshot.schemaVersion}</span></div><p class="history-help">В копию входят настройки, профиль оформления и введения, пресеты, история и черновики ручной практики. Восстановление полностью заменяет эти данные; предварительный просмотр ничего не меняет.</p>${rawExportOffered() ? `<p class="history-help" data-testid="raw-export-help">${options.isPersistent() ? 'Часть записей базы не прочитана. Обычная копия их не содержит.' : 'База не открылась, обычная копия содержит только данные этой страницы.'} Сырой экспорт сохраняет содержимое базы браузера как есть, без проверки; восстановить из него можно только вручную.</p>` : ''}<div class="backup-actions"><button class="secondary-button" type="button" data-history-action="export"${busy ? ' disabled' : ''}>Экспортировать JSON</button>${rawExportOffered() ? `<button class="text-button" type="button" data-history-action="export-raw"${busy ? ' disabled' : ''}>Сырой экспорт базы</button>` : ''}<label class="backup-file-label secondary-button">Выбрать копию<input type="file" accept="application/json,.json" aria-label="Файл резервной копии" data-history-file${busy ? ' disabled' : ''}></label></div>${preview ? importPreviewMarkup() : ''}</section>
     `;
+    restoreView(view);
     if (focusField) {
       const next = body.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`[data-history-field="${focusField}"]`);
       if (next && !next.disabled) { next.focus({ preventScroll: true }); if (selection && (next instanceof HTMLTextAreaElement || next instanceof HTMLInputElement && next.type === 'text')) next.setSelectionRange(selection[0], selection[1]); }

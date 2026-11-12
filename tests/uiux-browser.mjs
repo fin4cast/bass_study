@@ -437,6 +437,30 @@ check('history-keyboard-focus-survives-four-rerender-actions-and-save-validation
   return { records: 11, showMore: 'history-heading', refreshDraft: 'same button', useCurrent: 'manual-heading', cancelRestore: 'backup-heading', validationFailure: 'focused visible alert/invalid field', alertRect, invalidRect };
 });
 
+check('history-disclosures-and-scroll-survive-draft-checkpoint-rerender', async ({ page }) => {
+  await ready(page); await restoreUi(page, JSON.parse(await readFile(new URL('./fixtures/backup.json', import.meta.url), 'utf8')));
+  await module(page, 'harmony'); await page.locator('[data-rhythm-action="start"]').click();
+  await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState === 'running');
+  await history(page);
+  const screen = page.locator('[data-history-kind="screen"]'), route = page.locator('[data-history-kind="route"]');
+  const disclosures = [screen.locator('.history-question-details'), route.locator('.route-material-details'), page.locator('.history-context-groups')];
+  for (const details of disclosures) { await details.locator(':scope > summary').click(); assert.ok(await details.evaluate(element => element.open)); }
+  await screen.scrollIntoViewIfNeeded();
+  // Обычный щелчок по тексту без фокуса уводит фокус из панели: так панель снова перерисовывается при сохранении черновика.
+  await page.locator('#history-heading').click();
+  const before = await page.evaluate(() => ({ scrollY, active: document.activeElement === document.body }));
+  assert.ok(before.active, 'focus must leave the history body before the checkpoint');
+  const marker = await screen.evaluate(element => { element.dataset.u4Probe = 'before'; return element.dataset.u4Probe; });
+  const durationBefore = Object.fromEntries((await raw(page, 'practiceDrafts')).map(draft => [draft.id, draft.totalReferenceMs]));
+  await waitRaw(page, 'practiceDrafts', values => values.some(draft => draft.totalReferenceMs > (durationBefore[draft.id] ?? 0)), 9000);
+  await page.waitForFunction(() => !document.querySelector('[data-history-kind="screen"]')?.dataset.u4Probe, undefined, { timeout: 3000 });
+  const after = await page.evaluate(() => ({ scrollY, open: [...document.querySelectorAll('.history-body details[open]')].map(element => element.className) }));
+  for (const details of disclosures) assert.ok(await details.evaluate(element => element.open), `${await details.evaluate(element => element.className)} collapsed after draft checkpoint: ${JSON.stringify(after)}`);
+  assert.ok(Math.abs(after.scrollY - before.scrollY) <= 1, `scroll moved: ${before.scrollY} → ${after.scrollY}`);
+  await page.locator('[data-rhythm-action="pause"]').click();
+  return { checkpointRerenderedPanel: marker === 'before', durationBefore, before, after };
+});
+
 check('laptop-widths-show-board-by-500px-and-narrow-layout-uses-local-scroll', async ({ page, resultDir, cdp }) => {
   await ready(page); const evidence = [];
   for (const width of [1366, 1024, 640]) {
