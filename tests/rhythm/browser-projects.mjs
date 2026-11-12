@@ -215,16 +215,9 @@ check('manual-note-keeps-rhythm-material-and-time-after-changing-project', 'ui',
   await page.locator('#open-history').click();
   await root(page).locator('.rhythm-library > summary').click();
   await action(page, 'duplicate-project').click();
-  await page.waitForFunction(async () => (await new Promise((resolve, reject) => {
-    const request = indexedDB.open('bass-study');
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const count = db.transaction('rhythmProjects', 'readonly').objectStore('rhythmProjects').count();
-      count.onsuccess = () => { db.close(); resolve(count.result); };
-      count.onerror = () => { db.close(); reject(count.error); };
-    };
-  })) === 2);
+  // waitForFunction не дожидается Promise из предиката: опрашиваем нативную IndexedDB из Node.
+  const duplicated = Date.now() + 6000;
+  while ((await raw(page)).rhythmProjects.length !== 2) { assert.ok(Date.now() < duplicated, 'duplicated rhythm project was not committed to IndexedDB'); await delay(25); }
   await openHistory(page);
   await drafts.selectOption(id);
   await page.getByLabel('Заметка к практике', { exact: true }).fill('Исходный грув');

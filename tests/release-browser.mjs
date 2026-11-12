@@ -131,6 +131,14 @@ async function seedOldProductDatabase(page, origin, literal, version = 10) {
   }, { literal, version, origin });
 }
 // Independent readonly count of every store; it does not import the product adapter.
+/** waitForFunction не дожидается Promise из предиката, поэтому освобождение Web Lock опрашивается из Node. */
+async function waitWriterReleased(page, timeout = 6000) {
+  const deadline = Date.now() + timeout;
+  while (await page.evaluate(async () => (await navigator.locks.query()).held.some(lock => lock.name === 'bass-study:writer'))) {
+    assert.ok(Date.now() < deadline, 'bass-study:writer is still held');
+    await delay(10);
+  }
+}
 async function rawCounts(page) {
   return page.evaluate(async () => {
     const db = await new Promise((resolve, reject) => {
@@ -456,7 +464,7 @@ check('p12-sequence-retirement-saves-pending-note-before-next-writer', async ({ 
     // Keep the real document alive for IndexedDB while invoking its retirement listener before debounce.
     window.dispatchEvent(new PageTransitionEvent('pagehide'));
   }, note);
-  await next.waitForFunction(async () => !(await navigator.locks.query()).held.some(lock => lock.name === 'bass-study:writer'));
+  await waitWriterReleased(next);
   await next.locator('#retry-tab').click();
   await ready(next);
   const after = await exportUi(next);
