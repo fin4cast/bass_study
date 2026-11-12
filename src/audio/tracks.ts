@@ -2,6 +2,23 @@ import {
   TRACK_LIMITS, TracksError, assertFileMatches, createTracksManifest, planTrackSegments, setTrackMix as updateMix,
   setTracksPlayback, trackPositionAt, validateTracksManifest, type TrackDescriptor, type TracksManifest,
 } from '../tracks';
+import { PCM_PROBE_BYTES, estimateDecodedPcm, id3v2Length } from '../tracks/pcm-estimate';
+
+const CONTEXT_SAMPLE_RATE = 48000;
+const MIB = 1024 ** 2;
+/** Оценка PCM по началу файла (без чтения и декодирования всего файла); null — заголовок не распознан. */
+async function estimateFilePcm(file: File): Promise<number | null> {
+  const head = new Uint8Array(await file.slice(0, PCM_PROBE_BYTES).arrayBuffer());
+  const tag = id3v2Length(head);
+  if (tag > 0 && tag + 4 > head.length && tag < file.size) {
+    const audio = new Uint8Array(await file.slice(tag, tag + PCM_PROBE_BYTES).arrayBuffer());
+    return estimateDecodedPcm(audio, { fileSize: file.size, offset: tag, targetSampleRate: CONTEXT_SAMPLE_RATE })?.bytes ?? null;
+  }
+  return estimateDecodedPcm(head, { fileSize: file.size, targetSampleRate: CONTEXT_SAMPLE_RATE })?.bytes ?? null;
+}
+function pcmLimitError(estimated: number, rest: string) {
+  return new TracksError('PCM_LIMIT', `По заголовкам файлов после декодирования получится около ${Math.ceil(estimated / MIB)} МиБ PCM — больше логического предела 512 МиБ. Файлы не декодировались; ${rest}`);
+}
 
 /** Длительность линейного перехода громкости: короче заметного «плавания», но без ступеньки (щелчка). */
 const MIX_RAMP_SECONDS = 0.02;
@@ -31,7 +48,7 @@ export function createTracksPlayer() {
   function audioContext() {
     ensureActive();
     if (!context) {
-      context = new AudioContext({ sampleRate: 48000 });
+      context = new AudioContext({ sampleRate: CONTEXT_SAMPLE_RATE });
       master = context.createGain(); master.gain.value = 0.8; master.connect(context.destination);
       analyser = context.createAnalyser(); analyser.fftSize = waveform.length; master.connect(analyser);
     }
@@ -152,6 +169,11 @@ export function createTracksPlayer() {
       if (files.reduce((sum, file) => sum + file.size, 0) > TRACK_LIMITS.sourceTotal) throw new TracksError('SOURCE_LIMIT', 'Суммарный размер исходников превышает 256 МиБ.');
       const token = ++loadToken; loading = true;
       try {
+        // Предварительная оценка по заголовкам: явно слишком большой набор не попадает в decodeAudioData.
+        // Нераспознанный заголовок не блокирует загрузку — тогда действует проверка фактических буферов ниже.
+        let estimated = 0;
+        for (const file of files) { estimated += await estimateFilePcm(file) ?? 0; tokenCheck(token); }
+        if (estimated > TRACK_LIMITS.decodedTotal) throw pcmLimitError(estimated, 'прежний набор сохранён.');
         const nextBuffers = new Map<string, AudioBuffer>(); const tracks: TrackDescriptor[] = [];
         for (const file of files) {
           const { buffer, sha256 } = await decode(file, token); const id = `track-${crypto.randomUUID()}`;
@@ -174,6 +196,9 @@ export function createTracksPlayer() {
       const expected = current.tracks.find(track => track.id === trackId); if (!expected) throw new TracksError('UNKNOWN_TRACK', 'Неизвестная дорожка манифеста.');
       const token = ++loadToken; loading = true;
       try {
+        sourceCheck(file); const estimated = await estimateFilePcm(file); tokenCheck(token);
+        const others = bufferBytes([...buffers].filter(([id]) => id !== trackId).map(([, buffer]) => buffer));
+        if (estimated !== null && others + estimated > TRACK_LIMITS.decodedTotal) throw pcmLimitError(others + estimated, 'ожидаемая дорожка не заменена.');
         const { buffer } = await decode(file, token, expected);
         const next = new Map(buffers); next.set(trackId, buffer);
         if (bufferBytes(next.values()) > TRACK_LIMITS.decodedTotal) throw new TracksError('PCM_LIMIT', 'Повторно декодированный набор превышает 512 МиБ PCM.');

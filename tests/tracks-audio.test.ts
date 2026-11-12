@@ -78,3 +78,43 @@ describe('громкость дорожек во время проигрыван
     } finally { await player.dispose(); }
   });
 });
+
+describe('предел PCM до декодирования', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  /** 8 бит, моно, 8 кГц: 22,5 МБ исходника (< 64 МиБ) дают > 512 МиБ Float32 после пересчёта в 48 кГц. */
+  function oversizedWav() {
+    const header = wavBytes({ sampleRate: 8000, channels: 1, bits: 8, frames: 0 });
+    const dataBytes = 22_500_000;
+    new DataView(header.buffer).setUint32(40, dataBytes, true);
+    new DataView(header.buffer).setUint32(4, 36 + dataBytes, true);
+    return new File([header, new Uint8Array(dataBytes)], 'long-8k.wav', { type: 'audio/wav' });
+  }
+
+  it('отказывает тем же PCM_LIMIT до вызова decodeAudioData и сохраняет прежний набор', async () => {
+    const { decode } = stubContext();
+    const player = createTracksPlayer();
+    try {
+      const previous = await player.loadFiles([new File([wavBytes()], 'short.wav', { type: 'audio/wav' })]);
+      decode.mockClear();
+      await expect(player.loadFiles([oversizedWav()])).rejects.toMatchObject({ name: 'TracksError', code: 'PCM_LIMIT' });
+      expect(decode).not.toHaveBeenCalled();
+      expect(player.getManifest()).toBe(previous);
+    } finally { await player.dispose(); }
+  });
+
+  it('суммирует оценки всех выбранных файлов до декодирования первого', async () => {
+    const { decode } = stubContext();
+    const player = createTracksPlayer();
+    try {
+      // Четыре файла по ~6,5 МБ 8 кГц 8 бит моно: каждый ~156 МиБ PCM, вместе > 512 МиБ.
+      const files = Array.from({ length: 4 }, (_, index) => {
+        const header = wavBytes({ sampleRate: 8000, channels: 1, bits: 8, frames: 0 });
+        new DataView(header.buffer).setUint32(40, 6_500_000, true);
+        return new File([header, new Uint8Array(6_500_000)], `part-${index}.wav`);
+      });
+      await expect(player.loadFiles(files)).rejects.toMatchObject({ code: 'PCM_LIMIT' });
+      expect(decode).not.toHaveBeenCalled();
+    } finally { await player.dispose(); }
+  });
+});
