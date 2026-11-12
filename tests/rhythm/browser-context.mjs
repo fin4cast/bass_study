@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-export const literalV7 = JSON.parse(await readFile(new URL('../fixtures/v7-backup.json', import.meta.url), 'utf8'));
+export const currentCopy = JSON.parse(await readFile(new URL('../fixtures/backup.json', import.meta.url), 'utf8'));
 
 export const root = page => page.getByTestId('rhythm-view');
 export const playingField = page => root(page).locator('.rhythm-playing-field:visible');

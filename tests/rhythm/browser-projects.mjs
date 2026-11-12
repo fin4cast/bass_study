@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
-import { root, settingsAside, action, setting, output, choice, near, assertSettings, setSettings, openGroup, ready, enter, edit, state, start, openHistory, exported, raw, literalV7 } from './browser-context.mjs';
+import { root, settingsAside, action, setting, output, choice, near, assertSettings, setSettings, openGroup, ready, enter, edit, state, start, openHistory, exported, raw } from './browser-context.mjs';
 
 export const projectsChecks = [];
 const check = (name, scope, run) => projectsChecks.push({ name, scope, run });
@@ -123,7 +123,7 @@ check('project-steps-and-full-chain-survive-reload-and-export', 'ui', async ({ p
   await action(page, 'stop').click();
   assert.equal(await output(page, 'chain').locator('[aria-current="true"]').count(), 0);
   const copy = await exported(page);
-  assert.equal(copy.schemaVersion, 10);
+  assert.equal(copy.schemaVersion, 11);
   assert.equal(copy.rhythmProjects.length, 1);
   const [project] = copy.rhythmProjects;
   assert.equal(copy.activeRhythmProjectId, project.id);
@@ -154,7 +154,7 @@ check('project-steps-and-full-chain-survive-reload-and-export', 'ui', async ({ p
     await page.locator('[data-history-file]').setInputFiles({ name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(snapshot)) });
     await page.getByTestId('backup-preview').waitFor();
   };
-  await choose('legacy-v7.json', literalV7);
+  await choose('preview-only.json', { ...copy, rhythmProjects: [], activeRhythmProjectId: null });
   assert.match(await page.getByTestId('backup-preview').innerText(), /0 проектов ритма/);
   assert.deepEqual((await raw(page)).rhythmProjects, copy.rhythmProjects);
   await page.locator('[data-history-action="cancel-restore"]').click();
@@ -180,7 +180,7 @@ check('project-steps-and-full-chain-survive-reload-and-export', 'ui', async ({ p
   assert.equal(await preset.getAttribute('aria-pressed'), 'true');
   assert.equal(await output(page, 'pattern-title').innerText(), 'Фанк');
   assert.equal(await setting(page, 'bpm').inputValue(), '102');
-  return { project: project.id, patterns: project.patterns.length, clips: project.chain.length, emptyBarsAddedWithSettingsClosed: [2, 3, 4], copiedVelocity: Number(customVelocity), barClampedAfterResize: true, copiedAndClearedBar: true, persistedPatternBars: 3, keyboardChoices: true, singleClipEditor: true, exactReload: true, legacyPreviewReadOnly: true, exactUiRestore: true, lowerLibraryPreset: 'funk' };
+  return { project: project.id, patterns: project.patterns.length, clips: project.chain.length, emptyBarsAddedWithSettingsClosed: [2, 3, 4], copiedVelocity: Number(customVelocity), barClampedAfterResize: true, copiedAndClearedBar: true, persistedPatternBars: 3, keyboardChoices: true, singleClipEditor: true, exactReload: true, previewOnlyReadOnly: true, exactUiRestore: true, lowerLibraryPreset: 'funk' };
 });
 
 check('manual-note-keeps-rhythm-material-and-time-after-changing-project', 'ui', async ({ page }) => {
@@ -328,7 +328,7 @@ check('product-step-accents-use-project-owned-channel-defaults', 'ui', async ({ 
   await state(page, 'stopped');
 
   const copy = await exported(page);
-  assert.equal(copy.schemaVersion, 10);
+  assert.equal(copy.schemaVersion, 11);
   const project = copy.rhythmProjects.find(item => item.id === copy.activeRhythmProjectId);
   const exportedDefaults = (source, channel) => source.channels.find(item => item.id === channel).velocityDefaults;
   assert.deepEqual(exportedDefaults(project, 'kick'), { hit: 61, accent: 82 });
@@ -386,7 +386,7 @@ check('product-step-accents-use-project-owned-channel-defaults', 'ui', async ({ 
   await step('kick', 6).click();
   await hit('kick', 6, 1, 61);
   await openHistory(page);
-  await page.locator('[data-history-file]').setInputFiles({ name: 'rhythm-defaults-v10.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(copy)) });
+  await page.locator('[data-history-file]').setInputFiles({ name: 'rhythm-defaults-v11.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(copy)) });
   await page.getByTestId('backup-preview').waitFor();
   await page.getByLabel('Понимаю, что текущие данные будут заменены', { exact: true }).check();
   await page.locator('[data-history-action="confirm-restore"]').click();

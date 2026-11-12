@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import fixture from './fixtures/v10-backup.json?raw';
+import fixture from './fixtures/backup.json?raw';
 import { DEFAULT_PREFERENCES, describeSkippedRecords, parseBackup, readStoredSnapshot, validateHistoryEntry, validateSnapshot, type StoredRecords } from '../src/storage';
 
 const backup = JSON.parse(fixture);
@@ -13,6 +13,12 @@ describe('чтение собственной базы', () => {
     const { snapshot, skipped } = readStoredSnapshot(records());
     expect(skipped).toEqual([]);
     expect(snapshot).toEqual(validateSnapshot(backup));
+    // В базе лежат записи, уже прошедшие полную проверку. Кеш после записи и свежее чтение
+    // должны давать байт-в-байт одинаковый экспорт, включая порядок полей.
+    const canonical = validateSnapshot(backup);
+    const reread = readStoredSnapshot({ preferences: canonical.preferences, profile: canonical.profile, activeRhythmProjectId: canonical.activeRhythmProjectId,
+      presets: canonical.presets, history: canonical.history, practiceDrafts: canonical.practiceDrafts, rhythmProjects: canonical.rhythmProjects }).snapshot;
+    expect(JSON.stringify(reread)).toBe(JSON.stringify(canonical));
     expect(new Set(snapshot.history.map(entry => entry.result.kind))).toEqual(new Set(['screen', 'manual', 'ear', 'route']));
   });
 

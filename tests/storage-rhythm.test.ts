@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import v7 from './fixtures/v7-backup.json?raw';
+import current from './fixtures/backup.json?raw';
 import { createDefaultRhythmProject, DEFAULT_RHYTHM_PREFERENCES, validateRhythmProject, type RhythmPatternBars, type RhythmProject } from '../src/rhythm/model';
-import { createMemoryStudyStore, emptySnapshot, parseBackup, validateHistoryEntry, validatePracticeDraft, validateSnapshot } from '../src/storage';
+import { STUDY_SCHEMA_VERSION, createMemoryStudyStore, emptySnapshot, parseBackup, validateHistoryEntry, validatePracticeDraft, validateSnapshot } from '../src/storage';
 
 const createdAt = '2026-11-08T22:31:00.000Z';
 
@@ -25,10 +25,6 @@ function project(id = 'fixture-rhythm', secondBars: RhythmPatternBars = 1) {
   ], channels: base.channels.map((channel, index) => index === 0 ? { ...channel, muted: true, volume: .25 } : channel) });
 }
 
-function legacyProject({ channels, ...value }: RhythmProject) {
-  return { ...value, channels: channels.map(({ velocityDefaults, ...channel }) => channel) };
-}
-
 function rhythmDraft<Project>(value: Project) {
   return {
     id: 'rhythm-draft', createdAt, updatedAt: createdAt, timeZone: 'Europe/Moscow', localDate: '2026-11-09',
@@ -45,58 +41,7 @@ function rhythmHistory(draft: ReturnType<typeof rhythmDraft>) {
   };
 }
 
-describe('схема 10 и целые проекты ритма', () => {
-  it('переносит буквальную v7 с прежним материалом, профилем и медиа', () => {
-    const previous = JSON.parse(v7);
-    const snapshot = parseBackup(v7);
-    expect(snapshot).toMatchObject({ schemaVersion: 10, rhythmProjects: [], activeRhythmProjectId: null });
-    expect(snapshot.preferences).toEqual({ ...previous.preferences, rhythm: null });
-    expect(snapshot.presets).toEqual(previous.presets.map((preset: any) => ({ ...preset, preferences: { ...preset.preferences, rhythm: null } })));
-    expect(snapshot.history).toEqual(previous.history);
-    expect(snapshot.practiceDrafts).toEqual(previous.practiceDrafts);
-    expect(snapshot.profile).toEqual(previous.profile);
-    expect(() => parseBackup(JSON.stringify({ ...previous, rhythmProjects: [] }))).toThrow();
-    expect(() => parseBackup(JSON.stringify({ ...previous, preferences: { ...previous.preferences, rhythm: null } }))).toThrow();
-  });
-
-  it.each([8, 9] as const)('переносит v%s, добавляя силу 72/100 в проекты и снимки практики', version => {
-    const previous = parseBackup(v7);
-    const first = project('rhythm-a', version === 8 ? 2 : 3);
-    const four = project('rhythm-b', 4);
-    const rhythm = { ...DEFAULT_RHYTHM_PREFERENCES, view: 'rhythm' };
-    const content = <Project extends { id: string }>(left: Project, right: Project) => ({
-      ...previous,
-      preferences: { ...previous.preferences, activeModule: 'harmony', rhythm },
-      presets: previous.presets.map(preset => ({ ...preset, preferences: { ...preset.preferences, rhythm } })),
-      history: [...previous.history, rhythmHistory(rhythmDraft(right))].sort((a, b) => a.id.localeCompare(b.id, 'en')),
-      practiceDrafts: [...previous.practiceDrafts, rhythmDraft(left)],
-      rhythmProjects: [left, right], activeRhythmProjectId: right.id,
-    });
-    const addDefaults = (value: ReturnType<typeof legacyProject>) => ({
-      ...value, channels: value.channels.map(channel => ({ ...channel, velocityDefaults: { hit: 72, accent: 100 } })),
-    });
-    const legacyFirst = legacyProject(first), legacyFour = legacyProject(four);
-    const legacy = { ...content(legacyFirst, legacyFour), schemaVersion: version };
-    const expected = { ...content(addDefaults(legacyFirst), addDefaults(legacyFour)), schemaVersion: 10 };
-    const json = JSON.stringify(legacy);
-    expect(parseBackup(json)).toEqual(expected);
-    expect(createMemoryStudyStore().previewImport(json)).toMatchObject({ sourceSchemaVersion: version, rhythmProjects: 2, snapshot: expected });
-    expect(() => parseBackup(JSON.stringify({ ...legacy, rhythmProjects: [addDefaults(legacyFirst), legacyFour] }))).toThrow();
-  });
-
-  it('отклоняет трёхтактовый паттерн в библиотеке, истории или черновике копии v8', () => {
-    const three = legacyProject(project('rhythm-three', 3));
-    const draft = rhythmDraft(three);
-    const legacy = { ...emptySnapshot(), schemaVersion: 8 };
-    for (const extra of [
-      { rhythmProjects: [three], activeRhythmProjectId: three.id },
-      { history: [rhythmHistory(draft)] },
-      { practiceDrafts: [draft] },
-    ]) {
-      expect(() => parseBackup(JSON.stringify({ ...legacy, ...extra }))).toThrow(/трёхтактовые/i);
-    }
-  });
-
+describe('целые проекты ритма', () => {
   it('сохраняет силу для каждой дорожки, трёхтактовый паттерн и порядок клипов при полной замене копией', async () => {
     const store = createMemoryStudyStore();
     const seed = project('rhythm-z', 3);
@@ -117,7 +62,7 @@ describe('схема 10 и целые проекты ритма', () => {
     const saved = await store.readSnapshot();
     const json = await store.exportBackup();
     const exported = parseBackup(json);
-    expect(JSON.parse(json).schemaVersion).toBe(10);
+    expect(JSON.parse(json).schemaVersion).toBe(STUDY_SCHEMA_VERSION);
     expect(exported).toEqual(saved);
     const pattern = exported.rhythmProjects[1].patterns[1];
     expect(pattern.bars).toBe(3);
@@ -136,11 +81,11 @@ describe('схема 10 и целые проекты ритма', () => {
     await target.deleteRhythmProject(first.id);
     expect(await target.readSnapshot()).toMatchObject({ rhythmProjects: [], activeRhythmProjectId: null });
 
-    expect(store.previewImport(v7)).toMatchObject({ sourceSchemaVersion: 7, rhythmProjects: 0 });
-    await store.restore(v7, { confirmed: false });
+    expect(store.previewImport(current)).toMatchObject({ rhythmProjects: 1 });
+    await store.restore(current, { confirmed: false });
     expect(await store.readSnapshot()).toBe(saved);
-    await store.restore(v7, { confirmed: true });
-    expect(await store.readSnapshot()).toEqual(parseBackup(v7));
+    await store.restore(current, { confirmed: true });
+    expect(await store.readSnapshot()).toEqual(parseBackup(current));
   });
 
   it('отклоняет неполные и недопустимые значения силы без замены текущей копии', async () => {
@@ -196,9 +141,10 @@ describe('схема 10 и целые проекты ритма', () => {
     expect(snapshot.rhythmProjects).toEqual([]);
     expect(snapshot.history).toEqual([result.entry]);
     expect(snapshot.practiceDrafts).toEqual([result.draft]);
-    const legacy = parseBackup(v7).practiceDrafts[0];
-    expect(() => validatePracticeDraft({ ...legacy, context: null })).toThrow();
-    expect(() => validatePracticeDraft({ ...draft, context: legacy.context })).toThrow();
+    const screen = parseBackup(current).history.find(entry => entry.result.kind === 'screen')!.result;
+    const area = screen.kind === 'screen' ? screen.context : null;
+    expect(area).not.toBeNull();
+    expect(() => validatePracticeDraft({ ...draft, context: area })).toThrow();
     expect(() => validatePracticeDraft({ ...draft, comfortableBpm: 241 })).toThrow();
     expect(() => validateHistoryEntry({ ...result.entry, routeRef: { routeId: 'route', step: 'sequence' } })).toThrow();
   });

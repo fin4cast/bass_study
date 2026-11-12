@@ -1,73 +1,78 @@
 <!doctype html>
 <html lang="ru">
 <meta charset="utf-8">
-<title>P6: миграция настоящей базы</title>
+<title>P6: апгрейд настоящей старой базы</title>
 <body>
-<h1>Независимая база версии 1</h1>
+<h1>Независимая база старой версии</h1>
 <script type="module">
-  // Deliberately no production import before seedV1 has created the old schema.
+  // Deliberately no production import before seedOld has created the old schema.
   const requestValue = request => new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
   });
   const complete = transaction => new Promise((resolve, reject) => {
     transaction.oncomplete = resolve; transaction.onabort = () => reject(transaction.error);
   });
-  async function readLegacyBackup(version = 1) {
-    if (![1, 2, 3, 4, 5].includes(version)) throw new Error('Only actual v1/v2/v3/v4/v5 fixtures are supported');
-    const response = await fetch(`/tests/fixtures/v${version}-backup.json`, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`Literal v${version} fixture unavailable: ${response.status}`);
+  // The only literal copy is the current one; an old copy differs from it only by schemaVersion.
+  async function readBackup() {
+    const response = await fetch('/tests/fixtures/backup.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Current backup fixture unavailable: ${response.status}`);
     return response.json();
   }
-  const readV1Backup = () => readLegacyBackup(1);
+  // Independent readonly reader: every store, every key and value, without the product adapter.
   async function rawRead() {
-    const db = await requestValue(indexedDB.open('bass-study'));
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('bass-study');
+      request.onupgradeneeded = () => { request.transaction.abort(); reject(new Error('Readonly reader must not create a missing database')); };
+      request.onerror = () => reject(request.error); request.onsuccess = () => resolve(request.result);
+    });
     try {
-      const names = ['preferences', 'presets', 'history', ...(['profile', 'practiceDrafts', 'rhythmProjects'].filter(name => db.objectStoreNames.contains(name)))];
-      const transaction = db.transaction(names, 'readonly');
-      const done = complete(transaction);
-      const [preferences, presets, history, profile, practiceDrafts, rhythmProjects, activeRhythmProjectId] = await Promise.all([
-        requestValue(transaction.objectStore('preferences').get('current')),
-        requestValue(transaction.objectStore('presets').getAll()),
-        requestValue(transaction.objectStore('history').getAll()),
-        names.includes('profile') ? requestValue(transaction.objectStore('profile').get('current')) : Promise.resolve(undefined),
-        names.includes('practiceDrafts') ? requestValue(transaction.objectStore('practiceDrafts').getAll()) : Promise.resolve(undefined),
-        names.includes('rhythmProjects') ? requestValue(transaction.objectStore('rhythmProjects').getAll()) : Promise.resolve(undefined),
-        names.includes('rhythmProjects') ? requestValue(transaction.objectStore('preferences').get('rhythm-selection')) : Promise.resolve(undefined),
-      ]);
-      await done; return { version: db.version, preferences, presets, history, ...(profile ? { profile, practiceDrafts } : {}), ...(rhythmProjects ? { rhythmProjects, activeRhythmProjectId: activeRhythmProjectId ?? null } : {}) };
+      const names = [...db.objectStoreNames].sort(); const stores = {};
+      if (names.length) {
+        const transaction = db.transaction(names, 'readonly'); const done = complete(transaction);
+        await Promise.all(names.map(async name => {
+          const store = transaction.objectStore(name);
+          const [keys, values] = await Promise.all([requestValue(store.getAllKeys()), requestValue(store.getAll())]);
+          stores[name] = keys.map((key, index) => ({ key, value: values[index] }));
+        }));
+        await done;
+      }
+      return { version: db.version, stores };
     } finally { db.close(); }
   }
-  async function seedLegacy(version = 1, { invalid = false } = {}) {
-    const literal = await readLegacyBackup(version);
-    const input = structuredClone(literal);
-    if (invalid) {
-      const entry = input.history.find(entry => entry.result.kind === 'screen');
-      if (!entry) throw new Error('Literal v1 fixture needs a real screen result');
-      entry.result.questions[0].firstResponseMs = -1;
-    }
+  // Layouts that really existed: v1 had three stores, v6 added profile/practiceDrafts, v8 added rhythmProjects.
+  function storesFor(version) {
+    return ['preferences', 'presets', 'history', ...(version >= 6 ? ['profile', 'practiceDrafts'] : []), ...(version >= 8 ? ['rhythmProjects'] : [])];
+  }
+  async function seedOld(version) {
+    if (!Number.isInteger(version) || version < 1 || version > 10) throw new Error('Only an older native schema 1..10 can be seeded');
+    await new Promise((resolve, reject) => {
+      const request = indexedDB.deleteDatabase('bass-study'); request.onsuccess = resolve;
+      request.onerror = () => reject(request.error); request.onblocked = () => reject(new Error('Fixture database deletion blocked'));
+    });
+    const literal = await readBackup(); const names = storesFor(version);
     const request = indexedDB.open('bass-study', version);
     request.onupgradeneeded = () => {
       const db = request.result;
-      db.createObjectStore('preferences'); db.createObjectStore('presets', { keyPath: 'id' }); db.createObjectStore('history', { keyPath: 'id' });
+      db.createObjectStore('preferences');
+      if (names.includes('profile')) db.createObjectStore('profile');
+      for (const name of names.filter(name => !['preferences', 'profile'].includes(name))) db.createObjectStore(name, { keyPath: 'id' });
+      const transaction = request.transaction;
+      transaction.objectStore('preferences').put(literal.preferences, 'current');
+      if (names.includes('profile')) transaction.objectStore('profile').put({ ...literal.profile, theme: 'dark' }, 'current');
+      if (names.includes('rhythmProjects') && literal.activeRhythmProjectId) transaction.objectStore('preferences').put(literal.activeRhythmProjectId, 'rhythm-selection');
+      transaction.objectStore('presets').put({ id: 'old-preset', name: 'Старый пресет', createdAt: '2026-11-08T22:30:00.000Z', preferences: literal.preferences });
+      for (const name of ['history', 'practiceDrafts', 'rhythmProjects'].filter(name => names.includes(name))) for (const item of literal[name]) transaction.objectStore(name).put(item);
     };
-    const db = await requestValue(request);
-    try {
-      const transaction = db.transaction(['preferences', 'presets', 'history'], 'readwrite');
-      const done = complete(transaction);
-      transaction.objectStore('preferences').put(input.preferences, 'current');
-      for (const item of input.presets) transaction.objectStore('presets').put(item);
-      for (const item of input.history) transaction.objectStore('history').put(item);
-      await done;
-    } finally { db.close(); }
-    return { literal, raw: await rawRead() };
+    const db = await requestValue(request); db.close();
+    return { raw: await rawRead(), stores: names };
   }
-  const seedV1 = options => seedLegacy(1, options);
   async function loadCurrent() {
     const module = await import('/src/storage/index.ts');
     window.p6.store = module.createStudyStore();
+    window.p6.empty = module.emptySnapshot();
     return window.p6.store;
   }
-  window.p6 = { ready: true, seedV1, seedLegacy, readV1Backup, readLegacyBackup, rawRead, loadCurrent, store: null };
+  window.p6 = { ready: true, seedOld, readBackup, rawRead, loadCurrent, store: null, empty: null };
 </script>
 </body>
 </html>

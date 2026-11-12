@@ -1,25 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import v8 from './fixtures/v8-backup.json?raw';
-import v9 from './fixtures/v9-backup.json?raw';
-import v10 from './fixtures/v10-backup.json?raw';
+import current from './fixtures/backup.json?raw';
 import shapeV1 from './fixtures/screen-shape-v1.json?raw';
 import { createMemoryStudyStore, emptySnapshot, parseBackup, validateHistoryEntry, type ScreenHistoryEntry } from '../src/storage';
 
 describe('буквальные резервные копии и исторические правила v1', () => {
-  it.each([[v8, 2], [v9, 3]] as const)('переносит прежние такты и подставляет настройки силы', (json, bars) => {
-    const snapshot = parseBackup(json);
-    const project = snapshot.rhythmProjects[0];
-    expect(snapshot.schemaVersion).toBe(10);
-    expect(project.patterns[0].bars).toBe(bars);
-    expect(project.channels[0]).toMatchObject({ muted: true, volume: .62, velocityDefaults: { hit: 72, accent: 100 } });
-    expect(snapshot.activeRhythmProjectId).toBe(project.id);
-    expect(snapshot.practiceDrafts[0].material).toMatchObject({ playback: { project } });
-    expect(snapshot.history[0].result).toMatchObject({ material: { playback: { project } } });
-  });
-
-  it('сохраняет снимок v10 со слухом, маршрутом, учебной серией и ритмом буквально', () => {
-    const snapshot = parseBackup(v10);
-    expect(snapshot).toEqual(JSON.parse(v10));
+  it('сохраняет текущий снимок со слухом, маршрутом, учебной серией и ритмом буквально', () => {
+    const snapshot = parseBackup(current);
+    expect(snapshot).toEqual(JSON.parse(current));
     expect(snapshot.history.find(entry => entry.result.kind === 'ear')?.result).toMatchObject({ questions: [{ outcome: 'corrected' }, { outcome: 'interrupted' }] });
     expect(snapshot.history.find(entry => entry.result.kind === 'route')?.result).toMatchObject({ actualStepMs: [180000, 2500, 0], finishReason: 'stopped' });
     expect(snapshot.history.find(entry => entry.result.kind === 'screen')?.result).toMatchObject({ questionPolicy: 'triad-6-v1' });
@@ -34,7 +21,7 @@ describe('буквальные резервные копии и историче
       (snapshot: ReturnType<typeof JSON.parse>) => snapshot.history.find((entry: { result: { kind: string } }) => entry.result.kind === 'route').result.actualStepMs[1]++,
       (snapshot: ReturnType<typeof JSON.parse>) => snapshot.history.find((entry: { result: { kind: string } }) => entry.result.kind === 'screen').result.questions[0].questionId = 'wrong-id',
     ]) {
-      const snapshot = JSON.parse(v10);
+      const snapshot = JSON.parse(current);
       tamper(snapshot);
       expect(() => parseBackup(JSON.stringify(snapshot))).toThrow();
     }
@@ -79,7 +66,7 @@ describe('буквальные резервные копии и историче
 
 it('публикует только подготовленный этим хранилищем кандидат и использует его один раз', async () => {
   const store = createMemoryStudyStore();
-  const candidate = store.prepareImport(v10);
+  const candidate = store.prepareImport(current);
   expect(Object.isFrozen(candidate)).toBe(true);
   expect(Object.isFrozen(candidate.snapshot.history)).toBe(true);
   expect(await store.readSnapshot()).toEqual(emptySnapshot());
@@ -88,7 +75,7 @@ it('публикует только подготовленный этим хра
   await expect(store.restorePrepared(candidate)).resolves.toMatchObject({ status: 'restored', history: 4 });
   expect(await store.readSnapshot()).toBe(candidate.snapshot);
   await expect(store.restorePrepared(candidate)).rejects.toMatchObject({ code: 'INVALID_BACKUP' });
-  const stale = store.prepareImport(v10);
+  const stale = store.prepareImport(current);
   await store.close();
   await expect(store.restorePrepared(stale)).rejects.toMatchObject({ code: 'INVALID_BACKUP' });
 });

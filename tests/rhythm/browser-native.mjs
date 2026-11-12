@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { root, action, output, ready, enter, edit, state, start, openGroup, openHistory, raw, seedDatabase, literalV7 } from './browser-context.mjs';
+import { root, action, output, ready, enter, edit, state, start, openGroup, openHistory, raw, seedDatabase, currentCopy } from './browser-context.mjs';
 
 export const nativeChecks = [];
 const check = (name, scope, run) => nativeChecks.push({ name, scope, run });
@@ -77,7 +77,7 @@ check('native-p12-restore-and-retry-are-exclusive-and-post-commit-hydration-requ
   await page.locator('[data-theme-choice="light"]').click();
   await openHistory(page);
   assert.equal((await raw(page)).profile.theme, 'light');
-  const copy = JSON.parse(await readFile(new URL('../fixtures/v10-backup.json', import.meta.url), 'utf8'));
+  const copy = JSON.parse(await readFile(new URL('../fixtures/backup.json', import.meta.url), 'utf8'));
   copy.preferences.activeModule = 'input';
   copy.profile.theme = 'light';
   await page.locator('[data-history-file]').setInputFiles({ name: 'p12-post-commit.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(copy)) });
@@ -174,28 +174,39 @@ check('native-real-hidden-tab-pauses-until-explicit-resume', 'native', async ({ 
   return { actualDocumentHidden: true, noAutomaticResume: true };
 }));
 
-check('native-upgrade-seven-to-ten-keeps-legacy-history-and-drafts', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
-  await seedDatabase(page, origin, literalV7);
+// Current-schema database written without product code: an older harmony draft and a preset without rhythm settings.
+function harmonyDraftSnapshot() {
+  const harmonyDraft = {
+    id: 'fixture-harmony-draft', createdAt: '2026-11-08T22:30:00.000Z', updatedAt: '2026-11-08T22:30:01.000Z', timeZone: 'Europe/Moscow', localDate: '2026-11-09',
+    context: { scope: 'structure', root: 'C', structureId: 'major', positionIds: ['E:8', 'A:7', 'A:10', 'D:10'], box: null },
+    material: { kind: 'harmony', patternId: 'CFGC-1-3-5-3-v1' }, routeRef: null,
+    totalReferenceMs: 2345, recordedThroughMs: 700, suggestedBpm: 113, comfortableBpm: 97, note: 'Сохранённый черновик прежнего аккомпанемента', editRevision: 3,
+  };
+  return {
+    ...currentCopy, profile: { theme: 'dark', onboarding: { version: 1, choice: 'guided', completed: true } },
+    preferences: { ...currentCopy.preferences, rhythm: null },
+    presets: [{ id: 'fixture-harmony-preset', name: 'Аккомпанемент без ритма', createdAt: '2026-11-08T22:30:00.000Z', preferences: { ...currentCopy.preferences, activeModule: 'harmony', rhythm: null } }],
+    practiceDrafts: [...currentCopy.practiceDrafts, harmonyDraft], rhythmProjects: [], activeRhythmProjectId: null,
+  };
+}
+
+check('native-current-database-saves-harmony-draft-and-rhythmless-preset-keeps-projects', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
+  await seedDatabase(page, origin, harmonyDraftSnapshot());
   const before = await raw(page);
-  assert.equal(before.version, 7);
+  assert.equal(before.version, 11);
   await page.goto(origin);
   await ready(page);
-  const after = await raw(page);
-  assert.deepEqual(after, {
-    ...before, version: 10, stores: [...before.stores, 'rhythmProjects'].sort(),
-    preferences: { ...before.preferences, rhythm: null },
-    presets: before.presets.map(preset => ({ ...preset, preferences: { ...preset.preferences, rhythm: null } })),
-  });
+  assert.deepEqual(await raw(page), before, 'Opening a current database must not rewrite it');
   await openHistory(page);
-  const legacy = before.practiceDrafts.find(item => item.material.kind === 'harmony');
-  assert.ok(legacy);
-  await page.getByLabel('Черновики ручной практики', { exact: true }).selectOption(legacy.id);
+  const draft = before.practiceDrafts.find(item => item.material.kind === 'harmony');
+  assert.ok(draft);
+  await page.getByLabel('Черновики ручной практики', { exact: true }).selectOption(draft.id);
   await page.locator('[data-history-action="save-manual"]').click();
   await page.waitForFunction(() => document.querySelectorAll('[data-history-kind="manual"]').length >= 2);
   const saved = (await raw(page)).history.find(item => item.id.startsWith('manual-') && !before.history.some(old => old.id === item.id));
-  assert.deepEqual(saved.result.material, legacy.material);
-  assert.deepEqual(saved.result.context, legacy.context);
-  assert.equal(saved.occurredAt, legacy.createdAt);
+  assert.deepEqual(saved.result.material, draft.material);
+  assert.deepEqual(saved.result.context, draft.context);
+  assert.equal(saved.occurredAt, draft.createdAt);
   await page.locator('#open-history').click();
   await enter(page);
   await edit(page, 'bpm', 113);
@@ -212,153 +223,7 @@ check('native-upgrade-seven-to-ten-keeps-legacy-history-and-drafts', 'native', a
   assert.deepEqual(afterPreset.rhythmProjects, [projectBeforePreset]);
   assert.equal(afterPreset.activeRhythmProjectId, projectBeforePreset.id);
   assert.equal(afterPreset.preferences.rhythm.metronome.bpm, 113);
-  return { version: after.version, historyPreserved: before.history.length, draftsPreserved: before.practiceDrafts.length, savedLegacyDuration: saved.result.durationMs, legacyPresetPreservesRhythm: true };
-}));
-
-function legacyRhythmSnapshot(version) {
-  const project = (id, name, bars) => {
-    const steps = Array.from({ length: bars * 16 }, (_, index) => index % 16 === Math.floor(index / 16) ? 1 : 0);
-    const channels = [
-      { id: 'kick', name: 'Бочка', sound: 'kick', volume: .8, muted: false, solo: false },
-      { id: 'snare', name: 'Малый', sound: 'snare', volume: .65, muted: false, solo: false },
-    ];
-    return {
-      id, name, createdAt: '2026-11-08T22:30:00.000Z', updatedAt: '2026-11-08T22:30:01.000Z',
-      bpm: 107, swing: 53, swingMode: 'eighth',
-      channels,
-      patterns: [{ id: 'A', name, bars, lanes: channels.map(channel => ({ channelId: channel.id, steps, velocities: steps.map(step => step * .63) })) }],
-      chain: [{ id: 'clip-1', patternId: 'A' }], activePatternId: 'A', scope: 'pattern', repeat: 'once', countIn: true, overlay: false,
-    };
-  };
-  const selected = project(`v${version}-rhythm-selected`, `Выбранный проект из версии ${version}`, version === 8 ? 4 : 3);
-  const rhythm = {
-    view: 'rhythm', master: .76, metronome: {
-      bpm: 117, bpmUnit: 'quarter', meter: { beats: 4, denominator: 4, groups: [4] }, accents: [2, 1, 1, 1],
-      division: 1, substeps: [], swing: 50, swingMode: 'eighth', kit: 'wood', accentVolume: .8, clickVolume: .8, subdivisionVolume: .35,
-      countIn: false, training: { silentEnabled: false, soundBars: 3, silentBars: 1, rampEnabled: false, stepBpm: 2, everyBars: 8, targetBpm: 120 },
-    },
-  };
-  const material = { kind: 'rhythm', playback: { preferences: rhythm, project: selected } };
-  const oldDraft = literalV7.practiceDrafts.find(item => item.material.kind === 'harmony');
-  const oldHistory = literalV7.history.find(item => item.result.kind === 'manual');
-  return {
-    ...literalV7, schemaVersion: version, preferences: { ...literalV7.preferences, rhythm },
-    presets: literalV7.presets.map(preset => ({ ...preset, preferences: { ...preset.preferences, rhythm: null } })),
-    practiceDrafts: [...literalV7.practiceDrafts, { ...oldDraft, id: `v${version}-rhythm-draft`, context: null, material }],
-    history: [...literalV7.history, { ...oldHistory, id: `v${version}-rhythm-history`, result: { ...oldHistory.result, context: null, material } }],
-    rhythmProjects: [project(`v${version}-rhythm-first`, `Один такт из версии ${version}`, 1), selected], activeRhythmProjectId: selected.id,
-  };
-}
-
-for (const version of [8, 9]) {
-  check(`native-upgrade-v${version}-to-v10-keeps-rhythm-projects-and-practice`, 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
-    const snapshot = legacyRhythmSnapshot(version);
-    const selected = snapshot.rhythmProjects.find(project => project.id === snapshot.activeRhythmProjectId);
-    const factory = { hit: 72, accent: 100 };
-    const migrateProject = (project, defaultsFor = () => factory) => ({
-      ...project, channels: project.channels.map(channel => ({ ...channel, velocityDefaults: defaultsFor(channel) })),
-    });
-    const migrateMaterial = material => material?.kind === 'rhythm'
-      ? { ...material, playback: { ...material.playback, project: migrateProject(material.playback.project) } }
-      : material;
-    await seedDatabase(page, origin, snapshot);
-    const before = await raw(page);
-    assert.equal(before.version, version);
-    assert.equal(before.activeRhythmProjectId, selected.id);
-    assert.deepEqual(before.rhythmProjects, snapshot.rhythmProjects);
-
-    if (version === 9) {
-      await page.evaluate(() => {
-        localStorage.setItem('bass-study.rhythm.new-hit-velocity', '68');
-        localStorage.setItem('bass-study.rhythm.track-velocity:["kick","kick"]', '{"hit":59,"accent":81}');
-        sessionStorage.setItem('p10-rhythm-upgrade-fault', 'pending');
-      });
-      await context.addInitScript(origin => {
-        if (location.origin !== origin || sessionStorage.getItem('p10-rhythm-upgrade-fault') !== 'pending') return;
-        const put = IDBObjectStore.prototype.put;
-        IDBObjectStore.prototype.put = function (...args) {
-          const request = put.apply(this, args);
-          const transaction = this.transaction;
-          if (this.name === 'rhythmProjects' && transaction.mode === 'versionchange' && transaction.db.name === 'bass-study' && transaction.db.version === 10) {
-            request.addEventListener('success', () => {
-              sessionStorage.setItem('p10-rhythm-upgrade-fault', 'aborted');
-              transaction.abort();
-            }, { once: true });
-          }
-          return request;
-        };
-      }, origin);
-      await page.goto(origin);
-      await ready(page);
-      assert.equal(await page.evaluate(() => sessionStorage.getItem('p10-rhythm-upgrade-fault')), 'aborted');
-      assert.deepEqual(await raw(page), before);
-    }
-
-    await page.goto(origin);
-    await ready(page);
-    const after = await raw(page);
-    const expectedProjects = before.rhythmProjects.map(project => migrateProject(project, channel => {
-      if (version === 8) return factory;
-      return channel.id === 'kick' && channel.sound === 'kick' ? { hit: 59, accent: 81 } : { hit: 68, accent: 100 };
-    }));
-    assert.deepEqual(after, {
-      ...before, version: 10, rhythmProjects: expectedProjects,
-      practiceDrafts: before.practiceDrafts.map(draft => ({ ...draft, material: migrateMaterial(draft.material) })),
-      history: before.history.map(entry => entry.result.material?.kind === 'rhythm'
-        ? { ...entry, result: { ...entry.result, material: migrateMaterial(entry.result.material) } }
-        : entry),
-    });
-    await root(page).waitFor();
-    assert.equal(await output(page, 'pattern-title').innerText(), selected.name);
-    assert.equal(await output(page, 'bars').getByRole('button', { name: `Такт ${selected.patterns[0].bars}`, exact: true }).isVisible(), true);
-
-    if (version === 9) {
-      await page.evaluate(() => {
-        localStorage.setItem('bass-study.rhythm.new-hit-velocity', '31');
-        localStorage.removeItem('bass-study.rhythm.track-velocity:["kick","kick"]');
-      });
-      await page.reload();
-      await ready(page);
-      assert.deepEqual(await raw(page), after);
-      await openHistory(page);
-      await page.locator('[data-history-file]').setInputFiles({ name: 'legacy-v9-rhythm.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(snapshot)) });
-      await page.getByTestId('backup-preview').waitFor();
-      await page.getByLabel('Понимаю, что текущие данные будут заменены', { exact: true }).check();
-      await page.locator('[data-history-action="confirm-restore"]').click();
-      await page.getByTestId('backup-preview').waitFor({ state: 'detached' });
-      const imported = await raw(page);
-      assert.equal(imported.activeRhythmProjectId, selected.id);
-      assert.deepEqual(imported.rhythmProjects, before.rhythmProjects.map(project => migrateProject(project)));
-      assert.deepEqual(imported.practiceDrafts, after.practiceDrafts);
-      assert.deepEqual(imported.history, after.history);
-    }
-
-    return { fromVersion: version, version: after.version, activeRhythmProjectId: selected.id, projectsPreserved: after.rhythmProjects.length, historyAndDraftDefaults: factory,
-      ...(version === 9 && { abortAfterPutRolledBack: true, nativeBrowserDefaultsSeededOnce: true, legacyJsonUsesFactoryDefaults: true }) };
-  }));
-}
-
-check('native-upgrade-abort-after-successful-cursor-update-retains-version-seven', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
-  await seedDatabase(page, origin, literalV7);
-  const before = await raw(page);
-  await context.addInitScript(() => {
-    const update = IDBCursorWithValue.prototype.update;
-    window.__rhythmUpgradeWrites = 0;
-    IDBCursorWithValue.prototype.update = function (...args) {
-      const request = update.apply(this, args);
-      const transaction = this.source.transaction;
-      if (transaction?.db.name === 'bass-study' && transaction.db.version === 10) request.addEventListener('success', () => {
-        window.__rhythmUpgradeWrites++;
-        transaction.abort();
-      });
-      return request;
-    };
-  });
-  await page.goto(origin);
-  await ready(page);
-  assert.equal(await page.evaluate(() => window.__rhythmUpgradeWrites), 1);
-  assert.deepEqual(await raw(page), before);
-  return { successfulCursorUpdate: 1, databaseVersionAfterAbort: 7 };
+  return { version: before.version, history: before.history.length, drafts: before.practiceDrafts.length, savedDraftDuration: saved.result.durationMs, rhythmlessPresetPreservesRhythm: true };
 }));
 
 check('native-project-restore-validates-chain-and-rolls-back-after-project-and-selection-put', 'native', async ({ fixtureOrigin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
@@ -384,7 +249,7 @@ check('native-project-restore-validates-chain-and-rolls-back-after-project-and-s
     const cached = await store.readSnapshot();
     const fresh = await store.readSnapshot({ fresh: true });
     return { confirmed, candidate, invalidCode, abortCode, failAfterWrite, transaction, sameCache: cached === confirmed && afterInvalid === confirmed, fresh };
-  }, literalV7);
+  }, currentCopy);
   assert.equal(result.invalidCode, 'INVALID_DATA');
   assert.equal(result.abortCode, 'INJECTED_ABORT');
   assert.equal(result.sameCache, true);

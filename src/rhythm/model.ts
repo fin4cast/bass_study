@@ -34,7 +34,6 @@ export interface RhythmChannel {
   readonly volume: number; readonly muted: boolean; readonly solo: boolean;
   readonly velocityDefaults: RhythmVelocityDefaults;
 }
-export type LegacyRhythmVelocityDefaults = (channel: Omit<RhythmChannel, 'velocityDefaults'>) => RhythmVelocityDefaults;
 export interface RhythmPatternLane { readonly channelId: string; readonly steps: readonly RhythmStep[]; readonly velocities: readonly number[] }
 export interface RhythmPattern { readonly id: RhythmPatternId; readonly name: string; readonly bars: RhythmPatternBars; readonly lanes: readonly RhythmPatternLane[] }
 export interface RhythmClip { readonly id: string; readonly patternId: RhythmPatternId }
@@ -164,17 +163,12 @@ export const DEFAULT_RHYTHM_PREFERENCES = validateRhythmPreferences({
 });
 
 export function validateRhythmChannel(value: unknown): RhythmChannel {
-  return parseRhythmChannel(value);
-}
-function parseRhythmChannel(value: unknown, legacyDefaults?: LegacyRhythmVelocityDefaults): RhythmChannel {
-  const keys = ['id', 'name', 'sound', 'volume', 'muted', 'solo'];
-  if (!legacyDefaults) keys.push('velocityDefaults');
-  const data = record(value, keys, 'Инструмент');
+  const data = record(value, ['id', 'name', 'sound', 'volume', 'muted', 'solo', 'velocityDefaults'], 'Инструмент');
   const channel = { id: id(data.id, 'Инструмент'), name: name(data.name, 'Инструмент'),
     sound: choice(data.sound, Object.keys(SOUND_LABELS) as RhythmSound[], 'Звук инструмента'),
     volume: number(data.volume, 0, 1.5, 'Громкость инструмента', false), muted: flag(data.muted, 'Mute'), solo: flag(data.solo, 'Solo'),
   };
-  const defaults = record(legacyDefaults ? legacyDefaults(channel) : data.velocityDefaults, ['hit', 'accent'], 'Сила новых ударов');
+  const defaults = record(data.velocityDefaults, ['hit', 'accent'], 'Сила новых ударов');
   return freeze({
     ...channel,
     velocityDefaults: {
@@ -199,14 +193,8 @@ function validatePattern(value: unknown, channels: readonly RhythmChannel[]): Rh
   return { id: choice(data.id, RHYTHM_PATTERN_IDS, 'Номер паттерна'), name: name(data.name, 'Паттерн'), bars, lanes };
 }
 export function validateRhythmProject(value: unknown): RhythmProject {
-  return parseRhythmProject(value);
-}
-export function migrateRhythmProject(value: unknown, defaults: LegacyRhythmVelocityDefaults = () => DEFAULT_RHYTHM_VELOCITY): RhythmProject {
-  return parseRhythmProject(value, defaults);
-}
-function parseRhythmProject(value: unknown, legacyDefaults?: LegacyRhythmVelocityDefaults): RhythmProject {
   const data = record(value, ['id', 'name', 'createdAt', 'updatedAt', 'bpm', 'swing', 'swingMode', 'channels', 'patterns', 'chain', 'activePatternId', 'scope', 'repeat', 'countIn', 'overlay'], 'Проект ритма');
-  const channels = list(data.channels, 1, 8, 'Инструменты').map(channel => parseRhythmChannel(channel, legacyDefaults));
+  const channels = list(data.channels, 1, 8, 'Инструменты').map(validateRhythmChannel);
   unique(channels.map(channel => channel.id), 'Инструменты');
   const patterns = list(data.patterns, 1, 8, 'Паттерны').map(value => validatePattern(value, channels));
   unique(patterns.map(pattern => pattern.id), 'Паттерны');
@@ -228,11 +216,11 @@ function parseRhythmProject(value: unknown, legacyDefaults?: LegacyRhythmVelocit
     countIn: flag(data.countIn, 'Отсчёт'), overlay: flag(data.overlay, 'Клик поверх ритма'),
   });
 }
-export function validateRhythmPlaybackConfig(value: unknown, legacyDefaults?: LegacyRhythmVelocityDefaults): RhythmPlaybackConfig {
+export function validateRhythmPlaybackConfig(value: unknown): RhythmPlaybackConfig {
   const hasProject = value !== null && typeof value === 'object' && Object.hasOwn(value, 'project');
   const data = record(value, hasProject ? ['preferences', 'project'] : ['preferences'], 'Материал ритмической практики');
   const preferences = validateRhythmPreferences(data.preferences);
-  const project = hasProject ? parseRhythmProject(data.project, legacyDefaults) : undefined;
+  const project = hasProject ? validateRhythmProject(data.project) : undefined;
   if (preferences.view === 'rhythm' && !project) invalid('Для ритм-секции нужен проект.');
   return freeze(preferences.view === 'rhythm' ? { preferences, project: project! } : { preferences });
 }

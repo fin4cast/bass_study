@@ -7,11 +7,11 @@ export function p12CompositionChecks({ confirmImport, uiBackup }) {
     { omitted: 'ear', unavailable: ['ear', 'route'], storedSection: 'route' },
   ];
   return cases.map(({ omitted, unavailable, storedSection }) => ({
-    name: `composition-without-${omitted}-retains-unavailable-schema10-data`,
+    name: `composition-without-${omitted}-retains-unavailable-schema11-data`,
     scope: 'composition',
     composition: omitted,
     async run({ page }) {
-      const incoming = JSON.parse(await readFile(new URL('../fixtures/v10-backup.json', import.meta.url), 'utf8'));
+      const incoming = JSON.parse(await readFile(new URL('../fixtures/backup.json', import.meta.url), 'utf8'));
       incoming.preferences.activeModule = storedSection;
       incoming.preferences.input.deviceId = 'fixture-input-device';
       incoming.preferences.ear = { root: 'C', quality: 'major', count: 13, bpm: 110 };

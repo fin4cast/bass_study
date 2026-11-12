@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import v1 from './fixtures/v1-backup.json?raw';
-import v2 from './fixtures/v2-backup.json?raw';
-import v3 from './fixtures/v3-backup.json?raw';
-import v4 from './fixtures/v4-backup.json?raw';
-import v5 from './fixtures/v5-backup.json?raw';
-import v6 from './fixtures/v6-backup.json?raw';
+import current from './fixtures/backup.json?raw';
 import { DEFAULT_MUSIC_BANK_PREFERENCES, MUSIC_BANK_LIMITS, bindMusicBankFile, musicBankSha256, normalizeMusicBankRelativePath, validateMusicBankFile, validateMusicBankPreferences, type MusicBankPreferences } from '../src/music-bank/model';
 import { createMusicBankCatalog, searchMusicBankCatalog } from '../src/music-bank/catalog';
-import { DEFAULT_PREFERENCES, createMemoryStudyStore, emptySnapshot, parseBackup, validatePreferences, validateSnapshot } from '../src/storage';
+import { DEFAULT_PREFERENCES, STUDY_SCHEMA_VERSION, createMemoryStudyStore, emptySnapshot, parseBackup, validatePreferences, validateSnapshot } from '../src/storage';
 import { createTracksManifest } from '../src/tracks';
 
 const copy = <T>(value: T): T => structuredClone(value);
@@ -101,28 +96,16 @@ describe('каталог только в памяти страницы', () => {
   });
 });
 
-describe('schema7: музбанк отдельно от legacy-аудиофайлов и неизменённая история', () => {
-  it.each([[1, v1], [2, v2], [3, v3], [4, v4], [5, v5], [6, v6]] as const)('мигрирует буквальную версию %i с пустым musicBank', (_version, json) => {
-    const before = JSON.parse(json), bytes = JSON.stringify(before), next = parseBackup(json);
-    expect(next.schemaVersion).toBe(10); expect(next.preferences.musicBank).toBeNull();
-    expect(next.presets.every(p => p.preferences.musicBank === null)).toBe(true);
-    expect(JSON.stringify(before)).toBe(bytes); expect(parseBackup(JSON.stringify(next))).toEqual(next);
-  });
-
-  it('сохраняет буквально весь profile/draft/history v6 и старые записи WAV/MP3', () => {
-    const before = JSON.parse(v6), next = parseBackup(v6);
-    expect(next.profile).toEqual({ theme: 'dark', onboarding: { version: 1, choice: 'guided', completed: true } });
-    expect(next.profile).toEqual(before.profile); expect(next.practiceDrafts).toEqual(before.practiceDrafts); expect(next.history).toEqual(before.history);
-    expect(next.preferences).toEqual({ ...before.preferences, musicBank: null, rhythm: null });
-    expect(next.presets).toEqual(before.presets.map((p: any) => ({ ...p, preferences: { ...p.preferences, musicBank: null, rhythm: null } })));
-  });
-
-  it('не допускает подмену версии и скрытые новые поля в старой копии', () => {
-    const previous = JSON.parse(v6); previous.preferences.musicBank = null;
-    expect(() => parseBackup(JSON.stringify(previous))).toThrow(/неизвестные/);
-    expect(() => parseBackup(JSON.stringify({ ...emptySnapshot(), schemaVersion: 11 }))).toThrow(/версия/);
-    for (const mutate of [(p: any) => { p.profile.theme = 'auto'; }, (p: any) => { p.practiceDrafts[0].recordedThroughMs = 999999; }, (p: any) => { p.practiceDrafts[0].localDate = '2026-11-08'; }]) {
-      const old = JSON.parse(v6); mutate(old); expect(() => parseBackup(JSON.stringify(old))).toThrow();
+describe('музбанк и аудиофайлы в резервной копии', () => {
+  it('принимает только текущую версию копии и не пропускает скрытые поля', () => {
+    expect(parseBackup(current).schemaVersion).toBe(STUDY_SCHEMA_VERSION);
+    const hidden = JSON.parse(current); hidden.preferences.hiddenField = null;
+    expect(() => parseBackup(JSON.stringify(hidden))).toThrow(/неизвестные/);
+    for (const schemaVersion of [1, STUDY_SCHEMA_VERSION - 1, STUDY_SCHEMA_VERSION + 1]) {
+      expect(() => parseBackup(JSON.stringify({ ...emptySnapshot(), schemaVersion }))).toThrow(/версия/);
+    }
+    for (const mutate of [(p: any) => { p.profile.theme = 'auto'; }, (p: any) => { p.practiceDrafts[0].recordedThroughMs = Number.MAX_SAFE_INTEGER; }, (p: any) => { p.practiceDrafts[0].localDate = '2020-01-01'; }]) {
+      const broken = JSON.parse(current); mutate(broken); expect(() => parseBackup(JSON.stringify(broken))).toThrow();
     }
   });
 
@@ -130,13 +113,13 @@ describe('schema7: музбанк отдельно от legacy-аудиофай�
     const tracks = createTracksManifest({ id: 'legacy-audio', tracks: [{ id: 'stem-1', name: 'bass.wav', size: 40044, lastModified: 1234, sha256: 'b'.repeat(64), decoded: { duration: 1, frames: 20000, sampleRate: 20000, channels: 1 }, volume: .65, muted: true }] });
     const store = createMemoryStudyStore(); await store.savePreferences({ ...DEFAULT_PREFERENCES, activeModule: 'tracks', tracks, musicBank: preferences() });
     const json = await store.exportBackup(), snapshot = parseBackup(json);
-    expect(snapshot.preferences.tracks).toEqual(tracks); expect(snapshot.preferences.musicBank).toEqual(preferences()); expect(snapshot.schemaVersion).toBe(10);
+    expect(snapshot.preferences.tracks).toEqual(tracks); expect(snapshot.preferences.musicBank).toEqual(preferences()); expect(snapshot.schemaVersion).toBe(STUDY_SCHEMA_VERSION);
     expect(json).not.toMatch(/arrayBuffer|fileHandle|rawFile|"pcm"|catalog|playbackTime/);
     const fresh = createMemoryStudyStore(); await fresh.restore(json, { confirmed: true }); expect(await fresh.readSnapshot()).toEqual(snapshot);
   });
 
   it('валидирует musicBank даже в неактивном разделе и каждом preset до отмены/замены базы', async () => {
-    const store = createMemoryStudyStore(); await store.restore(v6, { confirmed: true }); const before = await store.readSnapshot();
+    const store = createMemoryStudyStore(); await store.restore(current, { confirmed: true }); const before = await store.readSnapshot();
     const good = validateSnapshot({ ...before, preferences: { ...before.preferences, musicBank: preferences() } });
     await store.restore(JSON.stringify(good), { confirmed: false }); expect(await store.readSnapshot()).toBe(before);
     const bad: any = copy(good); bad.preferences.activeModule = 'foundation'; bad.preferences.musicBank.tracks[1].index = 7;

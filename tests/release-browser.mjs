@@ -11,31 +11,6 @@ const quizAction = (page, name) => page.locator(`[data-training-action="${name}"
 const OPEN_MIDI = { E: 28, A: 33, D: 38, G: 43 };
 const midiForId = id => { const [string, fret] = id.split(':'); return OPEN_MIDI[string] + Number(fret); };
 
-function expectedMigration(literal) {
-  const expected = structuredClone(literal); expected.schemaVersion = 10;
-  expected.rhythmProjects = []; expected.activeRhythmProjectId = null;
-  if (literal.schemaVersion === 1) {
-    expected.preferences.training.intervalDegree = '#4';
-    for (const preset of expected.presets) preset.preferences.training.intervalDegree = '#4';
-    for (const entry of expected.history) if (entry.result.kind === 'screen') for (const question of entry.result.questions) question.targetMidi = null;
-  }
-  for (const preferences of [expected.preferences, ...expected.presets.map(preset => preset.preferences)]) {
-    if (literal.schemaVersion <= 2) { preferences.activeModule = 'foundation'; preferences.ear = { root: 'A', quality: 'minor', count: 10, bpm: 80 }; }
-    if (literal.schemaVersion <= 3) preferences.harmony = { bpm: 80, countIn: true, repeat: 'once', bassVolume: 70, padVolume: 45, clickVolume: 50, bassMuted: false, padMuted: false, clickMuted: false };
-    if (literal.schemaVersion <= 4) { preferences.tracks = null; preferences.input = { deviceId: '' }; }
-    preferences.musicBank = null; preferences.rhythm = null; preferences.study.box = null; preferences.study.showFingers = false; preferences.training.questionPolicy = 'random-v1';
-  }
-  expected.profile = { theme: 'system', onboarding: { version: 1, choice: null, completed: false } }; expected.practiceDrafts = [];
-  for (const entry of expected.history) {
-    entry.routeRef = null;
-    if (entry.result.kind === 'screen') entry.result.questionPolicy = 'random-v1';
-    else if (entry.result.kind === 'manual') entry.result.material = { kind: 'legacy-unknown' };
-    else if (entry.result.kind === 'route') { entry.result.material = null; entry.result.sessionLinks = []; }
-    else entry.result.context.referenceMidi = entry.result.questions[0].question.referenceMidi;
-  }
-  for (const name of ['presets', 'history']) expected[name].sort((a, b) => a.id.localeCompare(b.id));
-  return expected;
-}
 async function ready(page, keyboard = false) {
   await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert);
   const free = page.locator('[data-intro="free"]');
@@ -65,19 +40,6 @@ async function exportUi(page) {
   await openHistory(page); const downloading = page.waitForEvent('download'); await historyAction(page, 'export').click();
   const download = await downloading; return JSON.parse(await readFile(await download.path(), 'utf8'));
 }
-async function readLiteral(page, fixtureUrl) {
-  const tab = await page.context().newPage();
-  try { await tab.goto(fixtureUrl); await tab.waitForFunction(() => window.p6?.ready); return await tab.evaluate(() => window.p6.readV1Backup()); }
-  finally { await tab.close(); await page.bringToFront(); }
-}
-async function restoreUi(page, input) {
-  await openHistory(page);
-  await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name: 'legacy-v1.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(input)) });
-  await page.getByTestId('backup-preview').waitFor();
-  assert.ok(await historyAction(page, 'confirm-restore').isDisabled());
-  await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check();
-  await historyAction(page, 'confirm-restore').click(); await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); await ready(page);
-}
 async function scope(page, { root = 'C', structure = 'major', first = 0, last = 0, strings = ['E'] } = {}) {
   await ready(page); await revealControl(page.getByLabel('Первый лад', { exact: true })); await page.getByLabel('Тоника', { exact: true }).selectOption(root); await page.getByLabel('Структура', { exact: true }).selectOption(structure);
   const min = page.getByLabel('Первый лад', { exact: true }); const max = page.getByLabel('Последний лад', { exact: true });
@@ -96,111 +58,120 @@ function scientificMidi(text) {
   return 12 * (Number(match[3]) + 1) + naturals[match[1]] + alteration;
 }
 
-check('genuine-v1-indexeddb-upgrades-all-stores-to-v10-preserving-events-and-original-dates', async ({ page }) => {
-  const seeded = await page.evaluate(() => window.p6.seedV1()); assert.equal(seeded.raw.version, 1);
-  const upgraded = await page.evaluate(async () => { const store = await window.p6.loadCurrent(); await store.open(); return store.readSnapshot(); });
-  assert.deepEqual(upgraded, expectedMigration(seeded.literal));
-  const raw = await page.evaluate(() => window.p6.rawRead()); assert.equal(raw.version, 10);
-  assert.deepEqual(raw.rhythmProjects, []); assert.equal(raw.activeRhythmProjectId, null);
-  assert.equal(upgraded.history.find(entry => entry.id === 'legacy-screen').localDate, '2026-11-07');
-  assert.equal(upgraded.history.find(entry => entry.id === 'legacy-manual').localDate, '2026-11-09');
-  await page.reload(); await page.waitForFunction(() => window.p6?.ready);
-  const reopened = await page.evaluate(async () => { const store = await window.p6.loadCurrent(); return store.readSnapshot(); }); assert.deepEqual(reopened, upgraded);
-  return { seededVersion: 1, rawVersion: raw.version, upgraded, reopenedWithoutSecondMigration: true };
-});
+const CURRENT_STORES = ['history', 'practiceDrafts', 'preferences', 'presets', 'profile', 'rhythmProjects'];
+const literalCopy = async () => JSON.parse(await readFile(new URL('./fixtures/backup.json', import.meta.url), 'utf8'));
 
-check('bad-v1-record-aborts-entire-native-upgrade-and-preserves-version-one', async ({ page }) => {
-  const seeded = await page.evaluate(() => window.p6.seedV1({ invalid: true }));
-  const failure = await page.evaluate(async () => {
-    try { const store = await window.p6.loadCurrent(); await store.open(); return null; }
-    catch (error) { return { code: error.code, message: error.message }; }
-  });
-  assert.ok(failure, 'Invalid legacy data must reject migration');
-  const after = await page.evaluate(() => window.p6.rawRead()); assert.equal(after.version, 1); assert.deepEqual(after, seeded.raw);
-  assert.equal(Object.hasOwn(after.preferences.training, 'intervalDegree'), false, 'Partly updated preferences must roll back too');
-  return { failure, originalVersion: seeded.raw.version, preserved: after };
-});
-
-check('legacy-json-preview-and-restore-migrate-to-version-ten', async ({ page }) => {
-  const literal = await page.evaluate(() => window.p6.readV1Backup());
-  const result = await page.evaluate(async literal => {
-    const store = await window.p6.loadCurrent(); const preview = store.previewImport(JSON.stringify(literal));
-    const before = await store.readSnapshot(); const cancel = await store.restore(JSON.stringify(literal), { confirmed: false });
-    const afterCancel = await store.readSnapshot(); await store.restore(JSON.stringify(literal), { confirmed: true });
-    return { preview, before, cancel, afterCancel, restored: await store.readSnapshot() };
-  }, literal);
-  assert.equal(result.preview.snapshot.schemaVersion, 10); assert.equal(result.preview.sourceSchemaVersion, 1); assert.equal(result.preview.requiresConfirmation, true);
-  assert.deepEqual(result.cancel, { status: 'cancelled' }); assert.deepEqual(result.afterCancel, result.before);
-  assert.deepEqual(result.restored, expectedMigration(literal)); return result;
-});
-
-check('genuine-v2-indexeddb-and-literal-json-migrate-to-v10-without-changing-old-results', async ({ page }) => {
-  const seeded = await page.evaluate(() => window.p6.seedLegacy(2)); assert.equal(seeded.raw.version, 2);
-  const result = await page.evaluate(async literal => {
-    const store = await window.p6.loadCurrent(); await store.open();
-    const native = await store.readSnapshot({ fresh: true }); const preview = store.previewImport(JSON.stringify(literal));
-    await store.restore(JSON.stringify(literal), { confirmed: true });
-    return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
-  }, seeded.literal);
-  const expected = expectedMigration(seeded.literal);
-  assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected); assert.equal(result.raw.version, 10);
-  assert.deepEqual(result.restored.history, expectedMigration(seeded.literal).history); return { seededVersion: 2, ...result };
-});
-
-check('genuine-v3-native-and-json-upgrade-preserve-screen-manual-ear-route-records', async ({ page }) => {
-  const seeded = await page.evaluate(() => window.p6.seedLegacy(3)); assert.equal(seeded.raw.version, 3);
-  assert.deepEqual(seeded.literal.history.map(entry => entry.result.kind).sort(), ['ear', 'manual', 'route', 'screen']);
-  const result = await page.evaluate(async literal => {
-    const store = await window.p6.loadCurrent(); await store.open(); const native = await store.readSnapshot({ fresh: true });
-    const preview = store.previewImport(JSON.stringify(literal)); await store.restore(JSON.stringify(literal), { confirmed: true });
-    return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
-  }, seeded.literal);
-  const expected = expectedMigration(seeded.literal); assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected);
-  assert.deepEqual(result.restored.history, expectedMigration(seeded.literal).history); assert.equal(result.raw.version, 10); return { seededVersion: 3, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
-});
-
-check('genuine-v4-native-and-json-upgrade-preserve-harmony-and-all-four-history-kinds', async ({ page }) => {
-  const seeded = await page.evaluate(() => window.p6.seedLegacy(4)); assert.equal(seeded.raw.version, 4);
-  assert.deepEqual(seeded.literal.history.map(entry => entry.result.kind).sort(), ['ear', 'manual', 'route', 'screen']);
-  const result = await page.evaluate(async literal => {
-    const store = await window.p6.loadCurrent(); const native = await store.readSnapshot({ fresh: true });
-    const preview = store.previewImport(JSON.stringify(literal)); await store.restore(JSON.stringify(literal), { confirmed: true });
-    return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
-  }, seeded.literal);
-  const expected = expectedMigration(seeded.literal); assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected);
-  assert.deepEqual(result.restored.history, expectedMigration(seeded.literal).history); assert.deepEqual(result.restored.preferences.harmony, seeded.literal.preferences.harmony);
-  assert.equal(result.raw.version, 10); return { seededVersion: 4, historyKindsUnchanged: ['ear', 'manual', 'route', 'screen'], ...result };
-});
-
-for (const version of [5]) {
-  check('genuine-v5-native-and-json-upgrade-to-v10-preserves-legacy-material-as-unknown', async ({ page }) => {
-    const seeded = await page.evaluate(version => window.p6.seedLegacy(version), version);
-    const result = await page.evaluate(async literal => {
-      const store = await window.p6.loadCurrent(); const native = await store.readSnapshot({ fresh: true });
-      const preview = store.previewImport(JSON.stringify(literal)); await store.restore(JSON.stringify(literal), { confirmed: true });
-      return { native, preview: preview.snapshot, restored: await store.readSnapshot({ fresh: true }), raw: await window.p6.rawRead() };
-    }, seeded.literal);
-    const expected = expectedMigration(seeded.literal);
-    assert.deepEqual(result.native, expected); assert.deepEqual(result.preview, expected); assert.deepEqual(result.restored, expected);
-    assert.equal(result.raw.version, 10); assert.deepEqual(result.raw.profile, expected.profile); assert.deepEqual(result.raw.practiceDrafts, []);
-    return result;
-  });
-  check('bad-v5-native-record-rolls-back-new-stores-and-keeps-v5-data', async ({ page }) => {
-    const seeded = await page.evaluate(() => window.p6.seedLegacy(5, { invalid: true }));
-    const failure = await page.evaluate(async () => { try { await (await window.p6.loadCurrent()).open(); return null; } catch (error) { return { code: error.code, message: error.message }; } });
-    assert.ok(failure); assert.deepEqual(await page.evaluate(() => window.p6.rawRead()), seeded.raw);
-    return { failure, originalVersion: seeded.raw.version };
+for (const version of [1, 10]) {
+  check(`genuine-v${version}-indexeddb-upgrades-to-v11-by-recreating-empty-stores`, async ({ page }) => {
+    const seeded = await page.evaluate(version => window.p6.seedOld(version), version);
+    assert.equal(seeded.raw.version, version); assert.deepEqual(Object.keys(seeded.raw.stores), [...seeded.stores].sort());
+    for (const name of seeded.stores) assert.ok(seeded.raw.stores[name].length > 0, `Old ${name} store must hold real data before the upgrade`);
+    const open = () => page.evaluate(async () => {
+      const store = await window.p6.loadCurrent(); await store.open();
+      const snapshot = await store.readSnapshot({ fresh: true }); const skipped = store.skippedRecords(); await store.close();
+      return { snapshot, empty: window.p6.empty, skipped, raw: await window.p6.rawRead() };
+    });
+    const upgraded = await open();
+    assert.deepEqual(upgraded.snapshot, upgraded.empty); assert.equal(upgraded.snapshot.schemaVersion, 11); assert.deepEqual(upgraded.skipped, []);
+    assert.deepEqual(upgraded.raw, { version: 11, stores: Object.fromEntries(CURRENT_STORES.map(name => [name, []])) });
+    await page.reload(); await page.waitForFunction(() => window.p6?.ready);
+    const reopened = await open(); assert.deepEqual(reopened, upgraded, 'A second open must not upgrade again or recreate data');
+    return { seededVersion: version, seededStores: Object.fromEntries(Object.entries(seeded.raw.stores).map(([name, records]) => [name, records.length])), raw: upgraded.raw, snapshotIsEmptyDefault: true, reopenedWithoutSecondUpgrade: true };
   });
 }
 
-check('product-restores-real-v1-json-and-preserves-history-across-reload', async ({ page, fixtureUrl }) => {
-  const literal = await readLiteral(page, fixtureUrl); await restoreUi(page, literal);
-  const exported = await exportUi(page); assert.deepEqual(exported, expectedMigration(literal));
-  await page.reload(); await ready(page); assert.deepEqual(await exportUi(page), exported, 'Quiet startup must preserve the migrated null onboarding choice');
-  assert.match(await page.getByTestId('history-list').innerText(), /Старая ручная отметка/);
-  return { migratedVersion: exported.schemaVersion, originalEvents: exported.history.find(entry => entry.id === 'legacy-screen').result.questions[0].answerEvents, retainedDates: exported.history.map(entry => entry.localDate) };
-}, { scope: 'ui' });
+check('old-version-copy-is-refused-before-preview-and-leaves-native-database-unchanged', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const literal = await window.p6.readBackup(); const store = await window.p6.loadCurrent();
+    await store.restore(JSON.stringify(literal), { confirmed: true });
+    const before = await store.readSnapshot({ fresh: true }), rawBefore = await window.p6.rawRead();
+    const attempts = [];
+    for (const schemaVersion of [1, 10]) {
+      const json = JSON.stringify({ ...literal, schemaVersion }); let preview = null, restore = null;
+      try { await store.previewImport(json); } catch (error) { preview = { code: error.code, message: error.message }; }
+      try { await store.restore(json, { confirmed: true }); } catch (error) { restore = { code: error.code, message: error.message }; }
+      attempts.push({ schemaVersion, preview, restore });
+    }
+    const after = await store.readSnapshot({ fresh: true }), rawAfter = await window.p6.rawRead();
+    return { literalVersion: literal.schemaVersion, historyCount: literal.history.length, before, rawBefore, attempts, after, rawAfter };
+  });
+  assert.equal(result.literalVersion, 11); assert.equal(result.rawBefore.version, 11); assert.equal(result.rawBefore.stores.history.length, result.historyCount);
+  for (const attempt of result.attempts) {
+    assert.equal(attempt.preview?.code, 'UNSUPPORTED_VERSION', `preview v${attempt.schemaVersion}`); assert.equal(attempt.restore?.code, 'UNSUPPORTED_VERSION', `restore v${attempt.schemaVersion}`);
+    assert.match(attempt.restore.message, /не поддерживается.*не изменены/);
+  }
+  assert.deepEqual(result.after, result.before); assert.deepEqual(result.rawAfter, result.rawBefore);
+  return { attempts: result.attempts, nativeDatabaseUnchanged: true, cachedAndFreshUnchanged: true };
+});
 
+// Seeds the product origin while a JSON resource of that origin is open: the product does not start and holds neither IDB nor the writer lock.
+async function seedOldProductDatabase(page, origin, literal, version = 10) {
+  const response = await page.goto(`${origin}/vendor/music-bank/patch-manifest.json`);
+  assert.equal(response.status(), 200, 'Needs the current product build with its local vendor manifest'); assert.equal(await page.locator('#history-mount').count(), 0);
+  return page.evaluate(async ({ literal, version, origin }) => {
+    if (location.origin !== origin) throw new Error('Deletion is allowed only on the isolated test origin');
+    await new Promise((resolve, reject) => {
+      const request = indexedDB.deleteDatabase('bass-study'); request.onsuccess = resolve;
+      request.onerror = () => reject(request.error); request.onblocked = () => reject(new Error('Test origin database deletion blocked'));
+    });
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('bass-study', version);
+      request.onupgradeneeded = () => {
+        const db = request.result; const transaction = request.transaction;
+        db.createObjectStore('preferences').put(literal.preferences, 'current'); db.createObjectStore('profile').put({ ...literal.profile, theme: 'dark' }, 'current');
+        transaction.objectStore('preferences').put(literal.activeRhythmProjectId, 'rhythm-selection');
+        for (const name of ['presets', 'history', 'practiceDrafts', 'rhythmProjects']) db.createObjectStore(name, { keyPath: 'id' });
+        transaction.objectStore('presets').put({ id: 'old-preset', name: 'Старый пресет', createdAt: '2026-11-08T22:30:00.000Z', preferences: literal.preferences });
+        for (const name of ['history', 'practiceDrafts', 'rhythmProjects']) for (const item of literal[name]) transaction.objectStore(name).put(item);
+      };
+      request.onerror = () => reject(request.error); request.onsuccess = () => resolve(request.result);
+    });
+    db.close();
+  }, { literal, version, origin });
+}
+// Independent readonly count of every store; it does not import the product adapter.
+async function rawCounts(page) {
+  return page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('bass-study');
+      request.onupgradeneeded = () => { request.transaction.abort(); reject(new Error('Readonly reader must not create a missing database')); };
+      request.onerror = () => reject(request.error); request.onsuccess = () => resolve(request.result);
+    });
+    try {
+      const names = [...db.objectStoreNames].sort(); const transaction = db.transaction(names, 'readonly');
+      const value = request => new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+      const counts = await Promise.all(names.map(name => value(transaction.objectStore(name).count())));
+      const profile = await value(transaction.objectStore('profile').get('current'));
+      return { version: db.version, counts: Object.fromEntries(names.map((name, index) => [name, counts[index]])), theme: profile?.theme ?? null };
+    } finally { db.close(); }
+  });
+}
+
+check('product-opens-real-v10-database-as-empty-persistent-v11-and-rejects-old-copy', async ({ page, origin }) => {
+  const literal = await literalCopy(); assert.equal(literal.schemaVersion, 11);
+  await seedOldProductDatabase(page, origin, literal);
+  const seeded = await rawCounts(page);
+  assert.deepEqual(seeded, { version: 10, counts: { history: literal.history.length, practiceDrafts: literal.practiceDrafts.length, preferences: 2, presets: 1, profile: 1, rhythmProjects: literal.rhythmProjects.length }, theme: 'dark' });
+  await page.goto(origin); await ready(page);
+  const upgraded = await rawCounts(page);
+  assert.equal(upgraded.version, 11); assert.deepEqual(Object.keys(upgraded.counts), CURRENT_STORES);
+  for (const name of ['history', 'presets', 'practiceDrafts', 'rhythmProjects']) assert.equal(upgraded.counts[name], 0, `${name} must start empty after the upgrade`);
+  assert.notEqual(upgraded.theme, 'dark', 'The old profile must not survive the upgrade');
+  const surface = await page.evaluate(() => ({ storageDetailsHidden: document.querySelector('#open-storage-details')?.hidden, localStatus: document.querySelector('#local-save-status')?.textContent, testApi: ['p5', 'p6'].filter(name => name in window) }));
+  assert.deepEqual(surface, { storageDetailsHidden: true, localStatus: 'Локально · сохранено', testApi: [] }, 'The upgraded product must persist natively, not in page memory');
+  const empty = await exportUi(page);
+  assert.equal(empty.schemaVersion, 11); assert.deepEqual([empty.presets, empty.history, empty.practiceDrafts, empty.rhythmProjects, empty.activeRhythmProjectId], [[], [], [], [], null]);
+  await page.getByLabel('Тоника', { exact: true }).selectOption('F'); await saved(page);
+  await page.reload(); await ready(page); assert.equal(await page.getByLabel('Тоника', { exact: true }).inputValue(), 'F', 'A setting written after the upgrade must survive reload');
+  const before = await exportUi(page); assert.equal(before.preferences.study.root, 'F');
+  await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name: 'old-v10.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ ...literal, schemaVersion: 10 })) });
+  await page.getByTestId('history-error').waitFor({ state: 'visible' });
+  const error = await page.getByTestId('history-error').innerText(); assert.match(error, /не поддерживается/);
+  assert.equal(await page.getByTestId('backup-preview').count(), 0);
+  assert.deepEqual(await exportUi(page), before, 'A refused old copy must not change confirmed data');
+  assert.equal((await rawCounts(page)).version, 11);
+  return { seeded, upgraded, surface, persistedAfterUpgrade: 'F', oldCopyError: error };
+}, { scope: 'ui' });
 check('exact-height-mode-shows-A1-and-accepts-only-current-height', async ({ page }) => {
   await scope(page, { first: 5, last: 5 }); await quiz(page, 'find-pitch'); await quizAction(page, 'start').click();
   assert.match(await page.getByTestId('quiz-prompt').innerText(), /A1/); await page.locator('[data-answer-position="E:5"]').click(); assert.match(await page.getByTestId('quiz-feedback').innerText(), /Верно.*A1/);

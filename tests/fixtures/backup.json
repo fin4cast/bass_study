@@ -1,6 +1,6 @@
 {
   "format": "bass-study-backup",
-  "schemaVersion": 9,
+  "schemaVersion": 11,
   "preferences": {
     "activeModule": "harmony",
     "tracks": null,
@@ -189,7 +189,11 @@
                 "sound": "kick",
                 "volume": 0.62,
                 "muted": true,
-                "solo": false
+                "solo": false,
+                "velocityDefaults": {
+                  "hit": 61,
+                  "accent": 88
+                }
               },
               {
                 "id": "snare",
@@ -197,7 +201,11 @@
                 "sound": "snare",
                 "volume": 0.7,
                 "muted": false,
-                "solo": false
+                "solo": false,
+                "velocityDefaults": {
+                  "hit": 72,
+                  "accent": 100
+                }
               }
             ],
             "patterns": [
@@ -260,6 +268,153 @@
   ],
   "presets": [],
   "history": [
+    {
+      "id": "fixture-ear-history",
+      "occurredAt": "2026-11-08T22:35:00.000Z",
+      "timeZone": "Europe/Moscow",
+      "localDate": "2026-11-09",
+      "routeRef": null,
+      "result": {
+        "kind": "ear",
+        "source": "audio-choice",
+        "context": {
+          "root": "A",
+          "quality": "minor",
+          "referenceMidi": 45
+        },
+        "seed": 777,
+        "plannedCount": 2,
+        "questions": [
+          {
+            "kind": "ear",
+            "source": "audio-choice",
+            "question": {
+              "id": "ear-c454419-minor-A",
+              "seed": 205866009,
+              "root": "A",
+              "quality": "minor",
+              "referenceMidi": 45,
+              "targetMidi": 45,
+              "targetDegree": "1",
+              "targetName": "A",
+              "choices": [
+                {
+                  "id": "1",
+                  "label": "1"
+                },
+                {
+                  "id": "b3",
+                  "label": "♭3"
+                },
+                {
+                  "id": "5",
+                  "label": "5"
+                }
+              ]
+            },
+            "listensStarted": 1,
+            "listensCompleted": 1,
+            "listensCancelled": 0,
+            "replayCount": 0,
+            "listenEvents": [
+              {
+                "type": "start",
+                "listenId": "ear-c454419-minor-A:listen-1",
+                "atMs": 20,
+                "bpm": 120,
+                "order": 1
+              },
+              {
+                "type": "complete",
+                "listenId": "ear-c454419-minor-A:listen-1",
+                "atMs": 1520,
+                "order": 2
+              }
+            ],
+            "answerEvents": [
+              {
+                "degree": "b3",
+                "atMs": 1620,
+                "correct": false,
+                "order": 3
+              },
+              {
+                "degree": "1",
+                "atMs": 1700,
+                "correct": true,
+                "order": 4
+              }
+            ],
+            "attempts": 2,
+            "errors": 1,
+            "firstAnswer": "b3",
+            "firstResponseMs": 100,
+            "firstAttemptCorrect": false,
+            "independentCorrect": false,
+            "corrected": true,
+            "hintUsed": false,
+            "skipped": false,
+            "outcome": "corrected",
+            "closedAtMs": 1700,
+            "completionAfterListenMs": 180
+          },
+          {
+            "kind": "ear",
+            "source": "audio-choice",
+            "question": {
+              "id": "ear-3c00f93a-minor-A",
+              "seed": 1006696762,
+              "root": "A",
+              "quality": "minor",
+              "referenceMidi": 45,
+              "targetMidi": 45,
+              "targetDegree": "1",
+              "targetName": "A",
+              "choices": [
+                {
+                  "id": "1",
+                  "label": "1"
+                },
+                {
+                  "id": "b3",
+                  "label": "♭3"
+                },
+                {
+                  "id": "5",
+                  "label": "5"
+                }
+              ]
+            },
+            "listensStarted": 1,
+            "listensCompleted": 0,
+            "listensCancelled": 0,
+            "replayCount": 0,
+            "listenEvents": [
+              {
+                "type": "start",
+                "listenId": "ear-3c00f93a-minor-A:listen-1",
+                "atMs": 0,
+                "bpm": 75,
+                "order": 1
+              }
+            ],
+            "answerEvents": [],
+            "attempts": 0,
+            "errors": 0,
+            "firstAnswer": null,
+            "firstResponseMs": null,
+            "firstAttemptCorrect": null,
+            "independentCorrect": false,
+            "corrected": false,
+            "hintUsed": false,
+            "skipped": false,
+            "outcome": "interrupted",
+            "closedAtMs": null,
+            "completionAfterListenMs": null
+          }
+        ]
+      }
+    },
     {
       "id": "fixture-rhythm-history",
       "occurredAt": "2026-11-08T22:35:00.000Z",
@@ -330,7 +485,11 @@
                   "sound": "kick",
                   "volume": 0.62,
                   "muted": true,
-                  "solo": false
+                  "solo": false,
+                  "velocityDefaults": {
+                    "hit": 61,
+                    "accent": 88
+                  }
                 },
                 {
                   "id": "snare",
@@ -338,7 +497,11 @@
                   "sound": "snare",
                   "volume": 0.7,
                   "muted": false,
-                  "solo": false
+                  "solo": false,
+                  "velocityDefaults": {
+                    "hit": 72,
+                    "accent": 100
+                  }
                 }
               ],
               "patterns": [
@@ -391,6 +554,181 @@
           }
         }
       }
+    },
+    {
+      "id": "fixture-route-history",
+      "occurredAt": "2026-11-08T22:35:00.000Z",
+      "timeZone": "Europe/Moscow",
+      "localDate": "2026-11-09",
+      "routeRef": null,
+      "result": {
+        "id": "fixture-timed-route",
+        "material": {
+          "kind": "triad-route-v1",
+          "root": "C",
+          "structureId": "major-triad",
+          "box": {
+            "version": "boxes-v1",
+            "shapeId": "compact-e",
+            "root": "C",
+            "structureId": "major-triad",
+            "anchorFret": 8,
+            "anchorString": "E"
+          },
+          "referencePositionIds": [
+            "E:8",
+            "A:7",
+            "A:10",
+            "D:10"
+          ],
+          "referenceMidi": 36,
+          "questionPolicy": "triad-6-v1",
+          "questionCount": 6,
+          "earQuality": "major",
+          "earCount": 6,
+          "earBpm": 60,
+          "duration": "quarter",
+          "bpm": 60,
+          "repeat": "infinite",
+          "countIn": true,
+          "pattern": "ascending",
+          "scope": "structure",
+          "sequencePositionIds": [
+            "E:8",
+            "A:7",
+            "A:10",
+            "D:10"
+          ],
+          "player": {
+            "bpm": 60,
+            "duration": "quarter",
+            "repeat": "infinite",
+            "countIn": true,
+            "showPulse": true,
+            "from": null,
+            "to": null,
+            "ladderStart": 60,
+            "ladderEnd": 100,
+            "ladderStep": 5,
+            "ladderRepeats": 2,
+            "metronome": true,
+            "metronomeMode": "all",
+            "subdivision": "quarter",
+            "bassVolume": 70,
+            "clickVolume": 50
+          }
+        },
+        "sessionLinks": [],
+        "kind": "route",
+        "source": "active-timer",
+        "plannedStepMs": [
+          180000,
+          180000,
+          240000
+        ],
+        "actualStepMs": [
+          180000,
+          2500,
+          0
+        ],
+        "stepIndex": 1,
+        "totalPlannedMs": 600000,
+        "status": "finished",
+        "finishReason": "stopped",
+        "events": [
+          {
+            "type": "start",
+            "atMs": 0,
+            "reason": null
+          },
+          {
+            "type": "pause",
+            "atMs": 1500,
+            "reason": "hidden"
+          },
+          {
+            "type": "resume",
+            "atMs": 6000,
+            "reason": null
+          },
+          {
+            "type": "boundary",
+            "atMs": 184500,
+            "reason": null
+          },
+          {
+            "type": "next",
+            "atMs": 196000,
+            "reason": null
+          },
+          {
+            "type": "stop",
+            "atMs": 198500,
+            "reason": null
+          }
+        ],
+        "asOfMs": 198500
+      }
+    },
+    {
+      "id": "fixture-screen-history",
+      "occurredAt": "2026-11-08T22:35:00.000Z",
+      "timeZone": "Europe/Moscow",
+      "localDate": "2026-11-09",
+      "routeRef": null,
+      "result": {
+        "kind": "screen",
+        "source": "screen-input",
+        "seed": 301,
+        "mode": "find-note",
+        "context": {
+          "scope": "structure",
+          "root": "C",
+          "structureId": "major-triad",
+          "positionIds": [
+            "E:8",
+            "A:7",
+            "A:10",
+            "D:10"
+          ]
+        },
+        "plannedCount": 6,
+        "questions": [
+          {
+            "questionId": "q-c734089b-find-note-0",
+            "answerRule": "any-position",
+            "target": {
+              "pitchClass": 0,
+              "name": "C",
+              "degree": "1"
+            },
+            "targetMidi": null,
+            "selectedPositionIds": [
+              "E:8"
+            ],
+            "attempts": 1,
+            "errors": 0,
+            "firstAnswer": "E:8",
+            "firstResponseMs": 260,
+            "completionMs": 260,
+            "firstAttemptCorrect": true,
+            "hintUsed": false,
+            "skipped": false,
+            "independentCorrect": true,
+            "corrected": false,
+            "outcome": "correct",
+            "answerEvents": [
+              {
+                "answer": "E:8",
+                "elapsedMs": 260,
+                "correct": true
+              }
+            ],
+            "targetPositionId": null
+          }
+        ],
+        "questionPolicy": "triad-6-v1"
+      }
     }
   ],
   "rhythmProjects": [
@@ -409,7 +747,11 @@
           "sound": "kick",
           "volume": 0.62,
           "muted": true,
-          "solo": false
+          "solo": false,
+          "velocityDefaults": {
+            "hit": 61,
+            "accent": 88
+          }
         },
         {
           "id": "snare",
@@ -417,7 +759,11 @@
           "sound": "snare",
           "volume": 0.7,
           "muted": false,
-          "solo": false
+          "solo": false,
+          "velocityDefaults": {
+            "hit": 72,
+            "accent": 100
+          }
         }
       ],
       "patterns": [

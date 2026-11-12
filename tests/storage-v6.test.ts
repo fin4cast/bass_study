@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import v5Json from './fixtures/v5-backup.json?raw';
 import { createMemoryStudyStore, DEFAULT_PROFILE, emptySnapshot, parseBackup, validateSnapshot, validateProfile, validatePracticeDraft, makeEarHistory, makeScreenHistory, type PracticeDraft } from '../src/storage';
 import { createStructure, annotatePositions, getPosition } from '../src/music';
 import { beginEarListen, completeEarListen, startEarSession, submitEarAnswer } from '../src/ear';
@@ -16,28 +15,6 @@ const draft = (): PracticeDraft => ({ id: 'draft-one', createdAt: '2026-11-08T22
 const request = () => ({ draftId: 'draft-one', historyId: 'manual-one', expectedRecordedThroughMs: 0, throughMs: 1000, editRevision: 1, comfortableBpm: 64, note: 'Первая заметка', occurredAt: '2026-11-08T22:30:00.000Z', timeZone: 'Europe/Moscow' });
 
 describe('schema6: truthful material, global profile and durable drafts', () => {
-  it('adds metadata to literal v5 without changing any old events, IDs or timestamps', () => {
-    const old = JSON.parse(v5Json), before = JSON.stringify(old);
-    const next = parseBackup(v5Json);
-    expect(next.schemaVersion).toBe(10); expect(next.profile).toEqual(DEFAULT_PROFILE); expect(next.practiceDrafts).toEqual([]);
-    for (const entry of next.history) {
-      const original = old.history.find((item: any) => item.id === entry.id);
-      expect({ id: entry.id, occurredAt: entry.occurredAt, timeZone: entry.timeZone, localDate: entry.localDate }).toEqual({ id: original.id, occurredAt: original.occurredAt, timeZone: original.timeZone, localDate: original.localDate });
-      expect(entry.routeRef).toBeNull();
-      if (entry.result.kind === 'manual') { expect(entry.result.material).toEqual({ kind: 'legacy-unknown' }); expect(entry.result.context).toEqual(original.result.context); }
-      if (entry.result.kind === 'screen') { expect(entry.result.questionPolicy).toBe('random-v1'); expect(entry.result.questions).toEqual(original.result.questions); }
-      if (entry.result.kind === 'ear') { expect(entry.result.context.referenceMidi).toBe(original.result.questions[0].question.referenceMidi); expect(entry.result.questions).toEqual(original.result.questions); }
-      if (entry.result.kind === 'route') { expect(entry.result.material).toBeNull(); expect(entry.result.sessionLinks).toEqual([]); expect(entry.result.events).toEqual(original.result.events); }
-    }
-    expect(JSON.stringify(old)).toBe(before); expect(parseBackup(JSON.stringify(next))).toEqual(next);
-  });
-
-  it('rejects pretending schema6 fields existed in schema5', () => {
-    for (const mutate of [(v: any) => { v.profile = DEFAULT_PROFILE; }, (v: any) => { v.preferences.study.box = null; }, (v: any) => { v.history[0].routeRef = null; }, (v: any) => { v.history.find((e: any) => e.result.kind === 'screen').result.context.box = null; }]) {
-      const invalid = JSON.parse(v5Json); mutate(invalid); expect(() => parseBackup(JSON.stringify(invalid))).toThrow();
-    }
-  });
-
   it('accepts canonical sharp box names but refuses rectangular expansion of stored box context', () => {
     const box = createBoxSelection({ root: 'F#', structureId: 'minor-pentatonic', shapeId: 'penta-a', anchorString: 'E', anchorFret: 2 });
     const instance = getBoxInstance(box);
@@ -53,8 +30,6 @@ describe('schema6: truthful material, global profile and durable drafts', () => 
     expect(parseBackup(JSON.stringify(snapshot)).preferences.study.showFingers).toBe(true);
     expect(preferences.study.box).toEqual(DEFAULT_PREFERENCES.study.box);
     expect(() => validatePreferences({ ...preferences, study: { ...preferences.study, showFingers: 1 } })).toThrow();
-    const legacy = JSON.parse(v5Json); legacy.preferences.study.showFingers = false;
-    expect(() => parseBackup(JSON.stringify(legacy))).toThrow(/неизвестные/);
   });
 
   it('keeps interface profile outside presets, exports and restores confirmed drafts', async () => {

@@ -17,7 +17,6 @@ import { createPreferences } from './preferences';
 import { createSessionHistory } from './session-history';
 import { createThemeController } from './theme';
 import { createPracticeDrafts, type PracticeBinding } from './practice-drafts';
-import { readLegacyRhythmVelocityDefaults } from './rhythm-legacy-defaults';
 import { mountIntroduction } from '../ui/introduction';
 import { createRouteMaterial, type RouteSession } from '../route';
 import { acquireWriterLease } from './writer-lock';
@@ -84,7 +83,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
   let routeNavigation = false;
   const preferences = createPreferences();
   let confirmedRhythm: RhythmLibrary = { projects: [], activeId: null };
-  let store: ReturnType<typeof createStudyStore> | ReturnType<typeof createMemoryStudyStore> = createStudyStore(readLegacyRhythmVelocityDefaults);
+  let store: ReturnType<typeof createStudyStore> | ReturnType<typeof createMemoryStudyStore> = createStudyStore();
   let persistent = true;
   let applyingPreferences = true;
   let retiring = false;

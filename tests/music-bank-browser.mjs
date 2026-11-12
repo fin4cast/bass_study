@@ -119,7 +119,7 @@ check('product-directory-search-pages-read-only-selected-file-and-no-full-catalo
   await field(page, 'file-list').locator('button').first().click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount')?.dataset.musicBankReady === 'true');
   assert.equal(await page.evaluate(() => window.__bankReads), 1);
-  const copy = await exported(page); assert.equal(copy.schemaVersion, 10); assert.ok(copy.preferences.musicBank.file.relativePath);
+  const copy = await exported(page); assert.equal(copy.schemaVersion, 11); assert.ok(copy.preferences.musicBank.file.relativePath);
   const serialized = JSON.stringify(copy); assert.ok(!serialized.includes('music-bank-file-') && serialized.length < 100000);
   return { count, matching: matches, sourceReads: 1, backupBytes: Buffer.byteLength(serialized), onlySelectedDescriptor: true };
 });
@@ -408,4 +408,4 @@ const selection = browserCases(checks);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 inputs = await openMusicBankTestInputs(browserRun(root).resultDir);
 await runTracksBrowserChecks(selection.checks, { reportFile: selection.filtered ? 'p10-music-bank-case-edge.json' : 'p10-music-bank-edge.json',
-  scope: `Product music-bank Studio A with ${inputs.corpus ? 'personal corpus' : 'original synthetic scores'}, local files/folder, native schema10 persistence, independent real audio and UI; no physical latency claim.` });
+  scope: `Product music-bank Studio A with ${inputs.corpus ? 'personal corpus' : 'original synthetic scores'}, local files/folder, native schema11 persistence, independent real audio and UI; no physical latency claim.` });

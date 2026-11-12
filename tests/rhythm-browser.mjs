@@ -9,6 +9,6 @@ import { nativeChecks } from './rhythm/browser-native.mjs';
 const checks = [...pcmChecks, ...controlsChecks, ...projectsChecks, ...layoutChecks, ...nativeChecks];
 const selection = browserCases(checks);
 await runTracksBrowserChecks(selection.checks, {
-  scope: 'Product rhythm in Edge: VIS-05 r2 controls and layout, isolated offline PCM, live signal, native visibility, schema 10 migration and restore.',
+  scope: 'Product rhythm in Edge: VIS-05 r2 controls and layout, isolated offline PCM, live signal, native visibility, schema 11 storage and restore.',
   reportFile: selection.filtered ? 'p10-rhythm-case-edge.json' : 'p10-rhythm-edge.json',
 });

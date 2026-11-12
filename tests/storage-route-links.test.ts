@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import backup from './fixtures/v10-backup.json?raw';
+import backup from './fixtures/backup.json?raw';
 import { createMemoryStudyStore, parseBackup, type RouteHistoryEntry } from '../src/storage';
 import { isRouteEntry } from '../src/storage/history-links';
 

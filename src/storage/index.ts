@@ -1,11 +1,10 @@
 import {
-  DEFAULT_PREFERENCES, MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError, migrateRhythmSnapshot, previewImport, validateHistoryEntry, validatePreferences, validatePreset, validateSnapshot,
-  legacyRecordMigrations,
-  DEFAULT_PROFILE, validateProfile, validatePracticeDraft, validatePreviousPracticeDraft, mergePracticeDraft, applyDraftDrain,
+  MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError, previewImport, validateHistoryEntry, validatePreferences, validatePreset,
+  validateProfile, validatePracticeDraft, mergePracticeDraft, applyDraftDrain,
   validateRhythmProjectId, validateStoredRhythmProject, readStoredSnapshot,
   type SkippedRecord, type AppPreferences, type HistoryEntry, type Preset, type StudySnapshot, type GlobalProfile, type PracticeDraft, type DrainDraftRequest,
 } from './model';
-import type { LegacyRhythmVelocityDefaults, RhythmProject } from '../rhythm/model';
+import type { RhythmProject } from '../rhythm/model';
 import { createImportPreparation, type PreparedStudyImport } from './prepared-import';
 import { createHistoryLinks, isRouteEntry, type HistoryCommit } from './history-links';
 import { validateRhythmLibraryChange, type RhythmLibraryChange, type RhythmLibraryCommit } from './rhythm-library';
@@ -77,16 +76,8 @@ export async function exportRawDatabase(name = STUDY_DB_NAME): Promise<string> {
   } finally { db.close(); }
 }
 
-function snapshotFromRequests(requests: ReturnType<typeof snapshotRequests>, schemaVersion: 8 | 9 | typeof STUDY_DB_VERSION, legacyRhythmDefaults?: LegacyRhythmVelocityDefaults): StudySnapshot {
-  const snapshot = { format: 'bass-study-backup', schemaVersion,
-    preferences: requests.preferences.result ?? DEFAULT_PREFERENCES, presets: requests.presets.result, history: requests.history.result,
-    profile: requests.profile.result ?? DEFAULT_PROFILE, practiceDrafts: requests.practiceDrafts.result, rhythmProjects: requests.rhythmProjects.result,
-    activeRhythmProjectId: requests.activeRhythmProjectId.result ?? null };
-  return schemaVersion === STUDY_DB_VERSION ? validateSnapshot(snapshot) : migrateRhythmSnapshot(snapshot, schemaVersion, legacyRhythmDefaults);
-}
-
 /** Native IndexedDB adapter. Each ordinary write only touches its own store. */
-export function createStudyStore(legacyRhythmDefaults?: LegacyRhythmVelocityDefaults) {
+export function createStudyStore() {
   const imports = createImportPreparation();
   let database: IDBDatabase | null = null;
   let opening: Promise<IDBDatabase> | null = null;
@@ -121,79 +112,15 @@ export function createStudyStore(legacyRhythmDefaults?: LegacyRhythmVelocityDefa
     if (!globalThis.indexedDB) throw new StudyStorageError('UNAVAILABLE', 'Браузерное хранилище недоступно. Занятия можно продолжить в памяти, но история не сохранится.');
     opening = new Promise<IDBDatabase>((resolve, reject) => {
       let rejected = false;
-      let migrationFailure: unknown;
       const request = indexedDB.open(STUDY_DB_NAME, STUDY_DB_VERSION);
-      request.onupgradeneeded = event => {
+      request.onupgradeneeded = () => {
+        // No data migration: any older database starts empty (one user, data are not valuable yet).
         const db = request.result;
-        if (!db.objectStoreNames.contains('preferences')) db.createObjectStore('preferences');
-        if (!db.objectStoreNames.contains('presets')) db.createObjectStore('presets', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('history')) db.createObjectStore('history', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('profile')) db.createObjectStore('profile');
-        if (!db.objectStoreNames.contains('practiceDrafts')) db.createObjectStore('practiceDrafts', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('rhythmProjects')) db.createObjectStore('rhythmProjects', { keyPath: 'id' });
-        if (event.oldVersion < 6) request.transaction!.objectStore('profile').put(DEFAULT_PROFILE, 'current');
-        if (event.oldVersion === 8 || event.oldVersion === 9) {
-          const sourceVersion = event.oldVersion;
-          const transaction = request.transaction!;
-          const requests = snapshotRequests(transaction);
-          // The last request resolves after the other reads in this transaction.
-          requests.activeRhythmProjectId.onsuccess = () => {
-            try {
-              const migrated = snapshotFromRequests(requests, sourceVersion, legacyRhythmDefaults);
-              const projects = transaction.objectStore('rhythmProjects');
-              const drafts = transaction.objectStore('practiceDrafts');
-              const history = transaction.objectStore('history');
-              for (const project of migrated.rhythmProjects) projects.put(project);
-              for (const draft of migrated.practiceDrafts) {
-                if (draft.material.kind === 'rhythm') drafts.put(draft);
-              }
-              for (const entry of migrated.history) {
-                if (entry.result.kind === 'manual' && entry.result.material.kind === 'rhythm') history.put(entry);
-              }
-            }
-            catch (error) { migrationFailure = error; transaction.abort(); }
-          };
-        } else if (Object.hasOwn(legacyRecordMigrations, event.oldVersion)) {
-          const transaction = request.transaction!;
-          const migrations = legacyRecordMigrations[event.oldVersion as keyof typeof legacyRecordMigrations];
-          let aborted = false;
-          for (const name of ['preferences', 'presets', 'history'] as const) {
-            let recordNumber = 0;
-            const cursorRequest = transaction.objectStore(name).openCursor();
-            cursorRequest.onsuccess = () => {
-              if (aborted) return;
-              const cursor = cursorRequest.result;
-              if (!cursor) return;
-              recordNumber++;
-              try {
-                const record = migrations[name](cursor.value);
-                if (name !== 'history' || event.oldVersion < 6) cursor.update(record);
-                cursor.continue();
-              }
-              catch (error) {
-                const record = name === 'preferences'
-                  ? cursor.key === 'current' ? 'Текущие настройки (preferences/current)' : `Запись настроек №${recordNumber} (preferences)`
-                  : name === 'presets' ? `Пресет №${recordNumber} (presets)` : `Запись истории №${recordNumber} (history)`;
-                aborted = true;
-                migrationFailure = error instanceof StudyStorageError ? new StudyStorageError(error.code, `${record}: ${error.message}`) : error;
-                transaction.abort();
-              }
-            };
-          }
-          // Профиль и черновики существуют с версии 6, их достаточно проверить.
-          if (event.oldVersion >= 6) for (const name of ['profile', 'practiceDrafts'] as const) {
-            const cursorRequest = transaction.objectStore(name).openCursor();
-            cursorRequest.onsuccess = () => {
-              if (aborted) return;
-              const cursor = cursorRequest.result;
-              if (!cursor) return;
-              try { if (name === 'profile') validateProfile(cursor.value); else validatePreviousPracticeDraft(cursor.value); cursor.continue(); }
-              catch (error) { aborted = true; migrationFailure = error; transaction.abort(); }
-            };
-          }
-        }
+        for (const name of [...db.objectStoreNames]) db.deleteObjectStore(name);
+        db.createObjectStore('preferences'); db.createObjectStore('profile');
+        for (const name of ['presets', 'history', 'practiceDrafts', 'rhythmProjects']) db.createObjectStore(name, { keyPath: 'id' });
       };
-      request.onerror = () => { rejected = true; reject(storageError(migrationFailure ?? request.error)); };
+      request.onerror = () => { rejected = true; reject(storageError(request.error)); };
       request.onblocked = () => { rejected = true; reject(new StudyStorageError('BLOCKED', 'Открытие базы заблокировано другой вкладкой. Закройте другие вкладки bass_study и повторите операцию.')); };
       request.onsuccess = () => {
         if (rejected) { request.result.close(); return; }

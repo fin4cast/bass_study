@@ -1,5 +1,5 @@
 import { test } from 'vitest';
-import literal from './fixtures/v10-backup.json?raw';
+import literal from './fixtures/backup.json?raw';
 import { createPracticeDrafts } from '../src/app/practice-drafts';
 import { createMemoryStudyStore, originalLocalDate, parseBackup, type PracticeDraft } from '../src/storage';
 
