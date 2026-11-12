@@ -400,6 +400,9 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
       void drafts.flush().catch(() => {});
     },
     onPracticeChange: syncPracticeBinding,
+    // «Темп занятия» (D-046) — `play.bpm`: «Ритм» предлагает его и обновляет правкой темпа метронома.
+    lessonTempo: () => preferences.value.play.bpm,
+    onLessonTempo: bpm => { savePreferences({ play: { ...preferences.value.play, bpm } }); },
   });
   sections.rhythm?.setVisible(false);
   if (available.includes('tracks')) sections.studio = mountStudio(byId('tracks-mount'), {

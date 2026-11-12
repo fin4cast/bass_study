@@ -1526,8 +1526,8 @@ body { background: var(--surface-canvas); }
 .page-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px 12px; min-height: 34px; }
 .page-header-row > :not(.page-header-copy) { flex-shrink: 0; }
 .page-header-copy { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 12px; min-width: 0; }
-.page-header h1 { margin: 0; font-size: 27px; line-height: 1.2; letter-spacing: -.7px; font-weight: 600; }
-.page-header-context { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
+.page-header h1 { margin: 0; font-size: 26px; line-height: 1.2; letter-spacing: -.6px; font-weight: 650; }
+.page-header-context { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
 .page-header-navigation { margin-top: 10px; }
 .page-settings-button { gap: 7px; }
 .page-settings-button svg { fill: none; stroke: currentColor; stroke-linecap: round; }
@@ -1577,8 +1577,8 @@ body { background: var(--surface-canvas); }
 .workspace-tabs { display: flex; gap: 21px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
 .workspace-tabs > button {
   display: flex; align-items: center;
-  min-height: 34px; padding: 0 0 7px; border: 0; border-bottom: 2px solid transparent;
-  border-radius: 0; background: transparent; color: var(--text-secondary); font-size: 13px; line-height: 1.4;
+  min-height: 34px; padding: 0 0 6px; border: 0; border-bottom: 3px solid transparent;
+  border-radius: 0; background: transparent; color: var(--text-secondary); font-size: 14px; line-height: 1.4;
 }
 .workspace-tabs > button:hover:not(:disabled) { color: var(--text-primary); }
 .workspace-tabs > button:is([aria-pressed="true"], [aria-selected="true"]) { color: var(--accent-text); border-bottom-color: var(--accent); font-weight: 650; }
@@ -1712,7 +1712,7 @@ body { background: var(--surface-canvas); }
   .workspace > #study-settings { margin-inline: var(--study-inline-inset); }
   .settings-panel { border-left: 0; border-top: 1px solid var(--border); }
   .workspace-tabs { gap: 14px; }
-  .workspace-tabs > button { font-size: 12px; }
+  .workspace-tabs > button { font-size: 13px; }
   .workspace-main .selection-section { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
 .workspace-main > .study-more { margin: 6px 0 0; padding-top: 8px; }

@@ -7,6 +7,7 @@ import {
   type RhythmPatternBars, type RhythmPatternId, type RhythmPlaybackConfig, type RhythmPreferences,
   type RhythmProject, type RhythmSound, type RhythmStep, type RhythmSwingMode,
 } from '../rhythm/model';
+import { lessonTempoAfterMetronomeEdit, lessonTempoOffer } from '../rhythm/lesson-tempo';
 import { applyRhythmProjectEdit, copyRhythmBar, metronomeTempo, playbackForRhythmRun, withProjectTempo, type RhythmBarCopy, type RhythmProjectEdit } from '../rhythm/editor';
 import { confirmAction } from './confirm';
 import { bindPageTabs } from './page-tabs';
@@ -27,6 +28,10 @@ export interface RhythmOptions {
   readonly onLibraryRetry?: () => Promise<boolean>;
   readonly onPracticeEnd?: (practice: RhythmPracticeClock) => void;
   readonly onPracticeChange?: () => void;
+  /** «Темп занятия» (D-046): текущее значение для предложения на вкладке «Метроном». */
+  readonly lessonTempo?: () => number | null;
+  /** Явная правка темпа метронома в четвертях обновляет темп занятия. */
+  readonly onLessonTempo?: (bpm: number) => void;
 }
 
 type Mutable<T> = T extends readonly (infer Item)[] ? Mutable<Item>[] : T extends object ? { -readonly [Key in keyof T]: Mutable<T[Key]> } : T;
@@ -153,6 +158,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     container.dataset.rhythmBpm = String(active || paused ? snapshot?.bpm ?? configuredBpm : configuredBpm);
     container.dataset.rhythmLibraryPending = String(library.pending);
     container.dataset.rhythmLibraryError = String(library.failedKind !== null);
+    syncLessonTempo();
   }
   function paintPosition() {
     const position = snapshot?.position;
@@ -186,6 +192,11 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
       detailOutput.textContent = detailText;
       detailOutput.title = detailText;
     }
+    // Крупный отсчёт, как на экране игры: виден, только пока отсчёт действительно идёт.
+    const countBeat = playing() && position?.phase === 'count-in' ? String(position.beat) : '';
+    const countIn = output('countin');
+    if (countIn.hidden !== !countBeat) countIn.hidden = !countBeat;
+    if (output('countin-value').textContent !== countBeat) output('countin-value').textContent = countBeat;
     if (!active || !position) return;
     if (isRhythm()) {
       currentClip?.classList.add('is-playing');
@@ -473,7 +484,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
   }
   function changePreferences(edit: (draft: Mutable<RhythmPreferences>) => void, beats = false) {
     const draft = clone(preferences); edit(draft); preferences = validateRhythmPreferences(draft);
-    configure(); syncFields(); if (beats) renderBeats(); options.onPreferencesChange?.();
+    configure(); syncFields(); if (beats) renderBeats(); options.onPreferencesChange?.(); syncLessonTempo();
   }
   function changeView(view: RhythmPreferences['view']) {
     if (view === preferences.view) return;
@@ -509,7 +520,23 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     inputErrors.delete('bpm'); audioError = '';
     if (isRhythm() || project.overlay) changeProject({ kind: 'settings', change: { bpm } }, false);
     else changePreferences(draft => { setMetronomeTempo(draft.metronome, bpm); });
+    const lesson = lessonTempoAfterMetronomeEdit(metronomeTempoState(), options.lessonTempo?.() ?? null);
+    if (lesson !== null) options.onLessonTempo?.(lesson);
     showError(); syncTransport();
+  }
+  function metronomeTempoState() {
+    const { bpm, bpmUnit } = preferences.metronome;
+    return { view: preferences.view, bpm, bpmUnit, transportIdle: !playing() && snapshot?.state !== 'paused' };
+  }
+  function syncLessonTempo() {
+    const offer = visible && !library.locked ? lessonTempoOffer(metronomeTempoState(), options.lessonTempo?.() ?? null) : null;
+    const button = action('lesson-tempo');
+    const hadFocus = document.activeElement === button;
+    button.hidden = offer === null;
+    if (offer !== null) {
+      button.dataset.rhythmBpm = String(offer);
+      button.textContent = `Взять темп занятия · ${offer} BPM`;
+    } else if (hadFocus) field('bpm').focus({ preventScroll: true });
   }
   function applyField(input: HTMLInputElement | HTMLButtonElement) {
     if (disposed || library.locked) return;
@@ -650,6 +677,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
       case 'start': case 'resume': case 'preview': void sound(name); break;
       case 'pause': pause(); break;
       case 'stop': stop(); break;
+      case 'lesson-tempo': setBpm(Number(action('lesson-tempo').dataset.rhythmBpm)); break;
       case 'slower': case 'faster': setBpm(Math.min(240, Math.max(30, (isRhythm() ? project.bpm : preferences.metronome.bpm) + (name === 'slower' ? -1 : 1)))); break;
       case 'tap': {
         const now = performance.now(); if (taps.length && now - taps[taps.length - 1] > 2500) taps = [];

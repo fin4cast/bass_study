@@ -80,7 +80,7 @@ export function rhythmMarkup(id: string) {
         <section class="rhythm-card rhythm-pulse">
           <div class="rhythm-deck-header">
             <div class="rhythm-deck-title"><h2>Пульс и акценты</h2></div>
-            <div class="rhythm-deck-context"><span class="rhythm-muted" data-rhythm-output="division-label"></span><span class="rhythm-muted" data-rhythm-output="meter-summary" hidden></span><span class="rhythm-meter-readout" data-rhythm-output="meter-label"></span></div>
+            <div class="rhythm-deck-context"><button type="button" class="text-button button-compact rhythm-lesson-tempo" data-rhythm-action="lesson-tempo" title="Темп нового упражнения в «Занятии»; правка темпа метронома в четвертях обновляет его" hidden></button><span class="rhythm-muted" data-rhythm-output="division-label"></span><span class="rhythm-muted" data-rhythm-output="meter-summary" hidden></span><span class="rhythm-meter-readout" data-rhythm-output="meter-label"></span></div>
           </div>
           <div class="rhythm-playing-field" tabindex="0" role="region" aria-label="Акценты долей">
             <div class="rhythm-beats" data-rhythm-output="beats"></div>
@@ -261,10 +261,10 @@ export function rhythmMarkup(id: string) {
             <span class="rhythm-position-detail" data-rhythm-output="position-detail"></span>
           </output>
           <div class="rhythm-play-buttons">
-            <button type="button" class="rhythm-photo-key" data-rhythm-action="start"><span class="rhythm-key-face" aria-hidden="true">▶</span><span>Старт</span></button>
-            <button type="button" class="rhythm-photo-key" data-rhythm-action="pause" disabled><span class="rhythm-key-face" aria-hidden="true">Ⅱ</span><span>Пауза</span></button>
-            <button type="button" class="rhythm-photo-key" data-rhythm-action="resume" aria-label="Продолжить" hidden><span class="rhythm-key-face" aria-hidden="true">▶</span><span>Дальше</span></button>
-            <button type="button" class="rhythm-photo-key" data-rhythm-action="stop" disabled><span class="rhythm-key-face" aria-hidden="true">■</span><span>Стоп</span></button>
+            <button type="button" class="rhythm-photo-key" data-rhythm-action="start" aria-keyshortcuts="Space" title="Старт (пробел)"><span class="rhythm-key-face" aria-hidden="true">▶</span><span>Старт</span></button>
+            <button type="button" class="rhythm-photo-key" data-rhythm-action="pause" aria-keyshortcuts="Space" title="Пауза (пробел)" disabled><span class="rhythm-key-face" aria-hidden="true">Ⅱ</span><span>Пауза</span></button>
+            <button type="button" class="rhythm-photo-key" data-rhythm-action="resume" aria-label="Продолжить" aria-keyshortcuts="Space" title="Продолжить с той же позиции, без отсчёта (пробел)" hidden><span class="rhythm-key-face" aria-hidden="true">▶</span><span>Дальше</span></button>
+            <button type="button" class="rhythm-photo-key" data-rhythm-action="stop" aria-keyshortcuts="Escape" title="Стоп и к началу; следующий старт — с отсчётом, если он включён (Esc)" disabled><span class="rhythm-key-face" aria-hidden="true">■</span><span>Стоп</span></button>
           </div>
           <label class="rhythm-count-in">
             <input type="checkbox" role="switch" data-rhythm-setting="countIn" aria-describedby="${id}-count-in-help">
@@ -285,6 +285,7 @@ export function rhythmMarkup(id: string) {
         </div>
       </div>
       <span class="sr-only" role="status" data-rhythm-output="transport-announcement"></span>
+      <div class="rhythm-countin" data-rhythm-output="countin" hidden><small>Отсчёт</small><span data-rhythm-output="countin-value"></span></div>
     </section>`;
 }
 
