@@ -54,7 +54,8 @@
 .check-view .ck-toggle[aria-pressed="true"] { border-color: var(--accent); color: var(--text-primary); background: var(--accent-soft); }
 .check-view .ck-toggle:disabled { opacity: .55; }
 .check-view .ck-field { display: inline-flex; }
-.check-view .ck-select { border: 1px solid var(--border); border-radius: 7px; background: var(--surface); padding: 6px 10px; font: inherit; font-size: 13px; color: var(--text-primary); }
+/* Граница поля выбора — как у `.form-control` (`--border-strong`, не меньше 3:1 к фону в обеих темах). */
+.check-view .ck-select { border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface); padding: 6px 10px; font: inherit; font-size: 13px; color: var(--text-primary); }
 .check-view .ck-select:disabled { opacity: .6; }
 
 /* Вопрос */
