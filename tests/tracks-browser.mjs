@@ -326,11 +326,11 @@ check('ui-errors-and-explicit-load-cancellation-preserve-the-previous-ready-set'
   // Delay only delivery of the genuine native decoding result, so the real
   // Cancel UI can be operated deterministically before its async settlement.
   await page.evaluate(() => {
-    const original = AudioContext.prototype.decodeAudioData; window.__tracksOriginalDecode = original;
-    AudioContext.prototype.decodeAudioData = async function(...args) { const result = await original.apply(this, args); window.__tracksNativeDecodeCompleted = true; await new Promise(resolve => { window.__tracksReleaseDecode = resolve; }); return result; };
+    const original = BaseAudioContext.prototype.decodeAudioData; window.__tracksOriginalDecode = original;
+    BaseAudioContext.prototype.decodeAudioData = async function(...args) { const result = await original.apply(this, args); window.__tracksNativeDecodeCompleted = true; await new Promise(resolve => { window.__tracksReleaseDecode = resolve; }); return result; };
   });
   await page.getByLabel('Новый набор аудиофайлов', { exact: true }).setInputFiles(wavPayload({ name: 'cancelled-new.wav', duration: 3, frequency: 82.5 })); await page.waitForFunction(() => window.__tracksNativeDecodeCompleted);
-  await tracksAction(page, 'cancel-load').click(); await page.evaluate(() => { AudioContext.prototype.decodeAudioData = window.__tracksOriginalDecode; window.__tracksReleaseDecode(); });
+  await tracksAction(page, 'cancel-load').click(); await page.evaluate(() => { BaseAudioContext.prototype.decodeAudioData = window.__tracksOriginalDecode; window.__tracksReleaseDecode(); });
   await delay(100); assert.match(await page.getByTestId('tracks-notice').innerText(), /отменена.*сохранён/); assert.deepEqual((await exportUi(page)).preferences.tracks, before); assert.ok(await tracksAction(page, 'play').isEnabled());
   return { previousManifest: before, nativeDecodeReallyCompleted: true, cancellationMethod: 'Real UI Cancel after actual native decode; test-only async delivery gate, no fake decoded buffer or exception.', preservedAfterCorruptionCountAndCancellation: true };
 });

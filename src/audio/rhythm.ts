@@ -3,6 +3,7 @@ import {
   type RhythmChannel, type RhythmFrame, type RhythmHit, type RhythmKit, type RhythmPlan,
   type RhythmPlaybackConfig, type RhythmPosition, type RhythmSource,
 } from '../rhythm/model';
+import { audioContext, resumeAudio } from './context';
 import { createRhythmNoise, describeRhythmHit, scheduleRhythmVoice, type RhythmTail, type RhythmVoice } from './rhythm-synth';
 
 export type { RhythmPlaybackConfig, RhythmPosition, RhythmSource } from '../rhythm/model';
@@ -416,23 +417,24 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
     return 'applied';
   }
   async function acquireContext(expected: number): Promise<AudioContext | null> {
-    if (!context || context.state === 'closed') {
-      context = new AudioContext({ latencyHint: 'interactive' });
-      graph = null;
-    }
-    const audio = context;
-    await audio.resume();
+    const audio = audioContext();
+    if (context !== audio) { releaseGraph(); context = audio; }
+    await resumeAudio(audio);
     if (disposed || expected !== generation || context !== audio) return null;
     if (audio.state !== 'running') throw new Error('Браузер не разрешил звук. Нажми запуск ещё раз.');
     return audio;
   }
-  function prepareGraph(audio: AudioContext) {
-    const sources = mixSources(mix);
-    if (graph && JSON.stringify([...graph.buses.keys()]) === JSON.stringify(sources)) return graph;
+  function releaseGraph() {
     if (graph) {
       for (const bus of graph.buses.values()) bus.disconnect();
       graph.master.disconnect(); graph.gate.disconnect(); graph.preview.disconnect(); graph.analyser.disconnect();
     }
+    graph = null;
+  }
+  function prepareGraph(audio: AudioContext) {
+    const sources = mixSources(mix);
+    if (graph && JSON.stringify([...graph.buses.keys()]) === JSON.stringify(sources)) return graph;
+    releaseGraph();
     const analyser = audio.createAnalyser();
     analyser.fftSize = 1024;
     analyser.connect(audio.destination);
@@ -599,12 +601,11 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
         }
       } catch (failure) { if (expected === generation && !disposed) throw failure; }
     },
-    async dispose() {
+    /** Общий AudioContext не закрывается: освобождается только собственный граф. */
+    dispose() {
       if (disposed) return;
       stop(); disposed = true; ++generation;
-      const audio = context;
-      context = null; graph = null;
-      if (audio && audio.state !== 'closed') await audio.close();
+      releaseGraph(); context = null;
     },
   };
 }

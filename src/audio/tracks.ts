@@ -3,8 +3,14 @@ import {
   setTracksPlayback, trackPositionAt, validateTracksManifest, type TrackDescriptor, type TracksManifest,
 } from '../tracks';
 import { PCM_PROBE_BYTES, estimateDecodedPcm, id3v2Length } from '../tracks/pcm-estimate';
+import { audioContext as sharedAudioContext, resumeAudio } from './context';
 
-const CONTEXT_SAMPLE_RATE = 48000;
+/**
+ * Файлы декодируются в 48 кГц независимо от частоты общего живого контекста: длительность, число
+ * отсчётов в манифесте и оценка PCM не зависят от устройства. При другой частоте устройства
+ * AudioBufferSourceNode пересчитывает буфер при воспроизведении.
+ */
+const DECODE_SAMPLE_RATE = 48000;
 const MIB = 1024 ** 2;
 /** Оценка PCM по началу файла (без чтения и декодирования всего файла); null — заголовок не распознан. */
 async function estimateFilePcm(file: File): Promise<number | null> {
@@ -12,9 +18,9 @@ async function estimateFilePcm(file: File): Promise<number | null> {
   const tag = id3v2Length(head);
   if (tag > 0 && tag + 4 > head.length && tag < file.size) {
     const audio = new Uint8Array(await file.slice(tag, tag + PCM_PROBE_BYTES).arrayBuffer());
-    return estimateDecodedPcm(audio, { fileSize: file.size, offset: tag, targetSampleRate: CONTEXT_SAMPLE_RATE })?.bytes ?? null;
+    return estimateDecodedPcm(audio, { fileSize: file.size, offset: tag, targetSampleRate: DECODE_SAMPLE_RATE })?.bytes ?? null;
   }
-  return estimateDecodedPcm(head, { fileSize: file.size, targetSampleRate: CONTEXT_SAMPLE_RATE })?.bytes ?? null;
+  return estimateDecodedPcm(head, { fileSize: file.size, targetSampleRate: DECODE_SAMPLE_RATE })?.bytes ?? null;
 }
 function pcmLimitError(estimated: number, rest: string) {
   return new TracksError('PCM_LIMIT', `По заголовкам файлов после декодирования получится около ${Math.ceil(estimated / MIB)} МиБ PCM — больше логического предела 512 МиБ. Файлы не декодировались; ${rest}`);
@@ -32,6 +38,7 @@ function rampGain(gain: AudioParam, value: number, at: number) {
 /** Local-file playback. No persistence of PCM, source file bytes or object URLs. */
 export function createTracksPlayer() {
   let context: AudioContext | null = null;
+  let decoder: OfflineAudioContext | null = null;
   let master: GainNode | null = null;
   let analyser: AnalyserNode | null = null;
   const waveform = new Float32Array(1024);
@@ -47,10 +54,14 @@ export function createTracksPlayer() {
   function ensureActive() { if (disposed) throw new TracksError('DISPOSED', 'Проигрыватель дорожек уже закрыт.'); }
   function audioContext() {
     ensureActive();
-    if (!context) {
-      context = new AudioContext({ sampleRate: CONTEXT_SAMPLE_RATE });
+    const shared = sharedAudioContext();
+    if (context !== shared) {
+      // Новый общий контекст (прежний закрыт): шины пересоздаются, декодированные буферы от контекста не зависят.
+      gains.forEach(gain => gain.disconnect()); gains.clear(); master?.disconnect(); analyser?.disconnect();
+      context = shared;
       master = context.createGain(); master.gain.value = 0.8; master.connect(context.destination);
       analyser = context.createAnalyser(); analyser.fftSize = waveform.length; master.connect(analyser);
+      updateGains();
     }
     return context;
   }
@@ -123,7 +134,7 @@ export function createTracksPlayer() {
     ensureActive(); requireBuffers(); if (state === 'playing' || state === 'starting') return;
     const current = requireManifest(); const run = ++epoch; const ctx = audioContext();
     state = 'starting'; pauseReason = null;
-    try { await ctx.resume(); }
+    try { await resumeAudio(ctx); }
     catch (error) { if (run === epoch) state = 'paused'; throw new TracksError('AUDIO_START', `Не удалось включить звук: ${error instanceof Error ? error.message : String(error)}`); }
     if (disposed || run !== epoch || manifest?.id !== current.id) return;
     updateGains();
@@ -147,7 +158,7 @@ export function createTracksPlayer() {
     const sha256 = [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
     if (expected) assertFileMatches(expected, { sha256, size: file.size });
     let buffer: AudioBuffer;
-    try { buffer = await audioContext().decodeAudioData(bytes); }
+    try { buffer = await (decoder ??= new OfflineAudioContext(1, 1, DECODE_SAMPLE_RATE)).decodeAudioData(bytes); }
     catch { throw new TracksError('DECODE_FAILED', `Не удалось декодировать «${file.name}». Поддержка WAV/MP3 зависит от кодека браузера; прежний набор не изменён.`); }
     tokenCheck(token);
     if (expected && Math.abs(buffer.duration - expected.decoded.duration) > 0.05) throw new TracksError('DECODE_MISMATCH', 'Длительность повторно декодированного файла отличается от манифеста больше чем на 0,05 с. Ожидаемая дорожка не заменена.');
@@ -234,7 +245,7 @@ export function createTracksPlayer() {
       const cycleSeconds = (current.clip.to - current.clip.from) / current.rate;
       const durationSeconds = options.durationSeconds ?? cycleSeconds * (current.loop ? 2 : 1);
       if (!Number.isFinite(durationSeconds) || durationSeconds < 0.05 || durationSeconds > 30) throw new TracksError('OFFLINE_LIMIT', 'Диагностический рендер ограничен 0,05–30 секундами.');
-      const offline = new OfflineAudioContext(current.tracks.length, Math.ceil(durationSeconds * 48000), 48000);
+      const offline = new OfflineAudioContext(current.tracks.length, Math.ceil(durationSeconds * DECODE_SAMPLE_RATE), DECODE_SAMPLE_RATE);
       const merger = offline.createChannelMerger(current.tracks.length); merger.connect(offline.destination);
       const buses = new Map<string, GainNode>();
       current.tracks.forEach((track, index) => {
@@ -251,6 +262,7 @@ export function createTracksPlayer() {
       const rendered = await offline.startRendering();
       return { sampleRate: rendered.sampleRate, durationSeconds: rendered.duration, trackIds: current.tracks.map(track => track.id), channels: current.tracks.map((_, index) => rendered.getChannelData(index).slice()), segments: plan.segments };
     },
-    async dispose() { if (disposed) return; loadToken++; loading = false; stopInternal(); buffers.clear(); gains.forEach(gain => gain.disconnect()); gains.clear(); master?.disconnect(); analyser?.disconnect(); disposed = true; await context?.close(); },
+    /** Общий AudioContext не закрывается: освобождаются источники, шины и буферы. */
+    dispose() { if (disposed) return; loadToken++; loading = false; stopInternal(); buffers.clear(); gains.forEach(gain => gain.disconnect()); gains.clear(); master?.disconnect(); analyser?.disconnect(); context = null; decoder = null; disposed = true; },
   };
 }
