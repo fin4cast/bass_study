@@ -33,11 +33,11 @@ describe('durable practice draft coordinator', () => {
     const f = fixture(); f.clock.durationMs = 400; const first = f.manager.current()!;
     f.clock.durationMs = 700; f.manager.bind(null);
     f.clock.durationMs = 0; f.clock.runtimeContextKey = 'sequence:second';
-    f.manager.bind({ ...f.binding, material: { kind: 'harmony', patternId: 'CFGC-1-3-5-3-v1' }, context: { ...area, structureId: 'major' } });
+    f.manager.bind({ ...f.binding, material: { kind: 'sequence', pattern: 'descending', routePositionIds: area.positionIds, duration: 'eighth', fragment: { from: 0, toExclusive: 4 }, box: null } });
     expect(f.manager.current()).toBeNull(); f.clock.durationMs = 250; const second = f.manager.current()!;
     await f.manager.flush(); const data = await f.store.readSnapshot();
     expect(data.practiceDrafts.find(item => item.id === first.id)?.totalReferenceMs).toBe(700);
-    expect(data.practiceDrafts.find(item => item.id === second.id)).toMatchObject({ totalReferenceMs: 250, material: { kind: 'harmony' } });
+    expect(data.practiceDrafts.find(item => item.id === second.id)).toMatchObject({ totalReferenceMs: 250, material: { kind: 'sequence', pattern: 'descending' } });
     expect(data.history).toEqual([]); f.manager.dispose();
   });
 

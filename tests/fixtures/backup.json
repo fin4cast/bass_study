@@ -47,17 +47,6 @@
     "input": {
       "deviceId": ""
     },
-    "harmony": {
-      "bpm": 80,
-      "countIn": true,
-      "repeat": "once",
-      "bassVolume": 70,
-      "padVolume": 45,
-      "clickVolume": 50,
-      "bassMuted": false,
-      "padMuted": false,
-      "clickMuted": false
-    },
     "ear": {
       "root": "A",
       "quality": "minor",

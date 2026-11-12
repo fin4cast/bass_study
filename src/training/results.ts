@@ -15,7 +15,6 @@ export type PracticeMaterial = {
   readonly fragment: { readonly from: number; readonly toExclusive: number };
   readonly box: BoxSelection | null;
 } | { readonly kind: 'fretboard'; readonly box: BoxSelection | null }
-  | { readonly kind: 'harmony'; readonly patternId: 'CFGC-1-3-5-3-v1' }
   | RhythmPracticeMaterial;
 
 export function manualTempoBounds(material?: PracticeMaterial): readonly [number, number] {

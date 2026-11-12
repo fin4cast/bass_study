@@ -103,18 +103,6 @@ function manual() {
 function earSession() { return startEarSession({ root: 'A', quality: 'minor', count: 2, seed: 10000 }); }
 function earHeard() { return completeEarListen(beginEarListen(earSession(), 0, 120), 1500); }
 
-describe('настройки сопровождения', () => {
-  it('валидирует независимые целочисленные громкости, mute, отсчёт и once/infinite', () => {
-    const preferences = validatePreferences({ ...DEFAULT_PREFERENCES, activeModule: 'harmony', harmony: { bpm: 220, countIn: false, repeat: 'infinite', bassVolume: 0, padVolume: 100, clickVolume: 35, bassMuted: true, padMuted: false, clickMuted: true } });
-    expect(preferences).toMatchObject({ activeModule: 'harmony', harmony: { bpm: 220, countIn: false, repeat: 'infinite', bassVolume: 0, padVolume: 100, clickVolume: 35, bassMuted: true, padMuted: false, clickMuted: true } });
-    for (const change of [
-      (value: any) => { value.harmony.bpm = 39; }, (value: any) => { value.harmony.bpm = 80.5; },
-      (value: any) => { value.harmony.padVolume = 45.5; }, (value: any) => { value.harmony.clickVolume = 101; },
-      (value: any) => { value.harmony.bassMuted = 1; }, (value: any) => { value.harmony.repeat = 'ladder'; },
-    ]) { const malformed = clone(preferences); change(malformed); expect(() => validatePreferences(malformed)).toThrow(); }
-  });
-});
-
 describe('schema3: маршрут учитывает только активное время', () => {
   it('не пишет нулевой снимок и отделяет время маршрута от точности', () => {
     const initial = startRouteSession({ id: 'synthetic-route' });

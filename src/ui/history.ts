@@ -103,7 +103,6 @@ function fretsForString(ids: readonly string[], string: StringId): string {
 
 function materialName(material?: PracticeMaterial): string {
   if (!material) return 'Материал не выбран';
-  if (material.kind === 'harmony') return 'Аккомпанемент C–F–G–C · бас: основной тон–3–5–3';
   if (material.kind === 'rhythm') return rhythmPracticeLabel(material);
   if (material.kind === 'fretboard') return 'Изучение грифа';
   const pattern = { ascending: 'Вверх', descending: 'Вниз', 'round-trip': 'Туда и обратно', 'groups-of-three': 'Группами по три' }[material.pattern];
@@ -114,7 +113,7 @@ function presetDescription(preferences: AppPreferences): string {
   const { activeModule, study, training, player } = preferences;
   if (activeModule === 'ear') return `Слух · ${preferences.ear.root} · ${preferences.ear.quality === 'major' ? 'мажорное' : 'минорное'} трезвучие · ${preferences.ear.count} вопросов · ${preferences.ear.bpm} BPM`;
   if (activeModule === 'harmony') {
-    if (!preferences.rhythm) return `Прежний пресет сопровождения C–F–G–C · ${preferences.harmony.bpm} BPM. Открывает «Метроном и ритм».`;
+    if (!preferences.rhythm) return 'Метроном и ритм';
     const { bpm, meter } = preferences.rhythm.metronome;
     return `Метроном и ритм · ${meter.beats}/${meter.denominator} · ${bpm} BPM`;
   }

@@ -174,31 +174,31 @@ check('native-real-hidden-tab-pauses-until-explicit-resume', 'native', async ({ 
   return { actualDocumentHidden: true, noAutomaticResume: true };
 }));
 
-// Current-schema database written without product code: an older harmony draft and a preset without rhythm settings.
-function harmonyDraftSnapshot() {
-  const harmonyDraft = {
-    id: 'fixture-harmony-draft', createdAt: '2026-11-08T22:30:00.000Z', updatedAt: '2026-11-08T22:30:01.000Z', timeZone: 'Europe/Moscow', localDate: '2026-11-09',
+// Current-schema database written without product code: a non-rhythm fretboard sequence draft and a preset without rhythm settings.
+function sequenceDraftSnapshot() {
+  const sequenceDraft = {
+    id: 'fixture-sequence-draft', createdAt: '2026-11-08T22:30:00.000Z', updatedAt: '2026-11-08T22:30:01.000Z', timeZone: 'Europe/Moscow', localDate: '2026-11-09',
     context: { scope: 'structure', root: 'C', structureId: 'major', positionIds: ['E:8', 'A:7', 'A:10', 'D:10'], box: null },
-    material: { kind: 'harmony', patternId: 'CFGC-1-3-5-3-v1' }, routeRef: null,
-    totalReferenceMs: 2345, recordedThroughMs: 700, suggestedBpm: 113, comfortableBpm: 97, note: 'Сохранённый черновик прежнего аккомпанемента', editRevision: 3,
+    material: { kind: 'sequence', pattern: 'ascending', routePositionIds: ['E:8', 'A:7', 'A:10', 'D:10'], duration: 'quarter', fragment: { from: 0, toExclusive: 4 }, box: null }, routeRef: null,
+    totalReferenceMs: 2345, recordedThroughMs: 700, suggestedBpm: 113, comfortableBpm: 97, note: 'Сохранённый черновик последовательности грифа', editRevision: 3,
   };
   return {
     ...currentCopy, profile: { theme: 'dark', onboarding: { version: 1, choice: 'guided', completed: true } },
     preferences: { ...currentCopy.preferences, rhythm: null },
-    presets: [{ id: 'fixture-harmony-preset', name: 'Аккомпанемент без ритма', createdAt: '2026-11-08T22:30:00.000Z', preferences: { ...currentCopy.preferences, activeModule: 'harmony', rhythm: null } }],
-    practiceDrafts: [...currentCopy.practiceDrafts, harmonyDraft], rhythmProjects: [], activeRhythmProjectId: null,
+    presets: [{ id: 'fixture-rhythmless-preset', name: 'Пресет без ритма', createdAt: '2026-11-08T22:30:00.000Z', preferences: { ...currentCopy.preferences, activeModule: 'harmony', rhythm: null } }],
+    practiceDrafts: [...currentCopy.practiceDrafts, sequenceDraft], rhythmProjects: [], activeRhythmProjectId: null,
   };
 }
 
-check('native-current-database-saves-harmony-draft-and-rhythmless-preset-keeps-projects', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
-  await seedDatabase(page, origin, harmonyDraftSnapshot());
+check('native-current-database-saves-fretboard-sequence-draft-and-rhythmless-preset-keeps-projects', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
+  await seedDatabase(page, origin, sequenceDraftSnapshot());
   const before = await raw(page);
   assert.equal(before.version, 11);
   await page.goto(origin);
   await ready(page);
   assert.deepEqual(await raw(page), before, 'Opening a current database must not rewrite it');
   await openHistory(page);
-  const draft = before.practiceDrafts.find(item => item.material.kind === 'harmony');
+  const draft = before.practiceDrafts.find(item => item.id === 'fixture-sequence-draft');
   assert.ok(draft);
   await page.getByLabel('Черновики ручной практики', { exact: true }).selectOption(draft.id);
   await page.locator('[data-history-action="save-manual"]').click();
@@ -216,7 +216,7 @@ check('native-current-database-saves-harmony-draft-and-rhythmless-preset-keeps-p
   const projectBeforePreset = (await raw(page)).rhythmProjects[0];
   await page.locator('[data-app-module="foundation"]').click();
   await openHistory(page);
-  await page.locator('[data-apply-preset="fixture-harmony-preset"]').click();
+  await page.locator('[data-apply-preset="fixture-rhythmless-preset"]').click();
   await root(page).waitFor();
   assert.equal(await root(page).locator('[data-rhythm-mode="rhythm"]').getAttribute('aria-selected'), 'true');
   const afterPreset = await raw(page);

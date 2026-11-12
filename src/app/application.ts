@@ -189,7 +189,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
   function draftView(value: PracticeDraft | null) {
     if (!value && activeModule === 'harmony') return { context: null, durationMs: 0, comfortableBpm: rhythm?.getPreferences().metronome.bpm ?? 92, note: '', label: 'Метроном и ритм', available: false };
     return value ? { id: value.id, createdAt: value.createdAt, timeZone: value.timeZone, context: value.context, material: value.material, routeRef: value.routeRef, durationMs: value.totalReferenceMs - value.recordedThroughMs, comfortableBpm: value.comfortableBpm, note: value.note,
-      label: value.material.kind === 'rhythm' ? rhythmPracticeLabel(value.material) : value.material.kind === 'harmony' ? 'Аккомпанемент C–F–G–C · основной тон–3–5–3' : value.material.kind === 'sequence' ? 'Последовательность на грифе' : 'Изучение грифа', available: true }
+      label: value.material.kind === 'rhythm' ? rhythmPracticeLabel(value.material) : value.material.kind === 'sequence' ? 'Последовательность на грифе' : 'Изучение грифа', available: true }
       : foundation?.getPracticeFallback() ?? { context: null, durationMs: 0, comfortableBpm: DEFAULT_PREFERENCES.player.bpm, note: '', label: 'Изучение грифа', available: false };
   }
   async function flushAll() { try { await drafts.flush(); } finally { await writes.flush(); } }

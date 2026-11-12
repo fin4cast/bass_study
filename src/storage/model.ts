@@ -10,7 +10,6 @@ import { createManualPracticeResult, manualTempoBounds, type ManualPracticeResul
 import { collectEarResults, createEarQuestionV1, createEarQuestionsV1, replayEarResultV1,
   type EarAnswerEvent, type EarListenEvent, type EarDegree, type EarQuality, type EarSession, type SavedEarResult } from '../ear/rules-v1';
 import { getRouteResult, replayRouteResultV1, type RouteEvent, type RouteResult } from '../route';
-import { DEFAULT_HARMONY_PREFERENCES, type HarmonyPreferences } from '../harmony';
 import { validateTracksManifest, type TracksManifest } from '../tracks';
 import { validateMusicBankPreferences, type MusicBankPreferences } from '../music-bank/model';
 import { validateRhythmPlaybackConfig, validateRhythmPreferences, validateRhythmProject, type RhythmPreferences, type RhythmProject } from '../rhythm/model';
@@ -26,7 +25,6 @@ export interface AppPreferences {
   readonly tracks: TracksManifest | null;
   readonly musicBank: MusicBankPreferences | null;
   readonly input: { readonly deviceId: string };
-  readonly harmony: HarmonyPreferences;
   readonly rhythm: RhythmPreferences | null;
   readonly ear: { readonly root: string; readonly quality: EarQuality; readonly count: number; readonly bpm: number };
   readonly study: { readonly root: string; readonly structureId: StructureId; readonly labelMode: LabelMode; readonly strings: readonly StringId[]; readonly fretMin: number; readonly fretMax: number; readonly box: BoxSelection | null; readonly showFingers: boolean };
@@ -182,7 +180,7 @@ export function originalLocalDate(occurredAt: string, timeZone: string): string 
 
 export const DEFAULT_PREFERENCES: AppPreferences = immutable({
   tracks: null, musicBank: null, input: { deviceId: '' },
-  harmony: DEFAULT_HARMONY_PREFERENCES, rhythm: null,
+  rhythm: null,
   activeModule: 'foundation', ear: { root: 'A', quality: 'minor', count: 10, bpm: 80 },
   study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12,
     box: createBoxSelection({ root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a', anchorString: 'E', anchorFret: 5 }), showFingers: false },
@@ -203,7 +201,7 @@ function positionIds(value: unknown, label: string, allowEmpty: boolean): string
 function position(id: string) { const [string, fret] = id.split(':'); return getPosition(string as StringId, Number(fret)); }
 
 export function validatePreferences(value: unknown): AppPreferences {
-  const data = object(value, ['activeModule', 'ear', 'harmony', 'rhythm', 'tracks', 'musicBank', 'input', 'study', 'training', 'player'], 'Настройки');
+  const data = object(value, ['activeModule', 'ear', 'rhythm', 'tracks', 'musicBank', 'input', 'study', 'training', 'player'], 'Настройки');
   const input = object(data.input, ['deviceId'], 'Настройки аудиовхода');
   let tracks: TracksManifest | null = null;
   if (data.tracks !== null) {
@@ -217,7 +215,6 @@ export function validatePreferences(value: unknown): AppPreferences {
   }
   const rhythm = data.rhythm === null ? null : rhythmData('Настройки метронома и ритма', () => validateRhythmPreferences(data.rhythm));
   const ear = object(data.ear, ['root', 'quality', 'count', 'bpm'], 'Настройки слуха');
-  const harmony = object(data.harmony, ['bpm', 'countIn', 'repeat', 'bassVolume', 'padVolume', 'clickVolume', 'bassMuted', 'padMuted', 'clickMuted'], 'Настройки сопровождения');
   const study = object(data.study, ['root', 'structureId', 'labelMode', 'strings', 'fretMin', 'fretMax', 'box', 'showFingers'], 'Настройки грифа');
   const box = study.box === null ? null : validateBoxSelection(study.box);
   if (box && (parseNote(box.root).name !== parseNote(String(study.root)).name || box.structureId !== study.structureId)) invalid('Бокс не соответствует тонике или структуре.');
@@ -241,9 +238,6 @@ export function validatePreferences(value: unknown): AppPreferences {
   return immutable({
     activeModule: oneOf(data.activeModule, ['foundation', 'ear', 'route', 'harmony', 'tracks', 'input'] as const, 'Раздел'),
     tracks, musicBank, rhythm, input: { deviceId: text(input.deviceId, 'Устройство аудиовхода', 2048, true) },
-    harmony: { bpm: number(harmony.bpm, 40, 220, 'Темп сопровождения'), countIn: boolean(harmony.countIn, 'Отсчёт сопровождения'), repeat: oneOf(harmony.repeat, ['once', 'infinite'] as const, 'Повтор сопровождения'),
-      bassVolume: number(harmony.bassVolume, 0, 100, 'Громкость басового рисунка'), padVolume: number(harmony.padVolume, 0, 100, 'Громкость гармонии'), clickVolume: number(harmony.clickVolume, 0, 100, 'Громкость клика сопровождения'),
-      bassMuted: boolean(harmony.bassMuted, 'Отключение басового рисунка'), padMuted: boolean(harmony.padMuted, 'Отключение гармонии'), clickMuted: boolean(harmony.clickMuted, 'Отключение клика сопровождения') },
     ear: { root: oneOf(ear.root, ROOT_IDS, 'Тоника слухового задания'), quality: oneOf(ear.quality, ['major', 'minor'] as const, 'Трезвучие слухового задания'), count: number(ear.count, 1, 20, 'Число слуховых вопросов'), bpm: number(ear.bpm, 60, 120, 'Темп слухового задания') },
     study: { root: oneOf(study.root, ROOT_IDS, 'Тоника'), structureId: oneOf(study.structureId, STRUCTURE_IDS, 'Структура'), labelMode: oneOf(study.labelMode, ['notes', 'degrees', 'hidden'] as const, 'Подписи'), strings, fretMin, fretMax, box, showFingers: boolean(study.showFingers, 'Показывать пальцы') },
     training: { mode: oneOf(training.mode, ['study', 'quiz', 'sequence'] as const, 'Режим занятия'), quizMode, scope, intervalDegree: oneOf(training.intervalDegree, INTERVAL_DEGREES, 'Интервал'),
@@ -299,12 +293,6 @@ export function validatePracticeMaterial(value: unknown, area?: QuestionContext 
     return immutable({ kind, playback });
   }
   if (area === null) invalid('Для этого материала нужен исходный контекст грифа.');
-  if (kind === 'harmony') {
-    const data = object(value, ['kind', 'patternId'], 'Сопровождение');
-    if (data.patternId !== 'CFGC-1-3-5-3-v1') invalid('Неизвестный рисунок сопровождения.');
-    if (area && (parseNote(area.root).pitchClass !== 0 || area.structureId !== 'major')) invalid('Сопровождение C–F–G–C требует контекст C major.');
-    return immutable({ kind, patternId: 'CFGC-1-3-5-3-v1' });
-  }
   if (kind !== 'sequence' && kind !== 'fretboard') invalid('Неизвестный материал практики.');
   const data = object(value, kind === 'fretboard' ? ['kind', 'box'] : ['kind', 'pattern', 'routePositionIds', 'duration', 'fragment', 'box'], 'Материал грифа');
   const box = data.box === null ? null : validateBoxSelection(data.box);
