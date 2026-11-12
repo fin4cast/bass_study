@@ -385,8 +385,9 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     onBeforeStart: () => audio.claim('rhythm'),
     onPracticeEnd(value) {
       // Остановленный запуск — тоже «последнее занятие»: при смене раздела `capture()` его уже не вернёт.
-      const closed = drafts.captureClosed(rhythmPracticeBinding(value));
-      if (closed) progressDraftId = closed.id;
+      // Если время закрытого запуска уже учла живая привязка, его черновик — текущий черновик привязки.
+      const closed = drafts.captureClosed(rhythmPracticeBinding(value)) ?? drafts.peek();
+      if (closed?.material.kind === 'rhythm') progressDraftId = closed.id;
       void drafts.flush().catch(() => {});
     },
     onPracticeChange: syncPracticeBinding,

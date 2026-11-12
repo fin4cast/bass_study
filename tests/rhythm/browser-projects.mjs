@@ -196,7 +196,7 @@ check('manual-note-keeps-rhythm-material-and-time-after-changing-project', 'ui',
   await card.waitFor();
   assert.equal(await drafts.locator('[data-draft]').first().getAttribute('data-draft'), id);
   // Остановленный запуск «Ритма» — «последнее занятие»: карточка первая и с пометкой.
-  assert.match(await card.getAttribute('class'), /is-current/);
+  assert.match(await card.getAttribute('class'), /\bis-current\b/);
   assert.match(await card.locator('.pg-src').innerText(), /последнее занятие/);
   await enter(page);
   await root(page).locator('.rhythm-library > summary').click();
