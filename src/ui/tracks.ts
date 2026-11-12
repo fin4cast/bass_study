@@ -32,7 +32,10 @@ export function mountTracks(container: HTMLElement, options: TracksOptions = {})
   function field<T extends HTMLInputElement = HTMLInputElement>(name: string) { return container.querySelector<T>(`[data-tracks-setting="${name}"]`); }
   function changed() { options.onPreferencesChange?.(); }
   function number(raw: string, label: string) { if (!raw.trim() || !Number.isFinite(Number(raw))) throw new RangeError(`${label}: укажи корректное число.`); return Number(raw); }
-  function getPreferences(): TracksManifest | null {
+  /** Сохраняемые настройки: применённый манифест. Незавершённый ввод A/B/скорости не блокирует сохранение микса. */
+  function getPreferences(): TracksManifest | null { return player.getManifest(); }
+  /** Для действий, которым нужны применённые A/B/скорость: незавершённый ввод полей — ошибка. */
+  function appliedManifest(): TracksManifest | null {
     const manifest = player.getManifest();
     if (!manifest) return null;
     if (fromDraft !== null || toDraft !== null || rateDraft !== null) {
@@ -189,7 +192,7 @@ export function mountTracks(container: HTMLElement, options: TracksOptions = {})
     try {
       error = '';
       if (action === 'play') {
-        getPreferences();
+        appliedManifest();
         if (options.onBeforePlay?.() === false) return;
         busy = 'transport';
         const pending = currentPlayer.play();
@@ -200,7 +203,7 @@ export function mountTracks(container: HTMLElement, options: TracksOptions = {})
         currentPlayer.setClip({ from: 0, to: Math.max(...manifest.tracks.map(track => track.decoded.duration)) });
         fromDraft = null; toDraft = null; changed(); render();
       } else if (action === 'from-here' || action === 'to-here') {
-        const manifest = getPreferences(); if (!manifest) return;
+        const manifest = appliedManifest(); if (!manifest) return;
         currentPlayer.pause('fragment-edit');
         const position = currentPlayer.getSnapshot().position;
         const clip = action === 'from-here' ? { from: position, to: manifest.clip.to } : { from: manifest.clip.from, to: position };

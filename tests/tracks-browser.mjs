@@ -348,6 +348,21 @@ check('ui-volume-output-updates-for-restored-track-id-with-css-special-character
   return { specialId, output, savedVolume: saved.volume };
 });
 
+check('ui-mix-is-saved-while-fragment-field-has-unapplied-draft', 'ui', async ({ page }) => {
+  await setupUi(page);
+  const from = page.getByLabel('Начало фрагмента A', { exact: true }); await from.fill('');
+  const volume = page.getByLabel('Громкость дорожки 2', { exact: true }); await volume.focus(); await volume.press('Home');
+  for (let index = 0; index < 40; index++) await volume.press('ArrowRight');
+  await page.getByLabel('Выключить дорожку 1', { exact: true }).check();
+  assert.equal(await from.inputValue(), '', 'draft of field A stays unapplied');
+  const saved = (await exportUi(page)).preferences.tracks;
+  assert.equal(saved.tracks[0].muted, true); near(saved.tracks[1].volume, .4, 1e-9); assert.deepEqual(saved.clip, { from: 0, to: 2 });
+  await page.reload(); await ready(page); await page.getByTestId('tracks-missing').waitFor();
+  assert.ok(await page.getByLabel('Выключить дорожку 1', { exact: true }).isChecked());
+  assert.equal(await page.getByLabel('Громкость дорожки 2', { exact: true }).inputValue(), '40');
+  return { savedMix: saved.tracks.map(({ volume, muted }) => ({ volume, muted })), clip: saved.clip };
+});
+
 check('native-hidden-tab-pauses-real-tracks-and-needs-explicit-resume', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
   await setupUi(page); await page.getByLabel('Повторять аудиофрагмент', { exact: true }).check(); await tracksAction(page, 'play').click(); await stateIs(page, 'playing'); await delay(250);
   const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront();
