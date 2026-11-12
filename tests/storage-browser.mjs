@@ -650,6 +650,24 @@ check('ui-finger-display-setting-survives-preset-reload-and-backup-restore', asy
   return { initialBox: expected.preferences.study.box, displayStoredIndependently: true, presetAndReloadAndRestore: true };
 }, { scope: 'ui' });
 
+check('ui-user-text-in-history-stays-text-not-markup', async ({ page }) => {
+  const name = `"><img src=x onerror="window.__u1=1">&amp; 'q'`;
+  const filename = `<img src=x onerror="window.__u1=2">.json`;
+  await openHistory(page); await page.getByLabel('Название пресета', { exact: true }).fill(name); await historyAction(page, 'save-preset').click();
+  const list = page.getByTestId('preset-list'); await list.getByText(name, { exact: true }).waitFor();
+  const deletion = page.getByRole('button', { name: `Удалить пресет ${name}`, exact: true }); assert.equal(await deletion.count(), 1);
+  await deletion.click(); const dialog = page.getByRole('dialog'); await dialog.waitFor(); assert.ok((await dialog.innerText()).includes(name));
+  await dialog.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await list.getByRole('button', { name: 'Применить', exact: true }).click(); await page.getByText(`Пресет «${name}» применён.`, { exact: true }).waitFor();
+  const backup = await uiBackup(page); assert.equal(backup.presets[0].name, name);
+  await upload(page, backup, filename); const preview = page.getByTestId('backup-preview'); await preview.waitFor();
+  assert.ok((await preview.innerText()).includes(filename));
+  const injected = await page.evaluate(() => ({ images: document.querySelectorAll('.history-drawer img, dialog img').length, flag: window.__u1 ?? null }));
+  assert.deepEqual(injected, { images: 0, flag: null });
+  await historyAction(page, 'cancel-restore').click();
+  return { presetNameIsText: true, dialogAndNoticeAreText: true, importFilenameIsText: true, injected };
+}, { scope: 'ui' });
+
 check('ui-import-preview-cancel-confirm-and-full-replacement', async ({ page, fixtureUrl }) => {
   const incoming = await fixtureBackup(page, fixtureUrl); await openHistory(page);
   await page.getByLabel('Название пресета', { exact: true }).fill('Устаревший пресет'); await historyAction(page, 'save-preset').click();

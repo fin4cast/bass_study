@@ -3,12 +3,12 @@ import { createTracksPlayer } from '../audio/tracks';
 import { TRACK_LIMITS, TracksError, setTracksPlayback, validateTracksManifest, type TracksManifest } from '../tracks';
 import { confirmAction } from './confirm';
 import { createActiveFrame } from './active-frame';
+import { escapeHtml } from './html';
 
 export interface TracksOptions {
   readonly onPreferencesChange?: () => void;
   readonly onBeforePlay?: () => boolean | void;
 }
-const escapeHtml = (value: string) => value.replace(/[&<>"']/g, mark => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[mark]!);
 function timeText(seconds: number) { const hundredths = Math.max(0, Math.round(seconds * 100)); return `${Math.floor(hundredths / 6000)}:${String(Math.floor(hundredths / 100) % 60).padStart(2, '0')},${String(hundredths % 100).padStart(2, '0')}`; }
 function inputTime(seconds: number) { return String(seconds); }
 function megabytes(bytes: number) { return `${(bytes / 1024 / 1024).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} МиБ`; }

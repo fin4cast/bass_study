@@ -7,6 +7,7 @@ import {
 } from '../ear';
 import { formatMidi, parseNote } from '../music';
 import type { RouteMaterial, RouteRef } from '../route';
+import { escapeHtml } from './html';
 
 export interface EarPreferences { readonly root: string; readonly quality: EarQuality; readonly count: number; readonly bpm: number }
 export interface EarOptions {
@@ -18,7 +19,6 @@ export interface EarOptions {
 
 const ROOTS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const ROOT_NAMES = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
-const escapeHtml = (value: string) => value.replace(/[&<>"']/g, mark => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[mark]!);
 
 /** The target stays inside the controller/domain until an answer has been completed or revealed. */
 export function mountEar(container: HTMLElement, options: EarOptions = {}) {

@@ -14,6 +14,7 @@ import type { PracticeBinding } from '../app/practice-drafts';
 import type { PracticeMaterial } from '../training/results';
 import type { QuizSession, QuestionContext } from '../training';
 import { STRUCTURES, createStructure, formatMidi, type AnnotatedPosition, type LabelMode, type StringId, type StructureId } from '../music';
+import { escapeHtml } from './html';
 
 interface FoundationOptions {
   onPreferencesChange(value: Pick<AppPreferences, 'study' | 'training' | 'player'>): void;
@@ -199,9 +200,6 @@ export function mountFoundation(host: HTMLElement, options: FoundationOptions) {
       readClock: foundationMode === 'sequence' ? () => sequencePlayer?.getPracticeDraft() ?? { durationMs: 0, comfortableBpm: 80 } : () => ({ durationMs: 0, comfortableBpm: player.bpm }) };
   }
 
-  function escapeHtml(value: string): string {
-    return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
-  }
 
   function positionLabel(position: AnnotatedPosition): string {
     return `${formatMidi(position.midi, position.noteName)}, струна ${position.string}, ${position.fret === 0 ? 'открытая струна, лад 0' : `лад ${position.fret}`}${position.isRoot ? ', тоника' : position.inStructure ? `, ступень ${position.degree}` : ', вне выбранной структуры'}`;
