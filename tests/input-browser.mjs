@@ -124,7 +124,11 @@ check('ui-denied-native-permission-is-visible-and-not-automatically-retried', 'u
 });
 
 check('ui-cancel-pending-native-acquisition-reaps-late-returned-tracks', 'ui', async ({ page, context, origin }) => {
-  await openInput(page); await allow(context, origin); await page.evaluate(() => { window.__inputObservations.delayMs = 450; }); await action(page, 'connect').click(); await stateIs(page, 'starting'); await action(page, 'stop').click(); await stateIs(page, 'stopped'); await delay(700); assert.equal(await liveTracks(page), 0); assert.equal(await calls(page), 1); await stateIs(page, 'stopped'); return { nativeAcquisitionDelayedOnlyByObserver: true, cancelledState: 'stopped', lateTracksReleased: true };
+  await openInput(page); await allow(context, origin); await page.evaluate(() => { window.__inputObservations.delayMs = 450; }); await action(page, 'connect').click(); await stateIs(page, 'starting'); await action(page, 'stop').click(); await stateIs(page, 'stopped');
+  // Ждём по событиям, а не по времени: настоящий getUserMedia на fake-устройстве под нагрузкой отвечает за 0,1–2 с.
+  await page.waitForFunction(() => window.__inputObservations.streams.length === 1, undefined, { timeout: 10000 });
+  await page.waitForFunction(() => window.__inputObservations.streams[0].getTracks().every(track => track.readyState === 'ended'), undefined, { timeout: 3000 });
+  assert.equal(await liveTracks(page), 0); assert.equal(await calls(page), 1); await delay(100); await stateIs(page, 'stopped'); return { nativeAcquisitionDelayedOnlyByObserver: true, cancelledState: 'stopped', lateTracksReleased: true };
 });
 
 check('ui-device-selection-stops-current-input-and-requires-new-connect', 'ui', async ({ page, context, origin }) => {
@@ -181,9 +185,6 @@ check('native-real-hidden-tab-stops-all-tracks-and-return-needs-explicit-connect
 markFullOnly(checks, [
   'native-real-hidden-tab-stops-all-tracks-and-return-needs-explicit-connect',
 ], FULL_ONLY.hiddenTab);
-markFullOnly(checks, [
-  'ui-cancel-pending-native-acquisition-reaps-late-returned-tracks',
-], FULL_ONLY.unstable);
 markFullOnly(checks, [
   'native-low-E1-WAV-keeps-sounding-octave',
   'native-dominant-harmonic-WAV-retains-fundamental-or-refuses-ambiguity',
