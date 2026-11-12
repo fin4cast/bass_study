@@ -1,4 +1,5 @@
 import { estimatePitch, type PitchEstimate } from '../input/pitch';
+import { audioContext, resumeAudio } from './context';
 
 export class InputMonitorError extends Error { constructor(public readonly code: string, message: string) { super(message); this.name = 'InputMonitorError'; } }
 export interface InputDevice { readonly id: string; readonly label: string; readonly groupId: string }
@@ -51,7 +52,7 @@ export function createInputMonitor() {
   let token = 0;
   let disposed = false;
   let removeDeviceListener: (() => void) | null = null;
-  const closing = new Set<Promise<void>>();
+  let removeStateListener: (() => void) | null = null;
   const raw = new Float32Array(8192);
   const filtered = new Float32Array(8192);
   const emptyLevel = () => ({ rms: 0, peak: 0, clipping: false, clippedSamples: 0, clipThreshold: 0.999 as const });
@@ -70,12 +71,8 @@ export function createInputMonitor() {
     stream?.getTracks().forEach(track => { track.onended = null; track.stop(); }); stream = null;
     source?.disconnect(); rawAnalyser?.disconnect(); pitchAnalyser?.disconnect(); filter?.disconnect(); silent?.disconnect();
     source = null; rawAnalyser = null; pitchAnalyser = null; filter = null; silent = null;
-    const oldContext = context; context = null;
-    if (oldContext) {
-      oldContext.onstatechange = null;
-      const completion = oldContext.close().catch(() => undefined);
-      closing.add(completion); void completion.finally(() => closing.delete(completion));
-    }
+    // Общий AudioContext не закрывается: снимается только собственный граф и подписка.
+    removeStateListener?.(); removeStateListener = null; context = null;
     level = emptyLevel(); pitch = null;
   }
   function fail(value: unknown) {
@@ -114,10 +111,10 @@ export function createInputMonitor() {
         channelCount: { ideal: 1 }, echoCancellation: false, autoGainControl: false, noiseSuppression: false });
       try {
         const media = mediaDevices(); supportedConstraints = immutable({ ...media.getSupportedConstraints() });
-        const localContext = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 }); context = localContext;
+        const localContext = audioContext(); context = localContext;
         // Begin unlocking in this explicit user action; capture permission may
         // resolve later. A rejection is handled without an unhandled promise.
-        const resumed = localContext.resume().then(() => null, failure => failure);
+        const resumed = resumeAudio(localContext).then(() => null, failure => failure);
         const acquired = await media.getUserMedia({ audio: requested, video: false });
         if (disposed || run !== token) { stopTracks(acquired); return snapshot(); }
         stream = acquired;
@@ -143,7 +140,8 @@ export function createInputMonitor() {
           } catch (failure) { if (run === token) fail(failure); }
         };
         media.addEventListener('devicechange', changed); removeDeviceListener = () => media.removeEventListener('devicechange', changed);
-        localContext.onstatechange = () => { if (run === token && state === 'running' && localContext.state !== 'running') fail(new InputMonitorError('CONTEXT_INTERRUPTED', 'Браузер остановил обработку аудиовхода. Подключись снова по кнопке; автоматического повтора нет.')); };
+        const stateChanged = () => { if (run === token && state === 'running' && localContext.state !== 'running') fail(new InputMonitorError('CONTEXT_INTERRUPTED', 'Браузер остановил обработку аудиовхода. Подключись снова по кнопке; автоматического повтора нет.')); };
+        localContext.addEventListener('statechange', stateChanged); removeStateListener = () => localContext.removeEventListener('statechange', stateChanged);
         state = 'running'; analyze(run);
         if (run === token && state === 'running') timer = setInterval(() => analyze(run), 100);
         return snapshot();
@@ -154,6 +152,6 @@ export function createInputMonitor() {
     },
     stop() { if (disposed) return; token++; release(); error = null; state = 'stopped'; },
     getSnapshot: snapshot,
-    async dispose() { if (disposed) return; disposed = true; token++; release(); state = 'disposed'; error = null; await Promise.all([...closing]); },
+    dispose() { if (disposed) return; disposed = true; token++; release(); state = 'disposed'; error = null; },
   };
 }

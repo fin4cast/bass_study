@@ -44,7 +44,7 @@ check('native-A1-capture-reports-actual-settings-and-silent-analysis-branches', 
   const state = await snap(page); near(state.pitch.hz, 55, .35); assert.equal(state.pitch.nearestMidi, 33);
   assert.equal(state.requested.channelCount.ideal, 1); assert.equal(state.requested.echoCancellation, false); assert.equal(state.requested.autoGainControl, false); assert.equal(state.requested.noiseSuppression, false);
   const nativeSettings = await page.evaluate(() => window.__inputObservations.streams[0].getAudioTracks()[0].getSettings()); assert.deepEqual(state.settings, nativeSettings);
-  near(state.pitch.windowMs, 8192 / state.context.sampleRate * 1000, .0001); assert.equal(state.context.sampleRate, 48000);
+  near(state.pitch.windowMs, 8192 / state.context.sampleRate * 1000, .0001); assert.ok(state.context.sampleRate >= 8000); // частота общего контекста — частота устройства, без принуждения
   const destinationEdges = await page.evaluate(() => window.__inputObservations.connections.filter(edge => edge.destination === 'AudioDestinationNode'));
   assert.ok(destinationEdges.length > 0); assert.ok(destinationEdges.every(edge => edge.source === 'GainNode' && edge.gain === 0));
   assert.equal(await calls(page), 1); assert.equal(state.trackCount, 1); await fixtureAction(page, 'stop'); assert.equal(await liveTracks(page), 0);
@@ -109,7 +109,7 @@ check('ui-explicit-connect-displays-Hz-note-confidence-and-separate-track-contex
   await page.locator('.input-diagnostics').evaluate(element => { element.open = true; });
   await page.locator('.input-level-card .input-card-explainer > summary').click();
   await page.locator('.input-pitch-card .input-card-explainer > summary').click();
-  assert.match(await page.getByTestId('input-context').innerText(), /Частота AudioContext/); assert.match(await page.getByTestId('input-window').innerText(), /8192.*170,67 мс/); assert.match(await page.locator('.input-diagnostics').innerText(), /не измеряют сквозную задержку/); assert.match(await page.locator('.input-confidence').innerText(), /Эвристика/); assert.match(await page.locator('.input-card-help').last().innerText(), /не является вероятностью/);
+  assert.match(await page.getByTestId('input-context').innerText(), /Частота AudioContext/); const windowText = await page.getByTestId('input-window').innerText(); const [, rateText, msText] = windowText.match(/8192 отсчёта \/ ([\d\s  ]+) Гц = ([\d,]+) мс/) ?? []; assert.ok(rateText, windowText); assert.equal(msText, (8192 / Number(rateText.replace(/\D/g, '')) * 1000).toFixed(2).replace('.', ',')); assert.match(await page.locator('.input-diagnostics').innerText(), /не измеряют сквозную задержку/); assert.match(await page.locator('.input-confidence').innerText(), /Эвристика/); assert.match(await page.locator('.input-card-help').last().innerText(), /не является вероятностью/);
   const levelHelp = await page.locator('.input-level-card .input-card-help').innerText();
   assert.match(levelHelp, /RMS — среднеквадратичный уровень сигнала за окно/);
   assert.match(levelHelp, /пик — его кратковременный максимум/);

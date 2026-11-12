@@ -53,9 +53,9 @@
     try { await operation(); return null; } catch (error) { return { name: error.name, code: error.code, message: error.message }; }
   }
   async function cancelDuringDecode() {
-    const original = AudioContext.prototype.decodeAudioData;
+    const original = BaseAudioContext.prototype.decodeAudioData;
     let nativeDecodeCalls = 0;
-    AudioContext.prototype.decodeAudioData = function(...args) {
+    BaseAudioContext.prototype.decodeAudioData = function(...args) {
       nativeDecodeCalls++;
       const pending = original.apply(this, args);
       // Trigger user cancellation after the actual native decode has begun.
@@ -64,7 +64,7 @@
       return pending;
     };
     try { return { error: await attempt(() => player.loadFiles([wav({ name: 'cancelled.wav', duration: 6 })])), nativeDecodeCalls }; }
-    finally { AudioContext.prototype.decodeAudioData = original; }
+    finally { BaseAudioContext.prototype.decodeAudioData = original; }
   }
   window.p7tracks = { ready: true, player, wav, load, render, attempt, cancelDuringDecode, action: null };
   for (const name of ['play', 'pause', 'stop', 'play-pause']) document.getElementById(name).addEventListener('click', async () => {

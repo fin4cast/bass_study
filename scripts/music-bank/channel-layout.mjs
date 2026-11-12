@@ -16,15 +16,20 @@ export function sameInstrumentChannels(a, b) {
   return pair(a) === pair(b);
 }
 
-/** Назначить непересекающиеся виртуальные каналы всем партиям в памяти. */
+/**
+ * Назначить непересекающиеся виртуальные каналы всем партиям в памяти.
+ * Партия, где ударные и мелодические станы смешаны, получает мелодическую пару — так
+ * штатный alphaTab назначает каналы любой партии, кроме одного ударного стана, — и
+ * помечается `mixed`: её ударный стан звучит мелодическим инструментом, остальные партии
+ * назначаются как обычно.
+ */
 export function normalizeScoreChannels(score) {
   if (!score || !Array.isArray(score.tracks)) throw new TypeError('Ожидается Score с партиями');
   // Сначала проверить весь материал: при отказе не оставлять частичное назначение.
   const kinds = score.tracks.map(track => {
     if (!track.playbackInfo || !Array.isArray(track.staves) || !track.staves.length) throw new TypeError('Партия без музыкального стана');
     const percussion = track.staves.map(staff => Boolean(staff.isPercussion));
-    if (percussion.some(Boolean) && !percussion.every(Boolean)) throw new Error('Смешанный ударный/мелодический track пока не поддержан адаптером каналов');
-    return percussion.every(Boolean);
+    return { percussion: percussion.every(Boolean), mixed: percussion.some(Boolean) && !percussion.every(Boolean) };
   });
   let melodic = 0, percussion = 0;
   const nextMelodic = () => {
@@ -33,11 +38,12 @@ export function normalizeScoreChannels(score) {
   };
   const tracks = score.tracks.map((track, index) => {
     const previous = [track.playbackInfo.primaryChannel, track.playbackInfo.secondaryChannel];
-    const primary = kinds[index] ? 9 + 16 * percussion++ : nextMelodic();
-    const secondary = kinds[index] ? primary : nextMelodic();
+    const { percussion: drums, mixed } = kinds[index];
+    const primary = drums ? 9 + 16 * percussion++ : nextMelodic();
+    const secondary = drums ? primary : nextMelodic();
     track.playbackInfo.primaryChannel = primary;
     track.playbackInfo.secondaryChannel = secondary;
-    return { index, percussion: kinds[index], previous, channels: [primary, secondary] };
+    return { index, percussion: drums, mixed, previous, channels: [primary, secondary] };
   });
   return { version: CHANNEL_LAYOUT_VERSION, changed: tracks.some(t => t.previous.some((n, i) => n !== t.channels[i])), tracks };
 }

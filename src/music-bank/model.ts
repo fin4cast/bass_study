@@ -94,9 +94,12 @@ export function validateMusicBankPreferences(value: unknown): MusicBankPreferenc
 }
 export const DEFAULT_MUSIC_BANK_PREFERENCES = validateMusicBankPreferences({ version: 1, file: null, tracks: [], speed: 1, master: .7, notation: { staff: true, tab: true }, follow: true, mixerOpen: true, range: null, loop: false });
 
-export async function musicBankSha256(bytes: Uint8Array): Promise<string> {
-  // Копия владения нужна WebCrypto: переданный буфер может быть SharedArrayBuffer.
-  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes).buffer);
+/**
+ * WebCrypto хеширует ровно байты представления (byteOffset…byteLength), поэтому копия файла
+ * в памяти не нужна. Тип исключает SharedArrayBuffer, который digest не принимает.
+ */
+export async function musicBankSha256(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
   return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
 }
 /** Повторная привязка проверяет байты; переименование исходника допускается. */

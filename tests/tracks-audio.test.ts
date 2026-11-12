@@ -1,5 +1,8 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createTracksPlayer } from '../src/audio/tracks';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Общий AudioContext хранится в модуле: каждый тест берёт свежий модуль и свой подставной контекст.
+let createTracksPlayer: typeof import('../src/audio/tracks').createTracksPlayer;
+beforeEach(async () => { vi.resetModules(); ({ createTracksPlayer } = await import('../src/audio/tracks')); });
 
 type Call = readonly [string, ...number[]];
 /** Подставной AudioParam: записывает только фактические вызовы автоматизации, без собственной модели звука. */
@@ -40,6 +43,8 @@ function stubContext(decode = vi.fn(async () => ({ duration: 2, length: 96000, s
     createBufferSource: () => ({ ...node(), buffer: null, playbackRate: parameter(), onended: null, start() {}, stop() {} }),
   };
   vi.stubGlobal('AudioContext', class { constructor() { return audio; } });
+  // Файлы декодируются отдельным OfflineAudioContext фиксированной частоты.
+  vi.stubGlobal('OfflineAudioContext', class { constructor() { return { decodeAudioData: decode }; } });
   return { audio, gains, decode };
 }
 

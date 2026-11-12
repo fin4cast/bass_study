@@ -101,7 +101,7 @@ function musicalEvents(midi) {
   });
 }
 
-await check('Алгоритм: детерминизм, непересечение и отказ до частичной записи', () => {
+await check('Алгоритм: детерминизм, непересечение, смешанная партия и отказ до частичной записи', () => {
   const mock = { tracks: Array.from({ length: 24 }, (_, i) => ({ playbackInfo: { primaryChannel: 9, secondaryChannel: 9 }, staves: [{ isPercussion: i % 3 === 0 }] })) };
   const first = normalizeScoreChannels(mock), second = normalizeScoreChannels(mock);
   assert.equal(second.changed, false);
@@ -112,9 +112,19 @@ await check('Алгоритм: детерминизм, непересечени�
     for (const ca of a.channels) for (const cb of b.channels) assert.equal(sameInstrumentChannels(ca, cb), false);
   }
   const bad = { tracks: [{ playbackInfo: { primaryChannel: 4, secondaryChannel: 5 }, staves: [{ isPercussion: false }] },
-    { playbackInfo: { primaryChannel: 9, secondaryChannel: 9 }, staves: [{ isPercussion: false }, { isPercussion: true }] }] };
-  assert.throws(() => normalizeScoreChannels(bad), /Смешанный/); assert.equal(bad.tracks[0].playbackInfo.primaryChannel, 4);
-  return { tracks: first.tracks.length, virtualChannels: used.size, maxChannel: Math.max(...used) };
+    { playbackInfo: { primaryChannel: 9, secondaryChannel: 9 }, staves: [] }] };
+  assert.throws(() => normalizeScoreChannels(bad), /без музыкального стана/); assert.equal(bad.tracks[0].playbackInfo.primaryChannel, 4);
+  // Смешанная партия не останавливает файл: она получает свою мелодическую пару и пометку, соседи не меняются.
+  const drums = () => ({ playbackInfo: { primaryChannel: 9, secondaryChannel: 9 }, staves: [{ isPercussion: true }] });
+  const guitar = () => ({ playbackInfo: { primaryChannel: 0, secondaryChannel: 1 }, staves: [{ isPercussion: false }] });
+  const mixedScore = { tracks: [guitar(), { playbackInfo: { primaryChannel: 9, secondaryChannel: 9 }, staves: [{ isPercussion: false }, { isPercussion: true }] }, drums(), guitar()] };
+  const mixed = normalizeScoreChannels(mixedScore);
+  const plain = normalizeScoreChannels({ tracks: [guitar(), guitar(), drums(), guitar()] });
+  assert.deepEqual(mixed.tracks.map(t => t.mixed), [false, true, false, false]);
+  assert.deepEqual(mixed.tracks.map(t => t.channels), plain.tracks.map(t => t.channels));
+  assert.equal(mixed.tracks[1].percussion, false); assert.ok(mixed.tracks[1].channels.every(ch => !isPercussionChannel(ch)));
+  assert.deepEqual(mixedScore.tracks[1].playbackInfo, { primaryChannel: 2, secondaryChannel: 3 });
+  return { tracks: first.tracks.length, virtualChannels: used.size, maxChannel: Math.max(...used), mixedTrack: mixed.tracks[1] };
 });
 
 for (const sample of samples) {

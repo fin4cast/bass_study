@@ -1,6 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createRhythmPlayer, type RhythmPracticeClock } from '../src/audio/rhythm';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { RhythmPracticeClock } from '../src/audio/rhythm';
 import { DEFAULT_RHYTHM_PREFERENCES, createDefaultRhythmProject } from '../src/rhythm/model';
+
+// Общий AudioContext хранится в модуле: каждый тест берёт свежий модуль и свой подставной контекст.
+let createRhythmPlayer: typeof import('../src/audio/rhythm').createRhythmPlayer;
+beforeEach(async () => { vi.resetModules(); ({ createRhythmPlayer } = await import('../src/audio/rhythm')); });
 
 function stubClock(startVoice = vi.fn()) {
   const parameter = () => ({
@@ -55,7 +59,8 @@ describe('отложенный запуск Web Audio', () => {
     expect(snapshot.practiceDurationMs).toBe(0);
     expect(buildAudioGraph).not.toHaveBeenCalled();
     await player.dispose();
-    expect(closed).toHaveBeenCalledOnce();
+    // Общий AudioContext приложения проигрыватель не закрывает.
+    expect(closed).not.toHaveBeenCalled();
   });
 
   it('переносит ещё не начатый клик внутри шага при дробной и повторной паузе', async () => {

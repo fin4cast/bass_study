@@ -1,5 +1,7 @@
 import { midiToFrequency } from '../music';
 import { BASS_TIMBRE, bassLowpassHz } from './bass-timbre';
+import { audioContext, resumeAudio } from './context';
+import { LEAD } from './scheduler';
 
 export interface CueNote {
   readonly midi: number;
@@ -124,14 +126,16 @@ export function createAudioCue(options: CueOptions = {}) {
       state = 'starting';
       startAt = null; finishAt = null;
       try {
-        context ??= new AudioContext({ latencyHint: 'interactive' });
-        output ??= context.createGain();
-        output.disconnect(); output.connect(context.destination);
-        await context.resume();
+        context = audioContext();
+        if (output?.context !== context) {
+          output?.disconnect();
+          output = context.createGain(); output.connect(context.destination);
+        }
+        await resumeAudio(context);
         if (disposed || expectedRun !== runId) return snapshot();
         if (context.state !== 'running') throw new Error('Браузер не разрешил звук. Нажми «Прослушать» ещё раз.');
         const seconds = 60 / configuration.bpm;
-        startAt = context.currentTime + .035;
+        startAt = context.currentTime + LEAD;
         finishAt = startAt + configuration.totalBeats * seconds;
         output.gain.setValueAtTime(1, context.currentTime);
         for (const note of configuration.notes) voices.push(scheduleNote(context, output, note, startAt, seconds));
@@ -151,15 +155,14 @@ export function createAudioCue(options: CueOptions = {}) {
       state = 'stopped'; startAt = null; finishAt = null;
     },
     getSnapshot: snapshot,
-    async dispose() {
+    /** Общий AudioContext не закрывается: освобождается только собственный граф. */
+    dispose() {
       if (disposed) return;
       disposed = true;
       ++runId;
       cancelVoices();
-      output?.disconnect(); output = null;
-      const closing = context; context = null;
+      output?.disconnect(); output = null; context = null;
       state = 'stopped'; startAt = null; finishAt = null;
-      if (closing && closing.state !== 'closed') await closing.close();
     },
   };
 }

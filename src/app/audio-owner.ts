@@ -1,7 +1,12 @@
+import { suspendAudioWhenIdle } from '../audio/context';
+
 export type AudioOwner = 'sequence' | 'ear' | 'rhythm' | 'tracks' | 'scores' | 'input' | 'introduction';
 export type AudioExit = 'owner' | 'section' | 'route' | 'settings' | 'restore' | 'retire';
 
-/** The application arbitrates starts. Each participant owns cancellation of its pending work. */
+/**
+ * The application arbitrates starts. Each participant owns cancellation of its pending work.
+ * Без владельца общий AudioContext останавливается; следующий запуск включает его сам.
+ */
 export function createAudioOwner(options: {
   canStart(owner: AudioOwner): boolean;
   participants: Record<AudioOwner, (reason: AudioExit) => void>;
@@ -22,14 +27,17 @@ export function createAudioOwner(options: {
     end(owner: AudioOwner, reason: AudioExit) {
       if (current === owner) current = null;
       options.participants[owner](reason);
+      if (current === null) suspendAudioWhenIdle();
     },
     endAll(reason: AudioExit) {
       current = null;
       for (const interrupt of Object.values(options.participants)) interrupt(reason);
+      suspendAudioWhenIdle();
     },
     // Visibility handlers already pause or disconnect using their own transport semantics.
     forget(owner?: AudioOwner) {
       if (owner === undefined || current === owner) current = null;
+      if (current === null) suspendAudioWhenIdle();
     },
   };
 }

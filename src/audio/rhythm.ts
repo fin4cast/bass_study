@@ -3,6 +3,8 @@ import {
   type RhythmChannel, type RhythmFrame, type RhythmHit, type RhythmKit, type RhythmPlan,
   type RhythmPlaybackConfig, type RhythmPosition, type RhythmSource,
 } from '../rhythm/model';
+import { audioContext, resumeAudio } from './context';
+import { LEAD, checkSchedule, createTicker, scheduleHorizon } from './scheduler';
 import { createRhythmNoise, describeRhythmHit, scheduleRhythmVoice, type RhythmTail, type RhythmVoice } from './rhythm-synth';
 
 export type { RhythmPlaybackConfig, RhythmPosition, RhythmSource } from '../rhythm/model';
@@ -57,16 +59,11 @@ interface LiveGraph extends RhythmGraph { readonly preview: GainNode; readonly a
 
 const CLICK_SOURCES = ['accent', 'click', 'subdivision'] as const;
 /**
- * Политика времени планировщика. Кадры ставятся в Web Audio на LOOKAHEAD вперёд: опоздание
- * таймера (20 мс) до ~0,29 с — фон, GC, RDP — поглощается без потерь. Если же следующий кадр
- * уже должен был прозвучать раньше чем LATE_MARGIN назад, позиция не «догоняется» сдвигом сетки:
- * транспорт встаёт на паузу 'timing' с точным остатком кадра. Изменение настроек не ждёт весь запас:
- * ещё не начавшиеся кадры не раньше now + REPLAN_LEAD отменяются и планируются заново.
+ * Запас, досылка и правило опоздания — общие (scheduler.ts): поздний кадр ставит транспорт на паузу
+ * 'timing' с точным остатком кадра. Изменение настроек не ждёт весь запас: ещё не начавшиеся кадры
+ * не раньше now + REPLAN_LEAD отменяются и планируются заново.
  */
-const LOOKAHEAD = .3;
-const LEAD = .035;
 const REPLAN_LEAD = LEAD;
-const LATE_MARGIN = .006;
 const MIX_RAMP = .005;
 const TRACE_LIMIT = 4096;
 const mixFor = ({ preferences, project }: RhythmPlaybackConfig): RhythmMix => Object.freeze({
@@ -239,7 +236,7 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
   let generation = 0;
   let disposed = false;
   let updating = false;
-  let timer: ReturnType<typeof setInterval> | null = null;
+  const ticker = createTicker(() => pump());
   let voices: RhythmVoice[] = [];
   const queued: ScheduledFrame[] = [];
   const trace: RhythmTraceEvent[] = [];
@@ -282,8 +279,7 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
     practiceSince = since === null ? null : Math.max(since, at);
   }
   function quiet(at = clock()) {
-    if (timer !== null) clearInterval(timer);
-    timer = null;
+    ticker.stop();
     for (const event of trace) if (!event.cancelled && event.runId === runId && event.time > at) event.cancelled = true;
     queued.length = 0;
     for (const voice of voices) voice.cancel(at);
@@ -416,23 +412,24 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
     return 'applied';
   }
   async function acquireContext(expected: number): Promise<AudioContext | null> {
-    if (!context || context.state === 'closed') {
-      context = new AudioContext({ latencyHint: 'interactive' });
-      graph = null;
-    }
-    const audio = context;
-    await audio.resume();
+    const audio = audioContext();
+    if (context !== audio) { releaseGraph(); context = audio; }
+    await resumeAudio(audio);
     if (disposed || expected !== generation || context !== audio) return null;
     if (audio.state !== 'running') throw new Error('Браузер не разрешил звук. Нажми запуск ещё раз.');
     return audio;
   }
-  function prepareGraph(audio: AudioContext) {
-    const sources = mixSources(mix);
-    if (graph && JSON.stringify([...graph.buses.keys()]) === JSON.stringify(sources)) return graph;
+  function releaseGraph() {
     if (graph) {
       for (const bus of graph.buses.values()) bus.disconnect();
       graph.master.disconnect(); graph.gate.disconnect(); graph.preview.disconnect(); graph.analyser.disconnect();
     }
+    graph = null;
+  }
+  function prepareGraph(audio: AudioContext) {
+    const sources = mixSources(mix);
+    if (graph && JSON.stringify([...graph.buses.keys()]) === JSON.stringify(sources)) return graph;
+    releaseGraph();
     const analyser = audio.createAnalyser();
     analyser.fftSize = 1024;
     analyser.connect(audio.destination);
@@ -489,9 +486,11 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
     const now = clock();
     advanceActual(now);
     if (!running()) { emit(); return; }
-    if (context.state !== 'running') { pause('interrupted'); return; }
-    if (state === 'running' && nextAt < now - LATE_MARGIN) { pause('timing', current?.end ?? nextAt); return; }
-    while (state === 'running' && nextAt <= now + LOOKAHEAD) {
+    const check = checkSchedule(context, nextAt);
+    if (check === 'interrupted') { pause('interrupted'); return; }
+    if (state === 'running' && check === 'late') { pause('timing', current?.end ?? nextAt); return; }
+    const horizon = scheduleHorizon(context);
+    while (state === 'running' && nextAt <= horizon) {
       updateScheduledPlan(nextIndex);
       const version = scheduledPlan!;
       const frame = rhythmFrameAt(version.plan, nextIndex, version.tempoBaseBar);
@@ -540,7 +539,7 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
       }
     }
     pump();
-    if (running() && expected === generation) timer = setInterval(pump, 20);
+    if (running() && expected === generation) ticker.start();
   }
   return {
     configure, setMix, pause, stop, getSnapshot,
@@ -599,12 +598,11 @@ export function createRhythmPlayer(options: RhythmPlayerOptions = {}) {
         }
       } catch (failure) { if (expected === generation && !disposed) throw failure; }
     },
-    async dispose() {
+    /** Общий AudioContext не закрывается: освобождается только собственный граф. */
+    dispose() {
       if (disposed) return;
       stop(); disposed = true; ++generation;
-      const audio = context;
-      context = null; graph = null;
-      if (audio && audio.state !== 'closed') await audio.close();
+      releaseGraph(); context = null;
     },
   };
 }
