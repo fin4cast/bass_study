@@ -1,5 +1,6 @@
 import type { mountFoundation } from '../ui/foundation';
 import type { mountInput } from '../ui/input';
+import type { ReferencePanel } from '../ui/reference/panel';
 import type { mountRhythm } from '../ui/rhythm';
 import type { mountStudio } from '../ui/studio';
 import { createAudioOwner } from './audio-owner';
@@ -14,6 +15,8 @@ export interface AppSections {
   studio?: ReturnType<typeof mountStudio>;
   /** Диагностика аудиовхода внутри «Настроек». */
   input?: ReturnType<typeof mountInput>;
+  /** Панель справочника поверх любого экрана: «Послушать» звучит, пока она открыта. */
+  referencePanel?: ReferencePanel;
 }
 
 export interface SectionAudioOptions {
@@ -33,6 +36,8 @@ export function createSectionAudio(sections: AppSections, options: SectionAudioO
         case 'sequence': return active === 'foundation' && foundation?.mode === 'sequence' && foundation.rangeIsValid();
         case 'play': return active === 'lesson' && lesson?.screen === 'play';
         case 'check': return active === 'lesson' && lesson?.screen === 'check';
+        // «Послушать»: открыта панель справочника (поверх любого экрана) или страница справочника в «Занятии».
+        case 'reference': return Boolean(sections.referencePanel?.isOpen) || (active === 'lesson' && lesson?.screen === 'reference');
         case 'rhythm': return active === 'harmony';
         case 'tracks': return active === 'tracks' && studio?.view === 'audio';
         case 'scores': return active === 'tracks' && studio?.view === 'scores';
@@ -45,6 +50,8 @@ export function createSectionAudio(sections: AppSections, options: SectionAudioO
       play: reason => reason === 'owner' || reason === 'section' ? sections.lesson?.pausePlay() : sections.lesson?.stopPlay(),
       // «Проверь себя» завершает серию: начатые ответы уходят в историю.
       check: () => sections.lesson?.stopCheck(),
+      // Короткий пример карточки не ставится на паузу: останавливается, его слушают заново.
+      reference: () => { sections.referencePanel?.stopListening(); sections.lesson?.stopReference(); },
       rhythm: reason => reason === 'owner' ? sections.rhythm?.pause('audio-owner') : reason === 'section' ? sections.rhythm?.pause('module') : sections.rhythm?.stop(),
       tracks: () => sections.studio?.stop('audio'),
       scores: () => sections.studio?.stop('scores'),

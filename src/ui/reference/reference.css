@@ -52,6 +52,8 @@
 :is(.p13-reference, .p13-reference-panel) .rf-legend i.is-shared { background: var(--board-octave); }
 :is(.p13-reference, .p13-reference-panel) .rf-listen { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; }
 :is(.p13-reference, .p13-reference-panel) .rf-listen small { font-size: 12px; color: var(--text-secondary); }
+:is(.p13-reference, .p13-reference-panel) .rf-listen [data-listen][aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--text-primary); }
+:is(.p13-reference, .p13-reference-panel) .rf-listen-status:empty { display: none; }
 :is(.p13-reference, .p13-reference-panel) .rf-facts { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 :is(.p13-reference, .p13-reference-panel) .rf-facts li::marker { color: var(--text-secondary); }
 :is(.p13-reference, .p13-reference-panel) .rf-note { border-left: 3px solid var(--selection); background: var(--selection-soft); padding: 8px 12px; border-radius: 0 8px 8px 0; font-size: 13px; line-height: 1.55; }

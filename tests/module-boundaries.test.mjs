@@ -14,7 +14,7 @@ const sections = {
   play: ['play/board', 'play/model', 'play/port', 'play/tab', 'play/view'],
   progress: ['progress/charts', 'progress/model', 'progress/view'],
   settings: ['settings/model', 'settings/view'],
-  reference: ['reference/card', 'reference/model', 'reference/panel', 'reference/view'],
+  reference: ['reference/card', 'reference/listen', 'reference/model', 'reference/panel', 'reference/view'],
 };
 
 describe('границы экранов', () => {

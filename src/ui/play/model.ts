@@ -118,6 +118,29 @@ export function playbackConfig(plan: Pick<ExercisePlan, 'positions'>, settings: 
   };
 }
 
+/**
+ * «Сначала услышь» (R-026): один проход того, что сейчас будет играться, — всё упражнение или
+ * выбранная петля, восьмыми в текущем темпе. Без отсчёта, без клика и без повтора: это эталон
+ * партии, а не игра; отсчёт и метроном начинаются вместе с игрой.
+ */
+export function listenConfig(plan: Pick<ExercisePlan, 'positions'>, settings: Pick<PlaySettings, 'bpm' | 'range'>): PlaybackConfig {
+  return {
+    notes: plan.positions,
+    ...(settings.range ? { range: { ...settings.range } } : {}),
+    duration: 'eighth',
+    bpm: clampBpm(settings.bpm),
+    countIn: false,
+    repeat: 'once',
+    metronome: { enabled: false, subdivision: 'quarter', mode: 'all' },
+  };
+}
+
+/** Строка прогресса во время эталона: «Звучит эталон · нота N из M». */
+export function listenProgressText(noteIndex: number | null, total: number, range: PlaySettings['range'] = null): string {
+  const loop = range ? ` · петля ${range.from + 1}–${range.toExclusive}` : '';
+  return `Звучит эталон · нота ${noteIndex === null ? 0 : noteIndex + 1} из ${total}${loop}`;
+}
+
 /** Строка прогресса «Нота N из M · проход K». */
 export function progressText(state: Pick<PlayState, 'status' | 'passIndex' | 'totalPasses' | 'pauseReason'>, noteIndex: number | null, total: number,
   extra: { readonly fromStart?: boolean; readonly range?: PlaySettings['range'] } = {}): string {
