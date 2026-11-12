@@ -8,7 +8,9 @@ let active: HTMLDialogElement | null = null;
 
 /** A reversible preview; no mutation is performed before the explicit button. */
 export function confirmAction(options: ConfirmationOptions): Promise<boolean> {
-  if (active) return Promise.resolve(false);
+  // Закрытый диалог уже не активен: браузер возвращает фокус синхронно при close(), а событие `close` приходит позже,
+  // и Enter сразу после Esc не должен молча теряться.
+  if (active?.open) return Promise.resolve(false);
   const previous = document.activeElement instanceof HTMLElement || document.activeElement instanceof SVGElement ? document.activeElement : null;
   const dialog = document.createElement('dialog');
   dialog.className = 'confirm-dialog';
