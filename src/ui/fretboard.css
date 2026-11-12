@@ -59,3 +59,8 @@ svg.study-fretboard { display: block; width: 100%; height: 346px; min-width: 0; 
 .study-octave-item.octave-tone-0 .study-octave-swatch { background: var(--study-octave-first-swatch, var(--octave-swatch-first)); }
 .study-octave-item.octave-tone-1 .study-octave-swatch { background: var(--study-octave-second-swatch, var(--octave-swatch-second)); }
 .study-octave-description { flex-basis: 100%; margin: 0; color: var(--text-secondary); font-size: 11px; }
+
+/* Мостики атласа (P13-08): занятие по текущей форме открывается в разделе «Занятие». */
+.atlas-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.atlas-note { flex: 1 1 16em; min-width: 0; font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
+.atlas-note:empty { display: none; }

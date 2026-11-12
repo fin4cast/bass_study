@@ -10,6 +10,8 @@ import { builtinLibrary, type UserExercise } from '../practice/library';
 import { selectStep, type CheckSpec, type DayPlan, type PlanStepContent } from '../practice/plan';
 import type { Difficulty, PracticeRecord } from '../practice/results';
 import type { AppPreferences, HistoryEntry, HistoryMetadata } from '../storage';
+import type { QuestionContext, QuizSession } from '../training';
+import { reviewMaterial } from '../ui/check/session';
 import { mountCheck } from '../ui/check/view';
 import { mountLesson } from '../ui/lesson/view';
 import { stepTitle } from '../ui/lesson/model';
@@ -22,6 +24,9 @@ import {
 } from './lesson-flow';
 
 export type LessonScreen = 'home' | 'play' | 'check' | 'reference';
+/** Раздел, откуда открыт экран игры или «Проверь себя»: возврат ведёт туда, а не на главную «Занятия». */
+export type LessonOrigin = 'foundation' | 'progress';
+const ORIGIN_LABELS: Readonly<Record<LessonOrigin, string>> = { foundation: '← Гриф', progress: '← Прогресс' };
 
 export interface LessonSectionOptions {
   readonly preferences: () => AppPreferences;
@@ -42,6 +47,10 @@ export interface LessonSectionOptions {
   readonly onOpenSection: (section: 'rhythm' | 'songs') => void;
   readonly onScreenChange: (screen: LessonScreen) => void;
   readonly onFailure: (message: string) => void;
+  /** Экранные задания R-006 из «Проверь себя» (ноты, все позиции, высота, интервал, повтор ошибок): одна запись на серию. */
+  readonly saveScreen?: (session: QuizSession) => void;
+  /** Возврат в раздел, откуда открыт экран игры или «Проверь себя». */
+  readonly onReturn?: (section: LessonOrigin) => void;
 }
 
 function metadata(kind: 'exercise' | 'check'): HistoryMetadata {
@@ -63,7 +72,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   let homeStale = true;
   let disposed = false;
   let play: { handle: PlayHandle; port: PlaybackPort; spec: ExerciseSpec; key: string; stepId: string | null } | null = null;
-  let check: { spec: CheckSpec; stepId: string | null } | null = null;
+  let check: { spec: CheckSpec | null; stepId: string | null; origin: LessonOrigin | null } | null = null;
 
   const today = () => todayKey();
   const records = () => options.records();
@@ -98,14 +107,16 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
 
   const checkView = mountCheck(host('check'), {
     onFinish(summary, answers) {
-      if (!check) return;
+      if (!check?.spec) return;
       try {
         const entry = checkEntry({ spec: check.spec, userExercises: user(), activeMs: summary.activeMs, answers }, metadata('check'));
         if (entry) options.saveHistory(entry);
       } catch (failure) { options.onFailure(`Итог проверки не сохранён: ${message(failure)}`); }
     },
-    onBack() { showHome(); },
+    onScreen: session => options.saveScreen?.(session),
+    onBack() { leave(check?.origin ?? null); },
     onNextStep() {
+      if (check?.origin) { leave(check.origin); return; }
       const stepId = check?.stepId ?? null;
       if (stepId) {
         const plan = planAfterCheck(currentPlan(), stepId);
@@ -166,6 +177,11 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   }
 
   function showHome() { setScreen('home'); }
+  /** Назад: в раздел, откуда открыт экран, иначе на главную «Занятия». Экран закрывается в любом случае. */
+  function leave(origin: LessonOrigin | null) {
+    showHome();
+    if (origin) options.onReturn?.(origin);
+  }
 
   /** Шаг плана, открытый из плана, становится текущим. */
   function selectFromPlan(stepId: string | null) {
@@ -187,7 +203,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     return position ? `шаг ${position.index} из ${position.total}` : null;
   }
 
-  function openPlay(spec: ExerciseSpec, stepId: string | null, bpmOverride?: number) {
+  function openPlay(spec: ExerciseSpec, stepId: string | null, bpmOverride?: number, origin: LessonOrigin | null = null) {
     let exercise;
     try { exercise = buildExercise(spec); }
     catch (failure) { options.onFailure(`Упражнение не открылось: ${message(failure)}`); return; }
@@ -202,8 +218,8 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     const port = createEnginePort();
     const handle = mountPlay(playHost, {
       port, initialView: view, bpm, countIn: prefs.play.countIn, labels: prefs.play.labels,
-      backLabel: label ? `← Занятие · ${label}` : '← Занятие',
-      onBack: showHome,
+      backLabel: origin ? ORIGIN_LABELS[origin] : label ? `← Занятие · ${label}` : '← Занятие',
+      onBack: () => leave(origin),
       onBeforeStart: () => options.claimAudio('play'),
       onRate: event => rate(event),
       onViewChange(next) {
@@ -253,9 +269,18 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
         ? `Дальше: шаг ${afterPosition.index} из ${afterPosition.total} — ${stepTitle(after.content, user())}.`
         : `Шаг ${position.index} из ${position.total} — последний: вернёмся в «Сегодня».`;
     }
-    check = { spec, stepId };
+    check = { spec, stepId, origin: null };
     setScreen('check');
     checkView.start(spec, { backLabel: position ? `план на сегодня, шаг ${position.index} из ${position.total}` : undefined, nextLabel });
+  }
+
+  /** «Проверь себя» из другого раздела: без шага плана, возврат — в исходный раздел. */
+  function openCheckFrom(spec: CheckSpec, origin: LessonOrigin) {
+    // Начатая серия закрывается со своим описанием до смены текущей проверки.
+    if (screen === 'check') checkView.stop();
+    check = { spec, stepId: null, origin };
+    setScreen('check');
+    checkView.start(spec, { backText: ORIGIN_LABELS[origin], nextText: origin === 'foundation' ? 'Вернуться к грифу →' : 'Вернуться в «Прогресс» →' });
   }
 
   function openConcept(id: string) {
@@ -295,6 +320,22 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     openTemplate,
     openConcept,
     showHome,
+    /** «Сыграть эту форму» из «Грифа»: экран игры по описанию упражнения; возврат — в «Гриф». */
+    playExercise(spec: ExerciseSpec, origin: LessonOrigin = 'foundation') { openPlay(spec, null, undefined, origin); },
+    /** «Проверь себя по этой форме» из «Грифа»: проверка по материалу упражнения; возврат — в «Гриф». */
+    checkExercise(spec: CheckSpec, origin: LessonOrigin = 'foundation') { openCheckFrom(spec, origin); },
+    /**
+     * «Повторить ошибки» прежних заданий на грифе (R-011): «Проверь себя» в режиме повтора — «Назови ноту» только
+     * по этим позициям в исходной тональности и структуре; результат — экранное задание в истории.
+     * Неверные позиции или контекст — RangeError, экран не меняется.
+     */
+    repeatErrors(positionIds: readonly string[], context: Pick<QuestionContext, 'root' | 'structureId'>, origin: LessonOrigin = 'progress') {
+      reviewMaterial(positionIds, context);
+      if (screen === 'check') checkView.stop();
+      check = { spec: null, stepId: null, origin };
+      setScreen('check');
+      checkView.startReview(positionIds, context, { backText: ORIGIN_LABELS[origin], nextText: origin === 'foundation' ? 'Вернуться к грифу →' : 'Вернуться в «Прогресс» →' });
+    },
     /** «Повторить» / «В план» из «Прогресса». */
     addToPlan(target: Difficulty | string) {
       const prefs = options.preferences();

@@ -30,10 +30,9 @@ export function createSectionAudio(sections: AppSections, options: SectionAudioO
   return createAudioOwner({
     canStart(owner) {
       if (!options.canStartAny()) return false;
-      const { foundation, studio, lesson } = sections;
+      const { studio, lesson } = sections;
       const active = options.activeModule();
       switch (owner) {
-        case 'sequence': return active === 'foundation' && foundation?.mode === 'sequence' && foundation.rangeIsValid();
         case 'play': return active === 'lesson' && lesson?.screen === 'play';
         case 'check': return active === 'lesson' && lesson?.screen === 'check';
         // «Послушать»: открыта панель справочника (поверх любого экрана) или страница справочника в «Занятии».
@@ -45,7 +44,6 @@ export function createSectionAudio(sections: AppSections, options: SectionAudioO
       }
     },
     participants: {
-      sequence: () => sections.foundation?.stop(),
       // Экран игры встаёт на паузу (продолжение — только действием пользователя); при закрытии, восстановлении и применении настроек — остановка.
       play: reason => reason === 'owner' || reason === 'section' ? sections.lesson?.pausePlay() : sections.lesson?.stopPlay(),
       // «Проверь себя» завершает серию: начатые ответы уходят в историю.

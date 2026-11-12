@@ -1,8 +1,10 @@
 /**
  * Экран «Проверь себя» (VIS-02 r1, утверждён как A+B 2026-11-12).
- * A «На грифе» — «Найди ступень» кликом по позициям; B «Карточки» — «Назови ступень» и слух.
+ * A «На грифе» — «Найди …» кликом по позициям; B «Карточки» — «Назови …» и слух.
+ * Виды вопросов — задания R-006 по материалу (P13-08): ступени, ноты, все позиции, высота, интервал; повтор ошибок.
  * Правильный ответ живёт только в модели сессии: в DOM и ARIA он появляется после ответа, показа или в итоге.
- * Данные не сохраняются здесь: итог и ответы уходят в `onFinish`, звук начинается только после `onBeforeListen`.
+ * Данные не сохраняются здесь: итог ступеней уходит в `onFinish`, серия прочих видов — в `onScreen`;
+ * звук начинается только после `onBeforeListen`.
  */
 import '../lesson/mini-board.css';
 import { onPageVisibility } from '../page-visibility';
@@ -11,14 +13,16 @@ import { createAudioCue } from '../../audio/cue';
 import { getEarAudioEvents } from '../../ear';
 import type { CheckSpec } from '../../practice/plan';
 import type { CheckOutcome } from '../../practice/results';
+import type { QuestionContext, QuizSession } from '../../training';
 import { escapeHtml as e } from '../html';
 import { CHECK_MINUTES, CONCEPT_LABELS, formatDegree, formatPosition } from '../lesson/material';
 import { boardGeometry, boardSvg, BOARD_STRINGS, type BoardNote } from '../lesson/mini-board';
 import {
-  advance, answerChoice, answerPosition, answersOpen, beginListen, cancelListen, checkMaterial, choiceLabels, completeListen, degreeAt,
-  entries, hardIndices, hasActivity, lastEventMs, markedPosition, modeFor, OUTCOME_LABELS, prompt, questionCount, questionIndex,
-  recordAnswers, retryRun, reveal, revealedAnswer, runStatus, skip, startRun, summarize, summaryRow, wrongFeedback,
-  type CheckEntry, type CheckMaterial, type CheckMode, type CheckRun, type CheckSummary,
+  advance, answerChoice, answerPosition, answersOpen, beginListen, cancelListen, checkMaterial, choiceLabels, completeListen, defaultSettings, degreeAt,
+  entries, hardIndices, hasActivity, inQuizArea, INTERVAL_CHOICES, isDegreeKind, lastEventMs, markedPosition, modeFor, noteAt, OUTCOME_LABELS, prompt, QUESTION_KINDS,
+  questionCount, questionIndex, recordAnswers, recordsDegrees, retryRun, reveal, revealedAnswer, reviewMaterial, runKind, runStatus, scopeApplies, skip,
+  startRun, summarize, summaryRow, wrongFeedback,
+  type CheckEntry, type CheckMaterial, type CheckMode, type CheckRun, type CheckSummary, type QuestionKind, type QuestionSettings,
 } from './session';
 
 export interface CheckFinishSummary extends CheckSummary {
@@ -29,7 +33,13 @@ export interface CheckFinishSummary extends CheckSummary {
   readonly retry: boolean;
 }
 export interface CheckOptions {
+  /** Итог вопросов о ступенях по шагу плана — запись «Проверь себя» в истории. */
   readonly onFinish: (summary: CheckFinishSummary, answers: readonly { readonly degree: string; readonly outcome: CheckOutcome; readonly errors: number }[]) => void;
+  /**
+   * Серия прочих видов вопросов (ноты, все позиции, высота, интервал, повтор ошибок) — экранное задание R-006.
+   * Вызывается после каждого закрытого ответа и в итоге с тем же объектом вопросов: одна запись на серию.
+   */
+  readonly onScreen?: (session: QuizSession) => void;
   readonly onBack: () => void;
   readonly onNextStep: () => void;
   /** Владелец звука разрешает сигнал; `false` — звук не начинается. */
@@ -40,6 +50,10 @@ export interface CheckContext {
   readonly backLabel?: string;
   /** Подпись под кнопкой «К следующему шагу плана». */
   readonly nextLabel?: string;
+  /** Полный текст кнопки возврата вместо «← Занятие …», например «← Гриф». */
+  readonly backText?: string;
+  /** Текст главной кнопки итога вместо «К следующему шагу плана →». */
+  readonly nextText?: string;
 }
 
 const BPM = 80;
@@ -59,6 +73,7 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
   let context: CheckContext = {};
   let run: CheckRun | null = null;
   let ear = false;
+  let settings: QuestionSettings = { kind: 'find-degree', scope: 'structure', interval: '#4' };
   let seed = 1;
   let retry = false;
   let summaryList: readonly CheckEntry[] | null = null;
@@ -163,6 +178,15 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
   }
 
   /* ---------- Серия ---------- */
+  /** Новая серия по текущим материалу, виду вопроса и слуху. */
+  function freshRun(mat: CheckMaterial): CheckRun {
+    return startRun(mat, modeFor(mat, ear, settings.kind), seed, mat.count, settings);
+  }
+  /** Экранное задание прочих видов уходит в историю после каждого закрытого ответа и в итоге. */
+  function publishScreen(current: CheckRun | null = run) {
+    if (!current || current.mode === 'ear' || recordsDegrees(runKind(current))) return;
+    try { options.onScreen?.(current.quiz); } catch (error) { notice = error instanceof Error ? error.message : String(error); }
+  }
   function begin(nextRun: CheckRun, isRetry: boolean) {
     stopAudio();
     run = nextRun; retry = isRetry; summary = null; summaryList = null; summaryRun = null;
@@ -190,8 +214,11 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     summaryList = list; summaryRun = run;
     summary = Object.freeze({ ...base, activeMs: Math.round(activeMs), contour: contourUsed.filter(Boolean).length, retry });
     activeSince = null;
+    const finished = run;
     render();
     summaryBox.querySelector<HTMLElement>('[data-act="next-step"]')?.focus({ preventScroll: true });
+    if (finished.mode !== 'ear' && !recordsDegrees(runKind(finished))) { publishScreen(finished); if (notice) render(); return; }
+    if (!material.spec) return;
     try { options.onFinish(summary, recordAnswers(list)); } catch (error) { notice = error instanceof Error ? error.message : String(error); render(); }
   }
   function markContour() { if (run && run.mode === 'board' && contour) contourUsed[questionIndex(run)] = true; }
@@ -219,6 +246,12 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
   }
   function afterAnswer(before: CheckRun, answer: { positionId?: string; choice?: number }) {
     if (!run || !material) return;
+    publishScreen();
+    if (run.mode !== 'ear' && run.quiz.status === 'active' && run.quiz.answerState.feedback.kind === 'partial') {
+      feedback = { text: `${formatPosition(answer.positionId ?? '')} — верно. ${run.quiz.answerState.feedback.message.replace('Продолжайте поиск.', 'Ищи дальше.')}`, tone: 'ok' };
+      render();
+      return;
+    }
     if (runStatus(run) === 'review') {
       const revealed = revealedAnswer(run, material)!;
       const errors = run.mode === 'ear' ? run.ear.answerState.errors : run.quiz.answerState.errors;
@@ -237,6 +270,7 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     stopAudio();
     markContour();
     run = reveal(run, elapsed());
+    publishScreen();
     feedback = { text: `Ответ показан: ${revealedAnswer(run, material)!.text} В итоге — «показано», не самостоятельно.`, tone: 'shown' };
     render();
     container.querySelector<HTMLElement>('[data-act="next"]')?.focus({ preventScroll: true });
@@ -251,20 +285,28 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     if (!run || runStatus(run) !== 'review') return;
     run = advance(run);
     if (runStatus(run) === 'finished') { finalize(); return; }
+    publishScreen();
     resetQuestion();
     render();
     container.querySelector<HTMLElement>(run.mode === 'board' ? `[data-cell="${focusCell}"]` : run.mode === 'ear' ? '[data-act="listen"]' : '[data-choice]')?.focus({ preventScroll: true });
   }
 
   /* ---------- Отрисовка ---------- */
+  function backMarkup() {
+    return `<button type="button" class="ck-back" data-act="back">${context.backText ? e(context.backText) : `← Занятие${context.backLabel ? ` · ${e(context.backLabel)}` : ''}`}</button>`;
+  }
+  const KIND_TITLES: Readonly<Record<QuestionKind, string>> = {
+    'find-degree': 'найди ступень на грифе', 'name-degree': 'назови ступень', 'find-note': 'найди ноту', 'find-all': 'найди все позиции',
+    'name-note': 'назови ноту', 'find-pitch': 'найди высоту', 'find-interval': 'найди интервал',
+  };
   function headMarkup() {
-    if (!material) return `<button type="button" class="ck-back" data-act="back">← Занятие${context.backLabel ? ` · ${e(context.backLabel)}` : ''}</button><h1 class="ck-h1">Проверь себя</h1><p class="ck-note">Это проверка знаний на экране — игру на басу она не оценивает.</p>`;
-    const mode = run?.mode ?? modeFor(material, ear);
-    const title = mode === 'board' ? 'найди ступень на грифе' : mode === 'ear' ? 'услышь ступень' : 'назови ступень';
-    const count = run ? questionCount(run) : material.spec.count;
-    return `<button type="button" class="ck-back" data-act="back">← Занятие${context.backLabel ? ` · ${e(context.backLabel)}` : ''}</button>
+    if (!material) return `${backMarkup()}<h1 class="ck-h1">Проверь себя</h1><p class="ck-note">Это проверка знаний на экране — игру на басу она не оценивает.</p>`;
+    const mode = run?.mode ?? modeFor(material, ear, settings.kind);
+    const title = mode === 'ear' ? 'услышь ступень' : material.review ? 'повтор ошибок' : KIND_TITLES[run ? runKind(run) : settings.kind];
+    const count = run ? questionCount(run) : material.count;
+    return `${backMarkup()}
       <div class="ck-title-row"><h1 class="ck-h1">Проверь себя: ${e(title)}</h1><span class="ck-sub">${e(material.material)} · ${e(count)} ${plural(count, 'вопрос', 'вопроса', 'вопросов')} · ≈${CHECK_MINUTES} мин</span>
-        <span class="ck-chips">${material.plan.concepts.slice(0, 3).map(concept => `<span class="ck-chip">${e(CONCEPT_LABELS[concept])}</span>`).join('')}</span></div>
+        <span class="ck-chips">${(material.plan?.concepts ?? []).slice(0, 3).map(concept => `<span class="ck-chip">${e(CONCEPT_LABELS[concept])}</span>`).join('')}</span></div>
       <p class="ck-note">Это проверка знаний на экране — игру на басу она не оценивает.</p>`;
   }
 
@@ -280,13 +322,20 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     if (!run || !material) return '';
     const list = summaryList ?? entries(run);
     const index = questionIndex(run);
-    const canToggleEar = !!material.earQuality && !hasActivity(run) && !summary;
+    // Вид вопроса, интервал, ноты и слух меняются до первого ответа серии или после итога (новая серия).
+    const fresh = !hasActivity(run) || !!summary;
+    const degreeKind = isDegreeKind(settings.kind);
+    const canToggleEar = !!material.earQuality && degreeKind && !hasActivity(run) && !summary;
     const earOn = run.mode === 'ear';
+    const lockedTitle = material.review ? 'Повтор ошибок задаёт вопрос «Назови ноту» по этим позициям' : 'Вид вопроса меняется до первого ответа серии или после итога';
+    const kindSelect = `<label class="ck-field"><span class="ck-sr">Вид вопроса</span><select class="ck-select" data-kind data-key="kind" aria-label="Вид вопроса"${fresh && !material.review ? '' : ` disabled title="${e(lockedTitle)}"`}>${QUESTION_KINDS.map(item => `<option value="${item.id}"${item.id === settings.kind ? ' selected' : ''}>${e(item.label)}</option>`).join('')}</select></label>`;
+    const intervalSelect = settings.kind === 'find-interval' ? `<label class="ck-field"><span class="ck-sr">Интервал от тоники</span><select class="ck-select" data-interval data-key="interval" aria-label="Интервал от тоники"${fresh ? '' : ' disabled'}>${INTERVAL_CHOICES.map(degree => `<option value="${degree}"${degree === settings.interval ? ' selected' : ''}>${e(formatDegree(degree))}</option>`).join('')}</select></label>` : '';
+    const scopeToggle = scopeApplies(settings.kind) && !material.review ? `<button type="button" class="ck-toggle" data-act="toggle-scope" data-key="toggle-scope" aria-pressed="${settings.scope === 'chromatic'}"${fresh ? '' : ' disabled'} title="${e(fresh ? 'Все ноты участка формы, а не только ноты структуры' : 'Ноты меняются до первого ответа серии или после итога')}">◫ Все ноты участка</button>` : '';
     return `<div class="ck-progress"><strong>${summary ? `Итог · ${e(list.length)} из ${e(list.length)}` : `Вопрос ${e(index + 1)} из ${e(questionCount(run))}`}</strong>${dotsMarkup(list, summary ? null : index)}</div>
-      ${summary ? '' : `<div class="ck-tools">
-        <button type="button" class="ck-toggle" data-act="toggle-ear" data-key="toggle-ear" aria-pressed="${earOn}"${canToggleEar ? '' : ' disabled'} title="${e(!material.earQuality ? 'Слух пока только для пентатоник и трезвучий' : canToggleEar ? 'Слух — опция вопроса: сначала тоника, потом нота' : 'Слух меняется до первого ответа серии')}">♪ <b>+ слух</b></button>
+      <div class="ck-tools">${kindSelect}${intervalSelect}${scopeToggle}
+        ${summary ? '' : `${degreeKind ? `<button type="button" class="ck-toggle" data-act="toggle-ear" data-key="toggle-ear" aria-pressed="${earOn}"${canToggleEar ? '' : ' disabled'} title="${e(!material.earQuality ? 'Слух пока только для пентатоник и трезвучий' : canToggleEar ? 'Слух — опция вопроса: сначала тоника, потом нота' : 'Слух меняется до первого ответа серии')}">♪ <b>+ слух</b></button>` : ''}
         ${run.mode === 'board' ? `<button type="button" class="ck-toggle" data-act="toggle-contour" data-key="toggle-contour" aria-pressed="${contour}" title="Подсказка: контуры позиций материала без подписей">◌ Контуры формы</button>` : ''}
-        <button type="button" class="ck-btn ck-btn-ghost" data-act="finish" data-key="finish" title="Незаданные вопросы попадут в итог как «без ответа»">Завершить серию</button></div>`}`;
+        <button type="button" class="ck-btn ck-btn-ghost" data-act="finish" data-key="finish" title="Незаданные вопросы попадут в итог как «без ответа»">Завершить серию</button>`}</div>`;
   }
 
   function boardAnswerMarkup(current: CheckRun & { mode: 'board' }, mat: CheckMaterial) {
@@ -294,9 +343,12 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     const state = current.quiz.answerState;
     const shown = review && state.status === 'revealed' ? new Set(current.quiz.currentQuestion.expectedPositionIds) : new Set<string>();
     const found = new Set(state.selectedPositionIds);
+    const question = current.quiz.currentQuestion;
+    const degrees = question.mode === 'find-degree';
     const notes: BoardNote[] = review
-      ? mat.positions.map(position => ({ id: position.id, kind: position.degree === '1' ? 'root' : 'b', label: formatDegree(position.degree) }))
+      ? mat.positions.map(position => ({ id: position.id, kind: position.degree === '1' ? 'root' : 'b', label: degrees ? formatDegree(position.degree) : position.noteName }))
       : contour ? mat.positions.map(position => ({ id: position.id, kind: 'ghost' })) : [];
+    const foundText = degrees ? formatDegree(question.target.degree) : question.mode === 'find-interval' ? formatDegree(question.target.degree) : question.target.name;
     const geo = boardGeometry({ fretMin: mat.fretMin, fretMax: mat.fretMax, width: BOARD_WIDTH, marker: BOARD_MARKER, labels: true });
     const w = geo.cell * .9, h = geo.rowGap * .94;
     const dot = (BOARD_MARKER / w * 100).toFixed(2);
@@ -305,15 +357,16 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     for (const string of BOARD_STRINGS) for (let fret = mat.fretMin; fret <= mat.fretMax; fret++) {
       const cell = `${string}:${fret}`;
       const wrong = wrongPositions.has(cell), isFound = found.has(cell), isShown = shown.has(cell) && !isFound;
-      const degree = wrong ? degreeAt(mat, cell) : null;
-      const inside = mat.positions.some(position => position.id === cell);
-      const text = review ? '' : isFound ? formatDegree(current.quiz.currentQuestion.target.degree) : wrong ? (inside ? formatDegree(degree) : '✕') : '';
-      const note = isFound ? ' — найдено' : wrong ? ` — неверно${inside ? `: это ${formatDegree(degree)}` : ', вне материала'}` : isShown ? ' — ответ' : '';
+      const inside = inQuizArea(current, mat, cell);
+      // После ошибки подпись объясняет нажатое: ступень у ступеней, нота у прочих видов.
+      const said = wrong && inside ? (degrees ? formatDegree(degreeAt(mat, cell)) : noteAt(mat, cell, question.mode === 'find-pitch')) : '';
+      const text = review ? '' : isFound ? foundText : wrong ? (inside ? said : '✕') : '';
+      const note = isFound ? ' — найдено' : wrong ? ` — неверно${inside ? `: это ${said}` : ', вне материала'}` : isShown ? ' — ответ' : '';
       const style = `left:${((geo.x(fret) - w / 2) / geo.width * 100).toFixed(3)}%;top:${((geo.y(string) - h / 2) / geo.height * 100).toFixed(3)}%;width:${(w / geo.width * 100).toFixed(3)}%;height:${(h / geo.height * 100).toFixed(3)}%`;
       cells.push(`<button type="button" class="ck-cell${isFound ? ' is-found' : ''}${wrong ? ' is-wrong' : ''}${isShown ? ' is-shown' : ''}${review ? ' is-final' : ''}" data-cell="${cell}" data-key="cell:${cell}" tabindex="${cell === focusCell ? 0 : -1}" aria-label="${e(`Струна ${string}, лад ${fret}${note}`)}"${locked ? ' aria-disabled="true"' : ''} style="${style}"><span class="ck-dot">${e(text)}</span></button>`);
     }
     return `<div class="ck-boardwrap"><div class="ck-wrap" style="--ck-dot:${dot}%">${boardSvg({ fretMin: mat.fretMin, fretMax: mat.fretMax, notes, width: BOARD_WIDTH, marker: BOARD_MARKER, labels: true, decorative: true })}<div class="ck-hit" role="group" aria-label="${e(`Гриф для ответа, лады ${mat.fretMin}–${mat.fretMax}: стрелки — по позициям, Enter — ответ`)}">${cells.join('')}</div></div></div>
-      <div class="ck-foot"><span>Клик по позиции — ответ · <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> по позициям, <kbd>Enter</kbd> — ответ</span><span>${review ? 'Подписи — ступени материала · кольцо — ответ · ✕ — ошибка' : contour ? 'Контуры — позиции материала, без подписей' : 'Без контуров: материал по памяти'}</span></div>`;
+      <div class="ck-foot"><span>Клик по позиции — ответ · <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> по позициям, <kbd>Enter</kbd> — ответ</span><span>${review ? `Подписи — ${degrees ? 'ступени' : 'ноты'} материала · кольцо — ответ · ✕ — ошибка` : contour ? 'Контуры — позиции материала, без подписей' : 'Без контуров: материал по памяти'}</span></div>`;
   }
 
   function cardsMarkup(current: CheckRun, mat: CheckMaterial) {
@@ -321,14 +374,21 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     const answer = review ? revealedAnswer(current, mat) : null;
     const outcome = current.mode === 'ear' ? current.ear.answerState.outcome : current.mode !== 'board' && review ? (current.quiz.answerState.status === 'revealed' ? 'revealed' : 'done') : null;
     const labels = choiceLabels(current);
-    const right = answer ? labels.indexOf(formatDegree(answer.degree)) : -1;
+    const notes = current.mode !== 'ear' && current.quiz.currentQuestion.mode === 'name-note';
+    // Верная карточка — только после закрытия вопроса: у нот по классу высоты, у ступеней по подписи ступени.
+    const question = current.mode === 'ear' ? null : current.quiz.currentQuestion;
+    const right = !answer ? -1 : notes && question
+      ? question.choices.findIndex(choice => choice.pitchClass === question.target.pitchClass)
+      : labels.indexOf(formatDegree(answer.degree));
     const open = answersOpen(current);
-    return `<div class="ck-pad" role="group" aria-label="${e(`Ступени от тоники ${mat.root}: клавиши 1–${labels.length}`)}" style="--ck-cols:${labels.length}">${labels.map((label, index) => {
+    const keys = Math.min(9, labels.length);
+    return `<div class="ck-pad${notes ? ' ck-pad-notes' : ''}" role="group" aria-label="${e(notes ? `Названия нот: клавиши 1–${keys}` : `Ступени от тоники ${mat.root}: клавиши 1–${keys}`)}" style="--ck-cols:${notes ? 6 : labels.length}">${labels.map((label, index) => {
       const wrong = wrongChoices.has(index);
       const isRight = index === right && outcome !== 'revealed';
       const isShown = index === right && outcome === 'revealed';
       const locked = !open || wrong;
-      return `<button type="button" class="ck-deg${wrong ? ' is-wrong' : ''}${isRight ? ' is-right' : ''}${isShown ? ' is-shown' : ''}" data-choice="${index}" data-key="choice:${index}" aria-keyshortcuts="${index + 1}" aria-label="${e(`${label}${wrong ? ', неверно' : isRight ? ', верно' : isShown ? ', показанный ответ' : ''}, клавиша ${index + 1}`)}"${locked ? ' aria-disabled="true"' : ''}><strong>${e(label)}</strong><small><kbd>${index + 1}</kbd></small></button>`;
+      const key = index < 9 ? index + 1 : null;
+      return `<button type="button" class="ck-deg${wrong ? ' is-wrong' : ''}${isRight ? ' is-right' : ''}${isShown ? ' is-shown' : ''}" data-choice="${index}" data-key="choice:${index}"${key ? ` aria-keyshortcuts="${key}"` : ''} aria-label="${e(`${label}${wrong ? ', неверно' : isRight ? ', верно' : isShown ? ', показанный ответ' : ''}${key ? `, клавиша ${key}` : ''}`)}"${locked ? ' aria-disabled="true"' : ''}><strong>${e(label)}</strong>${key ? `<small><kbd>${key}</kbd></small>` : ''}</button>`;
     }).join('')}</div>`;
   }
 
@@ -336,7 +396,7 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     const review = runStatus(current) === 'review';
     const marked = markedPosition(current);
     const notes: BoardNote[] = review
-      ? mat.positions.map(position => ({ id: position.id, kind: position.degree === '1' ? 'root' : 'b', label: formatDegree(position.degree) }))
+      ? mat.positions.map(position => ({ id: position.id, kind: position.degree === '1' ? 'root' : 'b', label: current.mode !== 'ear' && current.quiz.currentQuestion.mode === 'name-note' ? position.noteName : formatDegree(position.degree) }))
       : mat.positions.map(position => ({ id: position.id, kind: 'ghost' }));
     const aria = current.mode === 'ear' ? `Гриф материала, лады ${mat.fretMin}–${mat.fretMax}; нота скрыта до ответа` : `Гриф, отмечена позиция ${formatPosition(marked ?? '')}`;
     return `<div class="ck-compact">${boardSvg({ fretMin: mat.fretMin, fretMax: mat.fretMax, notes, current: current.mode === 'cards' ? marked : null, width: 700, marker: 40, labels: true, ariaLabel: aria })}</div>`;
@@ -390,7 +450,7 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
         <p class="ck-sub">Самостоятельно — только верный ответ с первой попытки без показа. Исправление, показ и пропуск считаются отдельно; повтор прослушивания — не ошибка.</p></div>
       <div class="ck-tiles">${tiles.map(([kind, value, label, hint]) => `<div class="ck-tile ck-st-${kind}"><strong>${e(value)}</strong><b>${e(label)}</b><span>${e(hint)}</span></div>`).join('')}</div>
       <ol class="ck-list">${rows}</ol>
-      <div class="ck-sum-actions"><button type="button" class="ck-btn ck-btn-primary" data-act="next-step" data-key="next-step">К следующему шагу плана →</button>
+      <div class="ck-sum-actions"><button type="button" class="ck-btn ck-btn-primary" data-act="next-step" data-key="next-step">${e(context.nextText ?? 'К следующему шагу плана →')}</button>
         <button type="button" class="ck-btn" data-act="retry" data-key="retry"${hard.length ? '' : ' disabled'}>${hard.length ? `Повторить трудные (${e(hard.length)})` : 'Трудных нет'}</button>
         <button type="button" class="ck-btn ck-btn-ghost" data-act="again" data-key="again">Вся серия заново</button>${context.nextLabel ? `<span class="ck-sub">${e(context.nextLabel)}</span>` : ''}</div>`;
   }
@@ -422,8 +482,11 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
   }
   function idleText(current: CheckRun) {
     if (current.mode === 'ear') return answersOpen(current) ? 'Выбери ступень: кнопка или клавиша 1–5.' : 'Нажми «Прослушать» — ответы откроются после конца сигнала.';
-    if (current.mode === 'board') return 'Кликни позицию на грифе или выбери её стрелками и нажми Enter.';
-    return `Выбери ступень: кнопка или клавиша 1–${choiceLabels(current).length}.`;
+    if (current.mode === 'board') return current.quiz.currentQuestion.mode === 'find-all'
+      ? `Отмечай позиции по одной: найдено ${current.quiz.answerState.selectedPositionIds.length} из ${current.quiz.currentQuestion.expectedPositionIds.length}.`
+      : 'Кликни позицию на грифе или выбери её стрелками и нажми Enter.';
+    const count = Math.min(9, choiceLabels(current).length);
+    return current.quiz.currentQuestion.mode === 'name-note' ? `Выбери ноту: кнопка или клавиша 1–${count}.` : `Выбери ступень: кнопка или клавиша 1–${count}.`;
   }
 
   /* ---------- События ---------- */
@@ -445,11 +508,33 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
         case 'next': goNext(); break;
         case 'finish': finalize(); break;
         case 'toggle-contour': contour = !contour; markContour(); render(); break;
-        case 'toggle-ear': if (material && run && !hasActivity(run)) { ear = run.mode !== 'ear'; begin(startRun(material, modeFor(material, ear), seed), false); } break;
+        case 'toggle-ear': if (material && run && !hasActivity(run)) { ear = run.mode !== 'ear'; begin(freshRun(material), false); } break;
+        case 'toggle-scope': if (material && run && (!hasActivity(run) || summary)) { settings = { ...settings, scope: settings.scope === 'chromatic' ? 'structure' : 'chromatic' }; seed = nextSeed(); begin(freshRun(material), false); } break;
         case 'next-step': options.onNextStep(); break;
         case 'retry': if (material && summaryRun && summaryList) { const hard = hardIndices(summaryList); if (hard.length) begin(retryRun(material, summaryRun, hard, nextSeed()), true); } break;
-        case 'again': if (material) { seed = nextSeed(); begin(startRun(material, modeFor(material, ear), seed), false); } break;
+        case 'again': if (material) { seed = nextSeed(); begin(freshRun(material), false); } break;
       }
+    } catch (error) { fail(error); }
+  }, listen);
+
+  /** Вид вопроса и интервал: новая серия до первого ответа или после итога; начатая серия не меняется. */
+  container.addEventListener('change', event => {
+    const select = event.target instanceof HTMLSelectElement ? event.target : null;
+    if (!select || !material || !run || (hasActivity(run) && !summary)) return;
+    try {
+      if (select.matches('[data-kind]')) {
+        if (material.review) return;
+        const kind = QUESTION_KINDS.find(item => item.id === select.value)?.id;
+        if (!kind) return;
+        settings = { ...settings, kind };
+        if (!isDegreeKind(kind)) ear = false;
+      } else if (select.matches('[data-interval]')) {
+        const interval = INTERVAL_CHOICES.find(degree => degree === select.value);
+        if (!interval) return;
+        settings = { ...settings, interval };
+      } else return;
+      seed = nextSeed();
+      begin(freshRun(material), false);
     } catch (error) { fail(error); }
   }, listen);
 
@@ -495,11 +580,33 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
       context = nextContext; failure = ''; notice = '';
       try {
         material = checkMaterial(spec);
+        settings = defaultSettings(material);
         ear = spec.ear && !!material.earQuality;
         seed = nextSeed();
-        begin(startRun(material, modeFor(material, ear), seed), false);
+        begin(freshRun(material), false);
         if (spec.ear && !material.earQuality) { feedback = { text: 'Слух для этой структуры пока не поддерживается — вопросы без звука.', tone: '' }; render(); }
       } catch (error) {
+        material = null; run = null; summary = null;
+        failure = error instanceof Error ? error.message : String(error);
+        render();
+      }
+    },
+    /**
+     * Повтор ошибок прежних заданий (R-011): «Назови ноту» только по этим позициям в исходной тональности и структуре.
+     * Прежняя начатая серия завершается, как при `start`. Неверные позиции или контекст — ошибка без новой серии.
+     */
+    startReview(positionIds: readonly string[], original: Pick<QuestionContext, 'root' | 'structureId'>, nextContext: CheckContext = {}) {
+      if (disposed) return;
+      const next = reviewMaterial(positionIds, original);
+      if (run && !summary && hasActivity(run)) finalize();
+      stopAudio();
+      context = nextContext; failure = ''; notice = '';
+      material = next;
+      settings = defaultSettings(next);
+      ear = false;
+      seed = nextSeed();
+      try { begin(freshRun(next), false); }
+      catch (error) {
         material = null; run = null; summary = null;
         failure = error instanceof Error ? error.message : String(error);
         render();

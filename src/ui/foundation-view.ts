@@ -3,7 +3,7 @@ import { STRUCTURES, formatMidi, type AnnotatedPosition, type MusicalStructure, 
 import { getBoxCatalogue, getBoxInstance, type BoxInstance, type BoxSelection } from '../music/boxes';
 import { escapeHtml } from './html';
 
-/** Разметка и подписи раздела «Гриф и практика»; состояние и обработчики — в `ui/foundation.ts`. */
+/** Разметка и подписи раздела «Гриф» (атлас); состояние и обработчики — в `ui/foundation.ts`. */
 
 export const STRING_ORDER: StringId[] = ['G', 'D', 'A', 'E'];
 const ROOTS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
@@ -38,15 +38,10 @@ export function foundationMarkup(root: string, structureId: StructureId, setting
   return `      <section class="workspace${settingsOpen ? '' : ' panel-closed'}" aria-label="Изучение грифа">
           ${renderPageHeader('foundation', {
             id: 'structure-heading', className: 'workspace-header', descriptionId: 'study-context', descriptionText: 'Свободный диапазон',
-            actions: renderPageSettingsButton('toggle-study-settings', 'study-settings', settingsOpen),
-            navigation: '<div id="mode-nav-mount"></div>',
+            actions: `<div class="atlas-actions" role="group" aria-label="Занятие по этой форме"><button type="button" id="atlas-play" class="primary-button button-compact" aria-describedby="atlas-bridge-note">Сыграть эту форму</button><button type="button" id="atlas-check" class="secondary-button button-compact" aria-describedby="atlas-bridge-note">Проверь себя по этой форме</button>${renderPageSettingsButton('toggle-study-settings', 'study-settings', settingsOpen)}</div>`,
           })}
           <div class="workspace-main">
-            <div class="board-toolbar"><span id="board-range" class="board-caption"></span><span id="position-count" class="sr-only"></span><fieldset class="label-field"><legend class="sr-only">Подписи на грифе</legend><div class="segmented" aria-label="Подписи на грифе"><button type="button" data-label-mode="notes" aria-pressed="true">Ноты</button><button type="button" data-label-mode="degrees" aria-pressed="false">Ступени</button><button type="button" data-label-mode="hidden" aria-pressed="false">Без подписей</button></div></fieldset></div>
-            <div id="training-mount"></div>
-            <div id="player-mount" hidden></div>
-            <div id="sequence-view-controls" class="segmented" aria-label="Представление последовательности" hidden><button type="button" data-sequence-view="board" aria-pressed="true">Гриф</button><button type="button" data-sequence-view="notation" aria-pressed="false">Ноты и TAB</button><button type="button" id="return-to-notation" hidden>Вернуться к выбранной ноте в записи</button></div>
-            <section id="notation-mount" aria-label="Нотная запись и табулатура последовательности" hidden></section>
+            <div class="board-toolbar"><span id="board-range" class="board-caption"></span><span id="atlas-bridge-note" class="atlas-note"></span><span id="position-count" class="sr-only"></span><fieldset class="label-field"><legend class="sr-only">Подписи на грифе</legend><div class="segmented" aria-label="Подписи на грифе"><button type="button" data-label-mode="notes" aria-pressed="true">Ноты</button><button type="button" data-label-mode="degrees" aria-pressed="false">Ступени</button><button type="button" data-label-mode="hidden" aria-pressed="false">Без подписей</button></div></fieldset></div>
             <div class="fretboard-section">
               <div class="board-scroll" id="board-scroll"><div id="fretboard-container"></div></div>
               <div class="board-footer"><div class="legend"><span><i class="legend-root" aria-hidden="true"></i>Тоника</span><span><i class="legend-note" aria-hidden="true"></i><span id="material-legend">Ноты формы</span></span><span id="interval-legend"><i class="legend-interval" aria-hidden="true"></i>Интервал</span></div></div>
@@ -75,7 +70,7 @@ export function foundationMarkup(root: string, structureId: StructureId, setting
             </div>
             </details>
             <p id="range-error" class="range-error status-error" data-testid="range-error" role="alert" hidden></p>
-            <details class="learning-help"><summary class="section-disclosure">Ступени, пальцы и формы</summary><p id="box-material-caption" class="settings-hint"></p><p>Ступень — место звука относительно тоники: 1 — тоника, 3 — терция, 5 — квинта. ♭ понижает ступень на полутон. Квадрат — рекомендуемый палец, круг — нота или ступень.</p><p>Нота с цифрой обозначает звучащую октаву: C2 и C3 — разные высоты. В басовой записи нота написана на октаву выше звучания. Трезвучие содержит три разных звука; повтор тоники не добавляет четвёртый класс ноты.</p><p>Формы — учебный каталог bass.study, а не универсальная нумерация или единственная аппликатура. Материал выбранной формы сохраняется целиком; область показа не ограничивает задания формы.</p></details>
+            <details class="learning-help"><summary class="section-disclosure">Ступени, пальцы и формы</summary><p id="box-material-caption" class="settings-hint"></p><p>Ступень — место звука относительно тоники: 1 — тоника, 3 — терция, 5 — квинта. ♭ понижает ступень на полутон. Квадрат — рекомендуемый палец, круг — нота или ступень.</p><p>Нота с цифрой обозначает звучащую октаву: C2 и C3 — разные высоты. В басовой записи нота написана на октаву выше звучания. Трезвучие содержит три разных звука; повтор тоники не добавляет четвёртый класс ноты.</p><p>Формы — учебный каталог bass.study, а не универсальная нумерация или единственная аппликатура. Материал выбранной формы сохраняется целиком; область показа не ограничивает упражнение и проверку по форме.</p></details>
           </aside>
         </section>
 

@@ -136,7 +136,6 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     drafts,
     isSuspended: () => retiring || applyingPreferences,
     activeModule: () => activeModule,
-    foundation: () => sections.foundation,
     rhythm: () => sections.rhythm,
   });
   const syncPracticeBinding = practice.sync;
@@ -223,17 +222,13 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     } catch (failure) { return { error: message(failure) }; }
   }
 
-  /** «Повторить» в «Задания на грифе»: «Гриф» в исходном контексте, квиз только по ошибочным позициям (R-011). */
+  /** «Повторить» в «Прогрессе»: «Проверь себя» в исходном контексте, вопросы только по ошибочным позициям (R-011). */
   function repeatFretboardErrors() {
     const target = currentReview();
-    const foundation = sections.foundation;
-    if (!target?.positionIds.length || !foundation) return;
-    switchModule('foundation');
-    foundation.finishSession('Занятие остановлено для повтора ошибок');
-    foundation.stop();
-    try { foundation.repeatErrors(target.positionIds, target.context); }
+    if (!target?.positionIds.length || !sections.lesson) return;
+    switchModule('lesson');
+    try { sections.lesson.repeatErrors(target.positionIds, target.context, 'progress'); }
     catch (failure) { reportFailure(`Повтор ошибок не открылся: ${message(failure)}`); }
-    syncPracticeBinding();
   }
 
   function saveExercise(spec: ExerciseSpec, name: string) {
@@ -299,10 +294,9 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
   function switchModule(next: AppSection) {
     if (!available.includes(next)) return;
     if (next === activeModule) { savePreferences({ activeModule: next }); return; }
-    // Черновик последнего занятия «Грифа» или «Ритма» откроется первым в блоке «Не сохранено».
+    // Черновик последнего занятия «Ритма» откроется первым в блоке «Не сохранено».
     const captured = drafts.capture();
-    if (captured && (activeModule === 'foundation' || activeModule === 'harmony')) progressDraftId = captured.id;
-    if (activeModule === 'foundation') { sections.foundation?.finishSession('Занятие остановлено при смене раздела'); audio.end('sequence', 'section'); }
+    if (captured && activeModule === 'harmony') progressDraftId = captured.id;
     if (activeModule === 'lesson') { audio.end('play', 'section'); audio.end('check', 'section'); }
     if (activeModule === 'settings') audio.end('input', 'section');
     audio.forget();
@@ -318,7 +312,6 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     applyingPreferences = true;
     try {
       status.setPreferenceIssue('');
-      sections.foundation?.finishSession('Занятие остановлено перед применением настроек');
       audio.endAll('settings');
       activeModule = resolveSection(value.activeModule);
       sections.foundation?.applyPreferences(value);
@@ -373,20 +366,15 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     onOpenSection: section => switchModule(section === 'rhythm' ? 'harmony' : 'tracks'),
     onScreenChange() { if (activeModule === 'lesson') shell.setLayout(layoutOf('lesson')); },
     onFailure: reportFailure,
+    // Задания R-006 из «Проверь себя» (кроме ступеней) — экранные записи истории, как прежние задания «Грифа».
+    saveScreen: sessions.screen,
+    onReturn: section => switchModule(section),
   });
   if (available.includes('foundation')) sections.foundation = mountFoundation(byId('foundation-mount'), {
-    getPlayerFallback: () => preferences.value.player,
     onPreferencesChange: value => { savePreferences(value); },
-    onBeforeMaterialChange() { drafts.capture(); },
-    onBeforeModeChange() { drafts.capture(); },
-    onContextChange() { syncPracticeBinding(); },
-    onRouteExit() { drafts.capture(); syncPracticeBinding(); },
-    capturePractice() { drafts.capture(); status.showIfDraftChanged(); },
-    getRouteSession: () => null,
-    onBeforeStart() { if (!audio.claim('sequence')) return false; syncPracticeBinding(); return true; },
-    onPlaybackStopped() { void drafts.flush().catch(() => {}); },
-    onSessionChanged: sessions.screen,
-    onSessionFinished: sessions.screen,
+    // Мостики атласа (P13-08): экран игры и «Проверь себя» раздела «Занятие» с материалом текущей формы.
+    onPlayForm(spec) { if (!sections.lesson) return; switchModule('lesson'); sections.lesson.playExercise(spec, 'foundation'); },
+    onCheckForm(spec) { if (!sections.lesson) return; switchModule('lesson'); sections.lesson.checkExercise(spec, 'foundation'); },
     getOuterBottomSpace: () => parseFloat(getComputedStyle(appShell).marginBottom),
     reveal: layout.reveal,
   });
@@ -564,7 +552,6 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     let reload = false;
     try {
       audio.endAll('restore');
-      sections.foundation?.finishSession('Занятие остановлено перед восстановлением');
       await flushAll();
       if (retiring) throw new Error('Страница закрывается; восстановление не начато.');
       if (writes.failureCount) throw new Error('Текущие изменения не сохранены. Повтори сохранение перед восстановлением.');

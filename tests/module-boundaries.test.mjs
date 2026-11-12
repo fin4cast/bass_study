@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 
 // Разделы интерфейса `src/ui`. Координаторы `src/app/*` (оболочка, «Занятие», «Настройки») связывают разделы и в них не входят.
 const sections = {
-  foundation: ['foundation', 'foundation-view', 'fretboard', 'player', 'training', 'notation', 'study-details'],
+  // «Гриф» — атлас (P13-08); `notation` пока не смонтирован в продукте, но остаётся представлением этого раздела.
+  foundation: ['foundation', 'foundation-view', 'fretboard', 'notation', 'study-details'],
   harmony: ['rhythm', 'rhythm/library', 'rhythm/view', 'rhythm/instrument-art', 'rhythm/editor-dom'],
   tracks: ['studio', 'music-bank', 'tracks'],
   input: ['input'],

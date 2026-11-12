@@ -60,15 +60,8 @@ export interface AppPreferences {
   readonly musicBank: MusicBankPreferences | null;
   readonly input: { readonly deviceId: string };
   readonly rhythm: RhythmPreferences | null;
+  /** Атлас «Гриф» (P13-08): материал, форма, окно показа и подписи. Блоки `training` и `player` удалены вместе с вкладками. */
   readonly study: { readonly root: string; readonly structureId: StructureId; readonly labelMode: LabelMode; readonly strings: readonly StringId[]; readonly fretMin: number; readonly fretMax: number; readonly box: BoxSelection | null; readonly showFingers: boolean };
-  readonly training: { readonly mode: 'study' | 'quiz' | 'sequence'; readonly quizMode: QuizMode; readonly scope: TrainingScope; readonly intervalDegree: IntervalDegree; readonly count: number; readonly pattern: SequencePattern; readonly sequenceScope: TrainingScope; readonly reviewPositionIds: readonly string[]; readonly questionPolicy: 'random-v1' | 'triad-6-v1' | 'shape-6-v1' };
-  readonly player: {
-    readonly bpm: number; readonly duration: 'quarter' | 'eighth' | 'sixteenth'; readonly repeat: 'once' | 'infinite' | 'ladder';
-    readonly countIn: boolean; readonly showPulse: boolean; readonly from: number | null; readonly to: number | null;
-    readonly ladderStart: number; readonly ladderEnd: number; readonly ladderStep: number; readonly ladderRepeats: number;
-    readonly metronome: boolean; readonly metronomeMode: 'all' | 'two-four' | 'gap-2-2'; readonly subdivision: 'quarter' | 'eighth' | 'sixteenth';
-    readonly bassVolume: number; readonly clickVolume: number;
-  };
 }
 export interface HistoryMetadata { readonly id: string; readonly occurredAt: string; readonly timeZone: string; readonly routeRef?: import('../route').RouteRef | null }
 export type StoredQuestion = Omit<QuizResult, 'kind' | 'mode' | 'context' | 'outcome'> & {
@@ -235,9 +228,6 @@ export const DEFAULT_PREFERENCES: AppPreferences = immutable({
   reference: { mastered: [] },
   study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12,
     box: createBoxSelection({ root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a', anchorString: 'E', anchorFret: 5 }), showFingers: false },
-  training: { mode: 'study', quizMode: 'name-note', scope: 'structure', intervalDegree: '#4', count: 10, pattern: 'ascending', sequenceScope: 'structure', reviewPositionIds: [], questionPolicy: 'random-v1' },
-  player: { bpm: 80, duration: 'eighth', repeat: 'once', countIn: true, showPulse: true, from: null, to: null,
-    ladderStart: 60, ladderEnd: 100, ladderStep: 5, ladderRepeats: 2, metronome: true, metronomeMode: 'all', subdivision: 'quarter', bassVolume: 70, clickVolume: 50 },
 });
 
 function positionIds(value: unknown, label: string, allowEmpty: boolean): string[] {
@@ -294,7 +284,7 @@ function validateReferencePreferences(value: unknown): AppPreferences['reference
 }
 
 export function validatePreferences(value: unknown): AppPreferences {
-  const data = object(value, ['activeModule', 'lesson', 'play', 'reference', 'rhythm', 'tracks', 'musicBank', 'input', 'study', 'training', 'player'], 'Настройки');
+  const data = object(value, ['activeModule', 'lesson', 'play', 'reference', 'rhythm', 'tracks', 'musicBank', 'input', 'study'], 'Настройки');
   const input = object(data.input, ['deviceId'], 'Настройки аудиовхода');
   let tracks: TracksManifest | null = null;
   if (data.tracks !== null) {
@@ -315,30 +305,11 @@ export function validatePreferences(value: unknown): AppPreferences {
   const fretMin = number(study.fretMin, 0, 24, 'Первый лад');
   const fretMax = number(study.fretMax, 0, 24, 'Последний лад');
   if (fretMin > fretMax) invalid('Первый лад больше последнего.');
-  const training = object(data.training, ['mode', 'quizMode', 'scope', 'intervalDegree', 'count', 'pattern', 'sequenceScope', 'reviewPositionIds', 'questionPolicy'], 'Настройки заданий');
-  const quizMode = oneOf(training.quizMode, MODES, 'Тип задания');
-  const scope = oneOf(training.scope, SCOPES, 'Область задания');
-  if ((quizMode === 'find-degree' || quizMode === 'name-degree') && scope !== 'structure') invalid('Ступени работают только в области «Ноты структуры».');
-  if (quizMode === 'find-interval' && scope !== 'chromatic') invalid('Поиск произвольного интервала требует область «Все ноты».');
-  const player = object(data.player, ['bpm', 'duration', 'repeat', 'countIn', 'showPulse', 'from', 'to', 'ladderStart', 'ladderEnd', 'ladderStep', 'ladderRepeats', 'metronome', 'metronomeMode', 'subdivision', 'bassVolume', 'clickVolume'], 'Настройки проигрывателя');
-  const from = player.from === null ? null : number(player.from, 1, 10000, 'Начало фрагмента');
-  const to = player.to === null ? null : number(player.to, 1, 10000, 'Конец фрагмента');
-  if (from !== null && to !== null && from > to) invalid('Начало фрагмента позже конца.');
-  const ladderStart = number(player.ladderStart, 40, 220, 'Начальный BPM');
-  const ladderEnd = number(player.ladderEnd, 40, 220, 'Конечный BPM');
-  if (ladderStart > ladderEnd) invalid('Конечный темп лестницы ниже начального.');
   return immutable({
     activeModule: oneOf(data.activeModule, ACTIVE_MODULES, 'Раздел'),
     lesson: validateLessonPreferences(data.lesson), play: validatePlayPreferences(data.play), reference: validateReferencePreferences(data.reference),
     tracks, musicBank, rhythm, input: { deviceId: text(input.deviceId, 'Устройство аудиовхода', 2048, true) },
     study: { root: oneOf(study.root, ROOT_IDS, 'Тоника'), structureId: oneOf(study.structureId, STRUCTURE_IDS, 'Структура'), labelMode: oneOf(study.labelMode, ['notes', 'degrees', 'hidden'] as const, 'Подписи'), strings, fretMin, fretMax, box, showFingers: boolean(study.showFingers, 'Показывать пальцы') },
-    training: { mode: oneOf(training.mode, ['study', 'quiz', 'sequence'] as const, 'Режим занятия'), quizMode, scope, intervalDegree: oneOf(training.intervalDegree, INTERVAL_DEGREES, 'Интервал'),
-      count: number(training.count, 1, 30, 'Число вопросов'), pattern: oneOf(training.pattern, PATTERNS, 'Порядок нот'), sequenceScope: oneOf(training.sequenceScope, SCOPES, 'Материал последовательности'), reviewPositionIds: positionIds(training.reviewPositionIds, 'Позиции для повторения', true), questionPolicy: oneOf(training.questionPolicy, ['random-v1', 'triad-6-v1', 'shape-6-v1'] as const, 'Политика вопросов') },
-    player: { bpm: number(player.bpm, 40, 220, 'Темп'), duration: oneOf(player.duration, DURATIONS as readonly AppPreferences['player']['duration'][], 'Длительность'), repeat: oneOf(player.repeat, ['once', 'infinite', 'ladder'] as const, 'Повтор'),
-      countIn: boolean(player.countIn, 'Отсчёт'), showPulse: boolean(player.showPulse, 'Визуальный пульс'), from, to, ladderStart, ladderEnd,
-      ladderStep: number(player.ladderStep, 1, 180, 'Шаг темпа'), ladderRepeats: number(player.ladderRepeats, 1, 20, 'Повторов на темп'), metronome: boolean(player.metronome, 'Метроном'),
-      metronomeMode: oneOf(player.metronomeMode, ['all', 'two-four', 'gap-2-2'] as const, 'Рисунок клика'), subdivision: oneOf(player.subdivision, DURATIONS as readonly AppPreferences['player']['subdivision'][], 'Деление клика'),
-      bassVolume: number(player.bassVolume, 0, 100, 'Громкость баса'), clickVolume: number(player.clickVolume, 0, 100, 'Громкость клика') },
   });
 }
 
