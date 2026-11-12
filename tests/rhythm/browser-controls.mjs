@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
-import { root, playingField, settingsAside, action, setting, output, choice, near, assertSettings, setSettings, openGroup, meterFieldCoverage, ready, enter, edit, state, start, exported, raw, observe, sample } from './browser-context.mjs';
+import { root, playingField, settingsAside, action, setting, output, choice, near, assertSettings, setSettings, openGroup, meterFieldCoverage, ready, enter, edit, state, start, exported, raw, observe, sample, audioTime, untilAudio } from './browser-context.mjs';
 
 export const controlsChecks = [];
 const check = (name, scope, run) => controlsChecks.push({ name, scope, run });
 
-check('product-mixer-commits-on-pointer-release-and-persists-sounding-epochs', 'ui', async ({ page }) => {
+check('product-mixer-commits-on-pointer-release-and-persists-sounding-epochs', 'ui', async ({ page, context }) => {
+  await observe(context);
+  await page.reload();
   await page.setViewportSize({ width: 1440, height: 900 });
   await enter(page);
   await root(page).locator('[data-rhythm-mode="rhythm"]').click();
@@ -41,12 +43,18 @@ check('product-mixer-commits-on-pointer-release-and-persists-sounding-epochs', '
   await page.mouse.up();
   const mute = root(page).getByRole('button', { name: 'Бочка. Заглушить', exact: true });
   await start(page);
-  await delay(240);
+  // Учёт практики идёт по аудиочасам. Устройство вывода может запуститься позже состояния running,
+  // поэтому интервалы отмеряются по currentTime; первый кадр стоит не позже чем через LEAD = 35 мс.
+  const firstFrameBy = await audioTime(page) + .035;
+  const muteFrom = await untilAudio(page, firstFrameBy + .24);
   await mute.click();
-  await delay(210);
+  const muteBy = await audioTime(page);
+  const unmuteFrom = await untilAudio(page, muteBy + .21);
   await mute.click();
-  await delay(200);
+  const unmuteBy = await audioTime(page);
+  const stopFrom = await untilAudio(page, unmuteBy + .2);
   await action(page, 'stop').click();
+  const stopBy = await audioTime(page);
   const saved = await exported(page);
   assert.equal(kick(saved.rhythmProjects[0]).volume, chosen);
   const drafts = saved.practiceDrafts.filter(draft => draft.material.kind === 'rhythm');
@@ -54,11 +62,17 @@ check('product-mixer-commits-on-pointer-release-and-persists-sounding-epochs', '
   assert.ok(drafts.every(draft => kick(draft.material.playback.project).volume === chosen));
   const muted = drafts.find(draft => kick(draft.material.playback.project).muted);
   const unmuted = drafts.find(draft => !kick(draft.material.playback.project).muted);
-  assert.ok(muted?.totalReferenceMs >= 150 && unmuted?.totalReferenceMs >= 300);
+  assert.ok(muted?.totalReferenceMs >= 150 && unmuted?.totalReferenceMs >= 300, `muted=${muted?.totalReferenceMs} unmuted=${unmuted?.totalReferenceMs}`);
+  // Время отрезка совпадает с аудиочасами между применением заглушения и его снятием и не переходит в соседний.
+  const within = (actual, low, high, label) => assert.ok(actual >= Math.round(low * 1000) - 2 && actual <= Math.round(high * 1000) + 2,
+    `${label}=${actual} ms outside ${Math.round(low * 1000)}…${Math.round(high * 1000)} ms`);
+  within(muted.totalReferenceMs, unmuteFrom - muteBy, unmuteBy - muteFrom, 'muted');
+  within(unmuted.totalReferenceMs, muteFrom - firstFrameBy + stopFrom - unmuteBy, muteBy + stopBy - unmuteFrom, 'unmuted');
   await page.reload();
   await ready(page);
   assert.deepEqual((await exported(page)).practiceDrafts, saved.practiceDrafts);
-  return { initialVolume, appliedVolume: chosen, cancelledPreview: true, mutedMs: muted.totalReferenceMs, unmutedMs: unmuted.totalReferenceMs };
+  const audioMs = Object.fromEntries(Object.entries({ firstFrameBy, muteFrom, muteBy, unmuteFrom, unmuteBy, stopFrom, stopBy }).map(([key, value]) => [key, Math.round(value * 1000)]));
+  return { initialVolume, appliedVolume: chosen, cancelledPreview: true, mutedMs: muted.totalReferenceMs, unmutedMs: unmuted.totalReferenceMs, audioMs };
 });
 
 check('product-meter-group-tempo-unit-offbeats-and-invalid-range', 'ui', async ({ page }) => {

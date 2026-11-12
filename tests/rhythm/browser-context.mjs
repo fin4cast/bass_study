@@ -188,6 +188,8 @@ export async function observe(context) {
     };
     window.__rhythmObservation = {
       count: () => contexts.length,
+      // Аудиочасы страницы: после resume() устройство вывода может стартовать с задержкой, пока currentTime стоит.
+      audioTime: () => Math.max(0, ...contexts.filter(context => context.state === 'running').map(context => context.currentTime)),
       async sample(ms) {
         const end = performance.now() + ms;
         let peak = 0;
@@ -207,3 +209,13 @@ export async function observe(context) {
   });
 }
 export const sample = (page, ms = 550) => page.evaluate(ms => window.__rhythmObservation.sample(ms), ms);
+export const audioTime = page => page.evaluate(() => window.__rhythmObservation.audioTime());
+/** Ждёт по аудиочасам, а не по времени Node: звук и учёт практики идут по currentTime. */
+export async function untilAudio(page, target, timeoutMs = 6000) {
+  const deadline = Date.now() + timeoutMs;
+  for (let now = await audioTime(page); now < target; now = await audioTime(page)) {
+    assert.ok(Date.now() < deadline, `Audio clock stuck at ${now.toFixed(3)} s before ${target.toFixed(3)} s`);
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  return audioTime(page);
+}

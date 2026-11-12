@@ -193,6 +193,49 @@ describe('отложенный запуск Web Audio', () => {
       expect(sealed.map(clock => clock.durationMs)).toEqual([30, 30]);
     } finally { await player.dispose(); }
   });
+
+  it('заглушение до старта аудиочасов и посреди кадра делит практику точно по моменту применения', async () => {
+    vi.useFakeTimers();
+    const audio = stubClock();
+    const sealed: RhythmPracticeClock[] = [];
+    const player = createRhythmPlayer({ onPracticeEnd: clock => sealed.push(clock) });
+    const project = createDefaultRhythmProject('mute-epochs', 'Проверка');
+    const silent = { ...project, bpm: 240, patterns: project.patterns.map(pattern => ({
+      ...pattern, lanes: pattern.lanes.map(lane => ({ ...lane, steps: lane.steps.map(() => 0 as const), velocities: lane.velocities.map(() => 0) })),
+    })) };
+    const preferences = { ...DEFAULT_RHYTHM_PREFERENCES, view: 'rhythm' as const };
+    // Заглушение — поле проекта: интерфейс передаёт его через configure(), как в разделе.
+    const mute = (muted: boolean) => player.configure({ preferences, project: { ...silent, updatedAt: new Date(Date.now() + 1000).toISOString(),
+      channels: silent.channels.map((channel, index) => index === 0 ? { ...channel, muted } : channel) } });
+    function advanceTo(seconds: number) {
+      for (let elapsed = Math.round(audio.currentTime * 1000) + 20; elapsed <= Math.round(seconds * 1000); elapsed += 20) {
+        audio.currentTime = elapsed / 1000;
+        vi.advanceTimersByTime(20);
+      }
+      audio.currentTime = seconds;
+    }
+    try {
+      const { startAt } = await player.start({ preferences, project: silent });
+      // Устройство вывода ещё не запустилось: состояние running, но аудиочасы стоят до первого кадра.
+      vi.advanceTimersByTime(300);
+      expect(audio.currentTime).toBeLessThan(startAt!);
+      expect(mute(true)).toBe('applied');
+      advanceTo(startAt! + .2);
+      expect(mute(false)).toBe('applied');
+      // Шестнадцатая при 240 BPM длится 62,5 мс: следующие правки приходятся на середину кадра.
+      advanceTo(startAt! + .41);
+      expect(mute(true)).toBe('applied');
+      advanceTo(startAt! + .61);
+      expect(mute(false)).toBe('applied');
+      advanceTo(startAt! + .83);
+      // Заглушение меняет только шины: план не переигрывается и второго переключения на кадре новой версии нет.
+      expect(player.getSnapshot().epoch).toBe(0);
+      player.stop();
+      expect(sealed.map(clock => clock.playback.project?.channels[0].muted)).toEqual([true, false, true, false]);
+      expect(sealed.map(clock => clock.durationMs)).toEqual([200, 210, 200, 220]);
+      expect(new Set(sealed.map(clock => clock.runtimeContextKey)).size).toBe(4);
+    } finally { await player.dispose(); }
+  });
 });
 
 describe('запас планирования метронома', () => {
