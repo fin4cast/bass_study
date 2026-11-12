@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>P13: «Настройки» (VIS-09)</title>
+<style>
+  body { margin: 0; }
+  .fx-app { display: grid; grid-template-columns: 190px minmax(0, 1fr); height: 100vh; }
+  .fx-nav { background: var(--surface-navigation); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+  .fx-nav button, .fx-nav select { font: inherit; }
+  .fx-main { min-width: 0; min-height: 0; overflow: auto; padding: 16px 26px 22px; }
+  @media (max-width: 1100px) { .fx-app { grid-template-columns: 72px minmax(0, 1fr); } .fx-nav :is(span, label) { display: none; } .fx-main { padding: 16px 18px; } }
+</style>
+<body>
+  <div class="fx-app">
+    <nav class="fx-nav" aria-label="Фикстура">
+      <strong>bass.study</strong><span>Фикстура P13 · «Настройки»</span>
+      <label>Демо-файл копии
+        <select id="fx-backup">
+          <option value="ok">подходящая копия</option>
+          <option value="old">прежняя версия данных</option>
+          <option value="broken">повреждённый файл</option>
+          <option value="cancel">окно выбора закрыто</option>
+          <option value="fail">замена падает</option>
+        </select>
+      </label>
+      <button type="button" data-fx="fail-save">Ошибка записи</button>
+      <button type="button" data-fx="other-tab">Вторая вкладка</button>
+      <button type="button" data-fx="normal">Обычно</button>
+    </nav>
+    <main class="fx-main"><div id="settings-mount"></div></main>
+  </div>
+  <script type="module">
+    import '/src/styles.css';
+    import { mountSettings } from '/src/ui/settings/view.ts';
+    import { mountInput } from '/src/ui/input.ts';
+
+    const params = new URLSearchParams(location.search);
+    window.p13Log = [];
+    const log = (name, value = null) => { window.p13Log.push({ name, value }); };
+    let state = {
+      theme: params.get('theme') === 'dark' ? 'dark' : 'light',
+      playDefaults: { view: 'tabBoard', newExerciseView: 'board', countIn: true, labels: 'notes', bpm: 60 },
+      saveStatus: 'saved',
+      writer: params.get('writer') === 'other' ? 'other-tab' : 'owner',
+      version: '1.4.0',
+      dataVersion: 11,
+      counts: { history: 148, rhythm: 3, drafts: 1 },
+    };
+    let failNext = params.get('fail') === '1';
+    const setTheme = theme => { document.documentElement.dataset.theme = theme; };
+    setTheme(state.theme);
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const host = document.getElementById('settings-mount');
+    const apply = patch => { state = { ...state, ...patch }; view.update(state); };
+    function save(what) {
+      apply({ saveStatus: 'saving' });
+      setTimeout(() => {
+        if (failNext) apply({ saveStatus: { error: what } });
+        else apply({ saveStatus: 'saved' });
+      }, 250);
+    }
+    const view = mountSettings(host, {
+      state,
+      initialSection: params.get('section') ?? 'look',
+      onTheme: theme => { log('theme', theme); setTheme(theme); state = { ...state, theme }; save('тема'); },
+      onPlayDefaults: next => { log('play-defaults', next); state = { ...state, playDefaults: next }; save('умолчания занятия'); },
+      onExport: async () => { log('export'); await sleep(200); },
+      onChooseBackup: async () => {
+        const kind = document.getElementById('fx-backup').value;
+        log('choose', kind);
+        await sleep(150);
+        if (kind === 'cancel') return null;
+        if (kind === 'old') return { kind: 'error', reason: 'version', fileName: 'bass-study-backup-2026-08-30.json', fileVersion: 10 };
+        if (kind === 'broken') return { kind: 'error', reason: 'invalid', fileName: 'notes.json' };
+        return { kind: 'preview', fileName: 'bass-study-backup-2026-11-10.json', sizeBytes: 186000, createdAt: '2026-11-10T18:00:00.000Z', counts: { history: 131, rhythm: 2, drafts: 0 }, current: state.counts, payload: { kind } };
+      },
+      onConfirmRestore: async preview => {
+        log('restore', preview.payload);
+        await sleep(300);
+        if (preview.payload?.kind === 'fail') return { error: 'Браузер не дал места для записи.' };
+        apply({ counts: preview.counts, saveStatus: 'saved' });
+      },
+      onRetrySave: () => { log('retry'); failNext = false; save('повтор'); },
+      onRecheckWriter: () => { log('recheck'); },
+      onSectionChange: section => log('section', section),
+    });
+    if (params.get('input') !== '0') mountInput(view.inputMount);
+    document.querySelector('[data-fx="fail-save"]').addEventListener('click', () => { failNext = true; apply({ writer: 'owner', saveStatus: { error: 'Темп нового упражнения' } }); });
+    document.querySelector('[data-fx="other-tab"]').addEventListener('click', () => apply({ writer: 'other-tab' }));
+    document.querySelector('[data-fx="normal"]').addEventListener('click', () => { failNext = false; apply({ writer: 'owner', saveStatus: 'saved' }); });
+    window.p13View = view;
+  </script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+/* VIS-08 r1 «Прогресс»: только токены темы (theme.css); тёмная тема — через :root[data-theme="dark"]. */
+.p13-progress {
+  display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; height: 100%;
+  color: var(--text-primary); font-size: 14px; line-height: 1.5;
+}
+.p13-progress[hidden] { display: none; }
+.p13-progress *, .p13-progress *::before, .p13-progress *::after { box-sizing: border-box; }
+.p13-progress :is(h1, h2, h3, p) { margin: 0; }
+.p13-progress .pg-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Шапка */
+.p13-progress .pg-top { flex: none; display: flex; align-items: center; gap: 8px 18px; flex-wrap: wrap; }
+.p13-progress .pg-title { font-size: 22px; font-weight: 650; letter-spacing: -.5px; line-height: 1.25; }
+.p13-progress .pg-sub { color: var(--text-secondary); font-size: 13px; }
+.p13-progress .pg-top .pg-sub { flex: 1 1 200px; min-width: 0; }
+.p13-progress .pg-tabs { display: inline-flex; gap: 2px; border-bottom: 1px solid var(--border); }
+.p13-progress .pg-tabs button { border: 0; border-radius: 8px 8px 0 0; background: none; padding: 6px 12px 8px; margin-bottom: -1px; color: var(--text-secondary); font-size: 14px; box-shadow: inset 0 -3px 0 transparent; }
+.p13-progress .pg-tabs button:hover { color: var(--text-primary); background: var(--surface-hover); }
+.p13-progress .pg-tabs button[aria-selected="true"] { color: var(--text-primary); font-weight: 650; box-shadow: inset 0 -3px 0 var(--accent); }
+.p13-progress .pg-ctl { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+.p13-progress .pg-seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.p13-progress .pg-seg button { border: 0; border-radius: 6px; background: none; padding: 5px 10px; font-size: 12px; color: var(--text-secondary); }
+.p13-progress .pg-seg button:hover { color: var(--text-primary); background: var(--surface-hover); }
+.p13-progress .pg-seg button[aria-pressed="true"] { background: var(--surface-raised); color: var(--text-primary); font-weight: 650; box-shadow: 0 0 0 1px var(--border); }
+.p13-progress .pg-note { flex: none; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-secondary); border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+.p13-progress .pg-note b { color: var(--text-primary); font-weight: 600; }
+
+/* Карточки и общие элементы */
+.p13-progress .pg-panel { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+.p13-progress .pg-panel[hidden] { display: none; }
+.p13-progress .pg-card { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.p13-progress .pg-h2 { font-size: 15px; font-weight: 650; letter-spacing: -.2px; display: flex; justify-content: space-between; align-items: baseline; gap: 4px 8px; flex-wrap: wrap; }
+.p13-progress .pg-h2 small { font-size: 12px; font-weight: 400; color: var(--text-secondary); letter-spacing: 0; }
+.p13-progress .pg-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-secondary); }
+.p13-progress .pg-quiet { font-size: 12px; color: var(--text-secondary); border: 1px dashed var(--border-strong); border-radius: 8px; padding: 10px 12px; line-height: 1.45; }
+.p13-progress .pg-hint { font-size: 12px; color: var(--text-secondary); }
+.p13-progress .pg-icon { width: 10px; height: 10px; flex: none; overflow: visible; }
+
+/* Источник и отметка: форма + цвет + слово */
+.p13-progress .pg-mark { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; white-space: nowrap; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; background: var(--surface); color: var(--text-primary); }
+.p13-progress .pg-mark.is-clean { border-color: var(--accent); }
+.p13-progress .pg-mark.is-errors { border-color: var(--selection); background: var(--selection-soft); }
+.p13-progress .pg-mark.is-slow { border-color: var(--border-strong); border-style: dashed; }
+.p13-progress .pg-mark.is-check { border-color: var(--info-text); background: var(--info-surface); }
+.p13-progress .pg-src { display: inline-flex; font-size: 11px; font-weight: 650; letter-spacing: .3px; color: var(--text-secondary); white-space: nowrap; }
+.p13-progress .pg-src.is-check { color: var(--info-text); }
+.p13-progress .pg-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 12px; color: var(--text-secondary); }
+.p13-progress .pg-legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* SVG: классы вместо цветов в атрибутах */
+.p13-progress .pg-g-grid { stroke: var(--border); stroke-width: 1; }
+.p13-progress .pg-g-axis { stroke: var(--border-strong); stroke-width: 1; }
+.p13-progress .pg-g-text { fill: var(--text-secondary); font: 12px "Segoe UI", Arial, sans-serif; }
+.p13-progress .pg-g-ink { fill: var(--text-primary); font: 600 12px "Segoe UI", Arial, sans-serif; }
+.p13-progress .pg-g-path { stroke: var(--border-strong); stroke-width: 1.5; fill: none; }
+.p13-progress .pg-m-clean { fill: var(--accent); }
+.p13-progress .pg-m-errors { fill: var(--selection); }
+.p13-progress .pg-m-slow { stroke: var(--text-primary); stroke-width: 2; stroke-linecap: round; fill: none; }
+.p13-progress .pg-b-check { fill: var(--info-surface); stroke: var(--info-text); stroke-width: 1.5; }
+.p13-progress .pg-b-self { fill: var(--accent); background: var(--accent); }
+.p13-progress .pg-b-fixed { fill: var(--selection); background: var(--selection); }
+.p13-progress .pg-b-shown { fill: var(--border-strong); background: var(--border-strong); }
+.p13-progress .pg-b-skipped { fill: var(--border); background: var(--border); }
+.p13-progress .pg-b-unanswered { fill: var(--surface-muted); background: var(--surface-muted); }
+.p13-progress .pg-stack { display: inline-flex; height: 12px; width: 110px; flex: none; border-radius: 3px; overflow: hidden; gap: 1px; background: var(--surface); }
+.p13-progress .pg-stack i { display: block; height: 100%; }
+.p13-progress .pg-res { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); }
+
+/* Боковая колонка */
+.p13-progress .pg-side { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: auto; padding: 1px 2px 2px; }
+.p13-progress .pg-hard { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.p13-progress .pg-hard li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 10px; align-items: center; border: 1px solid var(--border); border-left: 3px solid var(--selection); border-radius: 8px; padding: 7px 9px 8px 10px; background: var(--surface); }
+.p13-progress .pg-hard li.is-check { border-left-color: var(--info-text); }
+.p13-progress .pg-hard .pg-src { grid-column: 1; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.p13-progress .pg-hard .pg-plan { grid-column: 2; grid-row: 1; }
+.p13-progress .pg-hard b { grid-column: 1 / -1; font-size: 13px; font-weight: 650; line-height: 1.3; }
+.p13-progress .pg-hard p { grid-column: 1 / -1; font-size: 12px; color: var(--text-secondary); line-height: 1.35; }
+.p13-progress .pg-plan[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--text-primary); cursor: default; }
+
+/* Неделя (A) */
+.p13-progress .pg-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; align-items: end; height: 104px; }
+.p13-progress .pg-wd { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; height: 100%; font-size: 12px; color: var(--text-secondary); }
+.p13-progress .pg-wd i { display: block; width: 70%; max-width: 26px; border-radius: 4px 4px 0 0; background: var(--accent); }
+.p13-progress .pg-wv { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+.p13-progress .pg-wl { align-self: stretch; text-align: center; padding-top: 2px; border-top: 1px solid var(--border-strong); }
+.p13-progress .pg-wd.is-today .pg-wl { color: var(--text-primary); font-weight: 700; border-top: 2px solid var(--text-primary); }
+.p13-progress .pg-wd.is-future i { height: 10px; background: none; border: 1px dashed var(--border-strong); border-bottom: 0; }
+.p13-progress .pg-wtot { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-secondary); }
+.p13-progress .pg-wtot b { color: var(--text-primary); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+/* A · Упражнения */
+.p13-progress .pg-grid-a { flex: 1 1 0; min-height: 360px; display: grid; grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: minmax(0, 1fr); gap: 14px; }
+.p13-progress .pg-main-a { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.p13-progress .pg-list { flex: 1 1 0; min-height: 0; gap: 8px; }
+.p13-progress .pg-list-head { display: flex; justify-content: space-between; align-items: center; gap: 6px 14px; flex-wrap: wrap; }
+.p13-progress :is(.pg-cols, .pg-row) { display: grid; grid-template-columns: minmax(0, 1fr) 180px 72px 140px 16px; gap: 12px; align-items: center; }
+.p13-progress .pg-cols { font-size: 12px; color: var(--text-secondary); padding: 0 10px 4px; border-bottom: 1px solid var(--border); }
+.p13-progress .pg-cols span:nth-child(3) { text-align: right; }
+.p13-progress .pg-items { list-style: none; margin: 0; padding: 0 4px 4px 0; display: flex; flex-direction: column; gap: 6px; overflow: auto; min-height: 0; flex: 1 1 0; }
+.p13-progress .pg-item { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.p13-progress .pg-item.is-open { border-color: var(--border-strong); }
+.p13-progress .pg-row { width: 100%; border: 0; border-radius: 10px; background: none; text-align: left; padding: 7px 10px; color: var(--text-primary); }
+.p13-progress .pg-row:hover { background: var(--surface-hover); }
+.p13-progress .pg-name { display: flex; flex-direction: column; min-width: 0; }
+.p13-progress .pg-name b { font-size: 14px; font-weight: 650; line-height: 1.3; }
+.p13-progress .pg-name > span { font-size: 12px; color: var(--text-secondary); line-height: 1.35; }
+.p13-progress .pg-sparkcell svg { display: block; max-width: 100%; height: auto; }
+.p13-progress .pg-best { text-align: right; display: flex; flex-direction: column; line-height: 1.15; }
+.p13-progress .pg-best b { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.p13-progress .pg-best small { font-size: 12px; color: var(--text-secondary); }
+.p13-progress .pg-last { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.p13-progress .pg-last small { font-size: 12px; color: var(--text-secondary); }
+.p13-progress .pg-chev { color: var(--text-secondary); transition: transform .15s; }
+.p13-progress .is-open .pg-chev { transform: rotate(90deg); }
+.p13-progress .pg-detail { border-top: 1px solid var(--border); padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+.p13-progress .pg-detail[hidden] { display: none; }
+.p13-progress .pg-dtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); }
+.p13-progress .pg-dact { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.p13-progress .pg-chart-host { min-width: 0; }
+.p13-progress .pg-chart-host svg { display: block; max-width: 100%; height: auto; }
+.p13-progress .pg-table-wrap { overflow-x: auto; }
+.p13-progress .pg-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.p13-progress .pg-table th { text-align: left; font-weight: 600; color: var(--text-secondary); border-bottom: 1px solid var(--border); padding: 4px 8px 4px 0; }
+.p13-progress .pg-table td { border-bottom: 1px solid var(--border); padding: 5px 8px 5px 0; vertical-align: middle; }
+.p13-progress .pg-num { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Первый запуск */
+.p13-progress .pg-empty { align-self: start; gap: 12px; padding: 20px 22px; background: var(--surface-input); border-color: var(--border-strong); max-width: 760px; }
+.p13-progress .pg-empty h2 { font-size: 20px; font-weight: 650; letter-spacing: -.3px; }
+.p13-progress .pg-empty ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.p13-progress .pg-empty li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: 13px; line-height: 1.45; }
+.p13-progress .pg-empty li > span:first-child { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--accent-soft); color: var(--text-primary); }
+.p13-progress .pg-empty-act { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); }
+.p13-progress .pg-empty-day { display: flex; flex-direction: column; gap: 10px; }
+
+/* B · Календарь */
+.p13-progress .pg-grid-b { flex: 1 1 0; min-height: 400px; display: grid; grid-template-columns: minmax(0, 1fr) 290px; grid-template-rows: minmax(0, 1fr); gap: 14px; }
+.p13-progress .pg-left-b { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
+.p13-progress .pg-calcard { flex: none; gap: 8px; }
+.p13-progress .pg-cal { display: grid; grid-template-columns: 76px repeat(7, minmax(0, 1fr)) 84px; gap: 4px; }
+.p13-progress .pg-hd { font-size: 12px; color: var(--text-secondary); text-align: center; }
+.p13-progress .pg-hd:first-child, .p13-progress .pg-hd:last-child { text-align: left; }
+.p13-progress .pg-wk { font-size: 12px; color: var(--text-secondary); align-self: center; line-height: 1.3; }
+.p13-progress .pg-tot { font-size: 12px; color: var(--text-secondary); align-self: center; line-height: 1.3; padding-left: 4px; }
+.p13-progress .pg-tot b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.p13-progress .pg-day { position: relative; height: 50px; min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 3px 6px; text-align: left; display: flex; flex-direction: column; justify-content: space-between; color: var(--text-primary); }
+.p13-progress button.pg-day:hover { border-color: var(--border-strong); }
+.p13-progress :is(.pg-day, .pg-scale i).lvl-1 { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.p13-progress :is(.pg-day, .pg-scale i).lvl-2 { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+.p13-progress :is(.pg-day, .pg-scale i).lvl-3 { background: color-mix(in srgb, var(--accent) 32%, var(--surface)); }
+.p13-progress :is(.pg-day, .pg-scale i).lvl-4 { background: color-mix(in srgb, var(--accent) 42%, var(--surface)); }
+.p13-progress .pg-dn { font-size: 12px; line-height: 1; }
+.p13-progress .pg-dm { font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.1; white-space: nowrap; }
+.p13-progress .pg-dk { position: absolute; right: 5px; top: 4px; display: flex; gap: 3px; }
+.p13-progress .pg-dk i { display: block; width: 7px; height: 7px; }
+.p13-progress .pg-dk i.is-play { border-radius: 50%; background: var(--text-primary); }
+.p13-progress .pg-dk i.is-check { border: 1.5px solid var(--info-text); background: var(--info-surface); }
+.p13-progress .pg-day:is(.is-out, .is-future) { background: none; border-style: dashed; color: var(--text-secondary); }
+.p13-progress .pg-day.is-out { border-color: transparent; }
+.p13-progress .pg-day.is-today { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.p13-progress .pg-day.is-today .pg-dn::after { content: " · сегодня"; }
+.p13-progress .pg-day[aria-pressed="true"] { border: 2px solid var(--text-primary); padding: 2px 5px; }
+.p13-progress .pg-day.is-hi::after { content: ""; position: absolute; left: 5px; right: 5px; bottom: 2px; height: 3px; border-radius: 2px; background: var(--selection); }
+.p13-progress .pg-cal-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 12px; color: var(--text-secondary); }
+.p13-progress .pg-scale { display: inline-flex; align-items: center; gap: 3px; }
+.p13-progress .pg-scale i { display: block; width: 14px; height: 12px; border: 1px solid var(--border); border-radius: 3px; }
+.p13-progress .pg-cal-legend .pg-dk { position: static; display: inline-flex; }
+.p13-progress .pg-daycard { flex: 1 1 0; min-height: 150px; gap: 8px; }
+.p13-progress .pg-daycard.is-empty { flex: 0 0 auto; }
+.p13-progress .pg-entries { list-style: none; margin: 0; padding: 0 4px 0 0; display: flex; flex-direction: column; gap: 6px; overflow: auto; min-height: 0; flex: 1 1 0; }
+.p13-progress .pg-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 2px 14px; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; background: var(--surface); }
+.p13-progress .pg-entry.is-check { border-left: 3px solid var(--info-text); }
+.p13-progress .pg-entry > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.p13-progress .pg-entry b { font-size: 13px; font-weight: 650; }
+.p13-progress .pg-entry-res { display: inline-flex; align-items: center; gap: 12px; }
+.p13-progress .pg-bpm { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; line-height: 1.1; }
+.p13-progress .pg-bpm small { display: block; font-size: 11px; font-weight: 500; color: var(--text-secondary); }
+.p13-progress .pg-min { font-size: 12px; color: var(--text-secondary); white-space: nowrap; text-align: right; }
+.p13-progress .pg-bestlist { list-style: none; margin: 0 -6px; padding: 0; display: flex; flex-direction: column; }
+.p13-progress .pg-bestlist button { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; align-items: baseline; border: 1px solid transparent; border-radius: 8px; background: none; text-align: left; padding: 2px 6px; line-height: 1.35; color: var(--text-primary); }
+.p13-progress .pg-bestlist button:hover { background: var(--surface-hover); }
+.p13-progress .pg-bestlist button[aria-pressed="true"] { border-color: var(--selection); background: var(--selection-soft); }
+.p13-progress .pg-bestlist b { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p13-progress .pg-bestlist strong { font-size: 16px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.p13-progress .pg-bestlist strong small { font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-left: 4px; }
+
+.p13-progress .pg-toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: min(560px, 90vw); padding: 8px 14px; border-radius: 8px; background: var(--text-primary); color: var(--surface); font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 20; }
+.p13-progress .pg-toast.is-on { opacity: 1; }
+
+@media (max-width: 1180px) {
+  .p13-progress .pg-grid-a { grid-template-columns: minmax(0, 1fr) 260px; }
+  .p13-progress :is(.pg-cols, .pg-row) { grid-template-columns: minmax(0, 1fr) 150px 64px 122px 14px; gap: 10px; }
+  .p13-progress .pg-sparkcell svg { width: 150px; }
+  .p13-progress .pg-grid-b { grid-template-columns: minmax(0, 1fr) 260px; }
+  .p13-progress .pg-cal { grid-template-columns: 62px repeat(7, minmax(0, 1fr)) 70px; }
+  .p13-progress .pg-day.is-today .pg-dn::after { content: ""; }
+}
+@media (max-width: 900px) {
+  .p13-progress :is(.pg-grid-a, .pg-grid-b) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .p13-progress .pg-items { overflow: visible; }
+}

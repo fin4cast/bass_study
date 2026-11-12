@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>P13: «Прогресс» (VIS-08)</title>
+<style>
+  body { margin: 0; }
+  .fx-app { display: grid; grid-template-columns: 190px minmax(0, 1fr); height: 100vh; }
+  .fx-nav { background: var(--surface-navigation); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+  .fx-nav button { font: inherit; }
+  .fx-main { min-width: 0; min-height: 0; overflow: auto; padding: 14px 26px 18px; display: flex; flex-direction: column; }
+  #progress-mount { flex: 1 1 auto; min-height: 0; }
+  @media (max-width: 1100px) { .fx-app { grid-template-columns: 72px minmax(0, 1fr); } .fx-nav span { display: none; } .fx-main { padding: 14px 18px; } }
+</style>
+<body>
+  <div class="fx-app">
+    <nav class="fx-nav" aria-label="Фикстура">
+      <strong>bass.study</strong><span>Фикстура P13 · «Прогресс»</span>
+      <button type="button" data-fx-theme="light">Светлая</button>
+      <button type="button" data-fx-theme="dark">Тёмная</button>
+      <button type="button" data-fx-state="history">Есть история</button>
+      <button type="button" data-fx-state="first">Первый запуск</button>
+    </nav>
+    <main class="fx-main"><div id="progress-mount"></div></main>
+  </div>
+  <script type="module">
+    import '/src/styles.css';
+    import { createExerciseSpec } from '/src/exercises/index.ts';
+    import { mountProgress } from '/src/ui/progress/view.ts';
+
+    const params = new URLSearchParams(location.search);
+    const setTheme = theme => { document.documentElement.dataset.theme = theme; };
+    setTheme(params.get('theme') === 'dark' ? 'dark' : 'light');
+
+    // Демонстрационные данные по макету VIS-08 r1: 22 окт — 12 ноя 2026.
+    const TODAY = '2026-11-12';
+    const EX = {
+      link: ['builtin:connect-forms', 'Связка соседних форм', 'connect-forms', 'пентатоника Am · формы A → B · восьмыми'],
+      chrom: ['builtin:chromatic-position', 'Хроматика 1-2-3-4', 'chromatic-position', 'позиция V · палец на лад'],
+      arp: ['builtin:arpeggio-1358', 'Арпеджио 1–3–5–8', 'arpeggio-1358', 'C мажор · от E/8, туда и обратно'],
+      penta: ['builtin:pentatonic-form', 'Форма пентатоники вверх-вниз', 'pentatonic-form', 'Am · форма A'],
+      scale: ['builtin:scale-position', 'Гамма в позиции «палец на лад»', 'scale-position', 'C мажор · II позиция'],
+      checkB: ['check:penta-b-degrees', 'Проверь себя: ступени формы B', null, 'пентатоника Am · форма B · 6 вопросов'],
+    };
+    let seconds = 0;
+    const at = date => `${date}T17:${String(10 + Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds++ % 60).padStart(2, '0')}.000Z`;
+    const P = (date, ex, bpm, assessment, minutes) => ({ kind: 'play', exerciseKey: EX[ex][0], title: EX[ex][1], spec: createExerciseSpec(EX[ex][2]), assessment, bpm, activeMs: minutes * 60000, localDate: date, occurredAt: at(date) });
+    const C = (date, answers, minutes) => ({ kind: 'check', exerciseKey: EX.checkB[0], title: EX.checkB[1], answers, activeMs: minutes * 60000, localDate: date, occurredAt: at(date) });
+    const A = (degree, outcome, errors = 0) => ({ degree, outcome, errors });
+    const HISTORY = [
+      P('2026-10-22', 'link', 60, 'clean', 6), P('2026-10-22', 'chrom', 72, 'clean', 5),
+      P('2026-10-23', 'arp', 60, 'clean', 6),
+      P('2026-10-25', 'chrom', 76, 'clean', 5), P('2026-10-25', 'penta', 76, 'clean', 7),
+      P('2026-10-27', 'link', 64, 'clean', 7), P('2026-10-27', 'penta', 80, 'clean', 6),
+      C('2026-10-28', [A('1', 'correct'), A('b3', 'correct'), A('4', 'corrected', 1), A('5', 'correct'), A('b7', 'corrected', 1), A('b7', 'revealed')], 4),
+      P('2026-10-30', 'chrom', 80, 'clean', 5), P('2026-10-30', 'arp', 65, 'clean', 6),
+      P('2026-11-01', 'penta', 84, 'clean', 7), P('2026-11-01', 'link', 68, 'clean', 8),
+      P('2026-11-03', 'chrom', 84, 'clean', 4), P('2026-11-03', 'chrom', 88, 'slow', 3),
+      P('2026-11-04', 'link', 72, 'errors', 8), P('2026-11-04', 'arp', 69, 'clean', 6),
+      P('2026-11-06', 'penta', 88, 'clean', 6), P('2026-11-06', 'link', 72, 'clean', 6),
+      C('2026-11-06', [A('1', 'correct'), A('b3', 'correct'), A('4', 'correct'), A('5', 'correct'), A('b7', 'corrected', 1), A('4', 'skipped')], 4),
+      P('2026-11-08', 'chrom', 88, 'slow', 3), P('2026-11-08', 'scale', 60, 'errors', 7),
+      P('2026-11-10', 'link', 76, 'errors', 7), P('2026-11-10', 'chrom', 84, 'clean', 4),
+      P('2026-11-11', 'link', 76, 'clean', 7), P('2026-11-11', 'penta', 88, 'clean', 6),
+    ];
+    const material = new Map(Object.values(EX).map(([key, , , text]) => [key, text]));
+    window.p13Log = [];
+    const log = (name, value) => { window.p13Log.push({ name, value }); };
+    const planned = new Set();
+    const host = document.getElementById('progress-mount');
+    const view = mountProgress(host, {
+      records: params.get('state') === 'first' ? [] : HISTORY,
+      today: TODAY,
+      initialTab: params.get('tab') === 'calendar' ? 'calendar' : 'exercises',
+      describe: row => material.get(row.key) ?? '',
+      onRepeat: target => { log('repeat', typeof target === 'string' ? target : target.kind); },
+      onPlay: (key, bpm) => log('play', { key, bpm }),
+      onGoToLesson: () => log('go-lesson', null),
+    });
+    document.querySelectorAll('[data-fx-theme]').forEach(button => button.addEventListener('click', () => setTheme(button.dataset.fxTheme)));
+    document.querySelectorAll('[data-fx-state]').forEach(button => button.addEventListener('click', () => view.update({ records: button.dataset.fxState === 'first' ? [] : HISTORY, today: TODAY, plan: [...planned] })));
+    window.p13View = view;
+  </script>
+</body>
+</html>
