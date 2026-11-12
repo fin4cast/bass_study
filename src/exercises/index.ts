@@ -32,6 +32,7 @@ export interface ExerciseParams {
   readonly 'connect-forms': { readonly root: string; readonly structureId: Pentatonic; readonly shapeId: PentaShape };
   readonly 'pentatonic-neck': { readonly root: string; readonly structureId: Pentatonic };
   readonly 'scale-one-string': { readonly root: string; readonly structureId: Scale; readonly string: StringId };
+  readonly 'scale-position': { readonly root: string; readonly structureId: Scale; readonly degree: number };
   readonly 'arpeggio-1358': { readonly root: string; readonly structureId: Triad; readonly shapeId: CompactShape };
   readonly 'root-five-eight': { readonly root: string; readonly string: 'E' | 'A' };
   readonly 'groups-of-three': { readonly root: string; readonly structureId: Pentatonic; readonly shapeId: PentaShape };
@@ -48,6 +49,8 @@ export interface ExerciseNote {
   readonly name: string;
   readonly degree: string | null;
   readonly finger: number | null;
+  /** Нота берётся растяжкой за пределы окна позиции «палец на лад». */
+  readonly stretch: boolean;
   readonly segment: number;
 }
 export interface ExercisePlan {
@@ -80,6 +83,7 @@ export const EXERCISE_TEMPLATES: readonly ExerciseTemplate[] = deepFreeze([
   { id: 'connect-forms', category: 'connections', title: 'Связка соседних форм', concepts: ['shared-notes', 'position-shift', 'pentatonic'], defaults: { root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a' } },
   { id: 'pentatonic-neck', category: 'connections', title: 'Пентатоника по всему грифу', concepts: ['form-system', 'shared-notes', 'pentatonic'], defaults: { root: 'A', structureId: 'minor-pentatonic' } },
   { id: 'scale-one-string', category: 'positions', title: 'Гамма на одной струне', concepts: ['scale-formula', 'semitone'], defaults: { root: 'C', structureId: 'major', string: 'A' } },
+  { id: 'scale-position', category: 'positions', title: 'Гамма в позиции «палец на лад»', concepts: ['finger-per-fret', 'scale-formula', 'degrees'], defaults: { root: 'C', structureId: 'major', degree: 1 } },
   { id: 'arpeggio-1358', category: 'arpeggios', title: 'Арпеджио 1–3–5–8', concepts: ['triad', 'degrees'], defaults: { root: 'C', structureId: 'major-triad', shapeId: 'compact-e' } },
   { id: 'root-five-eight', category: 'arpeggios', title: 'Root–5–8', concepts: ['fifth', 'octave'], defaults: { root: 'C', string: 'A' } },
   { id: 'groups-of-three', category: 'sequences', title: 'Группы по три', concepts: ['sequence', 'pentatonic'], defaults: { root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a' } },
@@ -140,6 +144,7 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
   'connect-forms': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, ['minor-pentatonic', 'major-pentatonic'], 'Структура'), shapeId: oneOf(raw.shapeId, PENTA_SHAPES, 'Форма') }),
   'pentatonic-neck': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, ['minor-pentatonic', 'major-pentatonic'], 'Структура') }),
   'scale-one-string': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, ['major', 'natural-minor'], 'Структура'), string: oneOf(raw.string, STRINGS, 'Струна') }),
+  'scale-position': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, ['major', 'natural-minor'], 'Структура'), degree: integer(raw.degree, 1, 7, 'Ступень позиции') }),
   'arpeggio-1358': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, ['major-triad', 'minor-triad'], 'Структура'), shapeId: oneOf(raw.shapeId, ['compact-e', 'compact-a'], 'Форма') }),
   'root-five-eight': raw => ({ root: noteName(raw.root, 'Тоника'), string: oneOf(raw.string, ['E', 'A'], 'Струна') }),
   'groups-of-three': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, ['minor-pentatonic', 'major-pentatonic'], 'Структура'), shapeId: oneOf(raw.shapeId, PENTA_SHAPES, 'Форма') }),
@@ -166,7 +171,7 @@ export function validateExerciseSpec(value: unknown): ExerciseSpec {
 
 /* ---------- Построение плана ---------- */
 
-interface Draft { readonly position: AnnotatedPosition; readonly finger: number | null; readonly segment: number; readonly degree?: string | null }
+interface Draft { readonly position: AnnotatedPosition; readonly finger: number | null; readonly segment: number; readonly degree?: string | null; readonly stretch?: boolean }
 
 const stringIndex = (string: StringId) => STRINGS.indexOf(string);
 const byPitch = (a: AnnotatedPosition, b: AnnotatedPosition) => a.midi - b.midi || stringIndex(a.string) - stringIndex(b.string) || a.fret - b.fret;
@@ -269,6 +274,18 @@ const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[I
     const positions = annotatePositions(Array.from({ length: 13 }, (_, offset) => getPosition(string, start + offset)), structure).filter(position => position.inStructure);
     return { drafts: plain(positions), segments: [`Струна ${string} · лады ${start}–${start + 12}`] };
   },
+  'scale-position': ({ root, structureId, degree }) => {
+    const structure = createStructure(root, structureId);
+    const start = rootFrets(structure.notes[degree - 1].name, 'E', 1, 12)[0];
+    const candidates = [start, start - 1].filter(window => window >= 1).map(window => scalePosition(structure, start, window));
+    const best = candidates.reduce((a, b) => b.stretches < a.stretches ? b : a);
+    const up = best.drafts;
+    const roundTrip = [...up, ...up.slice(1, -1).reverse()];
+    return {
+      drafts: roundTrip,
+      segments: [`Позиция от ${structure.notes[degree - 1].name} (ступень ${structure.notes[degree - 1].degree.replace('b', '♭')}) · лады ${best.window}–${best.window + 3}${best.stretches ? ` · растяжек: ${best.stretches}` : ''}`],
+    };
+  },
   'arpeggio-1358': ({ root, structureId, shapeId }) => {
     const box = lowestBox(root, structureId, shapeId);
     return { drafts: fromBox(box, sequence(box, 'round-trip'), 0), segments: [`Лады ${box.window.fretMin}–${box.window.fretMax}`] };
@@ -313,6 +330,36 @@ const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[I
   },
 };
 
+/**
+ * Позиция «палец на лад» (R-026): окно window…window+3 от стартовой ноты на E; пропущенные ноты гаммы
+ * между соседними нотами окна берутся растяжкой мизинцем на window+4, а если на этой струне мизинец уже стоит на window+3 или такой позиции нет — указательным на window−1.
+ */
+function scalePosition(structure: MusicalStructure, start: number, window: number) {
+  const lowest = getPosition('E', start).midi;
+  const inScale = new Set(structure.notes.map(note => note.pitchClass));
+  const inWindow = annotatePositions(STRINGS.flatMap(string => [0, 1, 2, 3].map(offset => getPosition(string, window + offset))), structure)
+    .filter(position => position.inStructure && position.midi >= lowest).sort(byPitch);
+  const drafts: Draft[] = [];
+  let stretches = 0;
+  const at = (midi: number, fret: number) => STRINGS.map(string => ({ string, fret: midi - getPosition(string, 0).midi })).find(candidate => candidate.fret === fret);
+  inWindow.forEach((position, index) => {
+    const previous = inWindow[index - 1];
+    if (previous) for (let midi = previous.midi + 1; midi < position.midi; midi++) {
+      if (!inScale.has(midi % 12)) continue;
+      const forward = window + 4 <= 24 ? at(midi, window + 4) : undefined;
+      const back = window - 1 >= 1 ? at(midi, window - 1) : undefined;
+      // Мизинец не ставится два раза подряд на одной струне (лад window+3 уже занят им).
+      const pinkyBusy = forward && inWindow.some(note => note.string === forward.string && note.fret === window + 3);
+      const choice = pinkyBusy ? back ?? forward : forward ?? back;
+      if (!choice) throw new RangeError('Позиция требует растяжки больше чем на один лад.');
+      drafts.push({ position: annotate([[choice.string, choice.fret]], structure)[0], finger: choice.fret > window ? 4 : 1, segment: 0, stretch: true });
+      stretches++;
+    }
+    drafts.push({ position, finger: position.fret - window + 1, segment: 0 });
+  });
+  return { drafts, stretches, window };
+}
+
 const CHROMATIC_LABELS = createStructure('C', 'major');
 function chromatic(string: StringId, fret: number) { return annotatePositions([getPosition(string, fret)], CHROMATIC_LABELS)[0]; }
 
@@ -320,9 +367,9 @@ function buildPlan(spec: ExerciseSpec): ExercisePlan {
   const template = getExerciseTemplate(spec.templateId);
   const built = (BUILDERS[spec.templateId] as (params: ExerciseSpec['params']) => Built)(spec.params);
   if (!built.drafts.length) throw new RangeError('Упражнение не содержит нот.');
-  const notes = built.drafts.map(({ position, finger, segment, degree }) => ({
+  const notes = built.drafts.map(({ position, finger, segment, degree, stretch }) => ({
     id: position.id, string: position.string, fret: position.fret, midi: position.midi,
-    name: formatMidi(position.midi, position.noteName), degree: degree === undefined ? position.degree : degree, finger, segment,
+    name: formatMidi(position.midi, position.noteName), degree: degree === undefined ? position.degree : degree, finger, stretch: stretch ?? false, segment,
   }));
   return deepFreeze({
     spec, title: built.title ?? template.title, category: template.category, concepts: template.concepts,

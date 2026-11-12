@@ -33,6 +33,10 @@ const CONTROL: Record<ExerciseTemplateId, { ids: string; names?: string; degrees
     degrees: 'b7 1 b3 4 5 b7 1 b3 4 b3 1 b7 5 4 b3 1 b3 4 5 b7 1 b3 4 5 b7 5 4 b3 1 b7 5 4 5 b7 1 b3 4 5 b7 1',
     fingers: '2 4 2 4 1 4 1 4 3 1 3 1 3 1 4 1 2 4 1 4 1 4 1 3 4 1 4 2 4 2 4 2 1 4 1 4 1 3 1 3', segments: '8 8 8 8 8',
   },
+  'scale-position': {
+    ids: 'E:8 E:10 A:7 A:8 A:10 D:7 D:9 D:10 G:7 G:9 G:10 G:9 G:7 D:10 D:9 D:7 A:10 A:8 A:7 E:10', names: 'C2 D2 E2 F2 G2 A2 B2 C3 D3 E3 F3 E3 D3 C3 B2 A2 G2 F2 E2 D2',
+    degrees: '1 2 3 4 5 6 7 1 2 3 4 3 2 1 7 6 5 4 3 2', fingers: '2 4 1 2 4 1 3 4 1 3 4 3 1 4 3 1 4 2 1 4', segments: '20',
+  },
   'scale-one-string': { ids: 'A:3 A:5 A:7 A:8 A:10 A:12 A:14 A:15', names: 'C2 D2 E2 F2 G2 A2 B2 C3', degrees: '1 2 3 4 5 6 7 1', fingers: '- - - - - - - -', segments: '8' },
   'arpeggio-1358': { ids: 'E:8 A:7 A:10 D:10 A:10 A:7', names: 'C2 E2 G2 C3 G2 E2', degrees: '1 3 5 1 5 3', fingers: '2 1 4 4 4 1', segments: '6' },
   'root-five-eight': { ids: 'A:3 D:5 G:5 D:5', names: 'C2 G2 C3 G2', degrees: '1 5 1 5', fingers: '- - - -', segments: '4' },
@@ -63,7 +67,7 @@ const segmentSizes = (segments: readonly number[]) => {
 };
 
 describe('каталог exercise-v1: независимые контрольные примеры', () => {
-  it('каталог содержит 16 шаблонов с уникальными ID, по одному эталону на каждый', () => {
+  it('каталог содержит 17 шаблонов с уникальными ID, по одному эталону на каждый', () => {
     expect(EXERCISE_TEMPLATES.map(template => template.id).sort()).toEqual(Object.keys(CONTROL).sort());
   });
   it.each(Object.entries(CONTROL))('%s по умолчанию', (templateId, expected) => {
@@ -90,6 +94,39 @@ describe('каталог exercise-v1: независимые контрольн�
     expect(plan.segments.map(segment => segment.label)).toEqual(['A · лады 5–8', 'C · лады 8–11']);
     expect(plan.notes.filter(note => note.segment === 1).map(note => note.id).join(' ')).toBe('E:8 E:11 A:8 A:10 D:8 D:10 G:8 G:10 G:8 D:10 D:8 A:10 A:8 E:11');
     expect(plan.notes.filter(note => note.segment === 1).map(note => note.name).join(' ')).toBe('C2 E♭2 F2 G2 B♭2 C3 E♭3 F3 E♭3 C3 B♭2 G2 F2 E♭2');
+  });
+});
+
+describe('гамма в позиции «палец на лад»: независимые примеры', () => {
+  // Выведены вручную независимым проверяющим. II позиция C мажора — по уточнённому правилу:
+  // мизинец уже стоит на E/12, поэтому F2 берётся указательным на A/8 (проверяющий указал её как позицию p−1).
+  it.each([
+    ['C', 'major', 1, 'E:8 E:10 A:7 A:8 A:10 D:7 D:9 D:10 G:7 G:9 G:10', '2 4 1 2 4 1 3 4 1 3 4', '- - - - - - - - - - -', '7–10'],
+    ['C', 'major', 2, 'E:10 E:12 A:8 A:10 A:12 D:9 D:10 D:12 G:9 G:10 G:12', '2 4 1 2 4 1 2 4 1 2 4', '- - * - - - - - - - -', '9–12'],
+    ['C', 'major', 3, 'E:12 E:13 E:15 A:12 A:14 A:15 D:12 D:14 D:15 G:12 G:14', '1 2 4 1 3 4 1 3 4 1 3', '- - - - - - - - - - -', '12–15'],
+    ['C', 'major', 4, 'E:1 E:3 E:5 A:2 A:3 A:5 D:2 D:3 D:5 G:2 G:4', '1 3 4 2 3 4 2 3 4 2 4', '- - * - - * - - * - -', '1–4'],
+    ['C', 'major', 5, 'E:3 E:5 A:2 A:3 A:5 D:2 D:3 D:5 G:2 G:4 G:5', '2 4 1 2 4 1 2 4 1 3 4', '- - - - - - - - - - -', '2–5'],
+    ['C', 'major', 6, 'E:5 E:7 E:8 A:5 A:7 A:8 D:5 D:7 D:9 G:5 G:7', '1 3 4 1 3 4 1 3 4 1 3', '- - - - - - - - * - -', '5–8'],
+    ['C', 'major', 7, 'E:7 E:8 E:10 A:7 A:8 A:10 D:7 D:9 D:10 G:7 G:9 G:10', '1 2 4 1 2 4 1 3 4 1 3 4', '- - - - - - - - - - - -', '7–10'],
+    ['A', 'natural-minor', 1, 'E:5 E:7 E:8 A:5 A:7 A:8 D:5 D:7 D:9 G:5 G:7', '1 3 4 1 3 4 1 3 4 1 3', '- - - - - - - - * - -', '5–8'],
+    ['G', 'major', 1, 'E:3 E:5 A:2 A:3 A:5 D:2 D:4 D:5 G:2 G:4 G:5', '2 4 1 2 4 1 3 4 1 3 4', '- - - - - - - - - - -', '2–5'],
+  ] as const)('%s %s, позиция %i', (root, structureId, degree, ids, fingers, stretch, window) => {
+    const plan = buildExercise(createExerciseSpec('scale-position', { root, structureId, degree }));
+    const count = ids.split(' ').length;
+    const up = plan.notes.slice(0, count);
+    expect(up.map(note => note.id).join(' ')).toBe(ids);
+    expect(up.map(note => note.finger).join(' ')).toBe(fingers);
+    expect(up.map(note => note.stretch ? '*' : '-').join(' ')).toBe(stretch);
+    expect(plan.notes.slice(count).map(note => note.id)).toEqual(up.slice(1, -1).reverse().map(note => note.id));
+    expect(plan.segments[0].label).toContain(`лады ${window}`);
+  });
+  it('все 7 позиций строятся во всех 12 тониках мажора и минора без растяжки больше чем на лад', () => {
+    for (const root of ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']) for (const structureId of ['major', 'natural-minor'] as const) for (let degree = 1; degree <= 7; degree++) {
+      const plan = buildExercise(createExerciseSpec('scale-position', { root, structureId, degree }));
+      const frets = plan.notes.map(note => note.fret);
+      expect(Math.max(...frets) - Math.min(...frets)).toBeLessThanOrEqual(5);
+      expect(plan.notes.every(note => note.degree !== null)).toBe(true);
+    }
   });
 });
 
