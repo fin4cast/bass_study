@@ -72,7 +72,7 @@ export async function runInputBrowserChecks(allChecks) {
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
     await page.goto(url);
     if (url === fixtureUrl) await page.waitForFunction(() => window.p7input?.ready);
-    else await page.waitForSelector('#history-mount', { state: 'attached' });
+    else await page.waitForSelector('[data-input-mount]', { state: 'attached' });
     return { context, page };
   }
   async function withNativeBrowser(run) {
@@ -85,7 +85,7 @@ export async function runInputBrowserChecks(allChecks) {
       const page = nativeEdge.page; page.setDefaultTimeout(6000);
       page.on('pageerror', error => report.pageErrors.push(error.message));
       await page.goto(origin);
-      await page.waitForFunction(() => document.querySelector('#history-mount'), undefined, { polling: 100 });
+      await page.waitForFunction(() => document.querySelector('[data-input-mount]'), undefined, { polling: 100 });
       await page.bringToFront();
       try { return await run({ page, context }); }
       catch (error) {

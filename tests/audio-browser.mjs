@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runAudioBrowserChecks } from './helpers/audio-browser-harness.mjs';
@@ -10,8 +9,6 @@ const check = (name, scope, run) => checks.push({ name, scope, run });
 const snapshot = page => page.evaluate(() => window.p4.player.getSnapshot());
 const sounded = (state, type = 'note') => state.trace.filter(event => event.type === type && !event.cancelled && event.time <= state.audioTime + 0.000001);
 const offline = (page, config = {}, options = {}) => page.evaluate(async ({ config, options }) => window.p4.player.renderOffline(window.p4.makeConfig(config), options), { config, options });
-const player = page => page.locator('#player-mount');
-const action = (page, name) => page.locator(`[data-player-action="${name}"]`);
 
 function near(actual, expected, tolerance = 0.02, message = '') {
   assert.ok(Math.abs(actual - expected) <= tolerance, `${message} expected ${expected}, got ${actual}, tolerance ${tolerance}`);
@@ -39,26 +36,36 @@ async function waitSnapshot(page, predicate, arg, timeout = 7000) {
   await page.waitForFunction(({ source, arg }) => (new Function('state', 'arg', `return (${source})(state, arg)`))(window.p4.player.getSnapshot(), arg), { source: predicate.toString(), arg }, { polling: 5, timeout });
   return snapshot(page);
 }
-async function stateIs(page, state) {
-  await page.waitForFunction(state => document.querySelector('#player-mount')?.dataset.playerState === state, state, { polling: 20, timeout: 7000 });
+/* ---------- Экран игры «Занятия» (P13): владелец звука `play` ---------- */
+
+const playScene = page => page.locator('[data-lesson-screen="play"] .pl-scene');
+/** Состояние транспорта экрана игры из DOM; без продуктового API. */
+const READ_PLAY = `(() => {
+  const scene = document.querySelector('[data-lesson-screen="play"] .pl-scene');
+  if (!scene) return null;
+  const text = scene.querySelector('[data-progress-text]').textContent;
+  const match = /Нота (\\d+) из (\\d+)/.exec(text);
+  return { status: scene.dataset.status, view: scene.dataset.view, text, note: match ? Number(match[1]) : null,
+    now: scene.querySelector('[data-now-detail]')?.textContent ?? '', bpm: Number(scene.querySelector('[data-bpm]').textContent),
+    current: [...scene.querySelectorAll('.pl-note.is-current')].map(node => node.dataset.position) };
+})()`;
+const playState = page => page.evaluate(READ_PLAY);
+async function waitPlay(page, predicate, arg = null, timeout = 15000) {
+  await page.waitForFunction(`(() => { const state = ${READ_PLAY}; return !!state && (${predicate.toString()})(state, ${JSON.stringify(arg)}); })()`, null, { timeout, polling: 30 });
+  return playState(page);
 }
-async function setupUi(page, { last = 3, bpm = 120, repeat = 'infinite', countIn = false, duration = 'quarter' } = {}) {
-  if (!await page.locator('#study-settings').isVisible()) await page.locator('#toggle-study-settings').click();
-  if (!await page.locator('#area-settings').evaluate(element => element.open)) await page.locator('#area-settings > summary').click();
-  await page.getByLabel('Тоника', { exact: true }).selectOption('C');
-  await page.getByLabel('Структура', { exact: true }).selectOption('major');
-  await page.getByLabel('Первый лад', { exact: true }).fill('0');
-  const maximum = page.getByLabel('Последний лад', { exact: true });
-  await maximum.fill(String(last)); await maximum.press('Tab');
-  for (const string of ['A', 'D', 'G']) await page.getByRole('checkbox', { name: `Струна ${string}`, exact: true }).uncheck();
-  await page.getByRole('button', { name: 'Последовательности', exact: true }).click();
-  if (!await page.locator('.player-advanced').evaluate(element => element.open)) await page.locator('.player-advanced > summary').click();
-  await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  await player(page).getByLabel('Темп, BPM', { exact: true }).fill(String(bpm));
-  await page.getByLabel('Длительность нот', { exact: true }).selectOption(duration);
-  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption(repeat);
-  await page.getByLabel('Отсчёт перед стартом', { exact: true }).setChecked(countIn);
+/** «Сегодня» → «Играть: <упражнение>» стартового плана. */
+async function openPlay(page, title = 'Хроматика 1-2-3-4 в позиции') {
+  const home = page.locator('[data-lesson-screen="home"]');
+  await home.getByRole('tab', { name: /^Сегодня/ }).click();
+  await home.locator('.ls-plan').getByRole('button', { name: `Играть: ${title}`, exact: true }).click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  return playState(page);
 }
+/** Клавиши транспорта действуют, когда фокус не на элементе управления: заголовок экрана игры. */
+const focusTitle = page => playScene(page).locator('[data-title]').focus();
+/** «E/3 · ступень 3» в подробностях «Сейчас» → идентификатор позиции «E:3». */
+const shownPosition = detail => { const match = /([EADG])\/(\d+)/.exec(detail); return match ? `${match[1]}:${match[2]}` : null; };
 
 check('offline-quarter-notes-use-real-PCM-and-finish-with-silence', 'api', async ({ page }) => {
   const result = await offline(page);
@@ -243,192 +250,99 @@ check('live-finite-end-waits-for-actual-audio-time-and-clears-voices', 'api', as
   return { finishing, finished, tail };
 });
 
-check('ui-initial-controls-and-fragment-validation', 'ui', async ({ page }) => {
-  await setupUi(page);
-  assert.deepEqual(await page.getByTestId('sequence-route').locator('li').evaluateAll(nodes => nodes.map(node => node.dataset.sequencePosition)), ['E:0', 'E:1', 'E:2', 'E:3']);
-  await page.getByLabel('Первая нота фрагмента', { exact: true }).fill('3');
-  await page.getByLabel('Последняя нота фрагмента', { exact: true }).fill('2');
-  await action(page, 'start').click();
-  assert.match(await page.getByTestId('player-error').innerText(), /позже последней/i); assert.equal(await player(page).getAttribute('data-player-state'), 'stopped');
-  await page.getByLabel('Первая нота фрагмента', { exact: true }).fill('2');
-  await page.getByLabel('Последняя нота фрагмента', { exact: true }).fill('3');
-  await action(page, 'start').click(); await stateIs(page, 'running');
-  await page.waitForFunction(() => ['E:1', 'E:2'].includes(document.querySelector('#player-mount')?.dataset.currentPosition));
-  const ids = await page.evaluate(async () => {
-    const ids = new Set(); const started = performance.now();
-    while (performance.now() - started < 1300) { const id = document.querySelector('#player-mount').dataset.currentPosition; if (id) ids.add(id); await new Promise(resolve => setTimeout(resolve, 15)); }
-    return [...ids];
-  });
-  assert.deepEqual(ids.sort(), ['E:1', 'E:2']); await action(page, 'stop').click();
-  return { rejectedReverseRange: true, playedInclusiveFragment: ids };
-});
+// UI-сценарии прежнего проигрывателя «Грифа» (фрагмент, лестница темпа, рисунки метронома, громкости) удалены вместе
+// с ним в P13-08. Звук последовательности — на экране игры «Занятия»; его отсчёт, пауза/продолжение и Esc проверяет
+// p13-browser, live-сигнал по аудиочасам и настоящее скрытие вкладки — там же (полный набор). Здесь — подсветка,
+// темп во время игры, охрана клавиш и уход из раздела, наименьшее окно VIS-11.
 
-check('ui-highlight-matches-current-audio-frame-and-clears-on-pause-stop', 'ui', async ({ page, resultDir }) => {
-  await setupUi(page, { bpm: 100 }); await action(page, 'start').click(); await stateIs(page, 'running');
-  await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.currentPosition);
-  const samples = await page.evaluate(async () => {
-    const rows = []; const started = performance.now();
-    while (performance.now() - started < 1500) {
-      const host = document.querySelector('#player-mount');
-      rows.push({ position: host.dataset.currentPosition, index: host.dataset.noteIndex,
-        board: [...document.querySelectorAll('.position.is-playing')].map(node => node.dataset.position),
-        route: [...document.querySelectorAll('.sequence-route li.is-playing')].map(node => [node.dataset.sequenceIndex, node.dataset.sequencePosition, node.getAttribute('aria-current')]) });
-      await new Promise(resolve => setTimeout(resolve, 15));
-    }
+check('ui-play-board-current-note-follows-shown-note-and-pause-stop-keep-screen-consistent', 'ui', async ({ page, resultDir }) => {
+  const initial = await openPlay(page);
+  assert.equal(initial.status, 'stopped'); assert.equal(initial.view, 'board');
+  await playScene(page).locator('[data-play]').click();
+  await waitPlay(page, state => state.status === 'playing' && state.note >= 1, null, 20000);
+  // Опрос по таймеру: на виде «Гриф крупно» подсвечена ровно одна нота — та, что названа в «Сейчас».
+  const samples = await page.evaluate(async source => {
+    const read = () => (0, eval)(source); const rows = []; const started = performance.now();
+    while (performance.now() - started < 1500) { const state = read(); if (state.status === 'playing') rows.push(state); await new Promise(resolve => setTimeout(resolve, 15)); }
     return rows;
-  });
-  const populated = samples.filter(row => row.position);
-  assert.ok(new Set(populated.map(row => row.position)).size >= 3);
-  for (const row of populated) { assert.deepEqual(row.board, [row.position]); assert.deepEqual(row.route, [[row.index, row.position, 'step']]); }
-  await page.screenshot({ path: join(resultDir, 'p4-player-desktop.png'), fullPage: true });
-  await action(page, 'pause').click(); await stateIs(page, 'paused');
-  assert.equal(await page.locator('.is-playing').count(), 0); await action(page, 'stop').click(); await stateIs(page, 'stopped');
-  assert.equal(await page.locator('.is-playing').count(), 0); return { samples: populated, screenshot: 'test-results/p4-player-desktop.png' };
-});
-
-check('ui-count-in-locks-structural-controls-and-manual-tempo-remains-available', 'ui', async ({ page }) => {
-  await setupUi(page, { countIn: true }); await action(page, 'start').click(); await stateIs(page, 'running');
-  assert.equal(await player(page).getAttribute('data-player-phase'), 'count-in');
-  assert.equal(await page.locator('.is-playing').count(), 0); assert.match(await page.getByTestId('player-current-note').innerText(), /1.*2.*3.*4/);
-  for (const label of ['Длительность нот', 'Повтор', 'Первая нота фрагмента', 'Последняя нота фрагмента', 'Отсчёт перед стартом', 'Показывать пульс', 'Метроном']) assert.ok(await player(page).getByLabel(label, { exact: true }).isDisabled(), label);
-  assert.ok(await player(page).getByLabel('Темп, BPM', { exact: true }).isEnabled()); assert.ok(await page.getByLabel('Громкость баса', { exact: true }).isEnabled());
-  await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerPhase === 'practice');
-  await player(page).getByLabel('Темп, BPM', { exact: true }).fill('150'); await player(page).getByLabel('Темп, BPM', { exact: true }).press('Tab');
-  await page.waitForFunction(() => Math.abs(Number(document.querySelector('#player-mount')?.dataset.currentBpm) - 150) < 0.01);
-  await action(page, 'pause').click(); await stateIs(page, 'paused'); assert.ok(await page.getByLabel('Длительность нот', { exact: true }).isDisabled());
-  await action(page, 'resume').click(); await stateIs(page, 'running'); assert.equal(await player(page).getAttribute('data-player-phase'), 'practice');
-  await action(page, 'stop').click(); assert.ok(await page.getByLabel('Длительность нот', { exact: true }).isEnabled());
-  return { countIn: true, lockedUntilStop: true, tempoChanged: 150, resumedWithoutNewCountIn: true };
-});
-
-check('ui-pulse-off-removes-counters-current-note-and-both-highlights', 'ui', async ({ page }) => {
-  await setupUi(page); await page.getByLabel('Показывать пульс', { exact: true }).uncheck();
-  await action(page, 'start').click(); await stateIs(page, 'running');
-  await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.currentPosition);
-  assert.equal(await page.getByTestId('player-current-note').innerText(), '—');
-  assert.equal(await page.getByTestId('player-status').innerText(), 'Практика без визуальных подсказок');
-  assert.equal(await page.locator('.is-playing').count(), 0); assert.doesNotMatch(await page.getByTestId('player-status').innerText(), /такт|доля|повтор|BPM/);
-  await action(page, 'stop').click(); return { noVisualPulse: true };
-});
-
-check('ui-tempo-ladder-validation-ownership-and-finite-completion', 'ui', async ({ page }) => {
-  await setupUi(page, { last: 0, repeat: 'ladder', duration: 'sixteenth' });
-  await page.getByLabel('Начальный темп', { exact: true }).fill('200');
-  await page.getByLabel('Целевой темп', { exact: true }).fill('190');
-  await action(page, 'start').click(); assert.match(await page.getByTestId('player-error').innerText(), /не меньше начального/);
-  await page.getByLabel('Целевой темп', { exact: true }).fill('220');
-  await page.getByLabel('Шаг темпа', { exact: true }).fill('10'); await page.getByLabel('Повторов на темп', { exact: true }).fill('2');
-  await page.getByLabel('Повторов на темп', { exact: true }).press('Tab');
-  assert.ok(await player(page).getByLabel('Темп, BPM', { exact: true }).isDisabled()); assert.equal(await player(page).getByLabel('Темп, BPM', { exact: true }).inputValue(), '200');
-  await action(page, 'start').click(); await stateIs(page, 'running'); assert.ok(await player(page).getByLabel('Темп, BPM', { exact: true }).isDisabled());
-  await stateIs(page, 'finished'); assert.match(await page.getByTestId('player-status').innerText(), /завершены/); assert.equal(await page.locator('.is-playing').count(), 0);
-  return { manualTempoDisabled: true, completedThreeTemposTwoPassesEach: true };
-});
-
-check('ui-metronome-modes-subdivision-and-live-volume-controls', 'ui', async ({ page }) => {
-  await setupUi(page); await page.getByLabel('Рисунок метронома', { exact: true }).selectOption('two-four');
-  assert.ok(await page.getByLabel('Деление метронома', { exact: true }).isDisabled()); assert.match(await page.getByTestId('player-metronome-help').innerText(), /2 и 4/);
-  await page.getByLabel('Рисунок метронома', { exact: true }).selectOption('gap-2-2');
-  assert.ok(await page.getByLabel('Деление метронома', { exact: true }).isEnabled());
-  await page.getByLabel('Деление метронома', { exact: true }).selectOption('sixteenth');
-  await player(page).getByLabel('Метроном', { exact: true }).uncheck(); assert.ok(await page.getByLabel('Рисунок метронома', { exact: true }).isDisabled());
-  await action(page, 'start').click(); await stateIs(page, 'running');
-  for (const label of ['Громкость баса', 'Громкость метронома']) { await page.getByLabel(label, { exact: true }).fill('0'); await page.getByLabel(label, { exact: true }).dispatchEvent('input'); }
-  assert.deepEqual(await page.locator('[data-player-output]').allTextContents(), ['0%', '0%']);
-  await page.getByLabel('Громкость баса', { exact: true }).fill('70'); await page.getByLabel('Громкость баса', { exact: true }).dispatchEvent('input');
-  assert.deepEqual(await page.locator('[data-player-output]').allTextContents(), ['70%', '0%']);
-  await action(page, 'stop').click(); return { twoFourLocksSubdivision: true, gapAcceptsSubdivision: true, independentLiveVolumes: true };
-});
-
-check('ui-keyboard-space-escape-and-input-button-guards', 'ui', async ({ page }) => {
-  await setupUi(page); const bpm = player(page).getByLabel('Темп, BPM', { exact: true });
-  const advanced = page.locator('.player-advanced');
-  const summary = advanced.locator('summary');
-  for (const open of [false, true, false]) {
-    await summary.focus();
-    await page.keyboard.press('Space');
-    assert.equal(await advanced.evaluate(element => element.open), open);
-    assert.equal(await player(page).getAttribute('data-player-state'), 'stopped');
+  }, READ_PLAY);
+  assert.ok(new Set(samples.map(row => row.note)).size >= 3, `Нота меняется: ${JSON.stringify(samples.map(row => row.note))}`);
+  for (const row of samples) {
+    assert.equal(row.current.length, 1, `Одна текущая нота: ${JSON.stringify(row)}`);
+    assert.equal(row.current[0], shownPosition(row.now), `Подсветка совпадает с «Сейчас»: ${JSON.stringify(row)}`);
   }
-  await bpm.focus(); await bpm.press('Space'); assert.equal(await player(page).getAttribute('data-player-state'), 'stopped');
-  await page.getByTestId('player-status').click(); await page.keyboard.press('Space'); await stateIs(page, 'running');
-  await bpm.focus(); await bpm.press('Escape'); assert.equal(await player(page).getAttribute('data-player-state'), 'running');
-  await action(page, 'pause').focus(); await page.keyboard.press('Escape'); assert.equal(await player(page).getAttribute('data-player-state'), 'running');
-  await page.getByTestId('player-status').click(); await page.keyboard.press('Space'); await stateIs(page, 'paused');
-  await page.keyboard.press('Space'); await stateIs(page, 'running'); await page.keyboard.press('Escape'); await stateIs(page, 'stopped');
-  await page.evaluate(() => {
-    const dialog = document.body.appendChild(document.createElement('dialog'));
-    dialog.showModal();
-  });
-  await page.keyboard.press('Space'); await stateIs(page, 'stopped');
-  await page.evaluate(() => document.querySelector('dialog').remove());
-  await page.locator('#open-history').click();
-  const download = page.waitForEvent('download');
-  await page.locator('[data-history-action="export"]').click();
-  const bytes = await readFile(await (await download).path());
-  await page.locator('[data-history-file]').setInputFiles({ name: 'guard.json', mimeType: 'application/json', buffer: bytes });
-  await page.locator('[data-history-confirm]').check();
-  const guard = await page.evaluate(() => {
-    document.querySelector('[data-history-action="confirm-restore"]').click();
-    const event = new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true, cancelable: true });
-    document.body.dispatchEvent(event);
-    return { restoring: document.querySelector('main').inert, intercepted: event.defaultPrevented };
-  });
-  assert.deepEqual(guard, { restoring: true, intercepted: false });
-  await page.waitForFunction(() => !document.querySelector('main').inert);
-  await stateIs(page, 'stopped');
-  return { keyboardStartPauseResumeStop: true, guardedInputAndButton: true, nativeSummary: true, modalAndRestoreGuard: true };
+  await page.screenshot({ path: join(resultDir, 'p4-play-desktop.png'), fullPage: true });
+  await focusTitle(page); await page.keyboard.press('Space');
+  const paused = await waitPlay(page, state => state.status === 'paused', null, 3000);
+  await delay(400);
+  const still = await playState(page);
+  assert.deepEqual([still.status, still.note, still.current], ['paused', paused.note, paused.current], 'На паузе экран и подсветка не меняются');
+  await page.keyboard.press('Escape');
+  const stopped = await waitPlay(page, state => state.status === 'stopped', null, 3000);
+  assert.equal(stopped.note, 0); assert.deepEqual(stopped.current, [], 'После «С начала» текущей ноты нет');
+  return { samples: samples.length, distinctNotes: new Set(samples.map(row => row.note)).size, paused: { note: paused.note, current: paused.current }, stopped: stopped.text, screenshot: 'test-results/p4-play-desktop.png' };
 });
 
-check('ui-changing-scope-or-route-and-leaving-sequence-stops-playback', 'ui', async ({ page }) => {
-  await setupUi(page); await action(page, 'start').click(); await stateIs(page, 'running');
-  await page.getByLabel('Порядок последовательности', { exact: true }).selectOption('descending'); await stateIs(page, 'stopped');
-  assert.match(await page.getByTestId('player-notice').innerText(), /изменились|остановлено/); assert.equal(await page.getByLabel('Первая нота фрагмента', { exact: true }).inputValue(), '1');
-  await action(page, 'start').click(); await stateIs(page, 'running');
-  await page.getByLabel('Тоника', { exact: true }).selectOption('G'); await stateIs(page, 'stopped');
-  await action(page, 'start').click(); await stateIs(page, 'running');
-  await page.getByRole('button', { name: 'Изучение', exact: true }).click(); assert.ok(await player(page).isHidden());
-  await page.getByRole('button', { name: 'Последовательности', exact: true }).click(); await stateIs(page, 'stopped');
-  assert.equal(await page.locator('.is-playing').count(), 0); return { stoppedOnRouteScopeAndModeChange: true };
+check('ui-play-tempo-step-during-playback-keeps-playing-without-rating-not-remembered', 'ui', async ({ page }) => {
+  const initial = await openPlay(page);
+  await playScene(page).locator('[data-play]').click();
+  const playing = await waitPlay(page, state => state.status === 'playing' && state.note >= 1, null, 20000);
+  await playScene(page).locator('[data-bpm-step]:not([data-bpm-step^="-"])').click();
+  const changed = await waitPlay(page, (state, bpm) => state.bpm > bpm, initial.bpm, 3000);
+  const later = await waitPlay(page, (state, note) => state.status === 'playing' && state.note > note, changed.note, 5000);
+  assert.equal(later.bpm, changed.bpm, 'Темп держится, игра не остановлена');
+  await focusTitle(page); await page.keyboard.press('Escape'); await waitPlay(page, state => state.status === 'stopped', null, 3000);
+  // Без отметки прохода темп не записывается: упражнение без истории снова открывается с темпом занятия (D-046).
+  await playScene(page).locator('[data-back]').first().click();
+  const reopened = await openPlay(page);
+  assert.equal(reopened.bpm, initial.bpm, 'Темп без отметки прохода не становится темпом упражнения');
+  return { initialBpm: initial.bpm, playingNote: playing.note, changedBpm: changed.bpm, keptPlayingAtNote: later.note, reopenedBpm: reopened.bpm };
 });
 
-check('ui-invalid-global-range-cannot-start-stale-valid-sequence', 'ui', async ({ page }) => {
-  await setupUi(page); await action(page, 'start').click(); await stateIs(page, 'running');
-  await page.getByLabel('Первый лад', { exact: true }).fill('5'); await page.getByLabel('Первый лад', { exact: true }).press('Tab');
-  await stateIs(page, 'stopped'); assert.ok(await action(page, 'start').isDisabled());
-  assert.equal(await page.getByTestId('sequence-route').count(), 0); assert.equal(await page.locator('.is-playing').count(), 0);
-  return { invalidRangeRemovesPlayableRoute: true };
+check('ui-play-keyboard-guards-own-buttons-modal-dialog-and-section-leave', 'ui', async ({ page }) => {
+  await openPlay(page);
+  // Пробел на кнопке нажимает её саму (смена вида), транспорт не стартует.
+  await playScene(page).locator('button[data-view="tab"]').focus(); await page.keyboard.press('Space');
+  await waitPlay(page, state => state.view === 'tab', null, 3000);
+  assert.equal((await playState(page)).status, 'stopped');
+  // Открытый модальный диалог забирает клавиши.
+  await page.evaluate(() => { const dialog = document.body.appendChild(document.createElement('dialog')); dialog.id = 'guard-dialog'; dialog.showModal(); });
+  await page.keyboard.press('Space'); await delay(300);
+  assert.equal((await playState(page)).status, 'stopped', 'Пробел при модальном диалоге не запускает игру');
+  await page.evaluate(() => document.querySelector('#guard-dialog').remove());
+  // Без фокуса на элементе управления: пробел — старт, пауза, продолжение.
+  await focusTitle(page); await page.keyboard.press('Space');
+  await waitPlay(page, state => state.status === 'playing' && state.note >= 1, null, 20000);
+  await page.keyboard.press('Space'); const paused = await waitPlay(page, state => state.status === 'paused', null, 3000);
+  await page.keyboard.press('Space'); await waitPlay(page, (state, note) => state.status === 'playing' && state.note > note, paused.note, 5000);
+  // Уход из «Занятия» прерывает владельца `play`; возврат не продолжает игру сам.
+  await page.locator('.site-header [data-app-module="foundation"]').click();
+  await page.waitForFunction(() => !document.querySelector('[data-page-frame="foundation"]').hidden);
+  await page.locator('.site-header [data-app-module="lesson"]').click();
+  await page.waitForFunction(() => !document.querySelector('[data-page-frame="lesson"]').hidden);
+  const back = await playState(page);
+  assert.ok(back === null || back.status !== 'playing', `После смены раздела игра не звучит: ${JSON.stringify(back)}`);
+  await delay(800);
+  const later = await playState(page);
+  assert.ok(later === null || later.status !== 'playing', 'Возврат в раздел не продолжает игру сам');
+  return { ownButtonSpacePressedButton: true, modalBlocksTransport: true, keyboardStartPauseResume: true, sectionLeave: back?.status ?? 'screen closed', afterReturn: later?.status ?? 'screen closed' };
 });
 
-check('ui-small-viewport-player-remains-usable-with-contained-fretboard-scroll', 'ui', async ({ page, resultDir }) => {
-  await page.setViewportSize({ width: 390, height: 844 }); await setupUi(page);
-  await action(page, 'start').click(); await stateIs(page, 'running'); await action(page, 'pause').click(); await stateIs(page, 'paused');
-  await page.screenshot({ path: join(resultDir, 'p4-player-narrow.png'), fullPage: true });
-  await action(page, 'stop').click();
-  const width = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
-  assert.ok(width.scroll <= width.client + 2, `Unexpected document overflow ${JSON.stringify(width)}`);
-  return { width, screenshot: 'test-results/p4-player-narrow.png', fullMobileSupportClaimed: false };
+check('ui-play-smallest-design-window-has-no-page-scroll-while-paused', 'ui', async ({ page, resultDir }) => {
+  // VIS-11: окна 1440×900, 1280×720 и 1024×768 без прокрутки во время игры; телефонная ширина экраном игры не заявлена.
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await openPlay(page);
+  await playScene(page).locator('[data-play]').click();
+  await waitPlay(page, state => state.status === 'playing' && state.note >= 1, null, 20000);
+  await focusTitle(page); await page.keyboard.press('Space'); await waitPlay(page, state => state.status === 'paused', null, 3000);
+  await page.screenshot({ path: join(resultDir, 'p4-play-1024.png') });
+  const size = await page.evaluate(() => ({ clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth,
+    clientHeight: document.documentElement.clientHeight, scrollHeight: document.documentElement.scrollHeight }));
+  assert.ok(size.scrollWidth <= size.clientWidth + 1 && size.scrollHeight <= size.clientHeight + 1, `Прокрутка страницы ${JSON.stringify(size)}`);
+  await page.keyboard.press('Escape');
+  return { size, screenshot: 'test-results/p4-play-1024.png', fullMobileSupportClaimed: false };
 });
 
-check('native-tab-hiding-pauses-product-and-return-requires-explicit-resume', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
-  await setupUi(page); await action(page, 'start').click({ force: true });
-  await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerState === 'running', undefined, { polling: 100 });
-  assert.equal(await page.evaluate(() => document.hidden), false);
-  const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront();
-  await page.waitForFunction(() => document.hidden && document.querySelector('#player-mount')?.dataset.playerState === 'paused', undefined, { polling: 100, timeout: 6000 });
-  const notice = await page.getByTestId('player-notice').innerText(); assert.match(notice, /скрыта|паузе/);
-  await page.bringToFront(); await page.waitForFunction(() => !document.hidden, undefined, { polling: 100 });
-  await delay(200); assert.equal(await player(page).getAttribute('data-player-state'), 'paused');
-  assert.match(await page.getByTestId('player-status').innerText(), /скрывалась/);
-  await action(page, 'resume').click({ force: true });
-  await page.waitForFunction(() => document.querySelector('#player-mount')?.dataset.playerState === 'running', undefined, { polling: 100 });
-  await action(page, 'stop').click({ force: true });
-  return { nativeDocumentHidden: true, notice, remainedPausedOnReturn: true, explicitResume: true, method: 'Isolated Edge, connectOverCDP(noDefaults:true), actual tab activation; no synthetic visibility events or patched document.hidden' };
-}));
-
-markFullOnly(checks, [
-  'native-tab-hiding-pauses-product-and-return-requires-explicit-resume',
-], FULL_ONLY.hiddenTab);
 markFullOnly(checks, [
   'live-user-gesture-creates-real-nonzero-audio-output',
   'live-cursor-does-not-jump-to-lookahead-note-before-audio-clock',
@@ -438,7 +352,6 @@ markFullOnly(checks, [
   'live-manual-tempo-applies-on-future-quarter-after-loop',
   'live-stop-cancels-lookahead-and-three-restarts-have-no-duplicate-notes',
   'live-finite-end-waits-for-actual-audio-time-and-clears-voices',
-  'ui-metronome-modes-subdivision-and-live-volume-controls',
 ], FULL_ONLY.liveAudio);
 markFullOnly(checks, [
   'offline-inclusive-ui-fragment-corresponds-to-engine-half-open-range',
@@ -446,11 +359,7 @@ markFullOnly(checks, [
   'offline-two-and-four-ignores-sixteenth-subdivision',
   'offline-eighth-and-sixteenth-metronome-subdivisions',
   'offline-tempo-ladder-six-passes-reaches-target-and-finishes',
-  'ui-highlight-matches-current-audio-frame-and-clears-on-pause-stop',
-  'ui-count-in-locks-structural-controls-and-manual-tempo-remains-available',
-  'ui-pulse-off-removes-counters-current-note-and-both-highlights',
-  'ui-tempo-ladder-validation-ownership-and-finite-completion',
-  'ui-keyboard-space-escape-and-input-button-guards',
-  'ui-small-viewport-player-remains-usable-with-contained-fretboard-scroll',
+  'ui-play-tempo-step-during-playback-keeps-playing-without-rating-not-remembered',
+  'ui-play-smallest-design-window-has-no-page-scroll-while-paused',
 ], FULL_ONLY.smoke);
 await runAudioBrowserChecks(checks);

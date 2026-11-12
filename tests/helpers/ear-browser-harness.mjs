@@ -55,7 +55,7 @@ export async function runEarBrowserChecks(allChecks) {
   const report = {
     generatedAt: new Date().toISOString(), platform: process.platform, architecture: process.arch,
     node: process.version, browserChannel: 'msedge', browserVersion: null, origin, fixtureOrigin,
-    scope: 'R016 actual native Web Audio cue/PCM, live clock/cancellation, user ear answers derived from observed native oscillator scheduling, separate persisted ear history. Physical output muted; no hardware/latency claims.',
+    scope: 'R016 actual native Web Audio cue/PCM, live clock/cancellation, ear answers in «Проверь себя» (+ слух) derived from observed native oscillator scheduling, results persisted as check records. Physical output muted; no hardware/latency claims.',
     oracle: 'Fixture PCM frequencies are measured from samples. UI answer oracle observes actual native oscillator frequency.setValueAtTime calls; those properties are not represented as PCM measurements or a private application answer API.',
     networkIsolation: 'Fresh Edge contexts with cache disabled; non-loopback page HTTP requests aborted. No user profile or Windows network adapter change.',
     staticServer: { reuseRequested, owned: false, mode: 'not-started' },
@@ -85,7 +85,7 @@ export async function runEarBrowserChecks(allChecks) {
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
     await page.goto(url);
     if (url === fixtureUrl) await page.waitForFunction(() => window.p7ear?.ready);
-    else await page.waitForSelector('#history-mount', { state: 'attached' });
+    else await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert && document.querySelector('[data-lesson-screen="home"] .ls-plan, [data-lesson-screen="home"] .ls-hero'), undefined, { timeout: 20000 });
     return { context, page };
   }
   async function withNativeBrowser(run) {
@@ -98,7 +98,7 @@ export async function runEarBrowserChecks(allChecks) {
       const page = nativeEdge.page; page.setDefaultTimeout(6000);
       page.on('pageerror', error => report.pageErrors.push(error.message));
       await page.goto(origin);
-      await page.waitForFunction(() => document.querySelector('#history-mount'), undefined, { polling: 100 });
+      await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert && document.querySelector('[data-lesson-screen="home"] .ls-plan, [data-lesson-screen="home"] .ls-hero'), undefined, { polling: 100, timeout: 20000 });
       await page.bringToFront();
       try { return await run({ page, context }); }
       catch (error) {

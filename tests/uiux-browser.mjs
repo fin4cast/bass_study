@@ -5,17 +5,47 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { runNotationBrowserChecks } from './helpers/notation-browser-harness.mjs';
 import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
+// UI/UX собранного приложения в оболочке P13: «Занятие · Гриф · Ритм · Песни · Прогресс», «Настройки» внизу.
+// Панелей «Мои занятия», «Введение» и маршрута больше нет: копия и восстановление — «Настройки → Данные»,
+// черновики, ручные отметки и удаление записей — «Прогресс». Данные читаются только readonly-транзакцией IndexedDB.
 const checks = [];
 const check = (name, run) => checks.push({ name, scope: 'ui', run });
-async function ready(page, free = true) {
+async function ready(page) {
   await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert);
-  if (free && await page.locator('[data-intro="free"]').isVisible()) await page.locator('[data-intro="free"]').click();
 }
-async function module(page, name) { await page.locator(`[data-app-module="${name}"]`).click(); }
-async function history(page) { const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click(); await page.getByLabel('Название пресета', { exact: true }).waitFor(); }
+async function module(page, name) {
+  await page.locator(`.site-header [data-app-module="${name}"]`).click();
+  await page.waitForFunction(name => !document.querySelector(`[data-page-frame="${name}"]`)?.hidden, name);
+}
+async function settingsSection(page, section) {
+  await module(page, 'settings');
+  await page.locator(`[data-page-frame="settings"] [data-section="${section}"]`).click();
+  await page.locator(`[data-page-frame="settings"] [data-pane="${section}"]`).waitFor();
+}
+/** «Настройки → Данные → Скачать копию (JSON)»: настоящий файл скачивания. */
 async function exportUi(page) {
-  await history(page); const pending = page.waitForEvent('download'); await page.locator('[data-history-action="export"]').click();
+  await settingsSection(page, 'data');
+  await page.locator('[data-page-frame="settings"] [data-dialog-open="download"]').click();
+  const pending = page.waitForEvent('download'); await page.locator('[data-dialog] [data-dlg="export"]').click();
   return JSON.parse(await readFile(await (await pending).path(), 'utf8'));
+}
+async function chooseFile(page, name, text) {
+  const choosing = page.waitForEvent('filechooser'); await page.locator('[data-dialog] [data-dlg="choose"]').click();
+  await (await choosing).setFiles({ name, mimeType: 'application/json', buffer: Buffer.from(text) });
+}
+/** «Настройки → Данные → Восстановить из копии…»: предпросмотр, подтверждение, замена одной операцией. */
+async function restoreUi(page, copy) {
+  await settingsSection(page, 'data');
+  await page.locator('[data-page-frame="settings"] [data-dialog-open="restore"]').click();
+  await chooseFile(page, 'uiux-copy.json', JSON.stringify(copy));
+  await page.locator('[data-dialog] [data-dlg-confirm]').waitFor();
+  assert.ok(await page.locator('[data-dialog] [data-dlg="replace"]').isDisabled());
+  await page.locator('[data-dialog] [data-dlg-confirm]').check(); await page.locator('[data-dialog] [data-dlg="replace"]').click();
+  // Восстановление применяет раздел из копии: если он не «Настройки», диалог закрывается вместе с разделом.
+  await page.waitForFunction(() => { const dialog = document.querySelector('[data-page-frame="settings"] [data-dialog]'); return !dialog.open || /Данные восстановлены/.test(dialog.textContent); });
+  const done = page.locator('[data-dialog] [data-dlg="close"]', { hasText: 'Готово' });
+  if (await done.isVisible()) await done.click();
+  await ready(page);
 }
 async function raw(page, store, key = null) {
   return page.evaluate(({ store, key }) => new Promise((resolve, reject) => {
@@ -35,20 +65,12 @@ async function waitRaw(page, store, predicate, timeout = 7000) {
   do { value = await raw(page, store); if (predicate(value)) return value; await delay(50); } while (Date.now() - started < timeout);
   assert.fail(`Native ${store} did not reach the expected state: ${JSON.stringify(value)}`);
 }
+/** Переключатель темы внизу меню оболочки. */
 async function theme(page, choice) {
   await page.getByRole('group', { name: 'Тема оформления', exact: true }).locator(`[data-theme-choice="${choice}"]`).click();
   await page.waitForFunction(value => document.documentElement.dataset.themePreference === value, choice);
   // Wait for the existing border/background transition before reading colours.
   await delay(170);
-}
-async function restoreUi(page, copy, free = true) {
-  await history(page);
-  await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name: 'theme-profile.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(copy)) });
-  await page.getByTestId('backup-preview').waitFor();
-  assert.ok(await page.locator('[data-history-action="confirm-restore"]').isDisabled());
-  await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check();
-  await page.locator('[data-history-action="confirm-restore"]').click();
-  await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); await ready(page, free);
 }
 async function studySettings(page) {
   if (!await page.locator('#study-settings').isVisible()) await page.locator('#toggle-study-settings').click();
@@ -65,10 +87,24 @@ async function assertFourStringsPerPart(page) {
   assert.ok(parts.length > 0, 'The selected display range must contain a board part');
   for (const part of parts) { assert.deepEqual(part.names, ['G', 'D', 'A', 'E']); assert.equal(part.strings, 4); }
 }
-async function sequence(page) {
-  await module(page, 'foundation'); await page.locator('[data-training-mode="sequence"]').click();
-  await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite');
-  await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck();
+
+/* ---------- Экран игры «Занятия» ---------- */
+const playScene = page => page.locator('[data-lesson-screen="play"] .pl-scene');
+const playStatus = page => playScene(page).getAttribute('data-status');
+async function openPlay(page, title = 'Хроматика 1-2-3-4 в позиции') {
+  await module(page, 'lesson');
+  const home = page.locator('[data-lesson-screen="home"]');
+  await home.getByRole('tab', { name: /^Сегодня/ }).click();
+  await home.locator('.ls-plan').getByRole('button', { name: `Играть: ${title}`, exact: true }).click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+}
+async function startPlaying(page) {
+  await playScene(page).locator('[data-play]').click();
+  await page.waitForFunction(() => document.querySelector('[data-lesson-screen="play"] .pl-scene')?.dataset.status === 'playing', null, { timeout: 20000 });
+}
+async function stopPlaying(page) {
+  await playScene(page).locator('[data-title]').focus(); await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.querySelector('[data-lesson-screen="play"] .pl-scene')?.dataset.status === 'stopped');
 }
 
 /** Source RGBs come from computed styles and are composited over actual ancestors. */
@@ -80,9 +116,11 @@ async function contrast(page, label) {
     const ratio = (front, back) => { const first = luminance(front), second = luminance(back); return (Math.max(first, second) + .05) / (Math.min(first, second) + .05); };
     const background = element => { const chain = []; for (let current = element; current; current = current.parentElement) chain.unshift(current); let result = rgb(getComputedStyle(document.documentElement).backgroundColor); for (const ancestor of chain) result = blend(rgb(getComputedStyle(ancestor).backgroundColor), result); return result; };
     const result = [];
-    for (const element of document.querySelectorAll('main p, main span, main label, main summary, main button, main input:not([type=checkbox]):not([type=range]):not([type=file]), main select, main textarea, main h2, main h3, main h4, header button, header select')) {
+    for (const element of document.querySelectorAll('main p, main span, main label, main summary, main button, main input:not([type=checkbox]):not([type=range]):not([type=file]), main select, main textarea, main h1, main h2, main h3, main h4, header button, header select')) {
       const style = getComputedStyle(element);
       if (!element.getClientRects().length || element.closest('[hidden],[aria-hidden="true"],:disabled,.sr-only') || style.visibility !== 'visible') continue;
+      // Текст только для экранного диалога (обрезан до 1×1 px) не виден и в выборку контраста не входит.
+      const box = element.getBoundingClientRect(); if (box.width <= 1 && box.height <= 1) continue;
       if (!['INPUT', 'SELECT', 'TEXTAREA'].includes(element.tagName) && ![...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim())) continue;
       const text = element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement ? element.value || element.placeholder : element.textContent.trim();
       if (!text) continue;
@@ -93,27 +131,24 @@ async function contrast(page, label) {
       result.push({ kind: 'text', text: text.slice(0, 90), selector: element.id || element.className || element.tagName, colour: paint.color, background: bg, ratio: ratio(blend(fg, bg), bg), threshold: 4.5 });
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(element.tagName) && Number.parseFloat(style.borderTopWidth) > 0) result.push({ kind: 'control-boundary', text: element.getAttribute('aria-label') || text.slice(0, 70), colour: style.borderTopColor, background: bg, ratio: ratio(rgb(style.borderTopColor), bg), threshold: 3 });
     }
-    const selected = document.querySelector('[data-app-module][aria-current="page"]');
-    if (selected) { const style = getComputedStyle(selected), bg = background(selected); result.push({ kind: 'selected-boundary', text: selected.textContent, colour: style.borderTopColor, background: bg, ratio: ratio(rgb(style.borderTopColor), bg), threshold: 3 }); }
     return result;
   });
   assert.ok(rows.length > 12, `${label}: too few actual visible text samples`);
   const failures = rows.filter(row => row.ratio + .01 < row.threshold);
   assert.deepEqual(failures, [], `${label}: computed contrast failures ${JSON.stringify(failures)}`);
-  return { label, samples: rows.length, minimumTextRatio: Math.min(...rows.filter(row => row.kind === 'text').map(row => row.ratio)), nonText: rows.filter(row => row.kind !== 'text') };
+  return { label, samples: rows.length, minimumTextRatio: Math.min(...rows.filter(row => row.kind === 'text').map(row => row.ratio)), nonText: rows.filter(row => row.kind !== 'text').length };
 }
 
-check('themes-preserve-running-sequence-focus-and-authoritative-profile', async ({ page }) => {
-  await ready(page); await sequence(page);
+check('themes-preserve-running-play-focus-and-authoritative-profile', async ({ page }) => {
+  await ready(page); await openPlay(page);
   const chooser = page.getByRole('group', { name: 'Тема оформления', exact: true });
   assert.deepEqual(await chooser.locator('button').evaluateAll(buttons => buttons.map(button => button.dataset.themeChoice)), ['light', 'dark']);
-  await page.locator('[data-player-action="start"]').click();
-  await page.waitForFunction(() => document.querySelector('#player-mount').dataset.playerState === 'running');
+  await startPlaying(page);
   const contexts = await page.evaluate(() => window.__notationAudioContexts.length);
   const evidence = [];
   for (const choice of ['dark', 'light']) {
     const button = chooser.locator(`[data-theme-choice="${choice}"]`); await button.focus(); await theme(page, choice);
-    assert.equal(await page.locator('#player-mount').getAttribute('data-player-state'), 'running');
+    assert.equal(await playStatus(page), 'playing', 'Смена темы не прерывает игру');
     assert.equal(await page.evaluate(() => window.__notationAudioContexts.length), contexts);
     assert.equal(await page.evaluate(() => document.activeElement?.dataset.themeChoice), choice);
     assert.equal(await button.getAttribute('aria-pressed'), 'true');
@@ -121,13 +156,14 @@ check('themes-preserve-running-sequence-focus-and-authoritative-profile', async 
     evidence.push({ choice, resolved: await page.locator('html').getAttribute('data-theme') });
   }
   for (const colorScheme of ['dark', 'light']) { await page.emulateMedia({ colorScheme }); assert.equal(await page.locator('html').getAttribute('data-theme'), 'light', 'An explicit light preference must ignore system colour-scheme changes'); }
-  await page.locator('[data-player-action="stop"]').click(); await theme(page, 'dark');
+  await stopPlaying(page); await theme(page, 'dark');
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('bass-study-theme-v1') || 'null')?.preference === 'dark');
   assert.equal((await raw(page, 'profile', 'current')).theme, 'dark');
-  const before = await exportUi(page); await theme(page, 'light');
+  const before = await exportUi(page); assert.equal(before.profile.theme, 'dark');
+  await theme(page, 'light');
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
   await page.reload(); await ready(page); assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
-  return { evidence, audioContextsUnchanged: contexts, existingHistoryPreserved: before.history.length };
+  return { evidence, audioContextsUnchanged: contexts, exportedTheme: before.profile.theme };
 });
 
 check('imported-system-profile-survives-binary-chooser-and-corrupt-first-frame-cache', async ({ page, context }) => {
@@ -153,78 +189,11 @@ check('imported-system-profile-survives-binary-chooser-and-corrupt-first-frame-c
   assert.equal((await raw(page, 'profile', 'current')).theme, 'system', 'Resolving the imported profile must not rewrite it');
   await theme(page, 'dark'); await waitRaw(page, 'profile', profiles => profiles.some(profile => profile.theme === 'dark'));
   assert.equal((await raw(page, 'profile', 'current')).theme, 'dark');
-  return { first, legacySystemImportedThroughRealBackup: true, systemPreservedUntilExplicitChoice: true, binaryChoices: ['light', 'dark'], method: 'Real JSON preview/confirmation and native readonly IndexedDB; real first requestAnimationFrame after reload, browser colour-scheme media emulation, not an OS setting change.' };
+  return { first, legacySystemImportedThroughRealBackup: true, systemPreservedUntilExplicitChoice: true, binaryChoices: ['light', 'dark'], method: 'Real JSON preview/confirmation in «Настройки → Данные» and native readonly IndexedDB; real first requestAnimationFrame after reload, browser colour-scheme media emulation, not an OS setting change.' };
 });
 
-check('guided-four-steps-do-not-create-graded-history-and-choice-survives-reload', async ({ page }) => {
-  await ready(page, false);
-  assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
-  await page.locator('#open-introduction').click();
-  assert.ok(await page.locator('[data-intro="guided"]').isVisible());
-  await page.locator('[data-intro="guided"]').click();
-  assert.match(await page.locator('#onboarding-mount').innerText(), /Введение: 1 из 4/);
-  await page.locator('[data-intro="next"]').click(); assert.match(await page.locator('#onboarding-mount').innerText(), /E\/8.*A\/7.*A\/10.*D\/10/);
-  await page.locator('[data-intro="next"]').click();
-  for (const position of ['E:8', 'A:7', 'A:10']) await page.locator(`[data-intro-position="${position}"]`).click();
-  assert.match(await page.locator('[data-intro-found]').innerText(), /3 из 3/);
-  await page.locator('[data-intro="next"]').click();
-  for (const degree of ['1', '3', '5']) { await page.locator(`[data-intro-example="${degree}"]`).click(); await delay(100); }
-  await page.locator('[data-intro="next"]').click();
-  assert.ok(await page.locator('#onboarding-mount').isHidden());
-  const copy = await exportUi(page); assert.equal(copy.history.length, 0); assert.deepEqual(copy.profile.onboarding, { version: 1, choice: 'guided', completed: true });
-  await page.reload(); await ready(page, false); assert.ok(await page.locator('#onboarding-mount').isHidden());
-  await page.getByRole('button', { name: 'Введение', exact: true }).click(); assert.ok(await page.locator('[data-intro="guided"]').isVisible());
-  return { gradedHistoryEntries: 0, fourStepsCompleted: true, onboarding: copy.profile.onboarding, reopeningAvailable: true };
-});
-
-check('free-practice-choice-does-not-reopen-start-question-after-reload-or-restore', async ({ page, context, origin }) => {
-  // Do not use ready()'s automatic free-choice helper: it would hide the regression.
-  await ready(page, false);
-  assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
-  // A fresh database has no profile record until the first explicit choice; reading uses the default.
-  assert.equal((await raw(page, 'profile', 'current'))?.onboarding.choice ?? null, null, 'A quiet startup must not manufacture an onboarding choice');
-  await page.locator('#open-introduction').click();
-  assert.equal(await page.locator('[data-intro="free"]').isVisible(), true);
-  await page.locator('[data-intro="free"]').click();
-  await waitRaw(page, 'profile', profiles => profiles.some(profile => profile.onboarding.choice === 'free'));
-  assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
-  const choice = { version: 1, choice: 'free', completed: false };
-  const copy = await exportUi(page);
-  assert.deepEqual(copy.profile.onboarding, choice);
-
-  await theme(page, 'dark');
-  await theme(page, 'light');
-  await page.reload();
-  await ready(page, false);
-  assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
-  assert.deepEqual((await raw(page, 'profile', 'current')).onboarding, choice);
-
-  await restoreUi(page, copy, false);
-  assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
-  await page.reload();
-  await ready(page, false);
-  assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
-  assert.deepEqual((await raw(page, 'profile', 'current')).onboarding, choice);
-
-  // A replacement page uses the same native profile, without the former writer.
-  await page.close();
-  const reopened = await context.newPage();
-  const reopenedErrors = [];
-  reopened.on('pageerror', error => reopenedErrors.push(error.message));
-  await reopened.goto(origin);
-  await ready(reopened, false);
-  assert.equal(await reopened.locator('#onboarding-mount').isVisible(), false);
-  assert.deepEqual((await raw(reopened, 'profile', 'current')).onboarding, choice);
-  await reopened.locator('#open-introduction').click();
-  assert.equal(await reopened.locator('[data-intro="guided"]').isVisible(), true);
-  await reopened.locator('[data-intro="free"]').click();
-  assert.equal(await reopened.locator('#onboarding-mount').isVisible(), false);
-  assert.deepEqual(reopenedErrors, []);
-  return { onboarding: choice, quietFirstStartWithoutProfileRewrite: true, nativeProfileRead: true, reloads: 2, backupRestore: true, replacementPage: true, reopeningOnlyByExplicitAction: true, reopenedErrors };
-});
-
-check('default-box-and-quiz-use-exact-positions-interval-explicitly-uses-chromatic-area', async ({ page, resultDir }) => {
-  await ready(page);
+check('default-box-exact-positions-feed-check-material-and-compact-forms-keep-four-strings', async ({ page, resultDir }) => {
+  await ready(page); await module(page, 'foundation');
   const displayRange = async () => {
     await area(page);
     return [await page.getByLabel('Первый лад', { exact: true }).inputValue(), await page.getByLabel('Последний лад', { exact: true }).inputValue()];
@@ -232,20 +201,23 @@ check('default-box-and-quiz-use-exact-positions-interval-explicitly-uses-chromat
   assert.deepEqual(await displayRange(), ['0', '12']);
   const expected = ['A:5', 'A:7', 'D:5', 'D:7', 'E:5', 'E:8', 'G:5', 'G:7'];
   assert.deepEqual(await page.locator('#fretboard-container .in-box').evaluateAll(nodes => nodes.map(node => node.dataset.position).sort()), expected);
-  await page.locator('[data-training-mode="quiz"]').click(); await page.getByLabel('Тип задания', { exact: true }).selectOption('find-note');
-  await page.locator('[data-training-action="start"]').click();
-  assert.deepEqual(await page.locator('[data-answer-position]').evaluateAll(nodes => nodes.map(node => node.dataset.answerPosition).sort()), expected);
-  await page.locator('[data-training-action="hint"]').click();
-  let copy = await exportUi(page); const form = copy.history.find(entry => entry.result.kind === 'screen');
-  assert.equal(form.result.context.box.shapeId, 'penta-a'); assert.deepEqual([...form.result.context.positionIds].sort(), expected);
-  await page.getByLabel('Тип задания', { exact: true }).selectOption('find-interval');
-  await page.locator('[data-training-action="start"]').click();
-  assert.equal(await page.locator('[data-answer-position]').count(), 16);
-  assert.match(await page.locator('.training-content').innerText(), /все хроматические позиции.*подсветка бокса временно отключены/);
-  await page.locator('[data-training-action="hint"]').click(); copy = await exportUi(page);
-  const interval = copy.history.find(entry => entry.result.kind === 'screen' && entry.result.mode === 'find-interval');
-  assert.equal(interval.result.context.box ?? null, null); assert.equal(interval.result.context.scope, 'chromatic'); assert.equal(interval.result.context.positionIds.length, 16);
-  await page.locator('[data-training-mode="study"]').click(); await page.getByLabel('Структура', { exact: true }).selectOption('major-pentatonic');
+  // «Проверь себя по этой форме»: материал вопроса — те же точные позиции формы (контуры над ячейками грифа).
+  await page.locator('#atlas-check').click();
+  const host = page.locator('[data-lesson-screen="check"]');
+  await host.locator('[data-ck-title]').waitFor();
+  const material = await host.evaluate(element => {
+    const cells = [...element.querySelectorAll('[data-cell]')].map(cell => ({ id: cell.dataset.cell, rect: cell.getBoundingClientRect() }));
+    return [...element.querySelectorAll('.ck-wrap svg .mb-ghost')].map(ghost => {
+      const box = ghost.getBoundingClientRect(); const x = box.x + box.width / 2, y = box.y + box.height / 2;
+      return cells.filter(({ rect }) => x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom).map(cell => cell.id);
+    });
+  });
+  assert.ok(material.every(ids => ids.length === 1), JSON.stringify(material));
+  assert.deepEqual(material.map(([id]) => id).sort(), expected, 'Материал проверки — точные позиции формы атласа');
+  await host.locator('[data-act="back"]').click();
+  await page.waitForFunction(() => !document.querySelector('[data-page-frame="foundation"]').hidden);
+  await studySettings(page);
+  await page.getByLabel('Структура', { exact: true }).selectOption('major-pentatonic');
   assert.match(await page.locator('#box-select option:checked').innerText(), /^Форма B/);
   await page.getByLabel('Тоника', { exact: true }).selectOption('C'); await page.getByLabel('Структура', { exact: true }).selectOption('major-triad');
   const compact = [];
@@ -255,12 +227,11 @@ check('default-box-and-quiz-use-exact-positions-interval-explicitly-uses-chromat
     assert.deepEqual(await displayRange(), ['0', '12'], 'Material and form selection must preserve the independent display window');
     await assertFourStringsPerPart(page);
     assert.equal(await page.locator(`#fretboard-container [data-position^="${emptyString}:"]`).count(), 0);
-    assert.equal(await page.locator('#fretboard-container .string-caption').count(), 0);
     compact.push({ rootString: string, rootFret: fret, emptyString, visibleStringNames: ['G', 'D', 'A', 'E'] });
   }
   await display(page); await page.locator('#show-fingers').check();
   assert.equal(await page.locator('.finger-label').count(), 4);
-  const fingers = await exportUi(page); assert.equal(fingers.preferences.study.showFingers, true);
+  await waitRaw(page, 'preferences', values => values.some(value => value.study?.showFingers === true));
   await page.reload(); await ready(page); await display(page);
   assert.ok(await page.locator('#show-fingers').isChecked());
   assert.equal(await page.locator('.finger-label').count(), 4);
@@ -273,72 +244,91 @@ check('default-box-and-quiz-use-exact-positions-interval-explicitly-uses-chromat
     await theme(page, choice);
     await assertFourStringsPerPart(page);
     assert.equal(await page.locator('#fretboard-container [data-position^="G:"]').count(), 0);
-    assert.equal(await page.locator('#fretboard-container .string-caption').count(), 0);
     await page.screenshot({ path: join(resultDir, `p8-user-four-strings-${choice}.png`), fullPage: true });
   }
-  return { defaultExactIds: expected, chromaticIntervalArea: 16, majorPentatonicStartsWithB: true, compact, fingerPreferenceSurvivesReload: true, userExample: { root: 'G', structure: 'major', option: 'Тоника G · лад 3 · E', strings: ['G', 'D', 'A', 'E'], emptyString: 'G', screenshots: ['p8-user-four-strings-light.png', 'p8-user-four-strings-dark.png'] } };
+  return { defaultExactIds: expected, checkMaterial: expected, majorPentatonicStartsWithB: true, compact, fingerPreferenceSurvivesReload: true, userExample: { root: 'G', structure: 'major', option: 'Тоника G · лад 3 · E', strings: ['G', 'D', 'A', 'E'], emptyString: 'G', screenshots: ['p8-user-four-strings-light.png', 'p8-user-four-strings-dark.png'] } };
 });
 
-check('draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deletion', async ({ page }) => {
+async function rhythmDraft(page) {
+  await module(page, 'harmony');
+  await page.locator('[data-rhythm-action="start"]:visible').click();
+  // Черновик создаётся только после накопленного времени практики: ждём вторую проигранную долю, а не фиксированное время.
+  await page.waitForFunction(() => { const view = document.querySelector('.rhythm-view'); return view?.dataset.rhythmPhase === 'practice' && (Number(view.dataset.rhythmBar) > 1 || Number(view.dataset.rhythmBeat) >= 2); });
+  await page.locator('[data-rhythm-action="pause"]:visible').click();
+  await module(page, 'progress');
+  await page.locator('[data-page-frame="progress"] [data-tab="exercises"]').click();
+  const card = page.locator('[data-page-frame="progress"] [data-drafts] [data-draft]').first();
+  await card.waitFor();
+  return card;
+}
+
+check('progress-draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deletion', async ({ page }) => {
   await ready(page); await module(page, 'harmony');
   await page.locator('[data-rhythm-setting="bpm"]:visible').fill('80'); await page.locator('[data-rhythm-setting="bpm"]:visible').press('Tab');
-  await page.locator('[data-rhythm-action="start"]').click();
-  // Черновик создаётся только после накопленного времени практики: ждём вторую проигранную долю, а не фиксированное время.
-  await page.waitForFunction(() => { const view = document.querySelector('.rhythm-view'); return view?.dataset.rhythmPhase === 'practice' && (Number(view.dataset.rhythmBar) > 1 || Number(view.dataset.rhythmBeat) >= 2); });
-  await page.locator('[data-rhythm-action="pause"]').click(); await history(page);
-  const note = page.getByLabel('Заметка к практике', { exact: true });
-  await note.fill('Сохранить эту заметку после reload'); await page.getByLabel('Комфортный темп', { exact: true }).fill('');
+  let card = await rhythmDraft(page);
+  const note = card.locator('[data-draft-field="note"]'), bpm = card.locator('[data-draft-field="bpm"]');
+  await note.fill('Сохранить эту заметку после reload'); await bpm.fill('');
+  assert.equal(await bpm.getAttribute('aria-invalid'), 'true');
   await note.fill('Сохранить эту заметку после reload, даже при пустом BPM');
   const drafts = await waitRaw(page, 'practiceDrafts', values => values.some(draft => draft.note.endsWith('пустом BPM')));
-  assert.equal(drafts.find(draft => draft.note.endsWith('пустом BPM')).comfortableBpm, 80);
-  await page.reload(); await ready(page); await history(page);
-  const picker = page.getByLabel('Черновики ручной практики', { exact: true });
-  await picker.selectOption(await picker.locator('option').last().getAttribute('value'));
-  assert.equal(await note.inputValue(), 'Сохранить эту заметку после reload, даже при пустом BPM');
-  await page.getByLabel('Комфортный темп', { exact: true }).fill('90');
-  await page.locator('[data-history-action="save-manual"]').dblclick({ delay: 10 });
+  assert.equal(drafts.find(draft => draft.note.endsWith('пустом BPM')).comfortableBpm, 80, 'Пустой темп не затирает сохранённый');
+  // Сохранение с пустым темпом не пишет запись: ошибка у поля темпа, фокус на нём.
+  await card.locator('[data-draft-save]').click();
+  await page.waitForFunction(() => document.activeElement?.dataset.draftField === 'bpm');
+  assert.match(await card.locator('[data-draft-error]').innerText(), /Укажи темп/);
+  assert.equal((await raw(page, 'history')).length, 0);
+  await page.reload(); await ready(page); await module(page, 'progress');
+  card = page.locator('[data-page-frame="progress"] [data-drafts] [data-draft]').first();
+  assert.equal(await card.locator('[data-draft-field="note"]').inputValue(), 'Сохранить эту заметку после reload, даже при пустом BPM');
+  await card.locator('[data-draft-field="bpm"]').fill('90');
+  await card.locator('[data-draft-save]').dblclick({ delay: 10 });
   const entries = await waitRaw(page, 'history', values => values.some(entry => entry.result.kind === 'manual'));
-  assert.equal(entries.filter(entry => entry.result.kind === 'manual').length, 1);
-  assert.equal(entries[0].result.material.kind, 'rhythm'); assert.equal(entries[0].result.comfortableBpm, 90);
-  assert.match(await page.locator('[data-history-kind="manual"]').innerText(), /Метроном/);
-  await page.locator('[data-delete-history]').first().click();
+  await delay(300);
+  const manual = (await raw(page, 'history')).filter(entry => entry.result.kind === 'manual');
+  assert.equal(manual.length, 1, 'Двойное нажатие сохраняет одну отметку');
+  assert.equal(manual[0].result.material.kind, 'rhythm'); assert.equal(manual[0].result.comfortableBpm, 90);
+  const frame = page.locator('[data-page-frame="progress"]');
+  await frame.locator('[data-tab="calendar"]').click(); await frame.locator('[data-source="all"]').click();
+  const entry = frame.locator('[data-day-card] .pg-entry.is-manual');
+  assert.match(await entry.innerText(), /Ручная отметка · Ритм/);
+  await entry.locator('[data-delete]').click();
   await page.getByRole('dialog').getByRole('button', { name: 'Отмена', exact: true }).click(); assert.equal((await raw(page, 'history')).length, 1);
-  await page.locator('[data-delete-history]').first().click(); await page.getByRole('dialog').getByRole('button', { name: 'Удалить', exact: true }).click();
+  await frame.locator('[data-day-card] .pg-entry.is-manual [data-delete]').click(); await page.getByRole('dialog').getByRole('button', { name: 'Удалить запись', exact: true }).click();
   await waitRaw(page, 'history', values => values.length === 0);
-  await page.locator('.history-drawer > summary').click(); await module(page, 'harmony');
-  await page.locator('[data-rhythm-action="start"]').click();
-  // Черновик создаётся только после накопленного времени практики: ждём вторую проигранную долю, а не фиксированное время.
-  await page.waitForFunction(() => { const view = document.querySelector('.rhythm-view'); return view?.dataset.rhythmPhase === 'practice' && (Number(view.dataset.rhythmBar) > 1 || Number(view.dataset.rhythmBeat) >= 2); });
-  await page.locator('[data-rhythm-action="pause"]').click(); await history(page);
-  await note.fill('Удалить только этот черновик'); await waitRaw(page, 'practiceDrafts', values => values.some(draft => draft.note === 'Удалить только этот черновик'));
-  const drawer = page.locator('.history-drawer'); await drawer.locator(':scope > summary').click(); await history(page);
-  await page.locator('[data-history-action="delete-draft"]').click(); await page.getByRole('dialog').getByRole('button', { name: 'Удалить черновик', exact: true }).click();
+  card = await rhythmDraft(page);
+  await card.locator('[data-draft-field="note"]').fill('Удалить только этот черновик');
+  await waitRaw(page, 'practiceDrafts', values => values.some(draft => draft.note === 'Удалить только этот черновик'));
+  await card.locator('[data-draft-delete]').click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Отмена', exact: true }).click();
+  assert.equal((await raw(page, 'practiceDrafts')).length, 1);
+  await card.locator('[data-draft-delete]').click(); await page.getByRole('dialog').getByRole('button', { name: 'Удалить черновик', exact: true }).click();
   await waitRaw(page, 'practiceDrafts', values => values.length === 0);
-  return { invalidBpmDidNotBlockNote: true, restoredNote: true, oneManualEntry: true, materialPreserved: 'rhythm', deletionRequiredConfirmation: true };
+  return { invalidBpmDidNotBlockNote: true, invalidBpmSaveFocusedField: true, restoredNote: true, oneManualEntry: true, materialPreserved: 'rhythm', deletionRequiredConfirmation: true, entries: entries.length };
 });
 
-check('six-modules-errors-and-empty-states-have-computed-light-and-dark-contrast', async ({ page, context, origin }) => {
+check('sections-errors-and-empty-states-have-computed-light-and-dark-contrast', async ({ page, context, origin }) => {
   await ready(page); const evidence = [];
   for (const choice of ['light', 'dark']) {
     await theme(page, choice);
-    await module(page, 'foundation'); await page.locator('[data-training-mode="study"]').click(); evidence.push(await contrast(page, `${choice}:fretboard`));
-    await page.locator('[data-training-mode="quiz"]').click();
-    const quizDetails = page.locator('details:has([data-quiz-setting="count"])'); if (await quizDetails.count() && !await quizDetails.evaluate(element => element.open)) await quizDetails.locator(':scope > summary').click();
-    await page.getByLabel('Количество вопросов', { exact: true }).fill('0'); await page.locator('[data-training-action="start"]').click(); evidence.push(await contrast(page, `${choice}:quiz-error`)); await page.getByLabel('Количество вопросов', { exact: true }).fill('10'); await page.getByLabel('Количество вопросов', { exact: true }).press('Tab');
-    await module(page, 'ear'); await page.getByLabel('Слуховых вопросов', { exact: true }).fill('21'); await page.locator('[data-ear-action="start"]').click(); evidence.push(await contrast(page, `${choice}:ear-error`)); await page.getByLabel('Слуховых вопросов', { exact: true }).fill('10'); await page.getByLabel('Слуховых вопросов', { exact: true }).press('Tab');
-    await module(page, 'route'); evidence.push(await contrast(page, `${choice}:route-ready`));
-    await module(page, 'harmony'); await page.locator('[data-rhythm-setting="bpm"]:visible').fill('300'); await page.locator('[data-rhythm-setting="bpm"]:visible').press('Tab'); await page.locator('[data-rhythm-output="error"]').waitFor(); evidence.push(await contrast(page, `${choice}:rhythm-error`)); await page.locator('[data-rhythm-setting="bpm"]:visible').fill('80'); await page.locator('[data-rhythm-setting="bpm"]:visible').press('Tab');
+    await module(page, 'lesson'); evidence.push(await contrast(page, `${choice}:lesson-today`));
+    await module(page, 'foundation'); evidence.push(await contrast(page, `${choice}:fretboard-atlas`));
+    await page.locator('#atlas-check').click(); await page.locator('[data-lesson-screen="check"] [data-ck-title]').waitFor();
+    evidence.push(await contrast(page, `${choice}:check-question`));
+    await page.locator('[data-lesson-screen="check"] [data-act="back"]').click();
+    await module(page, 'harmony'); await page.locator('[data-rhythm-setting="bpm"]:visible').fill('300'); await page.locator('[data-rhythm-setting="bpm"]:visible').press('Tab'); await page.locator('[data-rhythm-output="error"]:visible').waitFor(); evidence.push(await contrast(page, `${choice}:rhythm-error`)); await page.locator('[data-rhythm-setting="bpm"]:visible').fill('80'); await page.locator('[data-rhythm-setting="bpm"]:visible').press('Tab');
     await module(page, 'tracks'); evidence.push(await contrast(page, `${choice}:tracks-empty`));
-    await module(page, 'input'); evidence.push(await contrast(page, `${choice}:input-disconnected`));
+    await module(page, 'progress'); evidence.push(await contrast(page, `${choice}:progress-empty`));
+    await settingsSection(page, 'data'); evidence.push(await contrast(page, `${choice}:settings-data`));
+    await settingsSection(page, 'input'); evidence.push(await contrast(page, `${choice}:input-disconnected`));
     const cdp = await context.newCDPSession(page), { targetInfo } = await cdp.send('Target.getTargetInfo');
     await cdp.send('Browser.setPermission', { permission: { name: 'microphone' }, setting: 'denied', origin, browserContextId: targetInfo.browserContextId });
     await page.locator('[data-input-action="connect"]').click(); await page.getByTestId('input-error').waitFor(); evidence.push(await contrast(page, `${choice}:input-denied`)); await cdp.detach();
   }
-  return { evidence, method: 'Computed RGB and actual ancestor backgrounds with alpha/opacity composition; sampled visible text >=4.5:1 and selected-module boundary >=3:1. Native permission denied before capture. Not a full WCAG certification.' };
+  return { evidence, method: 'Computed RGB and actual ancestor backgrounds with alpha/opacity composition; sampled visible text >=4.5:1 and control boundaries >=3:1. Native permission denied before capture. Not a full WCAG certification.' };
 });
 
-check('meaningful-SVG-labels-fingers-focus-notation-and-TAB-masks-have-actual-contrast', async ({ page }) => {
-  await ready(page); await studySettings(page); await page.getByLabel('Тоника', { exact: true }).selectOption('C'); await page.getByLabel('Структура', { exact: true }).selectOption('major');
+check('meaningful-SVG-labels-fingers-focus-and-play-TAB-have-actual-contrast', async ({ page }) => {
+  await ready(page); await module(page, 'foundation'); await studySettings(page); await page.getByLabel('Тоника', { exact: true }).selectOption('C'); await page.getByLabel('Структура', { exact: true }).selectOption('major');
   const compactE8 = await page.locator('#box-select option').evaluateAll(options => options.find(option => option.textContent.trim() === 'Тоника C · лад 8 · E')?.value);
   assert.notEqual(compactE8, undefined); await page.locator('#box-select').selectOption(compactE8);
   await display(page); await page.locator('#show-fingers').check();
@@ -377,93 +367,86 @@ check('meaningful-SVG-labels-fingers-focus-notation-and-TAB-masks-have-actual-co
       evidence.push({ choice, mode, boardSamples: rows.length, minimumRatio: Math.min(...rows.map(row => row.ratio)), outsideLabels: rows.filter(row => row.kind === 'outside-label') });
     }
   }
-  await sequence(page); await page.locator('[data-sequence-view="notation"]').click(); await page.locator('.notation-svg').waitFor();
-  await page.getByLabel('Первая нота фрагмента', { exact: true }).fill('2'); await page.getByLabel('Первая нота фрагмента', { exact: true }).press('Tab');
-  await page.getByLabel('Последняя нота фрагмента', { exact: true }).fill('4'); await page.getByLabel('Последняя нота фрагмента', { exact: true }).press('Tab');
-  await page.locator('[data-player-action="start"]').click(); await page.waitForSelector('.notation-note.is-playing');
+  // TAB экрана игры (вид «TAB крупно»): цифры ладов на бумаге и под курсором, маски цифр, контур курсора.
+  await openPlay(page);
+  await playScene(page).locator('button[data-view="tab"]').click();
+  await startPlaying(page);
+  await page.waitForSelector('[data-lesson-screen="play"] .pl-tab-fret.is-current');
   for (const choice of ['light', 'dark']) {
     await theme(page, choice);
-    const notation = await page.evaluate(() => {
-      const rgb = value => { const a = value.match(/[\d.]+/g)?.map(Number); if (!a || a.length < 3) throw new Error(`Expected computed SVG RGB: ${value}`); return a.slice(0, 3); };
-      const lum = values => values.map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((s, v, i) => s + v * [.2126, .7152, .0722][i], 0);
+    const tab = await page.evaluate(() => {
+      const rgb = value => { const a = value.match(/[\d.]+/g)?.map(Number); if (!a || a.length < 3) throw new Error(`Expected computed RGB: ${value}`); return [a[0], a[1], a[2], a[3] ?? 1]; };
+      const blend = (front, back) => front.slice(0, 3).map((value, index) => value * front[3] + back[index] * (1 - front[3]));
+      const lum = values => values.slice(0, 3).map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((s, v, i) => s + v * [.2126, .7152, .0722][i], 0);
       const ratio = (a, b) => (Math.max(lum(a), lum(b)) + .05) / (Math.min(lum(a), lum(b)) + .05);
-      const paper = rgb(getComputedStyle(document.querySelector('.notation-scroll')).backgroundColor), cursor = document.querySelector('.notation-cursor'), cursorFill = rgb(getComputedStyle(cursor).fill), cursorStroke = rgb(getComputedStyle(cursor).stroke);
-      const glyphs = [...document.querySelectorAll('.notation-svg text')].filter(text => text.textContent.trim()).map(text => {
-        const fill = rgb(getComputedStyle(text).fill), playing = !!text.closest('.is-playing');
-        return { glyph: text.textContent, playing, fill, ratio: playing ? Math.min(ratio(fill, paper), ratio(fill, cursorFill)) : ratio(fill, paper) };
+      const svg = [...document.querySelectorAll('[data-lesson-screen="play"] .pl-tab-svg')].find(node => node.querySelector('.pl-tab-fret.is-current') && node.getClientRects().length);
+      const background = element => { const chain = []; for (let current = element; current; current = current.parentElement) chain.unshift(current); let result = rgb(getComputedStyle(document.documentElement).backgroundColor); for (const ancestor of chain) result = blend(rgb(getComputedStyle(ancestor).backgroundColor), result); return result; };
+      const paper = background(svg);
+      const cursor = svg.querySelector('.pl-tab-cursor'), cursorStyle = getComputedStyle(cursor);
+      const cursorFill = blend([...rgb(cursorStyle.fill).slice(0, 3), Number(cursorStyle.fillOpacity)], paper);
+      const glyphs = [...svg.querySelectorAll('.pl-tab-fret:not(.is-played)')].map(text => {
+        const fill = rgb(getComputedStyle(text).fill), current = text.classList.contains('is-current');
+        return { glyph: text.textContent, current, ratio: current ? Math.min(ratio(fill, paper), ratio(fill, cursorFill)) : ratio(fill, paper) };
       });
-      const masks = [...document.querySelectorAll('.notation-note[data-notation-view="tab"] rect')].map(rect => ({ fill: rgb(getComputedStyle(rect).fill), stroke: getComputedStyle(rect).stroke }));
-      return { paper, glyphs, masks, cursorRatio: Math.min(ratio(cursorStroke, paper), ratio(cursorStroke, cursorFill)), cursorOpacity: Number(getComputedStyle(cursor).opacity) };
+      const masks = [...svg.querySelectorAll('.pl-tab-gap')].map(rect => blend(rgb(getComputedStyle(rect).fill), paper).map(Math.round));
+      return { paper: paper.map(Math.round), glyphs, masks, cursorRatio: Math.min(ratio(rgb(cursorStyle.stroke), paper), ratio(rgb(cursorStyle.stroke), cursorFill)) };
     });
-    assert.ok(notation.glyphs.length >= 16); assert.ok(notation.masks.length >= 8);
-    assert.deepEqual(notation.glyphs.filter(glyph => glyph.ratio + .01 < 4.5), [], JSON.stringify({ choice, notation }));
-    for (const mask of notation.masks) { assert.deepEqual(mask.fill, notation.paper); assert.equal(mask.stroke, 'none'); }
-    assert.ok(notation.cursorRatio >= 3); assert.equal(notation.cursorOpacity, 1);
-    evidence.push({ choice, notationGlyphs: notation.glyphs.length, minimumGlyphRatio: Math.min(...notation.glyphs.map(glyph => glyph.ratio)), masks: notation.masks.length, cursorRatio: notation.cursorRatio });
+    assert.ok(tab.glyphs.length >= 4 && tab.glyphs.some(glyph => glyph.current), JSON.stringify(tab));
+    assert.deepEqual(tab.glyphs.filter(glyph => glyph.ratio + .01 < 4.5), [], JSON.stringify({ choice, tab }));
+    for (const mask of tab.masks) assert.deepEqual(mask, tab.paper, 'Маска цифры совпадает с бумагой TAB');
+    assert.ok(tab.cursorRatio >= 3, JSON.stringify({ choice, cursorRatio: tab.cursorRatio }));
+    evidence.push({ choice, tabGlyphs: tab.glyphs.length, minimumGlyphRatio: Math.min(...tab.glyphs.map(glyph => glyph.ratio)), masks: tab.masks.length, cursorRatio: tab.cursorRatio });
   }
-  await page.locator('[data-player-action="stop"]').click();
-  return { evidence, method: 'Actual computed SVG fills/strokes/gradient stops, circle/finger backgrounds and parent opacity; real running notation cursor and native VexFlow clearRect masks. No inverse filters or source-hex-only audit.' };
+  await stopPlaying(page);
+  return { evidence, method: 'Actual computed SVG fills/strokes/gradient stops, circle/finger backgrounds and parent opacity; running play-screen TAB cursor and digit masks over the real card background. No inverse filters or source-hex-only audit.' };
 });
 
-check('history-keyboard-focus-survives-four-rerender-actions-and-save-validation-error', async ({ page }) => {
-  await ready(page); await module(page, 'foundation'); await page.locator('[data-training-mode="study"]').click(); await history(page);
-  const note = page.getByLabel('Заметка к практике', { exact: true });
-  for (let index = 0; index < 11; index++) {
-    await note.fill(`Запись для проверки фокуса ${index + 1}`); await page.locator('[data-history-action="save-manual"]').click();
-    await waitRaw(page, 'history', values => values.length === index + 1);
-  }
-  await page.locator('[data-history-action="show-more"]').focus(); await page.keyboard.press('Enter');
-  assert.equal(await page.evaluate(() => document.activeElement.id), 'history-heading');
-  await page.locator('[data-history-action="refresh-draft"]').focus(); await page.keyboard.press('Enter');
-  assert.equal(await page.evaluate(() => document.activeElement.dataset.historyAction), 'refresh-draft');
-  await note.fill('Черновик прежнего материала'); await page.locator('[data-training-mode="sequence"]').click();
-  await page.locator('[data-history-action="use-current-draft"]').focus(); await page.keyboard.press('Enter');
-  assert.equal(await page.evaluate(() => document.activeElement.id), 'manual-heading');
-  const copy = await exportUi(page); await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name: 'focus-preview.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(copy)) });
-  await page.getByTestId('backup-preview').waitFor(); await page.locator('[data-history-action="cancel-restore"]').focus(); await page.keyboard.press('Enter');
-  assert.equal(await page.evaluate(() => document.activeElement.id), 'backup-heading');
-  await page.getByLabel('Название пресета', { exact: true }).fill(''); await page.locator('[data-history-action="save-preset"]').focus(); await page.keyboard.press('Enter');
-  await page.getByTestId('history-error').waitFor();
-  await page.waitForFunction(() => document.activeElement?.getAttribute('data-testid') === 'history-error');
-  assert.match(await page.getByTestId('history-error').innerText(), /название/);
-  const alertRect = await page.getByTestId('history-error').evaluate(element => { const rect = element.getBoundingClientRect(); return { top: rect.top, bottom: rect.bottom, viewport: innerHeight }; });
-  assert.ok(alertRect.top >= 0 && alertRect.bottom <= alertRect.viewport, JSON.stringify(alertRect));
-  await page.getByLabel('Комфортный темп', { exact: true }).fill(''); await page.locator('[data-history-action="save-manual"]').focus(); await page.keyboard.press('Enter');
-  await page.waitForFunction(() => document.activeElement?.getAttribute('data-history-field') === 'manualBpm');
-  const invalidRect = await page.getByLabel('Комфортный темп', { exact: true }).evaluate(element => { const rect = element.getBoundingClientRect(); return { top: rect.top, bottom: rect.bottom, viewport: innerHeight, invalid: element.getAttribute('aria-invalid') }; });
-  assert.equal(invalidRect.invalid, 'true'); assert.ok(invalidRect.top >= 0 && invalidRect.bottom <= invalidRect.viewport, JSON.stringify(invalidRect));
-  return { records: 11, showMore: 'history-heading', refreshDraft: 'same button', useCurrent: 'manual-heading', cancelRestore: 'backup-heading', validationFailure: 'focused visible alert/invalid field', alertRect, invalidRect };
-});
-
-check('history-disclosures-and-scroll-survive-draft-checkpoint-rerender', async ({ page }) => {
-  await ready(page); await restoreUi(page, JSON.parse(await readFile(new URL('./fixtures/backup.json', import.meta.url), 'utf8')));
-  await module(page, 'harmony'); await page.locator('[data-rhythm-action="start"]').click();
-  await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState === 'running');
-  await history(page);
-  const screen = page.locator('[data-history-kind="screen"]'), route = page.locator('[data-history-kind="route"]');
-  const disclosures = [screen.locator('.history-question-details'), route.locator('.route-material-details'), page.locator('.history-context-groups')];
-  for (const details of disclosures) { await details.locator(':scope > summary').click(); assert.ok(await details.evaluate(element => element.open)); }
-  await screen.scrollIntoViewIfNeeded();
-  // Обычный щелчок по тексту без фокуса уводит фокус из панели: так панель снова перерисовывается при сохранении черновика.
-  await page.locator('#history-heading').click();
-  const before = await page.evaluate(() => ({ scrollY, active: document.activeElement === document.body }));
-  assert.ok(before.active, 'focus must leave the history body before the checkpoint');
-  const marker = await screen.evaluate(element => { element.dataset.u4Probe = 'before'; return element.dataset.u4Probe; });
-  const durationBefore = Object.fromEntries((await raw(page, 'practiceDrafts')).map(draft => [draft.id, draft.totalReferenceMs]));
-  await waitRaw(page, 'practiceDrafts', values => values.some(draft => draft.totalReferenceMs > (durationBefore[draft.id] ?? 0)), 9000);
-  await page.waitForFunction(() => !document.querySelector('[data-history-kind="screen"]')?.dataset.u4Probe, undefined, { timeout: 3000 });
-  const after = await page.evaluate(() => ({ scrollY, open: [...document.querySelectorAll('.history-body details[open]')].map(element => element.className) }));
-  for (const details of disclosures) assert.ok(await details.evaluate(element => element.open), `${await details.evaluate(element => element.className)} collapsed after draft checkpoint: ${JSON.stringify(after)}`);
-  assert.ok(Math.abs(after.scrollY - before.scrollY) <= 1, `scroll moved: ${before.scrollY} → ${after.scrollY}`);
-  await page.locator('[data-rhythm-action="pause"]').click();
-  return { checkpointRerenderedPanel: marker === 'before', durationBefore, before, after };
+check('settings-dialogs-and-progress-deletion-keep-keyboard-focus', async ({ page }) => {
+  await ready(page);
+  // «Настройки → Данные»: диалоги открываются клавиатурой, Esc и «Закрыть» возвращают фокус на кнопку открытия.
+  await settingsSection(page, 'data');
+  const opener = page.locator('[data-page-frame="settings"] [data-dialog-open="restore"]');
+  await opener.focus(); await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.activeElement?.dataset.dlg === 'choose');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.activeElement?.dataset.dialogOpen === 'restore');
+  await page.keyboard.press('Enter');
+  await chooseFile(page, 'broken.json', '{broken');
+  await page.locator('[data-dialog] [data-dlg="close"]', { hasText: 'Закрыть' }).waitFor();
+  const rejection = await page.locator('[data-dialog]').innerText();
+  assert.match(rejection, /Ничего не изменилось/);
+  await page.locator('[data-dialog] [data-dlg="close"]').focus(); await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.activeElement?.dataset.dialogOpen === 'restore');
+  const download = page.locator('[data-page-frame="settings"] [data-dialog-open="download"]');
+  await download.focus(); await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.activeElement?.dataset.dlg === 'export');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.activeElement?.dataset.dialogOpen === 'download');
+  // «Прогресс»: отмена удаления возвращает фокус на кнопку, удаление переводит его на соседнюю запись.
+  await restoreUi(page, JSON.parse(await readFile(new URL('./fixtures/backup.json', import.meta.url), 'utf8')));
+  const before = (await raw(page, 'history')).length;
+  await module(page, 'progress');
+  const frame = page.locator('[data-page-frame="progress"]');
+  await frame.locator('[data-tab="calendar"]').click(); await frame.locator('[data-source="all"]').click();
+  const deletes = frame.locator('[data-day-card] [data-delete]');
+  assert.ok(await deletes.count() >= 2, 'В дне фикстуры несколько записей');
+  const [first, second] = await deletes.evaluateAll(list => list.slice(0, 2).map(button => button.dataset.delete));
+  await deletes.first().focus(); await page.keyboard.press('Enter');
+  await page.getByRole('dialog').getByRole('button', { name: 'Отмена', exact: true }).waitFor();
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(id => document.activeElement?.dataset.delete === id, first);
+  await page.keyboard.press('Enter');
+  await page.getByRole('dialog').getByRole('button', { name: 'Удалить запись', exact: true }).click();
+  await waitRaw(page, 'history', values => values.length === before - 1 && !values.some(entry => entry.id === first));
+  await page.waitForFunction(id => document.activeElement?.dataset.delete === id, second);
+  return { restoreDialog: 'Esc/Закрыть → opener', rejection: rejection.slice(0, 160), downloadDialog: 'Esc → opener', deleted: first, focusMovedTo: second, historyBefore: before };
 });
 
 check('laptop-widths-show-board-by-500px-and-narrow-layout-uses-local-scroll', async ({ page, resultDir, cdp }) => {
   await ready(page); const evidence = [];
   for (const width of [1366, 1024, 640]) {
     await page.setViewportSize({ width, height: 768 }); await theme(page, width === 1024 ? 'dark' : 'light');
-    await module(page, 'foundation'); await page.locator('[data-training-mode="study"]').click();
+    await module(page, 'foundation');
     const geometry = await page.evaluate(() => ({ width: innerWidth, page: document.documentElement.scrollWidth, boardY: document.querySelector('#fretboard-container').getBoundingClientRect().top + scrollY }));
     assert.ok(geometry.page <= width + 2, JSON.stringify(geometry)); if (width >= 1024) assert.ok(geometry.boardY <= 500, JSON.stringify(geometry));
     await page.screenshot({ path: join(resultDir, `p8-uiux-${width}.png`), fullPage: true }); evidence.push(geometry);
@@ -477,11 +460,10 @@ check('laptop-widths-show-board-by-500px-and-narrow-layout-uses-local-scroll', a
 });
 
 markFullOnly(checks, [
-  'themes-preserve-running-sequence-focus-and-authoritative-profile',
+  'themes-preserve-running-play-focus-and-authoritative-profile',
   'imported-system-profile-survives-binary-chooser-and-corrupt-first-frame-cache',
-  'free-practice-choice-does-not-reopen-start-question-after-reload-or-restore',
-  'meaningful-SVG-labels-fingers-focus-notation-and-TAB-masks-have-actual-contrast',
-  // 11–15 с; сохранение ручных отметок с заметкой в быстром наборе проверяет history-keyboard-focus….
-  'draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deletion',
+  'meaningful-SVG-labels-fingers-focus-and-play-TAB-have-actual-contrast',
+  // 11–15 с: два прогона ритма до черновика; копия, восстановление и удаление в быстром наборе — settings-dialogs….
+  'progress-draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deletion',
 ], FULL_ONLY.smoke);
-await runNotationBrowserChecks(checks, { reportName: 'p8-uiux-edge.json', scope: 'P8 actual product UI, themes and first frame, source contexts, guided introduction, exact boxes, persistent manual drafts, confirmation, sampled computed contrast, laptop widths and CDP page scale. Native IndexedDB is only read, media access is denied before capture, no physical bass/latency assessment.' });
+await runNotationBrowserChecks(checks, { reportName: 'p8-uiux-edge.json', scope: 'P8/P13 actual product UI in the P13 shell: themes and first frame, exact atlas boxes feeding «Проверь себя», Progress drafts and manual marks, confirmations, Settings backup dialogs and keyboard focus, sampled computed contrast (sections, board, play-screen TAB), laptop widths and CDP page scale. Native IndexedDB is only read, media access is denied before capture, no physical bass/latency assessment.' });

@@ -22,13 +22,55 @@ async function startFixture(page, context, fixtureOrigin) {
   await allow(context, fixtureOrigin); assert.equal(await fixtureAction(page, 'start'), null);
   await page.waitForFunction(() => window.p7input.monitor.getSnapshot().state === 'running' && window.p7input.monitor.getSnapshot().pitch !== null);
 }
-async function ready(page) { await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert); const free = page.locator('[data-intro="free"]'); if (await free.isVisible()) await free.click(); }
-async function openInput(page) { await ready(page); await page.locator('[data-app-module="input"]').click(); await page.getByTestId('input-status').waitFor(); }
-async function stateIs(page, state) { await page.waitForFunction(state => document.querySelector('#input-mount')?.dataset.inputState === state, state); }
+async function ready(page) { await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert); }
+const navigate = (page, section) => page.locator(`.site-header [data-app-module="${section}"]`).click();
+/** «Настройки → <вкладка>»: раздел настроек P13 (аудиовход — вкладка `input`). */
+async function settingsSection(page, section) {
+  await ready(page); await navigate(page, 'settings');
+  await page.locator(`[data-page-frame="settings"] [data-section="${section}"]`).click();
+  await page.locator(`[data-page-frame="settings"] [data-pane="${section}"]`).waitFor();
+}
+async function openInput(page) { await settingsSection(page, 'input'); await page.getByTestId('input-status').waitFor(); }
+const inputMount = page => page.locator('[data-input-mount]');
+async function stateIs(page, state) { await page.waitForFunction(state => document.querySelector('[data-input-mount]')?.dataset.inputState === state, state); }
 async function connectUi(page, context, origin) { await allow(context, origin); await action(page, 'connect').click(); await stateIs(page, 'running'); await page.waitForFunction(() => document.querySelector('[data-testid="input-note"]').textContent !== '—'); }
-async function openHistory(page) { const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click(); await page.getByLabel('Название пресета', { exact: true }).waitFor(); }
-async function saved(page) { await page.waitForFunction(() => document.querySelector('[data-testid="history-save-status"]')?.dataset.status === 'saved'); }
-async function exportUi(page) { await openHistory(page); const downloading = page.waitForEvent('download'); await page.locator('[data-history-action="export"]').click(); const download = await downloading; return JSON.parse(await readFile(await download.path(), 'utf8')); }
+/** Readonly-чтение сохранённых настроек нативной IndexedDB: подтверждение записи без продуктового API. */
+async function storedPreferences(page) {
+  return page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('bass-study');
+      request.onupgradeneeded = () => { request.transaction.abort(); reject(new Error('База приложения ещё не создана')); };
+      request.onerror = () => reject(request.error); request.onsuccess = () => resolve(request.result);
+    });
+    try {
+      const transaction = db.transaction('preferences', 'readonly');
+      return await new Promise((resolve, reject) => { const request = transaction.objectStore('preferences').get('current'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+    } finally { db.close(); }
+  });
+}
+async function savedDevice(page, deviceId) {
+  const deadline = Date.now() + 6000;
+  while ((await storedPreferences(page))?.input?.deviceId !== deviceId) { assert.ok(Date.now() < deadline, `Устройство ${deviceId} не записано в IndexedDB`); await delay(100); }
+}
+/** «Настройки → Данные → Скачать копию»: настоящий файл скачивания. */
+async function exportUi(page) {
+  await settingsSection(page, 'data');
+  await page.locator('[data-page-frame="settings"] [data-dialog-open="download"]').click();
+  const downloading = page.waitForEvent('download'); await page.locator('[data-dialog] [data-dlg="export"]').click();
+  const download = await downloading; return JSON.parse(await readFile(await download.path(), 'utf8'));
+}
+/** «Настройки → Данные → Восстановить из копии…»: выбор файла, предпросмотр, подтверждение, замена. */
+async function restoreUi(page, value, onPreview = async () => {}) {
+  await settingsSection(page, 'data');
+  await page.locator('[data-page-frame="settings"] [data-dialog-open="restore"]').click();
+  const choosing = page.waitForEvent('filechooser'); await page.locator('[data-dialog] [data-dlg="choose"]').click();
+  await (await choosing).setFiles({ name: 'input-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(value)) });
+  await page.locator('[data-dialog] [data-dlg-confirm]').waitFor();
+  await onPreview();
+  await page.locator('[data-dialog] [data-dlg-confirm]').check(); await page.locator('[data-dialog] [data-dlg="replace"]').click();
+  await page.locator('[data-dialog] [data-dlg="close"]', { hasText: 'Готово' }).click();
+  await ready(page);
+}
 
 check('native-enumeration-does-not-request-permission-or-start-capture', 'api', async ({ page }) => {
   const permissionBefore = await page.evaluate(async () => (await navigator.permissions.query({ name: 'microphone' })).state);
@@ -96,8 +138,8 @@ check('ui-first-open-and-return-do-not-claim-the-visible-section-is-closed', 'ui
   await openInput(page);
   assert.ok(await page.getByTestId('input-notice').isHidden());
   assert.match(await page.getByTestId('input-status').innerText(), /Вход не подключён/);
-  assert.ok(!/Раздел закрыт/.test(await page.locator('#input-mount').innerText()));
-  await page.locator('[data-app-module="tracks"]').click();
+  assert.ok(!/Раздел закрыт/.test(await inputMount(page).innerText()));
+  await navigate(page, 'tracks');
   await openInput(page);
   assert.ok(await page.getByTestId('input-notice').isHidden());
   assert.equal(await calls(page), 0); assert.equal(await liveTracks(page), 0);
@@ -133,7 +175,7 @@ check('ui-cancel-pending-native-acquisition-reaps-late-returned-tracks', 'ui', a
 
 check('ui-device-selection-stops-current-input-and-requires-new-connect', 'ui', async ({ page, context, origin }) => {
   await openInput(page); await connectUi(page, context, origin); await action(page, 'refresh').click();
-  const picker = page.locator('[data-input-setting="deviceId"]'); await page.waitForFunction(() => document.querySelector('[data-input-setting=deviceId]').options.length > 1); const selected = await picker.locator('option').evaluateAll(elements => elements.find(element => element.value)?.value); assert.ok(selected); await picker.selectOption(selected); await stateIs(page, 'stopped'); assert.equal(await liveTracks(page), 0); await delay(250); assert.equal(await calls(page), 1); assert.match(await page.getByTestId('input-notice').innerText(), /снова нажми/); await saved(page); return { selectedDeviceId: selected, stoppedTracks: true, automaticReconnect: false };
+  const picker = page.locator('[data-input-setting="deviceId"]'); await page.waitForFunction(() => document.querySelector('[data-input-setting=deviceId]').options.length > 1); const selected = await picker.locator('option').evaluateAll(elements => elements.find(element => element.value)?.value); assert.ok(selected); await picker.selectOption(selected); await stateIs(page, 'stopped'); assert.equal(await liveTracks(page), 0); await delay(250); assert.equal(await calls(page), 1); assert.match(await page.getByTestId('input-notice').innerText(), /снова нажми/); await savedDevice(page, selected); return { selectedDeviceId: selected, stoppedTracks: true, automaticReconnect: false };
 });
 
 check('ui-native-track-ended-event-releases-input-and-shows-explanation', 'ui', async ({ page, context, origin }) => {
@@ -141,11 +183,13 @@ check('ui-native-track-ended-event-releases-input-and-shows-explanation', 'ui', 
 });
 
 check('ui-device-preferences-reload-and-restore-never-capture', 'ui', async ({ page, context, origin }) => {
-  await openInput(page); await allow(context, origin); await action(page, 'refresh').click(); const picker = page.locator('[data-input-setting="deviceId"]'); await page.waitForFunction(() => document.querySelector('[data-input-setting=deviceId]').options.length > 1); const selected = await picker.locator('option').evaluateAll(elements => elements.find(element => element.value)?.value); await picker.selectOption(selected); await saved(page);
+  await openInput(page); await allow(context, origin); await action(page, 'refresh').click(); const picker = page.locator('[data-input-setting="deviceId"]'); await page.waitForFunction(() => document.querySelector('[data-input-setting=deviceId]').options.length > 1); const selected = await picker.locator('option').evaluateAll(elements => elements.find(element => element.value)?.value); await picker.selectOption(selected); await savedDevice(page, selected);
   assert.equal(await calls(page), 0);
   const before = await exportUi(page); assert.equal(before.schemaVersion, 11); assert.equal(before.preferences.input.deviceId, selected); assert.deepEqual(before.exercises, []); assert.equal(before.history.length, 0);
-  await page.reload(); await ready(page); assert.equal(await picker.inputValue(), selected); assert.equal(await calls(page), 0);
-  await openHistory(page); await page.locator('[data-history-file]').setInputFiles({ name: 'input-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(before)) }); await page.getByTestId('backup-preview').waitFor(); assert.equal(await calls(page), 0); await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check(); await page.locator('[data-history-action="confirm-restore"]').click(); await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); assert.equal(await calls(page), 0); assert.equal(await liveTracks(page), 0); assert.deepEqual(await exportUi(page), before); return { schemaVersion: before.schemaVersion, selectedDeviceId: selected, exactRoundtrip: true, captureCallsDuringReloadRestore: 0, historyEntries: 0 };
+  await page.reload(); await openInput(page); assert.equal(await picker.inputValue(), selected); assert.equal(await calls(page), 0);
+  await restoreUi(page, before, async () => { assert.equal(await calls(page), 0); });
+  assert.equal(await calls(page), 0); assert.equal(await liveTracks(page), 0); assert.deepEqual(await exportUi(page), before);
+  return { schemaVersion: before.schemaVersion, selectedDeviceId: selected, exactRoundtrip: true, captureCallsDuringReloadRestore: 0, historyEntries: 0, restoreVia: 'Настройки → Данные' };
 });
 
 check('ui-retirement-releases-writer-only-after-late-acquired-input-tracks-ended', 'ui', async ({ page, context, origin }) => {
@@ -169,7 +213,13 @@ check('ui-retirement-releases-writer-only-after-late-acquired-input-tracks-ended
 });
 
 check('ui-module-leave-stops-native-tracks-and-return-does-not-auto-connect', 'ui', async ({ page, context, origin }) => {
-  await openInput(page); await connectUi(page, context, origin); await page.locator('[data-app-module="foundation"]').click(); assert.equal(await liveTracks(page), 0); await page.locator('[data-app-module="input"]').click(); await stateIs(page, 'stopped'); await delay(250); assert.equal(await calls(page), 1); return { liveTracksAfterExit: 0, noAutoConnectOnReturn: true };
+  await openInput(page); await connectUi(page, context, origin);
+  await navigate(page, 'foundation'); assert.equal(await liveTracks(page), 0); await stateIs(page, 'stopped');
+  await openInput(page); await stateIs(page, 'stopped'); await delay(250); assert.equal(await calls(page), 1);
+  // Внутри «Настроек» уход на другую вкладку тоже освобождает вход; возврат не подключает сам.
+  await connectUi(page, context, origin); await settingsSection(page, 'look'); assert.equal(await liveTracks(page), 0);
+  await openInput(page); await stateIs(page, 'stopped'); await delay(250); assert.equal(await calls(page), 2);
+  return { liveTracksAfterSectionExit: 0, liveTracksAfterSettingsTabExit: 0, noAutoConnectOnReturn: true };
 });
 
 check('ui-noise-uncertainty-layout-and-non-grading-labels-are-visible', 'ui', async ({ page, context, origin, resultDir }) => {
@@ -179,7 +229,7 @@ check('ui-noise-uncertainty-layout-and-non-grading-labels-are-visible', 'ui', as
 }, { signal: 'noise' });
 
 check('native-real-hidden-tab-stops-all-tracks-and-return-needs-explicit-connect', 'native', async ({ withNativeBrowser, origin }) => withNativeBrowser(async ({ page, context }) => {
-  await openInput(page); await connectUi(page, context, origin); const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront(); await page.waitForFunction(() => document.hidden && document.querySelector('#input-mount').dataset.inputState === 'stopped', undefined, { polling: 100 }); assert.equal(await liveTracks(page), 0); await page.bringToFront(); await page.waitForFunction(() => !document.hidden); await delay(250); assert.equal(await calls(page), 1); await action(page, 'connect').click(); await stateIs(page, 'running'); assert.equal(await calls(page), 2); await action(page, 'stop').click(); assert.equal(await liveTracks(page), 0); return { actualDocumentHidden: true, method: 'Isolated Edge/CDP noDefaults:true with native fake WAV device; real tab activation', stoppedTracks: true, explicitReconnectRequired: true };
+  await openInput(page); await connectUi(page, context, origin); const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront(); await page.waitForFunction(() => document.hidden && document.querySelector('[data-input-mount]').dataset.inputState === 'stopped', undefined, { polling: 100 }); assert.equal(await liveTracks(page), 0); await page.bringToFront(); await page.waitForFunction(() => !document.hidden); await delay(250); assert.equal(await calls(page), 1); await action(page, 'connect').click(); await stateIs(page, 'running'); assert.equal(await calls(page), 2); await action(page, 'stop').click(); assert.equal(await liveTracks(page), 0); return { actualDocumentHidden: true, method: 'Isolated Edge/CDP noDefaults:true with native fake WAV device; real tab activation', stoppedTracks: true, explicitReconnectRequired: true };
 }));
 
 markFullOnly(checks, [

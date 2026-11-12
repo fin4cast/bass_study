@@ -1,14 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runEarBrowserChecks } from './helpers/ear-browser-harness.mjs';
 import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
+// Слух (R-016): fixture проверяет настоящий PCM и live-часы cue; продукт — «Проверь себя» с «+ слух» (P13-05).
 const checks = [];
 const check = (name, scope, run) => checks.push({ name, scope, run });
-const action = (page, name) => page.locator(`[data-ear-action="${name}"]`);
-const choice = (page, degree) => page.locator(`[data-ear-choice="${degree}"]`);
 const cueSnapshot = page => page.evaluate(() => window.p7ear.cue.getSnapshot());
 const observation = page => page.evaluate(() => window.__earAudioObserved.read());
 const near = (actual, expected, tolerance, label = '') => assert.ok(Math.abs(actual - expected) <= tolerance, `${label}: expected ${expected}, got ${actual}, tolerance ${tolerance}`);
@@ -17,71 +14,6 @@ async function fixtureAction(page, name) {
   await page.locator(`#${name}`).click();
   await page.waitForFunction(name => window.p7ear.action?.name === name && window.p7ear.action.done, name);
   assert.equal((await page.evaluate(() => window.p7ear.action)).error, null);
-}
-async function ready(page) {
-  await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert);
-  const free = page.locator('[data-intro="free"]'); if (await free.count() && await free.isVisible()) await free.click();
-}
-async function disclose(page, selector) { const details = page.locator(selector); if (await details.count() && !await details.evaluate(element => element.open)) await details.locator('summary').first().click(); }
-async function saved(page) { await page.waitForFunction(() => document.querySelector('[data-testid="history-save-status"]')?.dataset.status === 'saved'); }
-async function configure(page, { root = 'C', quality = 'major', count = 1, bpm = 120 } = {}) {
-  await ready(page); await page.locator('[data-app-module="ear"]').click();
-  await page.getByLabel('Тоника слухового задания', { exact: true }).selectOption(root);
-  await page.getByLabel('Трезвучие для слуха', { exact: true }).selectOption(quality);
-  for (const [label, value] of [['Слуховых вопросов', count], ['Темп прослушивания', bpm]]) { const input = page.getByLabel(label, { exact: true }); await input.fill(String(value)); await input.press('Tab'); }
-}
-async function start(page) { await action(page, 'start').click(); await page.getByTestId('ear-question').waitFor(); }
-async function assertNoAnswerLeak(page) {
-  const question = page.getByTestId('ear-question');
-  assert.equal(await question.locator('[data-target],[data-target-midi],[data-midi],[data-note-name],[data-target-degree]').count(), 0);
-  assert.equal(await question.locator('.is-correct').count(), 0);
-  const markup = await question.evaluate(element => element.outerHTML);
-  assert.doesNotMatch(markup, /targetMidi|targetDegree|targetName|referenceMidi|expectedAnswer|data-answer=/);
-  assert.match(await page.getByTestId('ear-prompt').innerText(), /Какая ступень/);
-}
-async function beginListen(page) {
-  await page.evaluate(() => window.__earAudioObserved.reset());
-  await action(page, 'listen').click();
-  await page.waitForFunction(() => window.__earAudioObserved.read().frequencies.filter(event => event.frequency > 0).length >= 2);
-  const observed = await observation(page); const frequencies = observed.frequencies.filter(event => event.frequency > 0).slice(-2);
-  const semitones = Math.round(12 * Math.log2(frequencies[1].frequency / frequencies[0].frequency));
-  const degree = ({ 0: '1', 3: 'b3', 4: '3', 7: '5' })[semitones]; assert.ok(degree, `Unexpected native oscillator interval ${JSON.stringify(frequencies)}`);
-  return { degree, semitones, frequencies };
-}
-async function fullListen(page) {
-  const oracle = await beginListen(page); await choice(page, oracle.degree).waitFor({ state: 'visible' });
-  await page.waitForFunction(() => [...document.querySelectorAll('[data-ear-choice]')].every(button => !button.disabled));
-  return oracle;
-}
-async function summary(page) {
-  await page.getByTestId('ear-summary').waitFor();
-  return page.getByTestId('ear-summary').locator('[data-ear-result]').evaluateAll(nodes => Object.fromEntries(nodes.map(node => [node.dataset.earResult, Number(node.textContent)])));
-}
-async function openHistory(page) {
-  await ready(page); const drawer = page.locator('.history-drawer'); if (!await drawer.evaluate(element => element.open)) await page.locator('#open-history').click();
-  await page.getByLabel('Тип записей истории', { exact: true }).waitFor();
-}
-async function exportUi(page) {
-  await openHistory(page); const downloading = page.waitForEvent('download'); await page.locator('[data-history-action="export"]').click();
-  const download = await downloading; return JSON.parse(await readFile(await download.path(), 'utf8'));
-}
-async function readNativeHistory(page) {
-  await saved(page);
-  return page.evaluate(async () => {
-    const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('bass-study');
-      request.onupgradeneeded = () => { request.transaction?.abort(); reject(new Error('Expected the application database to exist already')); };
-      request.onerror = () => reject(request.error); request.onsuccess = () => resolve(request.result);
-    });
-    try {
-      const transaction = db.transaction('history', 'readonly');
-      const completion = new Promise((resolve, reject) => { transaction.oncomplete = resolve; transaction.onabort = () => reject(transaction.error); });
-      const request = transaction.objectStore('history').getAll();
-      const history = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
-      await completion;
-      return { databaseVersion: db.version, history, method: 'Read-only native IndexedDB history in the runner-owned isolated Edge profile; no product test API or download plumbing.' };
-    } finally { db.close(); }
-  });
 }
 
 for (const fixture of [
@@ -138,299 +70,229 @@ check('live-three-restarts-do-not-complete-cancelled-cues', 'api', async ({ page
   assert.equal(new Set(runs.map(run => run.runId)).size, 3); assert.deepEqual(completions.map(event => event.runId), [runs[2].runId]); return { runs, completions };
 });
 
-check('ui-listen-gates-answers-until-actual-end-and-first-correct-is-independent', 'ui', async ({ page }) => {
-  await configure(page); await start(page); await assertNoAnswerLeak(page);
-  assert.ok(await choice(page, '1').isDisabled()); const oracle = await beginListen(page);
-  assert.ok(await choice(page, oracle.degree).isDisabled()); await delay(1050); assert.ok(await choice(page, oracle.degree).isDisabled(), 'Answer must remain locked while the target is still sounding');
-  await page.waitForFunction(() => [...document.querySelectorAll('[data-ear-choice]')].every(button => !button.disabled)); await assertNoAnswerLeak(page);
-  assert.equal(await page.getByTestId('ear-completed-listens').innerText(), '1'); await choice(page, oracle.degree).click(); await action(page, 'next').click();
-  const result = await summary(page); assert.deepEqual(result, { independentCorrect: 1, corrected: 0, errors: 0, hints: 0, skipped: 0, replayCount: 0 });
-  const exported = await exportUi(page); const entry = exported.history[0]; assert.equal(entry.result.kind, 'ear'); assert.equal(entry.result.source, 'audio-choice');
-  const question = entry.result.questions[0]; assert.equal(question.independentCorrect, true); assert.equal(question.listensCompleted, 1); assert.equal(question.question.targetDegree, oracle.degree);
-  assert.deepEqual(question.listenEvents.map(event => event.type), ['start', 'complete']);
-  const [startEvent, endEvent] = question.listenEvents; assert.ok(endEvent.atMs - startEvent.atMs >= 1500); assert.ok(question.answerEvents[0].atMs >= endEvent.atMs);
-  return { oracle, result, entry };
-});
+/* ---------- «Проверь себя» с «+ слух» (P13): раздела «Слух» больше нет ---------- */
+// Вход — мостик атласа «Проверь себя по этой форме» (по умолчанию A минорная пентатоника). Правильный ответ выводится
+// только из наблюдаемых native-вызовов осциллятора (initScript теста): интервал между тоникой и целевым звуком.
+// Это наблюдение AudioParam, а не PCM и не API ответа; PCM сигнала проверяют fixture-сценарии выше.
 
-check('ui-labelled-study-and-revealed-answer-playback-do-not-create-score-events', 'ui', async ({ page }) => {
-  await configure(page); await page.evaluate(() => window.__earAudioObserved.reset());
-  await page.locator('[data-ear-example="3"]').click();
-  await page.waitForFunction(() => window.__earAudioObserved.read().frequencies.filter(event => event.frequency > 0).length >= 2);
-  const sample = (await observation(page)).frequencies.filter(event => event.frequency > 0).slice(-2);
-  near(sample[0].frequency, 65.40639132514966, .01, 'labelled C2 reference'); near(sample[1].frequency, 82.4068892282175, .01, 'labelled E2 example');
-  await page.waitForFunction(() => !document.querySelector('[data-ear-example="3"]').disabled);
-  assert.equal(await page.getByTestId('ear-question').count(), 0); assert.equal((await exportUi(page)).history.length, 0);
-  await start(page); await action(page, 'reveal').click(); await saved(page);
-  const before = (await exportUi(page)).history.find(entry => entry.result.kind === 'ear').result;
-  assert.equal(before.questions[0].outcome, 'revealed'); assert.equal(before.questions[0].listensStarted, 0);
-  await page.evaluate(() => window.__earAudioObserved.reset()); await page.locator('[data-ear-review]').click();
-  await page.waitForFunction(() => window.__earAudioObserved.read().frequencies.filter(event => event.frequency > 0).length >= 2);
-  await page.waitForFunction(() => !document.querySelector('[data-ear-example="1"]').disabled);
-  const after = (await exportUi(page)).history.find(entry => entry.result.kind === 'ear').result;
-  assert.deepEqual(after, before, 'Review audio must leave the saved graded result unchanged');
-  return { labelledFrequencies: sample, reviewPreservedWholeResult: true, outcome: after.questions[0].outcome };
-});
-
-check('ui-replay-is-counted-separately-from-first-answer-score', 'ui', async ({ page }) => {
-  await configure(page, { root: 'A', quality: 'minor' }); await start(page); const first = await fullListen(page); const replay = await fullListen(page);
-  assert.equal(first.degree, replay.degree); assert.equal(await page.getByTestId('ear-completed-listens').innerText(), '2'); assert.equal(await page.getByTestId('ear-replay-count').innerText(), '1');
-  await choice(page, replay.degree).click(); await action(page, 'next').click(); const result = await summary(page); assert.equal(result.independentCorrect, 1); assert.equal(result.replayCount, 1); assert.equal(result.hints, 0);
-  const entry = (await exportUi(page)).history[0]; assert.equal(entry.result.questions[0].replayCount, 1); assert.equal(entry.result.questions[0].hintUsed, false); return { first, replay, result };
-});
-
-check('ui-wrong-then-correct-preserves-error-and-corrected-result', 'ui', async ({ page }) => {
-  await configure(page); await start(page); const oracle = await fullListen(page); const wrong = ['1', '3', '5'].find(degree => degree !== oracle.degree);
-  await choice(page, wrong).click(); await assertNoAnswerLeak(page); await choice(page, oracle.degree).click(); await action(page, 'next').click();
-  const result = await summary(page); assert.equal(result.independentCorrect, 0); assert.equal(result.corrected, 1); assert.equal(result.errors, 1);
-  const question = (await exportUi(page)).history[0].result.questions[0]; assert.equal(question.firstAttemptCorrect, false); assert.equal(question.corrected, true); assert.equal(question.independentCorrect, false); assert.equal(question.answerEvents.length, 2);
-  return { oracle, wrong, result, question };
-});
-
-check('ui-reveal-skip-and-next-have-distinct-nonindependent-outcomes', 'ui', async ({ page }) => {
-  await configure(page, { count: 2 }); await start(page); await action(page, 'reveal').click(); assert.match(await page.getByTestId('ear-feedback').innerText(), /Ответ:|Показ/);
-  await action(page, 'next').click(); await assertNoAnswerLeak(page); assert.ok(await choice(page, '1').isDisabled());
-  await action(page, 'skip').click(); await action(page, 'next').click(); const result = await summary(page);
-  assert.equal(result.independentCorrect, 0); assert.equal(result.hints, 1); assert.equal(result.skipped, 1);
-  const questions = (await exportUi(page)).history[0].result.questions; assert.deepEqual(questions.map(question => question.outcome), ['revealed', 'skipped']); assert.ok(questions.every(question => !question.independentCorrect)); return { result, questions };
-});
-
-check('ui-stop-cancel-requires-a-new-full-listen-and-no-stale-completion', 'ui', async ({ page }) => {
-  await configure(page); await start(page); await beginListen(page); await delay(200); await action(page, 'stop').click();
-  await delay(1500); assert.ok(await choice(page, '1').isDisabled()); assert.equal(await page.getByTestId('ear-completed-listens').innerText(), '0');
-  assert.ok((await observation(page)).levels.every(level => level.rms < .000001));
-  const oracle = await fullListen(page); await choice(page, oracle.degree).click(); await action(page, 'next').click();
-  const question = (await exportUi(page)).history[0].result.questions[0]; assert.equal(question.listensStarted, 2); assert.equal(question.listensCancelled, 1); assert.equal(question.listensCompleted, 1);
-  assert.deepEqual(question.listenEvents.map(event => event.type), ['start', 'cancel', 'start', 'complete']); return { oracle, question };
-});
-
-check('ui-root-change-and-module-leave-archive-real-interruption', 'ui', async ({ page }) => {
-  await configure(page); await start(page); await beginListen(page); await page.getByLabel('Тоника слухового задания', { exact: true }).selectOption('A');
-  assert.equal(await page.getByTestId('ear-question').count(), 0); const first = await exportUi(page); assert.equal(first.history.length, 1);
-  assert.equal(first.history[0].result.context.root, 'C'); assert.equal(first.history[0].result.questions[0].outcome, 'interrupted'); assert.equal(first.history[0].result.questions[0].listensCancelled, 1);
-  await start(page); await beginListen(page); await page.locator('[data-app-module="foundation"]').click(); await saved(page);
-  const second = await exportUi(page); assert.equal(second.history.length, 2); assert.ok(second.history.every(entry => entry.result.questions[0].outcome === 'interrupted'));
-  await page.locator('[data-app-module="ear"]').click(); assert.equal(await page.getByTestId('ear-question').count(), 0); return { firstEntry: first.history[0], secondHistoryIds: second.history.map(entry => entry.id) };
-});
-
-check('ui-unfinished-ear-target-stays-hidden-in-global-history-and-after-reload', 'ui', async ({ page }) => {
-  await configure(page); await start(page); await beginListen(page); await action(page, 'stop').click(); await saved(page); await openHistory(page);
-  const entry = page.locator('[data-history-kind="ear"]'); await entry.locator('.history-question-details > summary').click();
-  assert.match(await entry.locator('.history-question-details strong').innerText(), /цель скрыта/);
-  assert.equal(await entry.locator('[data-midi],[data-target],[data-target-midi],[data-note-name]').count(), 0); await assertNoAnswerLeak(page);
-  const text = await entry.locator('.history-question-details strong').innerText(); assert.doesNotMatch(text, /[A-G][♯♭]?\d|targetMidi/);
-  await page.reload(); await ready(page); await openHistory(page); const reopened = page.locator('[data-history-kind="ear"]'); await reopened.locator('.history-question-details > summary').click();
-  assert.match(await reopened.locator('.history-question-details strong').innerText(), /цель скрыта/); return { unfinishedTargetRedacted: true, persistsRedactedAfterReload: true };
-});
-
-check('ui-ear-preferences-and-three-route-links-persist-without-fret-filter-dependence', 'ui', async ({ page }) => {
-  await ready(page); await disclose(page, '#area-settings'); for (const string of ['E', 'A', 'D', 'G']) await page.getByRole('checkbox', { name: `Струна ${string}`, exact: true }).uncheck();
-  await configure(page, { root: 'F#', quality: 'minor', bpm: 120 }); await start(page); const oracle = await fullListen(page); await choice(page, oracle.degree).click(); await action(page, 'next').click(); await saved(page);
-  await page.reload(); await ready(page); assert.ok(await page.locator('#ear-mount').isVisible()); assert.equal(await page.getByLabel('Тоника слухового задания', { exact: true }).inputValue(), 'F#'); assert.equal(await page.getByLabel('Трезвучие для слуха', { exact: true }).inputValue(), 'minor');
-  const visits = [];
-  for (const step of ['fretboard', 'ear', 'sequence']) {
-    await page.locator('[data-app-module="route"]').click(); assert.deepEqual(await page.locator('[data-route-step]').evaluateAll(nodes => nodes.map(node => node.dataset.routeStep)), ['fretboard', 'ear', 'sequence']);
-    await page.locator(`[data-route-step="${step}"]`).click(); visits.push({ step, module: await page.locator('[data-app-module][aria-current="page"]').getAttribute('data-app-module') });
-    assert.equal(visits.at(-1).module, step === 'ear' ? 'ear' : 'foundation');
-    if (step === 'sequence') assert.equal(await page.locator('[data-training-mode="sequence"]').getAttribute('aria-pressed'), 'true');
-  }
-  return { oracle, configuredRoot: 'F#', quality: 'minor', emptyFretFilterDidNotPreventEar: true, visits, timedRouteClaimed: false };
-});
-
-check('ui-ear-history-filter-counts-reload-and-backup-replacement-stay-separate', 'ui', async ({ page }) => {
-  await configure(page); await start(page); const oracle = await fullListen(page); await choice(page, oracle.degree).click(); await action(page, 'next').click();
-  const exported = await exportUi(page); assert.equal(exported.schemaVersion, 11); assert.equal(exported.history[0].result.kind, 'ear');
-  assert.match(await page.getByTestId('ear-history-summary').innerText(), /Слух — отдельно/); assert.match(await page.getByTestId('ear-history-summary').innerText(), /1 самостоятельных/);
-  await page.getByLabel('Тип записей истории', { exact: true }).selectOption('screen'); assert.equal(await page.getByTestId('history-list').locator('[data-history-entry]').count(), 0);
-  await page.getByLabel('Тип записей истории', { exact: true }).selectOption('ear'); assert.equal(await page.getByTestId('history-list').locator('[data-history-kind="ear"]').count(), 1);
-  await page.getByLabel('Тип записей истории', { exact: true }).selectOption('all');
-  await page.locator('[data-app-module="foundation"]').click(); await page.getByRole('button', { name: 'Задания', exact: true }).click();
-  await disclose(page, '[data-training-details="quiz"]');
-  await page.getByLabel('Количество вопросов', { exact: true }).fill('1'); await page.getByLabel('Количество вопросов', { exact: true }).press('Tab');
-  await page.locator('[data-training-action="start"]').click(); await page.locator('[data-training-action="hint"]').click(); await page.locator('[data-training-action="next"]').click();
-  await saved(page); assert.equal((await exportUi(page)).history.length, 2);
-  await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({ name: 'ear-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(exported)) });
-  await page.getByTestId('backup-preview').waitFor(); await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check(); await page.locator('[data-history-action="confirm-restore"]').click();
-  await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); assert.deepEqual(await exportUi(page), exported);
-  await page.reload(); await ready(page); assert.deepEqual(await exportUi(page), exported); return { oracle, source: exported.history[0].result.source, restoredExactly: true, extraScreenRecordRemoved: true };
-});
-
-check('ui-invalid-ear-settings-recover-and-narrow-layout-remains-usable', 'ui', async ({ page, resultDir }) => {
-  await configure(page); await page.getByLabel('Слуховых вопросов', { exact: true }).fill('21'); await action(page, 'start').click(); assert.match(await page.getByTestId('ear-error').innerText(), /1.*20/); assert.equal(await page.getByTestId('ear-question').count(), 0);
-  await configure(page); await page.getByLabel('Темп прослушивания', { exact: true }).fill('150'); await action(page, 'start').click(); assert.match(await page.getByTestId('ear-error').innerText(), /60.*120/);
-  await configure(page); await page.setViewportSize({ width: 390, height: 844 }); await start(page); await assertNoAnswerLeak(page);
-  const width = await page.evaluate(() => ({ viewport: document.documentElement.clientWidth, page: document.documentElement.scrollWidth })); assert.ok(width.page <= width.viewport + 2);
-  await page.screenshot({ path: join(resultDir, 'p7-ear-narrow.png'), fullPage: true }); await action(page, 'skip').click(); await action(page, 'next').click(); await summary(page); return { width, recovered: true, screenshot: 'test-results/p7-ear-narrow.png' };
-});
-
-const routeAction = (page, name) => page.locator(`#route-session-mount [data-route-action="${name}"]`);
-const routeActive = async page => Number(await page.locator('#route-session-mount').getAttribute('data-route-active-ms'));
-async function routeState(page, expected) {
-  await page.waitForFunction(expected => document.querySelector('#route-session-mount')?.dataset.routeState === expected, expected);
+const checkHost = page => page.locator('[data-lesson-screen="check"]');
+const DEGREES = ['1', '♭2', '2', '♭3', '3', '4', '♭5', '5', '♭6', '6', '♭7', '7'];
+const normalizeDegree = label => label.trim().replace(/b/g, '♭').replace(/#/g, '♯');
+async function ready(page) {
+  await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert);
 }
-async function startRoute(page) {
-  await ready(page); await page.locator('[data-app-module="route"]').click();
-  assert.deepEqual(await page.locator('#route-mount [data-route-planned-ms]').evaluateAll(nodes => nodes.map(node => Number(node.dataset.routePlannedMs))), [180000, 180000, 240000]);
-  await page.locator('#route-mount [data-route-action="start"]').click(); await routeState(page, 'running');
-  assert.equal(await page.locator('[data-app-module][aria-current="page"]').getAttribute('data-app-module'), 'foundation');
-  assert.ok(await page.getByTestId('route-session-bar').isVisible());
+const navigate = (page, section) => page.locator(`.site-header [data-app-module="${section}"]`).click();
+async function openEarCheck(page) {
+  await ready(page);
+  await navigate(page, 'foundation');
+  await page.locator('#atlas-check').click();
+  await page.locator('[data-lesson-screen="check"]:not([hidden]) [data-ck-title]').waitFor();
+  const toggle = checkHost(page).locator('[data-act="toggle-ear"]');
+  await toggle.click();
+  await page.waitForFunction(() => document.querySelector('[data-lesson-screen="check"] [data-act="toggle-ear"]')?.getAttribute('aria-pressed') === 'true');
+  await checkHost(page).locator('[data-act="listen"]').waitFor();
 }
-
-check('guided-route-shares-exact-material-and-links-screen-ear-results', 'ui', async ({ page }) => {
-  await startRoute(page);
-  // Read the actual viewport geometry after the route coordinator's focus and
-  // ResizeObserver update; the test never scrolls the prompt on its behalf.
-  await page.waitForFunction(() => {
-    const prompt = document.querySelector('[data-testid="quiz-prompt"]');
-    const bar = document.querySelector('[data-testid="route-session-bar"]');
-    if (!prompt || !bar || document.activeElement !== prompt) return false;
-    const target = prompt.getBoundingClientRect(), pinned = bar.getBoundingClientRect();
-    return target.top >= pinned.bottom + 8 && target.bottom <= innerHeight;
-  }, undefined, { polling: 'raf', timeout: 3000 });
-  const initialFocus = await page.evaluate(() => {
-    const prompt = document.querySelector('[data-testid="quiz-prompt"]').getBoundingClientRect();
-    const bar = document.querySelector('[data-testid="route-session-bar"]').getBoundingClientRect();
-    return { promptTop: prompt.top, promptBottom: prompt.bottom, pinnedBottom: bar.bottom, viewportHeight: innerHeight, focusedId: document.activeElement.id };
+const choiceLabels = async page => (await checkHost(page).locator('[data-choice] strong').allInnerTexts()).map(normalizeDegree);
+const locked = page => checkHost(page).locator('[data-choice]').evaluateAll(list => list.map(button => button.getAttribute('aria-disabled') === 'true'));
+const cueText = page => checkHost(page).locator('.ck-cue small').innerText();
+const progressLabel = page => checkHost(page).locator('.ck-progress strong').innerText();
+async function silent(page, timeout = 3000) {
+  await page.waitForFunction(() => window.__earAudioObserved.read().levels.every(level => level.rms < .000001), null, { timeout });
+}
+/** До ответа в вопросе нет признаков цели: ни атрибутов, ни классов результата; кнопки ступеней различаются только подписью. */
+async function assertNoAnswerLeak(page) {
+  const scan = await checkHost(page).evaluate(host => {
+    const roots = [host.querySelector('[data-ck-question]'), host.querySelector('[data-ck-buttons]'), host.querySelector('[data-ck-feedback]')];
+    const problems = [];
+    for (const element of roots.flatMap(root => [root, ...root.querySelectorAll('*')])) {
+      for (const token of element.classList) if (/^(is-right|is-shown|is-found|is-final|is-correct|ck-st-)/.test(token)) problems.push(`class ${token}`);
+      for (const name of element.getAttributeNames()) if (/answer|correct|expected|target|degree|solution|midi|freq/i.test(name)) problems.push(`attribute ${name}`);
+      const label = element.getAttribute('aria-label') ?? '';
+      if (/(?<![а-яё])верно|показанный ответ/i.test(label)) problems.push(`aria-label ${label}`);
+    }
+    const shapes = new Set([...host.querySelectorAll('[data-choice]')].map(button => {
+      const clone = button.cloneNode(true);
+      for (const name of ['data-choice', 'data-key', 'aria-label', 'aria-keyshortcuts']) clone.removeAttribute(name);
+      clone.querySelectorAll('strong, kbd').forEach(node => { node.textContent = ''; });
+      return clone.outerHTML;
+    }));
+    return { problems, choiceVariants: shapes.size, cue: host.querySelector('.ck-steps')?.textContent ?? '' };
   });
-  assert.equal(initialFocus.focusedId, 'quiz-prompt');
-  assert.ok(initialFocus.promptTop >= initialFocus.pinnedBottom + 8, JSON.stringify(initialFocus));
-  assert.ok(initialFocus.promptBottom <= initialFocus.viewportHeight, JSON.stringify(initialFocus));
-  const expectedIds = ['E:8', 'A:7', 'A:10', 'D:10'];
-  const boardIds = await page.getByTestId('quiz-answer-board').locator('[data-answer-position]').evaluateAll(nodes => nodes.map(node => node.dataset.answerPosition));
-  assert.deepEqual([...boardIds].sort(), [...expectedIds].sort());
-  const targets = []; const positionForName = { C: 'E:8', E: 'A:7', G: 'A:10' };
-  for (let index = 0; index < 6; index++) {
-    const target = await page.getByTestId('quiz-target').innerText(); targets.push(target); assert.ok(positionForName[target]);
-    await page.getByTestId('quiz-answer-board').locator(`[data-answer-position="${positionForName[target]}"]`).click();
-    await page.locator('[data-training-action="next"]').click();
+  assert.deepEqual(scan.problems, [], 'Признаки цели в DOM/ARIA до ответа');
+  assert.equal(scan.choiceVariants, 1, 'Кнопки ступеней отличаются не только подписью');
+  assert.match(scan.cue, /Нота \?/);
+  return scan;
+}
+/** Начало прослушивания: ответ — интервал между двумя наблюдаемыми частотами native-осцилляторов. */
+async function beginListen(page) {
+  await page.evaluate(() => window.__earAudioObserved.reset());
+  await checkHost(page).locator('[data-act="listen"]').click();
+  await page.waitForFunction(() => window.__earAudioObserved.read().frequencies.filter(event => event.frequency > 0).length >= 2);
+  const frequencies = (await page.evaluate(() => window.__earAudioObserved.read())).frequencies.filter(event => event.frequency > 0).slice(-2);
+  const semitones = Math.round(12 * Math.log2(frequencies[1].frequency / frequencies[0].frequency));
+  const degree = DEGREES[((semitones % 12) + 12) % 12];
+  const labels = await choiceLabels(page);
+  const index = labels.indexOf(degree);
+  assert.ok(index >= 0, `Ступень ${degree} (${semitones} пт) нет среди ${labels.join(' ')}: ${JSON.stringify(frequencies)}`);
+  return { degree, semitones, index, wrong: labels.findIndex((_, i) => i !== index), frequencies };
+}
+async function fullListen(page) {
+  const oracle = await beginListen(page);
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-lesson-screen="check"] [data-choice]')].every(button => button.getAttribute('aria-disabled') !== 'true'), null, { timeout: 6000 });
+  return oracle;
+}
+async function readNative(page) {
+  return page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('bass-study');
+      request.onupgradeneeded = () => { request.transaction?.abort(); reject(new Error('База приложения ещё не создана')); };
+      request.onerror = () => reject(request.error); request.onsuccess = () => resolve(request.result);
+    });
+    try {
+      const transaction = db.transaction('history', 'readonly');
+      const request = transaction.objectStore('history').getAll();
+      const history = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+      return { version: db.version, history };
+    } finally { db.close(); }
+  });
+}
+async function waitCheckRecord(page, count = 1) {
+  const deadline = Date.now() + 8000;
+  for (;;) {
+    const db = await readNative(page);
+    const records = db.history.filter(entry => entry.result?.kind === 'check');
+    if (records.length >= count) return { ...db, records };
+    assert.ok(Date.now() < deadline, `Запись «Проверь себя» не появилась: ${JSON.stringify(db.history).slice(0, 1000)}`);
+    await delay(100);
   }
-  assert.deepEqual([...targets].sort(), ['C', 'C', 'E', 'E', 'G', 'G']);
-  await routeAction(page, 'next').click(); assert.ok(await page.locator('#ear-mount').isVisible());
-  assert.ok(await page.locator('[data-ear-example="3"]').isVisible());
-  assert.equal(await page.getByLabel('Слуховых вопросов', { exact: true }).inputValue(), '6');
-  await start(page); const oracle = await fullListen(page); near(oracle.frequencies[0].frequency, 65.40639132514966, .01, 'route C2 reference');
-  await choice(page, oracle.degree).click(); await action(page, 'finish').click();
-  await routeAction(page, 'next').click(); assert.equal(await page.locator('[data-training-mode="sequence"]').getAttribute('aria-pressed'), 'true');
-  assert.deepEqual(await page.getByTestId('sequence-route').locator('[data-sequence-position]').evaluateAll(nodes => nodes.map(node => node.dataset.sequencePosition)), expectedIds);
-  assert.equal(await page.getByLabel('Длительность нот', { exact: true }).inputValue(), 'quarter');
-  assert.equal(await page.locator('#player-mount').getByLabel('Темп, BPM', { exact: true }).inputValue(), '60');
-  assert.equal(await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).inputValue(), 'infinite');
-  assert.ok(await page.getByLabel('Отсчёт перед стартом', { exact: true }).isChecked());
-  await routeAction(page, 'stop').click(); const exported = await exportUi(page);
-  const route = exported.history.find(entry => entry.result.kind === 'route'); const screen = exported.history.find(entry => entry.result.kind === 'screen'); const ear = exported.history.find(entry => entry.result.kind === 'ear');
-  assert.equal(route.result.material.kind, 'triad-route-v1'); assert.deepEqual(route.result.material.referencePositionIds, expectedIds);
-  assert.equal(screen.result.questionPolicy, 'triad-6-v1'); assert.equal(screen.result.context.box.shapeId, 'compact-e');
-  assert.equal(ear.result.context.referenceMidi, 36); assert.equal(ear.result.plannedCount, 6);
-  assert.deepEqual(screen.routeRef, { routeId: route.result.id, step: 'fretboard' }); assert.deepEqual(ear.routeRef, { routeId: route.result.id, step: 'ear' });
-  assert.ok(route.result.sessionLinks.some(link => link.id === screen.id && link.step === 'fretboard'));
-  assert.ok(route.result.sessionLinks.some(link => link.id === ear.id && link.step === 'ear'));
-  await routeAction(page, 'close').click(); assert.ok(await page.locator('#route-session-mount').isHidden());
-  return { targets, exactPositions: expectedIds, referenceMidi: 36, linkedScreen: screen.id, linkedEar: ear.id, resultClosed: true, initialFocus };
+}
+async function finishEarly(page) {
+  await checkHost(page).locator('[data-act="finish"]').click();
+  await checkHost(page).locator('[data-ck-summary]').waitFor();
+  return checkHost(page).locator('[data-ck-summary] .ck-tile').evaluateAll(list => Object.fromEntries(list.map(tile => {
+    const token = [...tile.classList].find(name => name.startsWith('ck-st-'));
+    return [token ? token.slice(6) : tile.textContent.replace(/\d+/g, '').trim(), Number(tile.querySelector('strong').textContent)];
+  })));
+}
+
+check('ui-check-ear-answers-locked-until-actual-cue-end-and-first-correct-is-independent', 'ui', async ({ page }) => {
+  await openEarCheck(page);
+  await assertNoAnswerLeak(page);
+  assert.ok((await locked(page)).every(Boolean), 'До прослушивания ответы закрыты');
+  // aria-disabled — не disabled: нажатие доходит до экрана и объясняет, почему ответ закрыт.
+  await checkHost(page).locator('[data-choice="0"]').click({ force: true });
+  assert.match(await checkHost(page).locator('[data-ck-feedback]').innerText(), /Сначала прослушай/);
+  const oracle = await beginListen(page);
+  assert.ok((await locked(page)).every(Boolean), 'Во время сигнала ответы закрыты');
+  await delay(1050);
+  assert.ok((await locked(page)).every(Boolean), 'Пока звучит целевая нота, ответы закрыты');
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-lesson-screen="check"] [data-choice]')].every(button => button.getAttribute('aria-disabled') !== 'true'), null, { timeout: 6000 });
+  await assertNoAnswerLeak(page);
+  assert.match(await cueText(page), /Прослушано полностью: 1 · повторов: 0/);
+  await checkHost(page).locator(`[data-choice="${oracle.index}"]`).click();
+  assert.match(await checkHost(page).locator('[data-ck-feedback]').innerText(), /^Верно, с первой попытки\./);
+  const tiles = await finishEarly(page);
+  assert.equal(tiles.self, 1);
+  const db = await waitCheckRecord(page);
+  const answers = db.records[0].result.answers;
+  assert.equal(answers.length, 6);
+  assert.deepEqual({ ...answers[0], degree: normalizeDegree(answers[0].degree) }, { degree: oracle.degree, outcome: 'correct', errors: 0 });
+  assert.ok(answers.slice(1).every(answer => answer.outcome === 'unanswered'));
+  return { oracle, tiles, record: { id: db.records[0].id, title: db.records[0].result.title, answers }, databaseVersion: db.version };
 });
 
-check('route-card-preview-pauses-old-step-and-keeps-free-ear-unlinked-until-next', 'ui', async ({ page }) => {
-  await startRoute(page);
-  await page.waitForFunction(() => Number(document.querySelector('#route-session-mount')?.dataset.routeActiveMs) > 200);
-  await page.locator('[data-app-module="route"]').click();
-  await page.locator('[data-route-step="ear"]').click(); await routeState(page, 'paused');
-  assert.equal(await page.locator('#route-session-mount').getAttribute('data-route-step'), 'fretboard');
-  const paused = await routeActive(page);
-  await start(page); const previewOracle = await fullListen(page); await choice(page, previewOracle.degree).click(); await action(page, 'finish').click();
-  assert.equal(await routeActive(page), paused, 'Preview listening must not add time to the paused fretboard block');
-  await routeAction(page, 'next').click(); await routeState(page, 'running');
-  assert.equal(await page.locator('#route-session-mount').getAttribute('data-route-step'), 'ear');
-  await start(page); const linkedOracle = await fullListen(page); await choice(page, linkedOracle.degree).click(); await action(page, 'finish').click();
-  await routeAction(page, 'stop').click(); const exported = await exportUi(page);
-  const route = exported.history.find(entry => entry.result.kind === 'route');
-  const ears = exported.history.filter(entry => entry.result.kind === 'ear'); assert.equal(ears.length, 2);
-  const free = ears.find(entry => entry.routeRef === null); const linked = ears.find(entry => entry.routeRef?.routeId === route.result.id);
-  assert.ok(free); assert.ok(linked); assert.equal(linked.routeRef.step, 'ear');
-  assert.ok(!route.result.sessionLinks.some(link => link.id === free.id));
-  assert.ok(route.result.sessionLinks.some(link => link.id === linked.id && link.step === 'ear'));
-  return { previewKeptStep: 'fretboard', pausedActiveMs: paused, freeEarId: free.id, linkedEarId: linked.id, nextOpenedTimedEar: true };
+check('ui-check-ear-replay-error-reveal-and-skip-stay-distinct-outcomes', 'ui', async ({ page }) => {
+  await openEarCheck(page);
+  // 1 — повтор прослушивания не ошибка и не показ.
+  const first = await fullListen(page); const replay = await fullListen(page);
+  assert.equal(replay.degree, first.degree);
+  assert.match(await cueText(page), /Прослушано полностью: 2 · повторов: 1/);
+  await checkHost(page).locator(`[data-choice="${first.index}"]`).click();
+  assert.match(await checkHost(page).locator('[data-ck-feedback]').innerText(), /^Верно, с первой попытки\./);
+  await checkHost(page).locator('[data-act="next"]').click();
+  // 2 — ошибка, затем исправление; ошибка не раскрывает ответ.
+  const second = await fullListen(page);
+  await checkHost(page).locator(`[data-choice="${second.wrong}"]`).click();
+  assert.equal(await checkHost(page).locator(`[data-choice="${second.wrong}"]`).getAttribute('aria-disabled'), 'true');
+  assert.equal(await checkHost(page).locator('[data-act="next"]').count(), 0, 'После ошибки вопрос не закрыт');
+  await assertNoAnswerLeak(page).catch(error => { if (!/различаются|отличаются/.test(error.message)) throw error; });
+  await checkHost(page).locator(`[data-choice="${second.index}"]`).click();
+  assert.match(await checkHost(page).locator('[data-ck-feedback]').innerText(), /^Верно, с исправлением \(ошибок: 1\)\./);
+  await checkHost(page).locator('[data-act="next"]').click();
+  // 3 — показ без прослушивания; 4 — пропуск.
+  await checkHost(page).locator('[data-act="reveal"]').click();
+  assert.match(await checkHost(page).locator('[data-ck-feedback]').innerText(), /^Ответ показан: .* «показано», не самостоятельно\.$/);
+  await checkHost(page).locator('[data-act="next"]').click();
+  await checkHost(page).locator('[data-act="skip"]').click();
+  assert.equal(await progressLabel(page), 'Вопрос 5 из 6');
+  const tiles = await finishEarly(page);
+  assert.equal(tiles.self, 1); assert.equal(tiles.fix, 1); assert.equal(tiles.shown, 1); assert.equal(tiles.skip, 1); assert.equal(tiles.none, 2);
+  assert.match(await checkHost(page).locator('[data-ck-summary]').innerText(), /Повторов прослушивания/);
+  const db = await waitCheckRecord(page);
+  const answers = db.records[0].result.answers;
+  assert.deepEqual(answers.map(answer => answer.outcome), ['correct', 'corrected', 'revealed', 'skipped', 'unanswered', 'unanswered']);
+  assert.deepEqual(answers.map(answer => answer.errors), [0, 1, 0, 0, 0, 0], 'Повтор прослушивания не стал ошибкой');
+  assert.deepEqual(answers.slice(0, 2).map(answer => normalizeDegree(answer.degree)), [first.degree, second.degree]);
+  return { first: first.degree, second: second.degree, tiles, answers };
 });
 
-check('timed-route-real-pause-resume-early-next-and-stop-save-actual-time', 'ui', async ({ page }) => {
-  await startRoute(page);
-  await page.waitForFunction(() => Number(document.querySelector('#route-session-mount')?.dataset.routeActiveMs) >= 900);
-  await routeAction(page, 'pause').click(); await routeState(page, 'paused'); const paused = await routeActive(page);
-  await delay(1000); assert.equal(await routeActive(page), paused, 'Paused wall time must not become active route time');
-  await routeAction(page, 'resume').click(); await routeState(page, 'running');
-  await page.waitForFunction(paused => Number(document.querySelector('#route-session-mount')?.dataset.routeActiveMs) > paused + 250, paused);
-  await routeAction(page, 'next').click(); await routeState(page, 'running');
-  assert.equal(await page.locator('#route-session-mount').getAttribute('data-route-step'), 'ear'); assert.ok(await page.locator('#ear-mount').isVisible());
-  const next = await routeActive(page); await page.waitForFunction(next => Number(document.querySelector('#route-session-mount')?.dataset.routeActiveMs) > next + 200, next);
-  await routeAction(page, 'stop').click(); await routeState(page, 'finished'); const exported = await exportUi(page);
-  const entries = exported.history.filter(entry => entry.result.kind === 'route'); assert.equal(entries.length, 1); const entry = entries[0];
-  assert.equal(entry.result.source, 'active-timer'); assert.equal(entry.result.finishReason, 'stopped'); assert.deepEqual(entry.result.plannedStepMs, [180000, 180000, 240000]);
-  assert.ok(entry.result.actualStepMs[0] >= paused && entry.result.actualStepMs[0] < 10000); assert.ok(entry.result.actualStepMs[1] > 0 && entry.result.actualStepMs[1] < 10000); assert.equal(entry.result.actualStepMs[2], 0);
-  assert.ok(entry.result.actualStepMs.reduce((sum, value) => sum + value, 0) < entry.result.totalPlannedMs);
-  assert.deepEqual(entry.result.events.map(event => event.type), ['start', 'pause', 'resume', 'next', 'stop']);
-  assert.equal(entry.result.events.find(event => event.type === 'pause').reason, 'manual'); assert.ok(!Object.hasOwn(entry.result, 'accuracy')); assert.ok(!Object.hasOwn(entry.result, 'independentCorrect'));
-  return { pausedActiveMs: paused, pausedWallMsExcluded: 1000, earlyNextOpenedEar: true, entry, fullTenMinuteWaitClaimed: false };
+check('ui-check-ear-stop-and-section-leave-cancel-cue-and-archive-hidden-target', 'ui', async ({ page }) => {
+  await openEarCheck(page);
+  // Остановка в середине сигнала: звук прекращается, завершения нет, нужен новый полный сигнал.
+  await beginListen(page); await delay(200);
+  await checkHost(page).locator('[data-act="stop-signal"]').click();
+  await silent(page);
+  await delay(1500);
+  assert.ok((await locked(page)).every(Boolean), 'Остановленный сигнал не открывает ответы');
+  assert.match(await cueText(page), /Ответы откроются после конца сигнала/);
+  const oracle = await fullListen(page);
+  assert.match(await cueText(page), /Прослушано полностью: 1 · повторов: 0 · остановлено: 1/);
+  await checkHost(page).locator(`[data-choice="${oracle.index}"]`).click();
+  await checkHost(page).locator('[data-act="next"]').click();
+  // Уход из раздела во время сигнала: звук отменён, серия архивирована досрочно с прежним материалом.
+  await beginListen(page);
+  await navigate(page, 'foundation');
+  await page.waitForFunction(() => !document.querySelector('[data-page-frame="foundation"]').hidden);
+  await silent(page);
+  const db = await waitCheckRecord(page);
+  const answers = db.records[0].result.answers;
+  assert.deepEqual(answers.map(answer => answer.outcome), ['correct', 'unanswered', 'unanswered', 'unanswered', 'unanswered', 'unanswered']);
+  // В «Прогрессе» у прерванной записи цель не раскрыта: среди «трудных» нет ступеней вопросов без ответа (R-016).
+  await navigate(page, 'progress');
+  const frame = page.locator('[data-page-frame="progress"]');
+  await frame.locator('[data-tab="calendar"]').click();
+  const entry = frame.locator('[data-day-card] .pg-entry.is-check').first();
+  await entry.waitFor();
+  const text = await entry.innerText();
+  assert.match(text, /самостоятельно 1/);
+  assert.doesNotMatch(text, /трудные/, `Цели вопросов без ответа видны в «Прогрессе»: ${text}`);
+  await frame.locator('[data-tab="exercises"]').click();
+  const exercises = await frame.locator('[data-exercises]').textContent();
+  assert.doesNotMatch(exercises, /трудные:/);
+  return { oracle, archivedAnswers: answers, progressEntry: text };
 });
 
-check('timed-route-five-second-checkpoint-preserves-history-field-focus-and-one-id', 'ui', async ({ page }) => {
-  await startRoute(page);
-  await page.waitForFunction(() => Number(document.querySelector('#route-session-mount')?.dataset.routeActiveMs) > 200);
-  // A zero-active start deliberately creates no history row. A real pause with
-  // nonzero time publishes a valid initial snapshot before the next checkpoint.
-  await routeAction(page, 'pause').click(); await routeState(page, 'paused'); await saved(page);
-  await routeAction(page, 'resume').click(); await routeState(page, 'running');
-  const first = await exportUi(page); const initial = first.history.find(entry => entry.result.kind === 'route'); assert.ok(initial);
-  const note = page.getByLabel('Название пресета', { exact: true }); const text = 'Редактируемое поле остаётся на месте при сохранении таймера.';
-  await note.fill(text); await note.press('ArrowLeft'); await note.press('ArrowLeft');
-  const caret = await note.evaluate(element => element.selectionStart);
-  await delay(5500);
-  assert.equal(await note.evaluate(element => document.activeElement === element), true, 'Autosave must not replace the focused draft field');
-  assert.equal(await note.inputValue(), text); assert.equal(await note.evaluate(element => element.selectionStart), caret);
-  assert.ok(await routeActive(page) >= 5000); await routeAction(page, 'stop').click(); await routeState(page, 'finished');
-  const after = await exportUi(page); const entries = after.history.filter(entry => entry.result.kind === 'route'); assert.equal(entries.length, 1); assert.equal(entries[0].id, initial.id);
-  assert.ok(entries[0].result.actualStepMs[0] >= 5000); assert.deepEqual(entries[0].result.actualStepMs.slice(1), [0, 0]);
-  return { sameHistoryId: initial.id, observedCheckpointAfterMs: 5500, historyFieldFocusAndCaretPreserved: true, entry: entries[0] };
-});
-
-check('native-hidden-tab-pauses-timed-route-and-return-requires-explicit-resume', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
-  await startRoute(page);
-  // The route page is hidden during the fretboard step, but the visible bar
-  // must still drive and persist the first running checkpoint.
-  assert.equal(await page.locator('#route-mount').isHidden(), true);
-  await page.waitForFunction(() => !document.hidden && Number(document.querySelector('#route-session-mount')?.dataset.routeActiveMs) >= 5200, undefined, { polling: 100 });
-  const checkpoint = (await readNativeHistory(page)).history.find(entry => entry.result.kind === 'route');
-  assert.ok(checkpoint);
-  assert.equal(checkpoint.result.status, 'running');
-  assert.ok(checkpoint.result.actualStepMs[0] >= 5000 && checkpoint.result.actualStepMs[0] <= await routeActive(page));
-  assert.deepEqual(checkpoint.result.actualStepMs.slice(1), [0, 0]);
+check('native-hidden-tab-cancels-check-cue-and-requires-new-complete-listen', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
+  await openEarCheck(page);
+  await beginListen(page);
   const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront();
-  await page.waitForFunction(() => document.hidden && document.querySelector('#route-session-mount')?.dataset.routeState === 'paused', undefined, { polling: 100 });
-  const paused = await routeActive(page); await delay(350); assert.equal(await routeActive(page), paused);
-  await page.bringToFront(); await page.waitForFunction(() => !document.hidden, undefined, { polling: 100 }); await delay(150);
-  assert.equal(await page.locator('#route-session-mount').getAttribute('data-route-state'), 'paused');
-  await routeAction(page, 'resume').click({ force: true }); await page.waitForFunction(() => document.querySelector('#route-session-mount')?.dataset.routeState === 'running', undefined, { polling: 100 });
-  await page.waitForFunction(paused => Number(document.querySelector('#route-session-mount')?.dataset.routeActiveMs) > paused + 200, paused, { polling: 100 });
-  await routeAction(page, 'stop').click({ force: true }); const persisted = await readNativeHistory(page); const entry = persisted.history.find(entry => entry.result.kind === 'route');
-  assert.ok(entry); assert.equal(entry.result.events.find(event => event.type === 'pause').reason, 'hidden'); assert.equal(entry.result.events.filter(event => event.type === 'resume').length, 1);
-  assert.equal(entry.id, checkpoint.id);
-  assert.equal(entry.result.actualStepMs[0], await routeActive(page));
-  assert.ok(entry.result.actualStepMs[0] > paused + 200 && entry.result.actualStepMs[0] < paused + 5000);
-  assert.deepEqual(entry.result.actualStepMs.slice(1), [0, 0]);
-  return { visibleFretboardCheckpointMs: checkpoint.result.actualStepMs[0], actualDocumentHidden: true, pausedActiveMs: paused,
-    automaticResumeClaimed: false, historyReadMethod: persisted.method, databaseVersion: persisted.databaseVersion, entry };
-}));
-
-check('native-hidden-tab-cancels-cue-and-requires-new-complete-listen', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
-  await configure(page); await start(page); await beginListen(page); const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront();
-  await page.waitForFunction(() => document.hidden && document.querySelector('[data-testid="ear-notice"]')?.textContent.includes('скрывалась'), undefined, { polling: 100 });
-  await delay(100); assert.ok((await observation(page)).levels.every(level => level.rms < .000001));
+  await page.waitForFunction(() => document.hidden, undefined, { polling: 100 });
+  await page.waitForFunction(() => /Вкладка скрывалась/.test(document.querySelector('[data-lesson-screen="check"] [data-ck-feedback]')?.textContent ?? '') || /остановлено: 1/.test(document.querySelector('[data-lesson-screen="check"] .ck-cue small')?.textContent ?? ''), undefined, { polling: 100 });
+  await silent(page, 6000);
   await page.bringToFront(); await page.waitForFunction(() => !document.hidden, undefined, { polling: 100 });
-  assert.ok(await choice(page, '1').isDisabled()); assert.equal(await page.getByTestId('ear-completed-listens').innerText(), '0');
-  const oracle = await fullListen(page); await choice(page, oracle.degree).click(); await action(page, 'next').click(); const persisted = await readNativeHistory(page); const question = persisted.history[0].result.questions[0];
-  assert.equal(question.listensCancelled, 1); assert.equal(question.listensCompleted, 1); return { oracle, actualDocumentHidden: true, newFullListenRequired: true, historyReadMethod: persisted.method, databaseVersion: persisted.databaseVersion, question, method: 'Separate Edge/CDP noDefaults:true, real tab activation; no synthetic visibility event' };
+  await delay(1600);
+  assert.ok((await locked(page)).every(Boolean), 'После возврата ответы закрыты до нового полного сигнала');
+  const oracle = await fullListen(page);
+  assert.match(await cueText(page), /Прослушано полностью: 1 · повторов: 0 · остановлено: 1/);
+  await checkHost(page).locator(`[data-choice="${oracle.index}"]`).click();
+  await finishEarly(page);
+  const db = await waitCheckRecord(page);
+  assert.deepEqual({ ...db.records[0].result.answers[0], degree: normalizeDegree(db.records[0].result.answers[0].degree) }, { degree: oracle.degree, outcome: 'correct', errors: 0 });
+  await other.close();
+  return { oracle, actualDocumentHidden: true, newFullListenRequired: true, databaseVersion: db.version, method: 'Separate Edge/CDP noDefaults:true, real tab activation; readonly native IndexedDB; no synthetic visibility event' };
 }));
 
-markFullOnly(checks, [
-  'native-hidden-tab-pauses-timed-route-and-return-requires-explicit-resume',
-  'native-hidden-tab-cancels-cue-and-requires-new-complete-listen',
-], FULL_ONLY.hiddenTab);
+markFullOnly(checks, ['native-hidden-tab-cancels-check-cue-and-requires-new-complete-listen'], FULL_ONLY.hiddenTab);
 markFullOnly(checks, [
   'live-user-gesture-real-signal-and-completion-follow-actual-cue-clock',
   'live-stop-in-rest-cancels-future-target-and-completion',
@@ -439,12 +301,6 @@ markFullOnly(checks, [
 markFullOnly(checks, [
   'pcm-reference-rest-target-A-minor-C',
   'pcm-reference-rest-target-C-sharp-major-E-sharp',
-  'ui-labelled-study-and-revealed-answer-playback-do-not-create-score-events',
-  'ui-replay-is-counted-separately-from-first-answer-score',
-  'ui-stop-cancel-requires-a-new-full-listen-and-no-stale-completion',
-  'ui-ear-history-filter-counts-reload-and-backup-replacement-stay-separate',
-  'guided-route-shares-exact-material-and-links-screen-ear-results',
-  'route-card-preview-pauses-old-step-and-keeps-free-ear-unlinked-until-next',
-  'timed-route-five-second-checkpoint-preserves-history-field-focus-and-one-id',
+  'ui-check-ear-replay-error-reveal-and-skip-stay-distinct-outcomes',
 ], FULL_ONLY.smoke);
 await runEarBrowserChecks(checks);

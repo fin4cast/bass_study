@@ -22,7 +22,7 @@ export async function runAudioBrowserChecks(allChecks) {
   const report = {
     generatedAt: new Date().toISOString(), platform: process.platform, architecture: process.arch,
     node: process.version, browserChannel: 'msedge', browserVersion: null, origin, fixtureOrigin,
-    scope: 'P4 actual Web Audio lookahead scheduling, OfflineAudioContext PCM, live analyser and product player UI; physical speakers muted; no physical output latency measurement.',
+    scope: 'P4 actual Web Audio lookahead scheduling, OfflineAudioContext PCM, live analyser and the product play screen of «Занятие» (audio owner `play`); physical speakers muted; no physical output latency measurement.',
     networkIsolation: 'Fresh Edge contexts with cache disabled; non-loopback page HTTP requests aborted. No user profile or Windows network adapter change.',
     checks: [], externalRequests: [], pageErrors: [], cleanupErrors: [],
   };
@@ -49,7 +49,7 @@ export async function runAudioBrowserChecks(allChecks) {
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
     await page.goto(url);
     if (url === fixtureUrl) await page.waitForFunction(() => window.p4?.ready);
-    else await page.waitForSelector('[data-position="E:5"]');
+    else await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert && document.querySelector('[data-lesson-screen="home"] .ls-plan, [data-lesson-screen="home"] .ls-hero'), undefined, { timeout: 20000 });
     return { context, page };
   }
   async function withNativeBrowser(run) {
@@ -61,7 +61,7 @@ export async function runAudioBrowserChecks(allChecks) {
       const page = nativeEdge.page; page.setDefaultTimeout(6000);
       page.on('pageerror', error => report.pageErrors.push(error.message));
       await page.goto(origin);
-      await page.waitForFunction(() => document.querySelector('[data-position="E:5"]'), undefined, { polling: 100 });
+      await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert && document.querySelector('[data-lesson-screen="home"] .ls-plan, [data-lesson-screen="home"] .ls-hero'), undefined, { polling: 100, timeout: 20000 });
       await page.bringToFront();
       return await run({ page, context });
     } finally {
