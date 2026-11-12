@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P13: экран игры</title>
+<link rel="icon" href="data:,">
+<style>
+  /* Оболочка-заглушка D-043: боковое меню 208 px (72 px при ширине до 1100 px) и рабочая область. */
+  html, body { height: 100%; }
+  body { margin: 0; overflow: hidden; }
+  .fixture-app { display: grid; grid-template-columns: 208px minmax(0, 1fr); height: 100vh; }
+  .fixture-nav { background: var(--surface-navigation); border-right: 1px solid var(--border); }
+  .fixture-main { min-width: 0; min-height: 0; overflow: auto; padding: 22px 26px; box-sizing: border-box; }
+  #play { height: 100%; }
+  @media (max-width: 1100px) { .fixture-app { grid-template-columns: 72px minmax(0, 1fr); } .fixture-main { padding: 18px; } }
+</style>
+</head>
+<body>
+  <div class="fixture-app">
+    <nav class="fixture-nav" aria-label="Разделы тренажёра (заглушка)"></nav>
+    <main class="fixture-main"><div id="play"></div></main>
+  </div>
+  <script type="module">
+    import '/src/styles.css';
+    import '/src/ui/play/play.css';
+    import { buildExercise, createExerciseSpec } from '/src/exercises/index.ts';
+    import { mountPlay } from '/src/ui/play/view.ts';
+    import { createEnginePort } from '/src/ui/play/port.ts';
+
+    const params = new URLSearchParams(location.search);
+    document.documentElement.dataset.theme = params.get('theme') === 'dark' ? 'dark' : 'light';
+    const template = params.get('template') || 'connect-forms';
+    const spec = createExerciseSpec(template);
+    const plan = buildExercise(spec);
+    // Журнал колбэков фикстуры (не содержит правильных ответов): что экран сообщил хосту.
+    const log = [];
+    const handle = mountPlay(document.getElementById('play'), {
+      port: createEnginePort(),
+      initialView: params.get('view') || 'board',
+      bpm: Number(params.get('bpm')) || 76,
+      backLabel: '← Занятие · план на сегодня',
+      onBack: () => log.push({ type: 'back' }),
+      onRate: event => log.push({ type: 'rate', ...event }),
+      onViewChange: view => log.push({ type: 'view', view }),
+      onListen: () => log.push({ type: 'listen' }),
+      onConcept: id => log.push({ type: 'concept', id }),
+    });
+    handle.setExercise(plan, spec);
+    window.p13play = { log, ready: true };
+    window.addEventListener('pagehide', () => handle.dispose(), { once: true });
+  </script>
+</body>
+</html>
