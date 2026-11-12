@@ -5,17 +5,17 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { build } from 'vite';
 
-// Собирает модель VIS-10/VIS-11 r1 из чистых модулей продукта, сверяет материал
+// Собирает модель VIS-10/VIS-11 r2 из чистых модулей продукта, сверяет материал
 // с ручными контрольными примерами (R-014) и готовит фрагменты для render-lesson.mjs.
 const modelOnly = process.argv.slice(2).includes('--model-only');
 if (process.argv.slice(2).some(argument => argument !== '--model-only')) {
-  throw new Error('Использование: node docs/design/references/prepare-lesson-r1.mjs [--model-only]');
+  throw new Error('Использование: node docs/design/references/prepare-lesson-r2.mjs [--model-only]');
 }
 
 const base = new URL('./', import.meta.url);
 const repository = new URL('../../../', base);
 const resolve = name => new URL(name, base);
-const VIEWS = ['lesson-r1-vis10', 'lesson-r1-vis11'];
+const VIEWS = ['lesson-r2-vis10', 'lesson-r2-vis11'];
 const GLOBAL = 'BassLessonModel';
 
 const output = await build({
@@ -24,7 +24,7 @@ const output = await build({
   publicDir: false,
   logLevel: 'warn',
   build: {
-    lib: { entry: fileURLToPath(resolve('lesson-r1.model.ts')), formats: ['iife'], name: GLOBAL },
+    lib: { entry: fileURLToPath(resolve('lesson-r2.model.ts')), formats: ['iife'], name: GLOBAL },
     target: 'es2022', minify: true, write: false, emptyOutDir: false, copyPublicDir: false,
   },
 });
@@ -77,13 +77,13 @@ try {
   gitHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: fileURLToPath(repository), encoding: 'utf8', windowsHide: true }).trim();
 } catch { /* Хеши содержимого определяют источник и вне Git. */ }
 
-await writeFile(resolve('lesson-r1.model.js'), code);
-await writeFile(resolve('lesson-r1.model.json'), JSON.stringify({
+await writeFile(resolve('lesson-r2.model.js'), code);
+await writeFile(resolve('lesson-r2.model.json'), JSON.stringify({
   format: 'bass-study-reference-model',
-  revision: 'lesson-r1',
+  revision: 'lesson-r2',
   gitHead,
   inputs,
-  entrySha256: hash(await readFile(resolve('lesson-r1.model.ts'))),
+  entrySha256: hash(await readFile(resolve('lesson-r2.model.ts'))),
   bundleSha256: hash(code),
   global: GLOBAL,
   target: 'es2022',
@@ -92,16 +92,16 @@ await writeFile(resolve('lesson-r1.model.json'), JSON.stringify({
 }, null, 2) + '\n');
 
 if (modelOnly) {
-  console.log('Собрана модель lesson-r1: lesson-r1.model.js и манифест. Приложение и dist не изменялись.');
+  console.log('Собрана модель lesson-r2: lesson-r2.model.js и манифест. Приложение и dist не изменялись.');
 } else {
   const inlineCode = code.replace(/<\/script/gi, '<\\/script');
-  const common = await readFile(resolve('lesson-r1.common.html'), 'utf8');
+  const common = await readFile(resolve('lesson-r2.common.html'), 'utf8');
   for (const stem of VIEWS) {
     const viewUrl = resolve(`${stem}.view.html`);
     try { await access(viewUrl); } catch { console.log(`Пропущен ${stem}: нет view.`); continue; }
     const view = await readFile(viewUrl, 'utf8');
     if (/<!doctype|<(?:html|head|body)(?:\s|>)/i.test(view)) throw new Error(`${stem}.view.html должен быть фрагментом без doctype/html/head/body.`);
-    if ((view.match(/\bid\s*=\s*["']studio-lesson-r1["']/g) || []).length !== 1) throw new Error(`${stem}.view.html должен содержать ровно один корень id="studio-lesson-r1".`);
+    if ((view.match(/\bid\s*=\s*["']studio-lesson["']/g) || []).length !== 1) throw new Error(`${stem}.view.html должен содержать ровно один корень id="studio-lesson".`);
     await writeFile(resolve(`${stem}.fragment.html`), `<script>\n${inlineCode}\n</script>\n${common}\n${view}`);
     console.log(`Собран ${stem}.fragment.html.`);
   }

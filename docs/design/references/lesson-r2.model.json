@@ -1,7 +1,7 @@
 {
   "format": "bass-study-reference-model",
-  "revision": "lesson-r1",
-  "gitHead": "6f5212d475d5fba5b21f7c50f5b19fe18716a625",
+  "revision": "lesson-r2",
+  "gitHead": "85ff935a514ee541fae017c872e844a0f9d0d16b",
   "inputs": {
     "src/music/index.ts": "67ba00cb3457507ff5d7bc7b5f40f257b044b001e1c747c852ba7ab5a3bc366d",
     "src/music/boxes.ts": "91ff78638f5222fa7b8002c95d1e6741a79e6b9a306fa78a43421a00366b7e55",

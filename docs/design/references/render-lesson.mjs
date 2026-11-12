@@ -1,24 +1,24 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-// Собирает автономные VIS-10/VIS-11 r1 из фрагментов prepare-lesson-r1.mjs.
-// Над экраном — панель рецензии: кандидаты A/B/C и тема. Внешних ресурсов нет.
+// Собирает автономные VIS-10/VIS-11 r2 из фрагментов prepare-lesson-r2.mjs.
+// Над экраном — панель рецензии с темой. r2 объединяет кандидатов r1: вкладки и виды переключаются внутри экрана.
 const SCREENS = {
-  'lesson-r1-vis10': {
-    title: 'VIS-10 r1 — Занятие и библиотека',
-    lead: 'Стартовый экран занятия · три кандидата на одном материале',
-    candidates: [['a', 'A · Сегодня'], ['b', 'B · Библиотека'], ['c', 'C · Курс']],
+  'lesson-r2-vis10': {
+    title: 'VIS-10 r2 — Занятие',
+    lead: 'Вкладки «Сегодня / Библиотека / Основы» — сочетание кандидатов A+B+C r1',
+    candidates: [],
   },
-  'lesson-r1-vis11': {
-    title: 'VIS-11 r1 — Экран игры',
-    lead: 'Игра упражнения EX-1 «Связка форм A→B, пентатоника Am» · три кандидата',
-    candidates: [['a', 'A · Таб над грифом'], ['b', 'B · Гриф главный'], ['c', 'C · Фокус']],
+  'lesson-r2-vis11': {
+    title: 'VIS-11 r2 — Экран игры',
+    lead: 'EX-1 «Связка форм A→B, пентатоника Am» · виды «Гриф крупно / Таб + гриф / Таб крупно / По памяти»',
+    candidates: [],
   },
 };
 
 for (const [stem, screen] of Object.entries(SCREENS)) {
   let fragment;
   try { fragment = await readFile(new URL(`./${stem}.fragment.html`, import.meta.url), 'utf8'); }
-  catch (error) { if (error.code === 'ENOENT') { console.log(`Пропущен ${stem}: сначала prepare-lesson-r1.mjs.`); continue; } throw error; }
+  catch (error) { if (error.code === 'ENOENT') { console.log(`Пропущен ${stem}: сначала prepare-lesson-r2.mjs.`); continue; } throw error; }
   const tabs = screen.candidates.map(([id, label]) => `<button type="button" data-review-candidate="${id}" aria-pressed="false">${label}</button>`).join('');
   const html = `<!doctype html>
 <html lang="ru">
@@ -36,12 +36,12 @@ for (const [stem, screen] of Object.entries(SCREENS)) {
     .review-group button[aria-pressed=true]{background:light-dark(#28392e,#dde7da);color:light-dark(#f7f8f3,#242d28);}
     .review-stage{padding:0;}
     body.is-capture .review-bar{display:none;}
-    body:not(.is-capture) #studio-lesson-r1 .lr-app{height:calc(100vh - 58px);border-radius:0;border-width:0;}
-    body.is-capture #studio-lesson-r1 .lr-app{border-radius:0;border-width:0;}
+    body:not(.is-capture) #studio-lesson .lr-app{height:calc(100vh - 58px);border-radius:0;border-width:0;}
+    body.is-capture #studio-lesson .lr-app{border-radius:0;border-width:0;}
   </style>
 </head>
 <body>
-<div class="review-bar"><div><strong>${screen.title}</strong><p>${screen.lead} · на рассмотрении · звука и сохранения нет</p></div><div class="review-group" role="group" aria-label="Кандидат">${tabs}</div><div class="review-group" role="group" aria-label="Тема"><button type="button" data-review-theme="light">Светлая</button><button type="button" data-review-theme="dark">Тёмная</button></div></div>
+<div class="review-bar"><div><strong>${screen.title}</strong><p>${screen.lead} · на рассмотрении · звука и сохранения нет</p></div>${tabs ? `<div class="review-group" role="group" aria-label="Кандидат">${tabs}</div>` : ""}<div class="review-group" role="group" aria-label="Тема"><button type="button" data-review-theme="light">Светлая</button><button type="button" data-review-theme="dark">Тёмная</button></div></div>
 <div class="review-stage">
 ${fragment}
 </div>
