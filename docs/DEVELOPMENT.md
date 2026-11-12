@@ -140,7 +140,7 @@ npm run test:regression -- --corpus
 
 ## CI
 
-`.github/workflows/regression.yml` запускается на pull request и push в `main`: `windows-2025`, Node 24, `npm ci`, установка Edge при его отсутствии, полный набор `npm run test:full` без `--corpus`. Протокол прогона (`summary.json`, `inputs.json`, `build.json`, отчёты и логи) сохраняется артефактом `portable-regression`.
+`.github/workflows/regression.yml` запускается на pull request и push в `main`: `windows-2025`, Node 24, `npm ci`, установка Edge при его отсутствии, полный набор `npm run test:full` без `--corpus`, раннеры последовательно (`BASS_TEST_JOBS=1`): параллельный холодный старт отдельных процессов Edge на раннере GitHub не укладывается в таймаут первой навигации. Протокол прогона (`summary.json`, `inputs.json`, `build.json`, отчёты и логи) сохраняется артефактом `portable-regression`.
 
 ## Правила проверок
 

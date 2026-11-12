@@ -25,7 +25,11 @@ jobs:
         run: |
           $edge = Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe'
           if (-not (Test-Path -LiteralPath $edge)) { npx playwright install msedge }
+      # Полный набор в CI идёт последовательно: параллельный холодный старт отдельных процессов Edge
+      # на раннере GitHub упирается в таймаут первой навигации. Локально пул раннеров сохраняется.
       - run: npm run test:full
+        env:
+          BASS_TEST_JOBS: '1'
       - uses: actions/upload-artifact@v7
         if: always()
         with:
