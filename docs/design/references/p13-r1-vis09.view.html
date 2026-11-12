@@ -1,0 +1,667 @@
+<style>
+  /* VIS-09 r1 «Настройки»: два кандидата — A «Одна страница», B «Разделы». Только локальные стили, цвета — токены --s-*. */
+  #studio-lesson [hidden]{display:none !important;}
+  #studio-lesson .lr-main{gap:14px;padding-top:16px;}
+  #studio-lesson .lr-main button:disabled,#studio-lesson .lr-main select:disabled,#studio-lesson .lr-main input:disabled{opacity:.5;cursor:default;filter:none;}
+  #studio-lesson .lr-btn:disabled:hover{background:var(--s-input);}
+  #studio-lesson .lr-btn-primary:disabled:hover{background:var(--s-green);}
+
+  /* Шапка, состояние записи, баннеры */
+  #studio-lesson .v09-top{flex:none;display:flex;align-items:flex-end;justify-content:space-between;gap:10px 20px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--s-line);}
+  #studio-lesson .v09-top-side{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v09-save{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--s-ink);border:1px solid var(--s-line);border-radius:999px;padding:3px 11px;background:var(--s-panel);}
+  #studio-lesson .v09-dot{width:8px;height:8px;border-radius:50%;background:var(--s-green);flex:none;}
+  #studio-lesson .is-error .v09-dot{background:var(--s-gold);}
+  #studio-lesson .is-other .v09-dot{background:var(--s-info);}
+  #studio-lesson .is-saving .v09-dot{background:var(--s-line-strong);}
+  #studio-lesson .v09-save.is-error{border-color:var(--s-gold);background:var(--s-gold-soft);}
+  #studio-lesson .v09-save.is-other{border-color:var(--s-info);background:var(--s-info-soft);}
+  #studio-lesson .v09-banners{flex:none;display:flex;flex-direction:column;gap:10px;}
+  #studio-lesson .v09-banners:empty{display:none;}
+  #studio-lesson .v09-banner{display:flex;align-items:center;justify-content:space-between;gap:10px 18px;flex-wrap:wrap;border:1px solid var(--s-info);background:var(--s-info-soft);border-radius:12px;padding:12px 16px;}
+  #studio-lesson .v09-banner.is-warn{border-color:var(--s-gold);background:var(--s-gold-soft);}
+  #studio-lesson .v09-banner>div:first-child{flex:1 1 360px;min-width:0;display:flex;flex-direction:column;gap:3px;}
+  #studio-lesson .v09-banner strong{font-size:14px;}
+  #studio-lesson .v09-banner p{font-size:13px;max-width:760px;}
+  #studio-lesson .v09-banner-actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+  /* Секции и строки настроек */
+  #studio-lesson .v09-sec{display:flex;flex-direction:column;gap:12px;padding:18px 20px;scroll-margin-top:8px;}
+  #studio-lesson .v09-sec h2{font-size:18px;font-weight:650;letter-spacing:-.3px;}
+  #studio-lesson .v09-sec h2:focus{outline:none;}
+  #studio-lesson .v09-sec h2:focus-visible{outline:3px solid var(--s-focus);outline-offset:2px;}
+  #studio-lesson .v09-help{font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v09-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+  #studio-lesson .v09-text{font-size:13px;}
+  #studio-lesson .v09-rows{display:flex;flex-direction:column;}
+  #studio-lesson .v09-row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 24px;padding:12px 0;border-top:1px solid var(--s-line);}
+  #studio-lesson .v09-row:first-child{border-top:0;padding-top:0;}
+  #studio-lesson .v09-row:last-child{padding-bottom:0;}
+  #studio-lesson .v09-row-text{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  #studio-lesson .v09-row-text strong{font-size:14px;font-weight:600;}
+  #studio-lesson .v09-row-ctl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  #studio-lesson .v09-sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  #studio-lesson .v09-seg button{padding:6px 12px;font-size:13px;}
+  #studio-lesson .v09-switch{display:inline-flex;align-items:center;gap:9px;border:0;background:none;padding:3px 2px;font-size:13px;}
+  #studio-lesson .v09-track{width:38px;height:22px;border-radius:999px;background:var(--s-line);border:1px solid var(--s-line-strong);position:relative;flex:none;transition:background .15s;}
+  #studio-lesson .v09-track::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--s-input);box-shadow:0 0 0 1px var(--s-line-strong);transition:left .15s;}
+  #studio-lesson .v09-switch[aria-checked="true"] .v09-track{background:var(--s-green);border-color:var(--s-green);}
+  #studio-lesson .v09-switch[aria-checked="true"] .v09-track::after{left:18px;background:var(--s-on-green);box-shadow:none;}
+  #studio-lesson .v09-switch b{min-width:34px;font-weight:600;}
+  #studio-lesson .v09-switch-label{text-align:left;}
+  #studio-lesson .v09-stepper{display:inline-flex;align-items:center;gap:6px;}
+  #studio-lesson .v09-stepper output{font:700 20px/1 'Segoe UI',Arial;min-width:44px;text-align:center;font-variant-numeric:tabular-nums;}
+  #studio-lesson .v09-stepper small{font-size:12px;color:var(--s-muted);}
+
+  /* Оформление: карточки темы с живым образцом своей схемы */
+  #studio-lesson .v09-themes{display:grid;grid-template-columns:repeat(2,minmax(0,230px));gap:12px;}
+  #studio-lesson .v09-theme{display:flex;flex-direction:column;gap:9px;border:1px solid var(--s-line);border-radius:12px;background:var(--s-input);padding:8px 8px 10px;text-align:left;}
+  #studio-lesson .v09-theme:hover{border-color:var(--s-line-strong);}
+  #studio-lesson .v09-theme[aria-pressed="true"]{border-color:var(--s-green);box-shadow:0 0 0 2px var(--s-green);}
+  #studio-lesson .v09-theme-name{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;padding:0 4px;}
+  #studio-lesson .v09-theme-name small{font-weight:400;color:var(--s-muted);font-size:12px;}
+  #studio-lesson .v09-radio{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--s-line-strong);display:grid;place-items:center;flex:none;}
+  #studio-lesson [aria-pressed="true"] .v09-radio{border-color:var(--s-green);}
+  #studio-lesson [aria-pressed="true"] .v09-radio::after{content:'';width:8px;height:8px;border-radius:50%;background:var(--s-green);}
+  #studio-lesson .v09-prev{display:grid;grid-template-columns:28% 1fr;height:86px;border-radius:8px;overflow:hidden;border:1px solid var(--s-line);background:var(--s-paper);}
+  #studio-lesson .v09-prev.is-light{color-scheme:light;}
+  #studio-lesson .v09-prev.is-dark{color-scheme:dark;}
+  #studio-lesson .v09-prev-nav{background:var(--s-nav);display:flex;flex-direction:column;gap:6px;padding:9px 7px;border-right:1px solid var(--s-line);}
+  #studio-lesson .v09-prev-nav i{display:block;height:4px;border-radius:2px;background:var(--s-line-strong);}
+  #studio-lesson .v09-prev-nav i:first-child{background:var(--s-green);width:70%;}
+  #studio-lesson .v09-prev-main{padding:8px;display:flex;flex-direction:column;gap:5px;}
+  #studio-lesson .v09-prev-main b{display:block;height:6px;width:55%;border-radius:3px;background:var(--s-ink);}
+  #studio-lesson .v09-prev-main i{display:block;height:4px;width:80%;border-radius:2px;background:var(--s-line-strong);}
+  #studio-lesson .v09-prev-neck{margin-top:auto;height:26px;border-radius:4px;background:var(--s-neck);position:relative;}
+  #studio-lesson .v09-prev-neck::after{content:'';position:absolute;left:22%;top:8px;width:10px;height:10px;border-radius:50%;background:var(--s-root);box-shadow:18px 0 0 var(--s-note),36px 0 0 var(--s-note),54px 0 0 var(--s-form-b);}
+
+  /* Данные */
+  #studio-lesson .v09-where{display:flex;gap:12px;align-items:flex-start;background:var(--s-paper);border:1px solid var(--s-line);border-radius:10px;padding:12px 14px;font-size:13px;}
+  #studio-lesson .v09-where svg{width:22px;height:22px;flex:none;stroke:var(--s-green);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;margin-top:1px;}
+  #studio-lesson .v09-where>div{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  #studio-lesson .v09-code{font:600 12px/1.4 Consolas,monospace;background:var(--s-panel);border:1px solid var(--s-line);border-radius:5px;padding:1px 5px;white-space:nowrap;}
+  #studio-lesson .v09-state{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13px;}
+  #studio-lesson .v09-state>span{display:inline-flex;gap:7px;align-items:center;}
+  #studio-lesson .v09-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  #studio-lesson .v09-inline{display:inline;border:0;background:none;padding:0;color:var(--s-info);text-decoration:underline;text-underline-offset:2px;font-weight:600;}
+  #studio-lesson .v09-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px 20px;}
+  #studio-lesson .v09-list{margin:4px 0 0;padding-left:18px;font-size:13px;display:flex;flex-direction:column;gap:2px;}
+  #studio-lesson .v09-list b{font-variant-numeric:tabular-nums;}
+  #studio-lesson .v09-note{font-size:12px;color:var(--s-muted);border-left:3px solid var(--s-line-strong);padding:2px 0 2px 10px;}
+  #studio-lesson .v09-note strong{color:var(--s-ink);font-weight:600;}
+
+  /* Аудиовход */
+  #studio-lesson .v09-info{border:1px solid var(--s-info);background:var(--s-info-soft);border-radius:10px;padding:10px 12px;font-size:13px;}
+  #studio-lesson .v09-in-ctl{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;}
+  #studio-lesson .v09-field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--s-muted);min-width:0;flex:1 1 260px;max-width:380px;}
+  #studio-lesson .v09-field select{font:inherit;font-size:13px;color:var(--s-ink);background:var(--s-input);border:1px solid var(--s-line-strong);border-radius:8px;padding:7px 10px;max-width:100%;}
+  #studio-lesson .v09-in-status{font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  #studio-lesson .v09-demo{display:inline-block;font-size:11px;font-weight:700;border:1px dashed var(--s-line-strong);border-radius:999px;padding:0 8px;color:var(--s-muted);}
+  #studio-lesson .v09-in-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+  #studio-lesson .v09-in-card{border:1px solid var(--s-line);border-radius:10px;background:var(--s-paper);padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0;}
+  #studio-lesson .v09-in-head{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  #studio-lesson .v09-level{position:relative;height:14px;border-radius:7px;background:var(--s-green-soft);overflow:hidden;border:1px solid var(--s-line);}
+  #studio-lesson .v09-level i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--s-green);transition:width .1s linear;}
+  #studio-lesson .v09-level::after{content:'';position:absolute;top:0;bottom:0;left:88%;width:2px;background:var(--s-gold);}
+  #studio-lesson .v09-scale{display:flex;justify-content:space-between;font-size:11px;color:var(--s-muted);}
+  #studio-lesson .v09-level-text{font-size:13px;font-weight:600;}
+  #studio-lesson .v09-pitch{font:700 34px/1 'Segoe UI',Arial;font-variant-numeric:tabular-nums;min-height:34px;}
+  #studio-lesson .v09-pitch small{font-size:14px;font-weight:600;color:var(--s-muted);margin-right:6px;}
+  #studio-lesson .v09-more{border-top:1px solid var(--s-line);padding-top:10px;}
+  #studio-lesson .v09-more>summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--s-muted);width:max-content;max-width:100%;}
+  #studio-lesson .v09-dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:5px 18px;font-size:12px;margin:10px 0 0;}
+  #studio-lesson .v09-dl dt{color:var(--s-muted);}
+  #studio-lesson .v09-dl dd{margin:0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+  #studio-lesson .v09-about{font-size:13px;}
+
+  /* Кандидат A: одна страница с якорями */
+  #studio-lesson .v09a{flex:none;display:grid;grid-template-columns:184px minmax(0,1fr);gap:20px;align-items:start;}
+  #studio-lesson .v09a-nav{position:sticky;top:0;display:flex;flex-direction:column;gap:2px;}
+  #studio-lesson .v09a-nav button{display:flex;align-items:center;gap:8px;border:0;background:none;text-align:left;padding:7px 10px;border-radius:8px;font-size:13px;color:var(--s-muted);line-height:1.3;}
+  #studio-lesson .v09a-nav button:hover{background:var(--s-hover);color:var(--s-ink);}
+  #studio-lesson .v09a-nav button[aria-current="true"]{background:var(--s-panel);color:var(--s-ink);font-weight:650;box-shadow:inset 3px 0 0 var(--s-green),0 0 0 1px var(--s-line);}
+  #studio-lesson .v09a-nav small{margin-left:auto;font-size:11px;font-weight:400;color:var(--s-muted);}
+  #studio-lesson .v09a-body{display:flex;flex-direction:column;gap:14px;max-width:880px;min-width:0;}
+  #studio-lesson .v09-fold{padding:0;gap:0;}
+  #studio-lesson .v09-fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;padding:16px 20px;border-radius:12px;}
+  #studio-lesson .v09-fold>summary::-webkit-details-marker{display:none;}
+  #studio-lesson .v09-fold>summary:hover{background:var(--s-hover);}
+  #studio-lesson .v09-fold-hint{font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v09-chev{margin-left:auto;font-size:12px;color:var(--s-muted);transition:transform .15s;}
+  #studio-lesson .v09-fold[open]>summary .v09-chev{transform:rotate(180deg);}
+  #studio-lesson .v09-fold[open]>summary{border-radius:12px 12px 0 0;}
+  #studio-lesson .v09-fold-body{padding:0 20px 18px;display:flex;flex-direction:column;gap:12px;}
+
+  /* Кандидат B: список разделов слева, один раздел справа */
+  #studio-lesson .v09b{flex:none;display:grid;grid-template-columns:236px minmax(0,1fr);gap:20px;align-items:start;}
+  #studio-lesson .v09b-list{position:sticky;top:0;display:flex;flex-direction:column;gap:4px;}
+  #studio-lesson .v09b-tab{display:grid;grid-template-columns:26px minmax(0,1fr);gap:1px 10px;align-items:center;border:1px solid transparent;background:none;text-align:left;padding:9px 12px;border-radius:10px;color:var(--s-muted);}
+  #studio-lesson .v09b-tab svg{grid-row:span 2;width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+  #studio-lesson .v09b-tab b{font-size:14px;font-weight:600;color:var(--s-ink);}
+  #studio-lesson .v09b-tab small{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #studio-lesson .v09b-tab:hover{background:var(--s-hover);}
+  #studio-lesson .v09b-tab[aria-selected="true"]{background:var(--s-panel);border-color:var(--s-line);box-shadow:inset 3px 0 0 var(--s-green);color:var(--s-ink);}
+  #studio-lesson .v09b-tab[aria-selected="true"] svg{stroke:var(--s-green);}
+  #studio-lesson .v09b-pane{display:flex;flex-direction:column;gap:14px;max-width:900px;min-width:0;}
+  #studio-lesson .v09b-pane-head{display:flex;flex-direction:column;gap:3px;}
+  #studio-lesson .v09b-pane-head h2{font-size:22px;font-weight:650;letter-spacing:-.4px;}
+  #studio-lesson .v09b-pane-head h2:focus{outline:none;}
+  #studio-lesson .v09b-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}
+  #studio-lesson .v09b-step{display:flex;flex-direction:column;gap:8px;border:1px solid var(--s-line);border-radius:12px;background:var(--s-input);padding:16px;min-width:0;}
+  #studio-lesson .v09b-step-n{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:17px;font-weight:700;background:var(--s-green-soft);color:var(--s-ink);border:2px solid var(--s-green);}
+  #studio-lesson .v09b-step h3{font-size:16px;font-weight:650;line-height:1.3;}
+  #studio-lesson .v09b-step p{font-size:13px;color:var(--s-muted);flex:1;}
+  #studio-lesson .v09b-step .lr-btn{align-self:flex-start;padding:10px 16px;font-size:14px;}
+
+  /* Диалоги и уведомление */
+  #studio-lesson .v09-dialog{border:1px solid var(--s-line-strong);border-radius:14px;background:var(--s-paper);color:var(--s-ink);padding:0;width:min(580px,calc(100vw - 32px));max-height:calc(100vh - 48px);box-shadow:0 18px 60px color-mix(in srgb,var(--s-neck) 45%,transparent);}
+  #studio-lesson .v09-dialog::backdrop{background:color-mix(in srgb,var(--s-neck) 55%,transparent);}
+  #studio-lesson .v09-dlg{display:flex;flex-direction:column;gap:14px;padding:22px 24px;}
+  #studio-lesson .v09-dlg h2{font-size:20px;font-weight:650;letter-spacing:-.3px;}
+  #studio-lesson .v09-dlg h2:focus{outline:none;}
+  #studio-lesson .v09-dlg p{font-size:13px;}
+  #studio-lesson .v09-dlg-top{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  #studio-lesson .v09-dlg-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;align-items:center;padding-top:4px;}
+  #studio-lesson .v09-dlg-actions .v09-grow{margin-right:auto;}
+  #studio-lesson .v09-files{display:flex;flex-direction:column;gap:8px;}
+  #studio-lesson .v09-file{display:flex;flex-direction:column;gap:2px;align-items:flex-start;text-align:left;border:1px solid var(--s-line-strong);background:var(--s-input);border-radius:10px;padding:10px 12px;}
+  #studio-lesson .v09-file:hover{background:var(--s-hover);}
+  #studio-lesson .v09-file b{font:600 13px/1.4 Consolas,monospace;}
+  #studio-lesson .v09-file small{font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v09-cmp{width:100%;border-collapse:collapse;font-size:13px;}
+  #studio-lesson .v09-cmp th,#studio-lesson .v09-cmp td{padding:6px 8px;border-bottom:1px solid var(--s-line);text-align:left;}
+  #studio-lesson .v09-cmp th{font-size:12px;font-weight:600;color:var(--s-muted);}
+  #studio-lesson .v09-cmp .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  #studio-lesson .v09-check{display:flex;gap:9px;align-items:flex-start;font-size:13px;font-weight:600;}
+  #studio-lesson .v09-check input{width:17px;height:17px;margin:1px 0 0;accent-color:var(--s-green);}
+  #studio-lesson .v09-warn{border:1px solid var(--s-gold);background:var(--s-gold-soft);border-radius:10px;padding:10px 12px;font-size:13px;}
+  #studio-lesson .v09-ok{border:1px solid var(--s-green);background:var(--s-green-soft);border-radius:10px;padding:10px 12px;font-size:13px;}
+  #studio-lesson .v09-toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--s-ink);color:var(--s-paper);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:min(560px,90vw);z-index:20;}
+  #studio-lesson .v09-toast.is-on{opacity:1;}
+
+  @media (max-width:1100px){
+    #studio-lesson .v09a{grid-template-columns:164px minmax(0,1fr);gap:16px;}
+    #studio-lesson .v09b{grid-template-columns:208px minmax(0,1fr);gap:16px;}
+    #studio-lesson .v09-sec{padding:16px;}
+    #studio-lesson .v09-fold{padding:0;}
+    #studio-lesson .v09-fold>summary{padding:14px 16px;}
+    #studio-lesson .v09-fold-body{padding:0 16px 16px;}
+  }
+</style>
+<div id="studio-lesson" data-candidate="a" aria-label="VIS-09 r1 — Настройки"></div>
+<script>
+(() => {
+  /*
+   * VIS-09 r1 «Настройки» (D-043): сюда переезжают служебные части «Моих занятий» и раздела «Аудиовход».
+   * Демо без звука, микрофона, файлов и хранилищ: переключатели меняют только состояние макета.
+   *
+   * Источник фактов:
+   * - тема Светлая/Тёмная — R-023, ARCHITECTURE «Тема» (реализовано);
+   * - копия JSON, предпросмотр без изменений, замена одной транзакцией, только текущая версия — R-012, D-042 (реализовано);
+   * - видимая ошибка записи до успешного повтора — R-012, ARCHITECTURE «Очередь записи» (реализовано);
+   * - одна вкладка пишет данные — ARCHITECTURE «Один писатель» (реализовано: вторая вкладка блокирует управление и предлагает «Проверить снова»);
+   * - аудиовход только по кнопке, без вывода на динамики, остановка при уходе/скрытии/смене устройства — R-020 (реализовано).
+   *
+   * ПРЕДЛОЖЕНИЯ (в интерфейсе показаны как обычные настройки, реализации пока нет):
+   * - весь блок «Занятие» как глобальные умолчания: вид экрана игры (правило «Таб + гриф», для нового — «Гриф крупно» — из R-026,
+   *   но отдельной настройки там нет), отсчёт перед стартом, подписи на грифе, темп нового упражнения;
+   * - «Передать сюда» во второй вкладке: сейчас право записи держится всё время жизни вкладки, передачи по кнопке нет;
+   * - «Свои упражнения» в составе копии: заменяют пресеты по D-043, хранение — P13-04.
+   */
+  const L = window.LessonRef;
+  const esc = L.esc;
+  const root = document.getElementById('studio-lesson');
+
+  const ICON = {
+    look: '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M10 3a7 7 0 0 0 0 14z" fill="currentColor" stroke="none"/></svg>',
+    lesson: '<svg viewBox="0 0 20 20"><path d="M4 3h9l3 3v11H4z"/><path d="M7 9h6M7 12h6M7 6h3"/></svg>',
+    data: '<svg viewBox="0 0 20 20"><ellipse cx="10" cy="5" rx="6" ry="2.5"/><path d="M4 5v10c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5V5"/><path d="M4 10c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5"/></svg>',
+    input: '<svg viewBox="0 0 20 20"><path d="M2 10h2l2-5 3 10 3-8 2 5 2-2h2"/></svg>',
+    about: '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v5M10 6.2v.1"/></svg>',
+    home: '<svg viewBox="0 0 20 20"><path d="M3 9l7-6 7 6v8H3z"/><path d="M8 17v-5h4v5"/></svg>',
+  };
+  const SECTIONS = [
+    ['look', 'Оформление', 'Тема'],
+    ['lesson', 'Занятие', 'Вид экрана, отсчёт, подписи, темп'],
+    ['data', 'Данные и резервная копия', 'Копия и восстановление'],
+    ['input', 'Аудиовход', 'Проверка сигнала'],
+    ['about', 'О приложении', 'Версия и лицензии'],
+  ];
+  const SHORT = { look: 'Оформление', lesson: 'Занятие', data: 'Данные', input: 'Аудиовход', about: 'О приложении' };
+  const VIEWS = [['board', 'Гриф крупно'], ['tabBoard', 'Таб + гриф'], ['tab', 'Таб крупно'], ['memory', 'По памяти']];
+  const LABELS = [['notes', 'Ноты'], ['degrees', 'Ступени'], ['fingers', 'Пальцы']];
+  const DEVICES = [['default', 'Устройство по умолчанию'], ['usb', 'Аудиоинтерфейс USB · вход 1'], ['mic', 'Микрофон ноутбука']];
+  const VERSION = { app: '1.4.0', data: 11 };
+  const name = (list, id) => list.find(x => x[0] === id)[1];
+  const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
+  const num = (value, digits = 1) => value.toLocaleString('ru-RU', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+
+  /* ---------- Состояние макета (общее для обоих кандидатов) ---------- */
+  const S = {
+    view: 'tabBoard', newBoard: true, countIn: true, labels: 'notes', bpm: 60,
+    save: 'ok', failMode: false, failed: '', tabs: 'own',
+    input: 'off', device: 'usb', notice: '', level: 0, pitch: null,
+    counts: { history: 148, own: 6, rhythm: 3, drafts: 1 },
+    bTab: 'look',
+  };
+  const COPY = { file: 'bass-study-backup-2026-11-10.json', date: '10 ноября 2026', size: '182 КБ', counts: { history: 131, own: 5, rhythm: 2, drafts: 0 } };
+  const OLD = { file: 'bass-study-backup-2026-08-30.json', date: '30 августа 2026', size: '96 КБ', version: 10 };
+  const locked = () => S.tabs === 'other';
+  const lock = ' data-lock';
+
+  /* ---------- Разметка секций ---------- */
+  const seg = (p, key, list, label) => `<div class="lr-seg v09-seg" role="group" aria-label="${esc(label)}">${list.map(([id, text]) => `<button type="button" data-set="${key}" data-v="${id}" aria-pressed="false"${lock}>${esc(text)}</button>`).join('')}</div>`;
+  const toggle = (key, label, text = null) => `<button type="button" class="v09-switch" role="switch" aria-checked="false" data-switch="${key}" ${text ? '' : `aria-label="${esc(label)}"`}${lock}><span class="v09-track" aria-hidden="true"></span>${text ? `<span class="v09-switch-label">${esc(text)}</span>` : `<b data-switch-text="${key}"></b>`}</button>`;
+  const row = (title, help, control, extra = '') => `<div class="v09-row"><div class="v09-row-text"><strong>${esc(title)}</strong><span class="v09-help">${help}</span>${extra}</div><div class="v09-row-ctl">${control}</div></div>`;
+
+  function lookBody() {
+    const card = (id, title, hint) => `<button type="button" class="v09-theme" data-lr-theme="${id}" aria-pressed="false"${lock}><span class="v09-prev is-${id}" aria-hidden="true"><span class="v09-prev-nav"><i></i><i></i><i></i><i></i></span><span class="v09-prev-main"><b></b><i></i><i></i><span class="v09-prev-neck"></span></span></span><span class="v09-theme-name"><span class="v09-radio" aria-hidden="true"></span><span>${esc(title)}<br><small>${esc(hint)}</small></span></span></button>`;
+    return `<p class="v09-text">Тема меняется сразу и запоминается. Тот же переключатель есть внизу меню.</p>
+      <div class="v09-themes" role="group" aria-label="Тема">${card('light', 'Светлая', 'Светлый фон, тёмный текст')}${card('dark', 'Тёмная', 'Тёмный фон, светлый текст')}</div>`;
+  }
+
+  function lessonBody() {
+    return `<div class="v09-rows">
+      ${row('Вид экрана игры', 'С этого вида открываются упражнения. Во время игры вид меняется, не останавливая её, и запоминается для упражнения.', seg('', 'view', VIEWS, 'Вид экрана игры'), `<span class="v09-sub">${toggle('newBoard', '', 'Новое упражнение — с «Гриф крупно»')}</span>`)}
+      ${row('Отсчёт перед стартом', 'Четыре доли перед первой нотой. После паузы игра продолжается без отсчёта.', toggle('countIn', 'Отсчёт 4 доли перед стартом'))}
+      ${row('Подписи на грифе', 'Что написано в кружках нот. На экране игры можно сменить.', seg('', 'labels', LABELS, 'Подписи на грифе'))}
+      ${row('Темп нового упражнения', 'Дальше упражнение помнит свой темп.', `<span class="v09-stepper"><button type="button" class="lr-icon-btn" data-bpm="-4" aria-label="Медленнее на 4"${lock}>−</button><output data-bpm-out aria-live="polite">60</output><button type="button" class="lr-icon-btn" data-bpm="4" aria-label="Быстрее на 4"${lock}>+</button><small>BPM</small></span>`)}
+    </div>`;
+  }
+
+  const WHERE = `<div class="v09-where">${ICON.home}<div><strong>Всё хранится в этом браузере на этом компьютере</strong><span>Адрес тренажёра — <span class="v09-code">http://localhost:4173</span>. Другой браузер или другой адрес этих данных не видит. Браузер может очистить данные сайта, поэтому храни копию отдельно.</span></div></div>`;
+  const STATE = `<div class="v09-state"><span data-save-data><span class="v09-dot"></span><span data-save-data-text></span></span><span data-tabs-line></span></div>`;
+  const CONTENTS = () => `<div class="v09-cols"><div><strong class="v09-text">В копии</strong><ul class="v09-list" data-copy-list></ul></div><div><strong class="v09-text">Не входят</strong><ul class="v09-list"><li>аудиофайлы и партитуры — после восстановления их нужно выбрать заново в «Песнях»</li></ul></div></div>`;
+  const VERSION_NOTE = `<p class="v09-note"><strong>Копия подходит только для текущей версии данных.</strong> Если обновление тренажёра меняет устройство данных, сохранённое начинается заново, а копии прежней версии не загружаются. Пока тренажёр меняется, так проще и надёжнее.</p>`;
+
+  function dataBody(big) {
+    if (!big) return `${WHERE}${STATE}
+      <div class="v09-actions"><button type="button" class="lr-btn lr-btn-primary" data-open="download"${lock}>Скачать копию (JSON)</button><button type="button" class="lr-btn" data-open="restore"${lock}>Восстановить из копии…</button></div>
+      <p class="v09-help">Восстановление сначала показывает, что внутри копии, — это ничего не меняет. Замена — одной операцией, только после твоего подтверждения.</p>
+      ${CONTENTS()}${VERSION_NOTE}`;
+    const step = (n, title, text, button = '') => `<div class="v09b-step"><span class="v09b-step-n" aria-hidden="true">${n}</span><h3><span class="v09-sr">Шаг ${n}. </span>${esc(title)}</h3><p>${text}</p>${button}</div>`;
+    return `<div class="v09b-steps">
+        ${step(1, 'Скачай копию', 'Один файл JSON со всем, что ты сохранил: настройки, история, свои упражнения.', `<button type="button" class="lr-btn lr-btn-primary" data-open="download"${lock}>Скачать копию (JSON)</button>`)}
+        ${step(2, 'Храни её вне браузера', 'Например, в папке с документами или в облаке. Браузер может очистить данные сайта, а файл останется.')}
+        ${step(3, 'Восстанови, когда нужно', 'Сначала покажем, что внутри, — это ничего не меняет. Замена — после подтверждения.', `<button type="button" class="lr-btn" data-open="restore"${lock}>Восстановить из копии…</button>`)}
+      </div>
+      <div class="lr-card v09-sec">${WHERE}${STATE}${CONTENTS()}${VERSION_NOTE}</div>`;
+  }
+
+  function inputBody(p) {
+    return `<p class="v09-info">Это диагностика сигнала: она показывает, доходит ли звук баса до компьютера, но игру не оценивает. Звук входа не выводится на динамики.</p>
+      <div class="v09-in-ctl">
+        <label class="v09-field">Устройство<select data-in-device${lock}>${DEVICES.map(([id, text]) => `<option value="${id}">${esc(text)}</option>`).join('')}</select></label>
+        <button type="button" class="lr-btn lr-btn-primary" data-in-connect${lock}>Подключить</button>
+        <button type="button" class="lr-btn" data-in-stop disabled>Отключить</button>
+      </div>
+      <p class="v09-in-status" role="status"><span data-in-status></span><span class="v09-demo" data-in-demo hidden>демо</span></p>
+      <div class="v09-in-grid">
+        <div class="v09-in-card"><div class="v09-in-head"><span class="lr-eyebrow">Уровень</span><span class="v09-level-text" data-in-level-text>—</span></div><div class="v09-level" role="img" aria-label="Индикатор уровня" data-in-level-wrap><i data-in-level></i></div><div class="v09-scale"><span>тихо</span><span>хорошо</span><span>предел</span></div></div>
+        <div class="v09-in-card"><div class="v09-in-head"><span class="lr-eyebrow">Примерная высота</span></div><div class="v09-pitch" data-in-pitch>—</div><span class="v09-help" data-in-pitch-help></span></div>
+      </div>
+      <p class="v09-help">Подключение — только по кнопке. Уйдёшь со страницы или скроешь вкладку — вход отключится. Запоминается только выбранное устройство; названия устройств браузер может показать только после первого подключения.</p>
+      <details class="v09-more"><summary>Подробнее</summary><dl class="v09-dl">
+        <dt>Уровень RMS</dt><dd data-in-d="rms">—</dd>
+        <dt>Пик</dt><dd data-in-d="peak">—</dd>
+        <dt>Частота</dt><dd data-in-d="hz">—</dd>
+        <dt>Достоверность</dt><dd data-in-d="conf">—</dd>
+        <dt>Частота дискретизации</dt><dd data-in-d="rate">—</dd>
+        <dt>Окно анализа</dt><dd data-in-d="frame">—</dd>
+        <dt>Диапазон высоты</dt><dd>35–420 Гц: от E1 до G4 — 24-го лада струны G</dd>
+        <dt>Обработка входа</dt><dd>Моно; эхоподавление, автоусиление и шумоподавление запрошены выключенными</dd>
+        <dt>Чего нет</dt><dd>Определения струны, лада, ритма и задержки — нужна отдельная проверка с настоящим басом</dd>
+      </dl></details>`;
+  }
+
+  function aboutBody() {
+    return `<dl class="v09-dl v09-about">
+      <dt>Версия</dt><dd>bass.study ${esc(VERSION.app)} · версия данных ${VERSION.data}</dd>
+      <dt>Где работает</dt><dd>Edge на Windows, адрес <span class="v09-code">http://localhost:4173</span>. Сеть не нужна: всё нужное лежит внутри приложения.</dd>
+      <dt>Документация</dt><dd>В папке проекта: README.md и docs — требования, план, устройство, решения.</dd>
+      <dt>Библиотеки</dt><dd>Tone.js и VexFlow — MIT; alphaTab — MPL-2.0</dd>
+      <dt>Шрифты нот</dt><dd>Bravura и Academico — SIL Open Font License 1.1</dd>
+      <dt>Тексты лицензий</dt><dd>Поставляются вместе с приложением, рядом с собранными файлами</dd>
+    </dl>`;
+  }
+
+  const BODY = { look: () => lookBody(), lesson: () => lessonBody(), data: big => dataBody(big), input: p => inputBody(p), about: () => aboutBody() };
+
+  /* ---------- Кандидат A: одна страница ---------- */
+  const FOLDED = new Set(['input', 'about']);
+  function candidateA() {
+    const nav = SECTIONS.map(([id]) => `<button type="button" data-jump="${id}" aria-current="${id === 'look'}">${esc(SHORT[id])}${FOLDED.has(id) ? `<small data-fold-hint="${id}">свёрнуто</small>` : ''}</button>`).join('');
+    const body = SECTIONS.map(([id, title, hint]) => FOLDED.has(id)
+      ? `<details class="lr-card v09-sec v09-fold" id="a-sec-${id}" data-sec="${id}"><summary><h2>${esc(title)}</h2><span class="v09-fold-hint">${esc(hint)}</span><span class="v09-chev" aria-hidden="true">▾</span></summary><div class="v09-fold-body">${BODY[id]('a')}</div></details>`
+      : `<section class="lr-card v09-sec" id="a-sec-${id}" data-sec="${id}" aria-labelledby="a-h-${id}"><h2 id="a-h-${id}" tabindex="-1">${esc(title)}</h2>${BODY[id](false)}</section>`).join('');
+    return `<div class="v09a"><nav class="v09a-nav" aria-label="Секции настроек">${nav}</nav><div class="v09a-body">${body}</div></div>`;
+  }
+
+  /* ---------- Кандидат B: разделы ---------- */
+  function candidateB() {
+    const tabs = SECTIONS.map(([id, title]) => `<button type="button" role="tab" class="v09b-tab" id="b-tab-${id}" aria-controls="b-pane-${id}" aria-selected="false" tabindex="-1" data-btab="${id}">${ICON[id]}<b>${esc(SHORT[id])}</b><small data-sum="${id}"></small></button>`).join('');
+    const panes = SECTIONS.map(([id, title, hint]) => {
+      const lead = { look: 'Как выглядит тренажёр.', lesson: 'С чего начинается каждое упражнение. Внутри упражнения всё можно поменять.', data: 'Твои занятия хранятся только здесь. Копия — способ их не потерять.', input: 'Проверка: доходит ли звук баса до компьютера.', about: 'Версия, документация и лицензии.' }[id];
+      const inner = id === 'data' ? BODY.data(true) : `<div class="lr-card v09-sec">${BODY[id]('b')}</div>`;
+      return `<section class="v09b-pane" role="tabpanel" id="b-pane-${id}" aria-labelledby="b-tab-${id}" data-bpane="${id}" hidden><div class="v09b-pane-head"><h2 tabindex="-1">${esc(title)}</h2><p class="lr-sub">${esc(lead)}</p></div>${inner}</section>`;
+    }).join('');
+    return `<div class="v09b"><div class="v09b-list" role="tablist" aria-orientation="vertical" aria-label="Разделы настроек">${tabs}</div><div>${panes}</div></div>`;
+  }
+
+  root.innerHTML = L.shell('settings', `
+    <header class="v09-top">
+      <div><h1 class="lr-h1" tabindex="-1" data-h1>Настройки</h1><p class="lr-sub">Оформление, умолчания занятия, резервная копия и проверка аудиовхода.</p></div>
+      <div class="v09-top-side">
+        <span class="v09-save" role="status" tabindex="-1" data-save-head><span class="v09-dot"></span><span data-save-head-text>Сохранено</span></span>
+        <span>Демо:</span><div class="lr-seg" role="group" aria-label="Демо-состояние записи"><button type="button" data-demo="ok" aria-pressed="true">Обычно</button><button type="button" data-demo="fail" aria-pressed="false">Ошибка записи</button><button type="button" data-demo="other" aria-pressed="false">Вторая вкладка</button></div>
+      </div>
+    </header>
+    <div class="v09-banners" data-banners></div>
+    <div data-candidate-panel="a">${candidateA()}</div>
+    <div data-candidate-panel="b">${candidateB()}</div>
+    <dialog class="v09-dialog" data-dialog aria-labelledby="v09-dlg-title"></dialog>
+    <div class="v09-toast" role="status" aria-live="polite" data-toast></div>
+  `);
+  const main = root.querySelector('.lr-main');
+  const dialog = root.querySelector('[data-dialog]');
+  const qa = selector => root.querySelectorAll(selector);
+  const shellStatus = root.querySelector('.lr-status');
+  qa('details[data-sec]').forEach(d => d.addEventListener('toggle', () => { root.querySelector(`[data-fold-hint="${d.dataset.sec}"]`).hidden = d.open; }));
+
+  let toastTimer = null;
+  function toast(text) {
+    const el = root.querySelector('[data-toast]');
+    el.textContent = text; el.classList.add('is-on');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('is-on'), 3200);
+  }
+
+  /* ---------- Запись настроек (демо очереди: ошибка видна до успешного повтора) ---------- */
+  let saveTimer = null;
+  function commit(what) {
+    if (locked()) return;
+    if (S.save !== 'error') S.save = 'saving';
+    sync();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      if (S.failMode) { S.save = 'error'; S.failed = what; }
+      else if (S.save !== 'error') S.save = 'ok';
+      sync();
+    }, 380);
+  }
+  function retry() {
+    S.save = 'saving'; sync();
+    setTimeout(() => {
+      S.save = 'ok'; S.failed = ''; S.failMode = false; sync();
+      root.querySelector('[data-save-head]').focus();
+      toast('Повтор прошёл: всё сохранено.');
+    }, 450);
+  }
+
+  function bannersHtml() {
+    const parts = [];
+    if (S.tabs === 'other') parts.push(`<div class="v09-banner" role="region" aria-label="Тренажёр открыт в другой вкладке"><div><strong>Тренажёр открыт в другой вкладке.</strong><p>Записывать данные может только одна вкладка — так сохранённое не перепутается. Здесь сейчас только просмотр. Можно забрать запись сюда: та вкладка сохранит своё и перейдёт в просмотр.</p></div><div class="v09-banner-actions"><button type="button" class="lr-btn lr-btn-primary" data-take>Передать сюда</button><button type="button" class="lr-btn" data-recheck>Проверить снова</button></div></div>`);
+    if (S.save === 'error' || (S.failed && S.save === 'saving')) parts.push(`<div class="v09-banner is-warn" role="alert"><div><strong>Не сохранилось: ${esc(S.failed)}.</strong><p>Изменение видно на экране, но не записано. Остальное сохранено. Сообщение останется, пока повтор не пройдёт.</p></div><div class="v09-banner-actions"><button type="button" class="lr-btn" data-retry${S.save === 'saving' ? ' disabled' : ''}>Повторить сохранение</button></div></div>`);
+    return parts.join('');
+  }
+
+  /* ---------- Синхронизация разметки с состоянием ---------- */
+  let lastBanners = null;
+  function sync() {
+    const theme = root.dataset.theme;
+    qa('[data-set]').forEach(b => b.setAttribute('aria-pressed', String(S[b.dataset.set] === b.dataset.v)));
+    qa('[data-switch]').forEach(b => b.setAttribute('aria-checked', String(Boolean(S[b.dataset.switch]))));
+    qa('[data-switch-text]').forEach(el => { el.textContent = { newBoard: S.newBoard ? 'Вкл' : 'Выкл', countIn: S.countIn ? '4 доли' : 'Выкл' }[el.dataset.switchText]; });
+    qa('[data-bpm-out]').forEach(el => { el.textContent = String(S.bpm); });
+    qa('[data-bpm]').forEach(b => { b.disabled = locked() || (Number(b.dataset.bpm) < 0 ? S.bpm <= 40 : S.bpm >= 200); });
+    qa('[data-lock]').forEach(el => { if (!el.matches('[data-bpm]')) el.disabled = locked() || (el.matches('[data-in-connect]') && S.input !== 'off'); });
+    qa('[data-demo]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.demo === (S.tabs === 'other' ? 'other' : S.failMode ? 'fail' : 'ok'))));
+
+    const kind = S.tabs === 'other' ? 'other' : S.save === 'error' ? 'error' : S.save === 'saving' ? 'saving' : 'ok';
+    const headText = { ok: 'Сохранено', saving: 'Сохраняем…', error: 'Не сохранено', other: 'Только просмотр' }[kind];
+    const head = root.querySelector('[data-save-head]');
+    head.className = `v09-save is-${kind}`;
+    root.querySelector('[data-save-head-text]').textContent = headText;
+    shellStatus.textContent = { ok: '● Локально · сохранено', saving: '● Сохраняем…', error: '● Не сохранено', other: '● Только просмотр' }[kind];
+    qa('[data-save-data]').forEach(el => { el.className = `is-${kind}`; });
+    qa('[data-save-data-text]').forEach(el => { el.textContent = { ok: 'Сохранено: изменения записываются сразу.', saving: 'Сохраняем…', error: 'Последнее изменение не записано — см. сообщение вверху.', other: 'Сейчас данные записывает другая вкладка.' }[kind]; });
+    qa('[data-tabs-line]').forEach(el => { el.textContent = S.tabs === 'other' ? 'Здесь только просмотр.' : 'Записывает эта вкладка; во второй вкладке будет только просмотр.'; });
+    const c = S.counts;
+    const copyList = `<li>настройки и тема</li><li>история занятий — <b>${c.history}</b> ${plural(c.history, 'запись', 'записи', 'записей')}</li><li>свои упражнения — <b>${c.own}</b></li><li>ритм-проекты — <b>${c.rhythm}</b></li><li>незаконченная практика — <b>${c.drafts}</b></li>`;
+    qa('[data-copy-list]').forEach(el => { if (el.innerHTML !== copyList) el.innerHTML = copyList; });
+
+    const html = bannersHtml();
+    if (html !== lastBanners) {
+      const hadFocus = root.querySelector('[data-banners]').contains(document.activeElement);
+      root.querySelector('[data-banners]').innerHTML = html; lastBanners = html;
+      if (hadFocus) (root.querySelector('[data-banners] button:not(:disabled)') || root.querySelector('[data-h1]')).focus();
+    }
+
+    const sums = {
+      look: theme === 'dark' ? 'Тёмная' : 'Светлая',
+      lesson: `${name(VIEWS, S.view)} · отсчёт ${S.countIn ? '4' : 'выкл'}`,
+      data: { ok: 'Сохранено', saving: 'Сохраняем…', error: 'Не сохранено', other: 'Только просмотр' }[kind],
+      input: { off: 'Отключён', starting: 'Подключаем…', on: 'Подключён · демо' }[S.input],
+      about: `Версия ${VERSION.app}`,
+    };
+    qa('[data-sum]').forEach(el => { el.textContent = sums[el.dataset.sum]; });
+    syncInput();
+  }
+
+  /* ---------- Аудиовход: демо-уровень без микрофона ---------- */
+  // Четыре открытые струны: E1 41,20 · A1 55,00 · D2 73,42 · G2 98,00 Гц; отклонение в центах — для правдоподобия.
+  const PLUCKS = [['E1', 41.2, 4], ['A1', 55, -6], ['D2', 73.42, 9], ['G2', 98, -3]];
+  let inputTimer = null, startTimer = null, t0 = 0;
+  function inputConnect() {
+    if (S.input !== 'off' || locked()) return;
+    S.input = 'starting'; S.notice = ''; sync();
+    root.querySelector('[data-candidate-panel="' + root.dataset.candidate + '"] [data-in-stop]')?.focus();
+    startTimer = setTimeout(() => {
+      if (S.input !== 'starting') return;
+      S.input = 'on'; t0 = performance.now();
+      inputTimer = setInterval(tickInput, 100); sync();
+    }, 700);
+  }
+  function inputStop(notice = 'Отключено. Чтобы проверить снова, нажми «Подключить».') {
+    if (S.input === 'off') return;
+    clearTimeout(startTimer); clearInterval(inputTimer); inputTimer = null;
+    const hadFocus = document.activeElement?.matches?.('[data-in-stop]');
+    S.input = 'off'; S.notice = notice; S.level = 0; S.pitch = null; sync();
+    if (hadFocus) root.querySelector('[data-candidate-panel="' + root.dataset.candidate + '"] [data-in-connect]')?.focus();
+  }
+  function tickInput() {
+    const t = (performance.now() - t0) / 1000, period = 2.6, k = Math.floor(t / period), ph = t - k * period;
+    S.level = ph < 0.06 ? (ph / 0.06) * 0.78 : 0.78 * Math.exp(-(ph - 0.06) * 1.05) + 0.012;
+    S.pitch = S.level > 0.14 && ph > 0.15 ? PLUCKS[k % 4] : null;
+    syncInput();
+  }
+  function syncInput() {
+    const on = S.input === 'on';
+    const status = { off: S.notice || 'Не подключено. Доступ к звуку запрашивается только по кнопке «Подключить».', starting: 'Подключаем… В настоящем приложении браузер здесь спросит разрешение.', on: 'Подключено. Сигнал идёт на анализ, на динамики ничего не выводится.' }[S.input];
+    qa('[data-in-status]').forEach(el => { if (el.textContent !== status) el.textContent = status; });
+    qa('[data-in-demo]').forEach(el => { el.hidden = S.input === 'off'; el.textContent = 'демо: микрофон не используется'; });
+    qa('[data-in-stop]').forEach(b => { b.disabled = S.input === 'off'; b.textContent = S.input === 'starting' ? 'Отменить' : 'Отключить'; });
+    qa('[data-in-device]').forEach(s => { if (s.value !== S.device) s.value = S.device; });
+    const pct = Math.round(Math.min(1, S.level / 0.88) * 88);
+    qa('[data-in-level]').forEach(el => { el.style.width = `${on ? pct : 0}%`; });
+    const levelText = !on ? '—' : S.level < 0.05 ? 'тишина' : S.level < 0.14 ? 'тихо' : 'хорошо';
+    qa('[data-in-level-text]').forEach(el => { el.textContent = levelText; });
+    qa('[data-in-level-wrap]').forEach(el => el.setAttribute('aria-label', `Уровень: ${levelText}`));
+    const pitchHtml = on && S.pitch ? `<small>≈</small>${esc(S.pitch[0])}` : '—';
+    qa('[data-in-pitch]').forEach(el => { if (el.innerHTML !== pitchHtml) el.innerHTML = pitchHtml; });
+    const help = !on ? 'Подключи вход, чтобы увидеть высоту.' : S.pitch ? 'Примерно. Сверяй на слух: возможна ошибка на октаву.' : 'Сыграй одну протяжную ноту.';
+    qa('[data-in-pitch-help]').forEach(el => { el.textContent = help; });
+    const db = v => v > 0 ? `${num(20 * Math.log10(v)).replace('-', '−')} dBFS` : '—';
+    const hz = S.pitch ? S.pitch[1] * 2 ** (S.pitch[2] / 1200) : 0;
+    const d = {
+      rms: on ? db(S.level * 0.34) : '—',
+      peak: on ? db(S.level) : '—',
+      hz: on && S.pitch ? `${num(hz, 2)} Гц · ${S.pitch[2] >= 0 ? '+' : '−'}${Math.abs(S.pitch[2])} ${plural(Math.abs(S.pitch[2]), 'цент', 'цента', 'центов')} от ${S.pitch[0]}` : 'нет устойчивой высоты',
+      conf: on && S.pitch ? `${num(0.88 + 0.02 * (PLUCKS.indexOf(S.pitch)), 2)} из 1` : '—',
+      rate: on ? '48 000 Гц' : 'нет подключения',
+      frame: on ? '8192 отсчёта ≈ 170,67 мс при 48 000 Гц' : '8192 отсчёта; длительность — после подключения',
+    };
+    qa('[data-in-d]').forEach(el => { const v = d[el.dataset.inD]; if (el.textContent !== v) el.textContent = v; });
+  }
+
+  /* ---------- Диалоги «Скачать копию» и «Восстановить из копии» ---------- */
+  let opener = null, step = null, confirmChecked = false;
+  const cmpRow = (label, copy, now) => `<tr><td>${esc(label)}</td><td class="n">${copy}</td><td class="n">${now}</td></tr>`;
+  function dialogHtml() {
+    const c = S.counts;
+    const close = label => `<button type="button" class="lr-btn" data-dlg="close">${esc(label)}</button>`;
+    if (step === 'download') return `<div class="v09-dlg-top"><span class="lr-eyebrow">Резервная копия</span><span class="v09-demo">демо: файл не создаётся</span></div>
+      <h2 id="v09-dlg-title" tabindex="-1">Скачать копию</h2>
+      <p>Файл <span class="v09-code">bass-study-backup-2026-11-12.json</span> · около 186 КБ. Сохрани его вне браузера.</p>
+      <ul class="v09-list"><li>настройки и тема</li><li>история занятий — <b>${c.history}</b> ${plural(c.history, 'запись', 'записи', 'записей')}</li><li>свои упражнения — <b>${c.own}</b></li><li>ритм-проекты — <b>${c.rhythm}</b></li><li>незаконченная практика — <b>${c.drafts}</b></li></ul>
+      <p class="v09-help">Аудиофайлы и партитуры в копию не входят.</p>
+      ${S.save === 'error' ? `<p class="v09-warn">Последнее изменение не записано. В копию попадёт только сохранённое — сначала можно повторить сохранение.</p>` : ''}
+      <div class="v09-dlg-actions">${close('Отмена')}<button type="button" class="lr-btn lr-btn-primary" data-dlg="download-go">Скачать</button></div>`;
+    if (step === 'pick') return `<div class="v09-dlg-top"><span class="lr-eyebrow">Шаг 1 из 3 · выбери файл</span><span class="v09-demo">демо</span></div>
+      <h2 id="v09-dlg-title" tabindex="-1">Восстановить из копии</h2>
+      <p>Сначала покажем, что внутри копии. Пока ты не подтвердишь замену, ничего не меняется.</p>
+      <p class="v09-help">В макете вместо окна выбора файла — два примера:</p>
+      <div class="v09-files">
+        <button type="button" class="v09-file" data-dlg="pick-ok"><b>${esc(COPY.file)}</b><small>${esc(COPY.date)} · ${esc(COPY.size)}</small></button>
+        <button type="button" class="v09-file" data-dlg="pick-old"><b>${esc(OLD.file)}</b><small>${esc(OLD.date)} · ${esc(OLD.size)} · прежняя версия данных</small></button>
+      </div>
+      <div class="v09-dlg-actions">${close('Отмена')}</div>`;
+    if (step === 'preview') { const k = COPY.counts; return `<div class="v09-dlg-top"><span class="lr-eyebrow">Шаг 2 из 3 · проверь</span><span class="v09-demo">демо</span></div>
+      <h2 id="v09-dlg-title" tabindex="-1">Что внутри копии</h2>
+      <p><span class="v09-code">${esc(COPY.file)}</span> · сделана ${esc(COPY.date)}. Копия подходит. Предпросмотр ничего не изменил.</p>
+      <table class="v09-cmp"><thead><tr><th scope="col">Данные</th><th scope="col" class="n">В копии</th><th scope="col" class="n">Сейчас</th></tr></thead><tbody>
+        ${cmpRow('История занятий', k.history, c.history)}${cmpRow('Свои упражнения', k.own, c.own)}${cmpRow('Ритм-проекты', k.rhythm, c.rhythm)}${cmpRow('Незаконченная практика', k.drafts, c.drafts)}${cmpRow('Настройки и тема', 'есть', 'есть')}
+      </tbody></table>
+      <p class="v09-warn">Копия заменит всё сохранённое целиком — объединения нет. Сейчас записей истории больше, чем в копии: ${c.history - k.history > 0 ? `${c.history - k.history} ${plural(c.history - k.history, 'запись пропадёт', 'записи пропадут', 'записей пропадут')}` : 'новых записей нет'}. Перед заменой остановим звук и текущее упражнение. <button type="button" class="v09-inline" data-dlg="save-current">Сначала скачать текущую копию</button></p>
+      <label class="v09-check"><input type="checkbox" data-dlg-confirm${confirmChecked ? ' checked' : ''}><span>Понимаю, что текущие данные будут заменены</span></label>
+      <div class="v09-dlg-actions"><button type="button" class="lr-btn lr-btn-ghost v09-grow" data-dlg="back">← Другой файл</button>${close('Отмена')}<button type="button" class="lr-btn lr-btn-primary" data-dlg="replace"${confirmChecked ? '' : ' disabled'}>Заменить данные</button></div>`; }
+    if (step === 'replacing') return `<div class="v09-dlg-top"><span class="lr-eyebrow">Шаг 3 из 3</span><span class="v09-demo">демо</span></div><h2 id="v09-dlg-title" tabindex="-1">Заменяем данные…</h2><p>Одна операция: либо заменится всё, либо ничего.</p>`;
+    if (step === 'done') { const k = c; return `<div class="v09-dlg-top"><span class="lr-eyebrow">Шаг 3 из 3 · готово</span><span class="v09-demo">демо</span></div>
+      <h2 id="v09-dlg-title" tabindex="-1">Данные восстановлены</h2>
+      <p class="v09-ok">Всё заменено одной операцией из копии от ${esc(COPY.date)}: история — ${k.history} ${plural(k.history, 'запись', 'записи', 'записей')}, свои упражнения — ${k.own}, ритм-проекты — ${k.rhythm}. Настройки из копии уже действуют.</p>
+      <p class="v09-help">Аудиофайлы и партитуры выбери заново в «Песнях».</p>
+      <div class="v09-dlg-actions"><button type="button" class="lr-btn lr-btn-primary" data-dlg="close">Готово</button></div>`; }
+    if (step === 'old') return `<div class="v09-dlg-top"><span class="lr-eyebrow">Шаг 2 из 3 · проверь</span><span class="v09-demo">демо</span></div>
+      <h2 id="v09-dlg-title" tabindex="-1">Эта копия не подходит</h2>
+      <p>Она сделана ${esc(OLD.date)} для прежней версии данных (${OLD.version}), а сейчас версия ${VERSION.data}. <strong>Ничего не изменилось.</strong></p>
+      <p class="v09-note">Старые копии не загружаются: когда меняется устройство данных, сохранённое начинается заново. Подойдёт копия, скачанная в этой версии.</p>
+      <div class="v09-dlg-actions"><button type="button" class="lr-btn lr-btn-ghost v09-grow" data-dlg="back">← Другой файл</button>${close('Закрыть')}</div>`;
+    return '';
+  }
+  function showStep(next) {
+    step = next;
+    dialog.innerHTML = `<div class="v09-dlg">${dialogHtml()}</div>`;
+    const target = { pick: '[data-dlg="pick-ok"]', done: '[data-dlg="close"]', download: '[data-dlg="download-go"]' }[step];
+    (target && dialog.querySelector(target) || dialog.querySelector('#v09-dlg-title')).focus();
+  }
+  function openDialog(kind, from) {
+    if (locked()) return;
+    opener = from; confirmChecked = false;
+    dialog.showModal();
+    showStep(kind === 'download' ? 'download' : 'pick');
+  }
+  function closeDialog() { if (dialog.open) dialog.close(); }
+  dialog.addEventListener('close', () => {
+    const back = opener; opener = null; step = null; dialog.innerHTML = '';
+    if (back && back.isConnected) back.focus();
+  });
+  dialog.addEventListener('cancel', event => { if (step === 'replacing') event.preventDefault(); });
+  dialog.addEventListener('change', event => {
+    if (!event.target.matches('[data-dlg-confirm]')) return;
+    confirmChecked = event.target.checked;
+    dialog.querySelector('[data-dlg="replace"]').disabled = !confirmChecked;
+  });
+  dialog.addEventListener('click', event => {
+    if (event.target === dialog) return; // щелчок по фону не закрывает: решение принимает кнопка
+    const b = event.target.closest('[data-dlg]');
+    if (!b || b.disabled) return;
+    const action = b.dataset.dlg;
+    if (action === 'close') closeDialog();
+    else if (action === 'download-go') { closeDialog(); toast('Копия скачана бы как bass-study-backup-2026-11-12.json (демо: файл не создаётся).'); }
+    else if (action === 'pick-ok') { confirmChecked = false; showStep('preview'); }
+    else if (action === 'pick-old') showStep('old');
+    else if (action === 'back') showStep('pick');
+    else if (action === 'save-current') { b.textContent = 'Текущая копия скачана (демо)'; b.disabled = true; }
+    else if (action === 'replace') {
+      showStep('replacing');
+      inputStop('Вход отключён перед восстановлением данных.');
+      setTimeout(() => { S.counts = { ...COPY.counts }; S.save = 'ok'; S.failed = ''; sync(); showStep('done'); }, 700);
+    }
+  });
+
+  /* ---------- Навигация кандидатов ---------- */
+  function jumpA(id, focus = true) {
+    const sec = root.querySelector(`#a-sec-${id}`);
+    if (sec.tagName === 'DETAILS') sec.open = true;
+    const top = main.scrollTop + sec.getBoundingClientRect().top - main.getBoundingClientRect().top - 8;
+    main.scrollTo({ top, behavior: 'smooth' });
+    qa('[data-jump]').forEach(b => b.setAttribute('aria-current', String(b.dataset.jump === id)));
+    spyHold = performance.now() + 700;
+    if (focus) (sec.querySelector('summary') || sec.querySelector('h2')).focus({ preventScroll: true });
+  }
+  let spyHold = 0;
+  main.addEventListener('scroll', () => {
+    if (root.dataset.candidate !== 'a' || performance.now() < spyHold) return;
+    const mTop = main.getBoundingClientRect().top;
+    let current = 'look';
+    root.querySelectorAll('[data-sec]').forEach(sec => { if (sec.getBoundingClientRect().top - mTop <= 60) current = sec.dataset.sec; });
+    if (main.scrollTop + main.clientHeight >= main.scrollHeight - 4) current = SECTIONS[SECTIONS.length - 1][0];
+    qa('[data-jump]').forEach(b => b.setAttribute('aria-current', String(b.dataset.jump === current)));
+  }, { passive: true });
+
+  function selectB(id, focusTab = false) {
+    S.bTab = id;
+    qa('[data-btab]').forEach(b => { const on = b.dataset.btab === id; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
+    qa('[data-bpane]').forEach(p => { p.hidden = p.dataset.bpane !== id; });
+    main.scrollTop = 0;
+    if (focusTab) root.querySelector(`#b-tab-${id}`).focus();
+  }
+  root.querySelector('.v09b-list').addEventListener('keydown', event => {
+    const ids = SECTIONS.map(s => s[0]);
+    const i = ids.indexOf(S.bTab);
+    const next = { ArrowDown: ids[(i + 1) % ids.length], ArrowUp: ids[(i - 1 + ids.length) % ids.length], Home: ids[0], End: ids[ids.length - 1] }[event.key];
+    if (!next) return;
+    event.preventDefault(); selectB(next, true);
+  });
+
+  /* ---------- События ---------- */
+  root.addEventListener('click', event => {
+    const t = event.target.closest('button');
+    if (!t || t.disabled || dialog.contains(t)) return;
+    if (t.matches('[data-lr-theme]')) { commit('Тема'); sync(); return; }
+    if (t.dataset.set) { S[t.dataset.set] = t.dataset.v; commit(t.dataset.set === 'view' ? 'Вид экрана игры' : 'Подписи на грифе'); return; }
+    if (t.dataset.switch) { S[t.dataset.switch] = !S[t.dataset.switch]; commit(t.dataset.switch === 'countIn' ? 'Отсчёт перед стартом' : 'Вид нового упражнения'); return; }
+    if (t.dataset.bpm) { S.bpm = Math.min(200, Math.max(40, S.bpm + Number(t.dataset.bpm))); commit('Темп нового упражнения'); return; }
+    if (t.dataset.demo) {
+      const d = t.dataset.demo;
+      if (d === 'other') { S.tabs = 'other'; inputStop('Вход отключён: управление перешло к другой вкладке.'); }
+      else { S.tabs = 'own'; S.failMode = d === 'fail'; if (d === 'fail') { S.save = 'error'; S.failed = S.failed || 'Темп нового упражнения'; } }
+      sync(); return;
+    }
+    if (t.matches('[data-retry]')) { retry(); return; }
+    if (t.matches('[data-take]')) { S.tabs = 'own'; sync(); root.querySelector('[data-h1]').focus(); toast('Теперь данные записывает эта вкладка. Та сохранила своё и перешла в просмотр.'); return; }
+    if (t.matches('[data-recheck]')) { toast('Другая вкладка всё ещё открыта. Закрой её или нажми «Передать сюда».'); return; }
+    if (t.dataset.open) { openDialog(t.dataset.open, t); return; }
+    if (t.matches('[data-in-connect]')) { inputConnect(); return; }
+    if (t.matches('[data-in-stop]')) { inputStop(S.input === 'starting' ? 'Подключение отменено.' : undefined); return; }
+    if (t.dataset.jump) { jumpA(t.dataset.jump); return; }
+    if (t.dataset.btab) { selectB(t.dataset.btab); return; }
+    if (t.classList.contains('lr-nav-item') && !t.hasAttribute('aria-current')) {
+      inputStop('Вход отключён: ты уходил со страницы настроек.');
+      toast('Макет: другие разделы — в своих референсах. При уходе из «Настроек» аудиовход отключается.');
+    }
+  });
+  root.addEventListener('change', event => {
+    if (!event.target.matches('[data-in-device]')) return;
+    S.device = event.target.value;
+    if (S.input !== 'off') inputStop('Устройство сменено — подключение остановлено. Нажми «Подключить» снова.');
+    commit('Устройство аудиовхода');
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) inputStop('Вкладка была скрыта — вход отключён.'); });
+  // Смена темы из панели рецензии тоже отражается в сводке раздела B.
+  new MutationObserver(() => sync()).observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-candidate'] });
+
+  L.mount(root, { candidates: ['a', 'b'] });
+  selectB('look');
+  sync();
+})();
+</script>

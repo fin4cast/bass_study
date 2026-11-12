@@ -1,0 +1,926 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>VIS-08 r1 — Прогресс · bass.study</title>
+  <style>
+    html,body{margin:0;background:light-dark(#e8ebe4,#141817);color:light-dark(#252d2b,#edf0e9);font:13px/1.4 'Segoe UI',Arial,sans-serif;}
+    .review-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid light-dark(#c5cdc1,#4a564d);}
+    .review-bar p{margin:0;font-size:12px;opacity:.8;}
+    .review-group{display:flex;gap:6px;flex-wrap:wrap;}
+    .review-group button{font:inherit;padding:5px 11px;border:1px solid light-dark(#c5cdc1,#4a564d);border-radius:6px;background:light-dark(#f7f8f3,#242d28);color:inherit;cursor:pointer;}
+    .review-group button[aria-pressed=true]{background:light-dark(#28392e,#dde7da);color:light-dark(#f7f8f3,#242d28);}
+    .review-stage{padding:0;}
+    body.is-capture .review-bar{display:none;}
+    body:not(.is-capture) #studio-lesson .lr-app{height:calc(100vh - 58px);border-radius:0;border-width:0;}
+    body.is-capture #studio-lesson .lr-app{border-radius:0;border-width:0;}
+  </style>
+</head>
+<body>
+<div class="review-bar"><div><strong>VIS-08 r1 — Прогресс</strong><p>История занятий, лучший темп упражнений, трудные места · два кандидата · на рассмотрении · звука и сохранения нет</p></div><div class="review-group" role="group" aria-label="Кандидат"><button type="button" data-review-candidate="a" aria-pressed="false">A · Упражнения</button><button type="button" data-review-candidate="b" aria-pressed="false">B · Календарь</button></div><div class="review-group" role="group" aria-label="Тема"><button type="button" data-review-theme="light">Светлая</button><button type="button" data-review-theme="dark">Тёмная</button></div></div>
+<div class="review-stage">
+<script>
+var BassLessonModel=(function(e){Object.defineProperty(e,Symbol.toStringTag,{value:`Module`});var t=Object.freeze([Object.freeze({id:`E`,number:4,openMidi:28}),Object.freeze({id:`A`,number:3,openMidi:33}),Object.freeze({id:`D`,number:2,openMidi:38}),Object.freeze({id:`G`,number:1,openMidi:43})]),n=Object.freeze([{id:`major`,name:`Мажор`,intervals:[0,2,4,5,7,9,11],degrees:[`1`,`2`,`3`,`4`,`5`,`6`,`7`]},{id:`natural-minor`,name:`Натуральный минор`,intervals:[0,2,3,5,7,8,10],degrees:[`1`,`2`,`b3`,`4`,`5`,`b6`,`b7`]},{id:`major-pentatonic`,name:`Мажорная пентатоника`,intervals:[0,2,4,7,9],degrees:[`1`,`2`,`3`,`5`,`6`]},{id:`minor-pentatonic`,name:`Минорная пентатоника`,intervals:[0,3,5,7,10],degrees:[`1`,`b3`,`4`,`5`,`b7`]},{id:`major-triad`,name:`Мажорное трезвучие`,intervals:[0,4,7],degrees:[`1`,`3`,`5`]},{id:`minor-triad`,name:`Минорное трезвучие`,intervals:[0,3,7],degrees:[`1`,`b3`,`5`]}].map(e=>Object.freeze({...e,intervals:Object.freeze([...e.intervals]),degrees:Object.freeze([...e.degrees])}))),r=[`C`,`D`,`E`,`F`,`G`,`A`,`B`],i={C:0,D:2,E:4,F:5,G:7,A:9,B:11},a=[`C`,`C♯`,`D`,`E♭`,`E`,`F`,`F♯`,`G`,`A♭`,`A`,`B♭`,`B`],o=e=>(e%12+12)%12;function s(e,t,n,r){if(!Number.isInteger(e)||e<t||e>n)throw RangeError(`${r}: требуется целое число от ${t} до ${n}.`)}function c(e){s(e,0,127,`MIDI-высота`)}function l(e,t){return e+(t>0?`♯`.repeat(t):`♭`.repeat(-t))}function u(e){return c(e),440*2**((e-69)/12)}function d(e){if(typeof e!=`string`)throw TypeError(`Название ноты должно быть строкой.`);let t=e.trim().replaceAll(`♯`,`#`).replaceAll(`♭`,`b`).replaceAll(`𝄪`,`##`).replaceAll(`𝄫`,`bb`).replaceAll(`x`,`##`),n=/^([A-Ga-g])(#+|b+|♮)?$/.exec(t);if(!n)throw RangeError(`Некорректная нота: используйте A–G и знаки ♯ или ♭ без номера октавы.`);let r=n[1].toUpperCase(),a=n[2]===`♮`?``:n[2]??``,s=a.startsWith(`#`)?a.length:-a.length;return Object.freeze({letter:r,accidental:s||0,pitchClass:o(i[r]+s),name:l(r,s)})}function f(e,t){c(e);let n=d(t??a[o(e)]);if(n.pitchClass!==o(e))throw RangeError(`Написание ноты не соответствует звучащей MIDI-высоте.`);let r=(e-i[n.letter]-n.accidental)/12-1;return`${n.name}${r}`}function p(e,t){let a=d(e),s=n.find(e=>e.id===t);if(!s)throw RangeError(`Неизвестная гамма или трезвучие.`);let c=r.indexOf(a.letter),u=s.intervals.map((e,t)=>{let n=s.degrees[t],u=Number(n.replace(/^[b#]+/,``)),d=c+u-1,f=r[d%r.length],p=o(a.pitchClass+e),m=i[f]+12*Math.floor(d/r.length)-i[a.letter],h=a.accidental+e-m;return Object.freeze({letter:f,accidental:h,pitchClass:p,name:l(f,h),degree:n,semitones:e})});return Object.freeze({root:a.name,rootPitchClass:a.pitchClass,id:s.id,name:s.name,formula:s.degrees.map(e=>e.replaceAll(`b`,`♭`).replaceAll(`#`,`♯`)).join(` – `),notes:Object.freeze(u)})}function m(e,n){let r=t.find(t=>t.id===e);if(!r)throw RangeError(`Неизвестная струна: доступны E, A, D, G.`);s(n,0,24,`Лад`);let i=r.openMidi+n;return Object.freeze({id:`${e}:${n}`,string:e,fret:n,midi:i,pitchClass:o(i),naturalName:a[o(i)],frequency:u(i)})}function h(e){if(!e||typeof e!=`object`)throw TypeError(`Нужны настройки диапазона грифа.`);if(s(e.fretMin,0,24,`Первый лад`),s(e.fretMax,0,24,`Последний лад`),e.fretMin>e.fretMax)throw RangeError(`Первый лад не может быть больше последнего.`);if(!Array.isArray(e.strings))throw TypeError(`Струны должны быть массивом E, A, D, G.`);let n=new Set(e.strings);if(n.size!==e.strings.length)throw RangeError(`Струны в фильтре не должны повторяться.`);for(let e of n)if(!t.some(t=>t.id===e))throw RangeError(`Неизвестная струна в фильтре.`);return Object.freeze(t.filter(e=>n.has(e.id)).flatMap(t=>Array.from({length:e.fretMax-e.fretMin+1},(n,r)=>m(t.id,e.fretMin+r))))}function g(e,t){let n=new Map(t.notes.map(e=>[e.pitchClass,e]));return Object.freeze(e.map(e=>{let r=n.get(e.pitchClass);return Object.freeze({...e,inStructure:r!==void 0,isRoot:e.pitchClass===t.rootPitchClass,noteName:r?.name??e.naturalName,degree:r?.degree??null})}))}var _=[`E`,`A`,`D`,`G`],v={"penta-a":{window:[0,3],frets:[[0,3],[0,2],[0,2],[0,2]]},"penta-b":{window:[2,5],frets:[[3,5],[2,5],[2,5],[2,4]]},"penta-c":{window:[4,7],frets:[[5,7],[5,7],[5,7],[4,7]]},"penta-d":{window:[7,10],frets:[[7,10],[7,10],[7,9],[7,9]]},"penta-e":{window:[9,12],frets:[[10,12],[10,12],[9,12],[9,12]]}},y={major:[[0,0,2],[0,2,4],[1,-1,1],[1,0,2],[1,2,4],[2,-1,1],[2,1,3],[2,2,4]],"natural-minor":[[0,0,1],[0,2,3],[0,3,4],[1,0,1],[1,2,3],[1,3,4],[2,0,1],[2,2,3]],"major-triad":[[0,0,2],[1,-1,1],[1,2,4],[2,2,4]],"minor-triad":[[0,0,1],[0,3,4],[1,2,3],[2,2,3]]},b=e=>(e%12+12)%12;function x(e){return e&&typeof e==`object`&&!Object.isFrozen(e)&&(Object.values(e).forEach(x),Object.freeze(e)),e}function S(e){let t=p(e.root,e.structureId),n=e.structureId.endsWith(`pentatonic`),r={},i,a,o;if(n){if(!(e.shapeId in v)||e.anchorString!==`E`)throw RangeError(`Пентатонике нужна одна из пяти форм EADG.`);let n=b(t.rootPitchClass+(e.structureId===`major-pentatonic`?9:0));if(b(4+e.anchorFret)!==n)throw RangeError(`Якорь цепочки не соответствует выбранной пентатонике.`);let s=v[e.shapeId];if(a=e.anchorFret+s.window[0],o=e.anchorFret+s.window[1],a<1||o>24)throw RangeError(`Полная закрытая форма должна помещаться на ладах 1–24.`);i=g(s.frets.flatMap((t,n)=>t.map(t=>m(_[n],e.anchorFret+t))),t),i.forEach(e=>{r[e.id]=e.fret-a+1})}else{let n=y[e.structureId];if(!n||e.shapeId!==`compact-${e.anchorString.toLowerCase()}`)throw RangeError(`Для структуры нужна компактная форма с тоникой на E или A.`);if(m(e.anchorString,e.anchorFret).pitchClass!==t.rootPitchClass)throw RangeError(`Начальная позиция формы должна быть тоникой.`);let s=_.indexOf(e.anchorString),c=n.map(e=>e[1]);if(a=e.anchorFret+Math.min(...c),o=e.anchorFret+Math.max(...c),a<1||o>24)throw RangeError(`Полная закрытая форма должна помещаться на ладах 1–24.`);i=g(n.map(([t,n,i])=>{let a=m(_[s+t],e.anchorFret+n);return r[a.id]=i,a}),t)}if(i.some(e=>!e.inStructure))throw RangeError(`Форма содержит ноту вне выбранной структуры.`);let s=i[0],c=n?`Начальная нота ${s.noteName} · ступень ${s.degree?.replace(`b`,`♭`)} · лад ${s.fret}`:`Тоника ${t.root} · лад ${e.anchorFret}`;return x({selection:e,positions:i,fingers:r,referencePositionIds:i.map(e=>e.id),window:{fretMin:a,fretMax:o},label:c})}function C(e){if(!e||typeof e!=`object`||Array.isArray(e))throw RangeError(`Нужен сохранённый контекст формы.`);let t=e,n=[`version`,`shapeId`,`root`,`structureId`,`anchorFret`,`anchorString`];if(![Object.prototype,null].includes(Object.getPrototypeOf(e))||Reflect.ownKeys(t).length!==n.length||Object.values(Object.getOwnPropertyDescriptors(t)).some(e=>!Object.hasOwn(e,`value`)))throw RangeError(`Описание формы должно содержать только обычные JSON-поля.`);if(Object.keys(t).length!==n.length||n.some(e=>!Object.hasOwn(t,e))||t.version!==`boxes-v1`||typeof t.root!=`string`||typeof t.structureId!=`string`||typeof t.shapeId!=`string`||t.anchorString!==`E`&&t.anchorString!==`A`||!Number.isInteger(t.anchorFret)||Number(t.anchorFret)<-11||Number(t.anchorFret)>24)throw RangeError(`Некорректное описание учебной формы.`);let r={version:`boxes-v1`,shapeId:t.shapeId,root:d(t.root).name,structureId:t.structureId,anchorFret:Number(t.anchorFret),anchorString:t.anchorString};return S(r),x(r)}function w(e){return S(C(e))}var T=w;function E(e,t){let n=p(e,t),r=t.endsWith(`pentatonic`),i=r?Object.keys(v):[`compact-e`,`compact-a`],a=[];for(let e of i)for(let i=r?-11:1;i<=24;i++){let r=e===`compact-a`?`A`:`E`;try{a.push(T({version:`boxes-v1`,shapeId:e,root:n.root,structureId:t,anchorFret:i,anchorString:r}))}catch{}}return x(a.sort((e,t)=>e.window.fretMin-t.window.fretMin||e.selection.shapeId.localeCompare(t.selection.shapeId)))}function D(e,t){let n=new Set(t.referencePositionIds);return Object.freeze(e.referencePositionIds.filter(e=>n.has(e)))}Object.freeze([`1`,`b2`,`2`,`b3`,`3`,`4`,`#4`,`b5`,`5`,`b6`,`6`,`b7`,`7`]);function O(e){let t=e.scope??`structure`;if(t!==`structure`&&t!==`chromatic`)throw RangeError(`Неизвестная область: выберите ноты структуры или все ноты.`);let n=e.positions;if(e.box){let t=w(e.box);if(t.selection.root!==e.structure.root||t.selection.structureId!==e.structure.id)throw RangeError(`Форма не соответствует выбранной тонике и структуре.`);let r=new Set(e.positions.map(e=>e.id));if(t.referencePositionIds.some(e=>!r.has(e)))throw RangeError(`Учебная форма не помещается в доступную область. Покажи её целиком.`);n=t.positions}let r=g(n,e.structure);return[...new Map(r.map(e=>[e.id,e])).values()].filter(e=>t===`chromatic`||e.inStructure)}var k={ascending:`Вверх`,descending:`Вниз`,"round-trip":`Вверх-вниз`,"groups-of-three":`Группы по три`};function A(e){if(typeof e==`object`&&e&&!Object.isFrozen(e)){for(let t of Object.values(e))A(t);Object.freeze(e)}return e}function j(e){if(!Object.hasOwn(k,e.pattern))throw RangeError(`Неизвестный порядок нот.`);let n=[...O(e)].sort((e,n)=>e.midi-n.midi||t.findIndex(t=>t.id===e.string)-t.findIndex(e=>e.id===n.string)||e.fret-n.fret),r=[];for(let e of n)r.at(-1)?.midi!==e.midi&&r.push(e);let i=e.pattern===`groups-of-three`?3:e.pattern===`round-trip`?2:1;if(r.length<i)throw RangeError(`Для этого порядка нужно не менее ${i} разных высот в выбранной области.`);let a=e.pattern===`descending`?[...r].reverse():e.pattern===`round-trip`?[...r,...r.slice(1,-1).reverse()]:e.pattern===`groups-of-three`?r.slice(0,-2).flatMap((e,t)=>r.slice(t,t+3)):r;return A({pattern:e.pattern,name:k[e.pattern],notes:a})}var M=[`C`,`D`,`E`,`F`,`G`,`A`,`B`],N=[`G`,`D`,`A`,`E`],P={quarter:{beats:1,flags:0},eighth:{beats:.5,flags:1},sixteenth:{beats:.25,flags:2}};function F(e){return e&&typeof e==`object`&&!Object.isFrozen(e)&&(Object.values(e).forEach(F),Object.freeze(e)),e}function I(e){let t=[];for(let n=-2;n>=e;n-=2)t.push(n);for(let n=10;n<=e;n+=2)t.push(n);return t}function L(e){if(!Array.isArray(e.positions))throw TypeError(`Для нотной записи нужен массив позиций последовательности.`);if(!Object.hasOwn(P,e.duration))throw RangeError(`Выберите четверти, восьмые или шестнадцатые.`);let t=P[e.duration],n=new Map,r=-1,i=e.positions.map((e,i)=>{if(!e||typeof e!=`object`)throw RangeError(`Некорректная позиция для нотной записи.`);let a=m(e.string,e.fret);if(a.id!==e.id||a.midi!==e.midi||a.pitchClass!==e.pitchClass)throw RangeError(`Позиция нотной записи не соответствует строю E–A–D–G.`);let o=d(e.noteName);if(o.pitchClass!==a.pitchClass)throw RangeError(`Контекстное написание ноты не соответствует звучащей высоте.`);let s=a.midi+12,c=f(s,o.name),l=Number(c.match(/(-?\d+)$/)[1]),u=l*7+M.indexOf(o.letter)-(14+M.indexOf(`G`)),p=i*t.beats,h=Math.floor(p/4);h!==r&&(n.clear(),r=h);let g=`${o.letter}:${l}`,_=(n.get(g)??0)===o.accidental?``:o.accidental===0?`♮`:o.accidental>0?`♯`.repeat(o.accidental):`♭`.repeat(-o.accidental);return n.set(g,o.accidental),{id:`notation-${i}-${a.id}`,index:i,positionId:a.id,soundingMidi:a.midi,writtenMidi:s,spelling:o.name,writtenName:c,writtenOctave:l,letter:o.letter,accidental:o.accidental,accidentalDisplay:_,staffStep:u,ledgerSteps:I(u),tab:{row:N.indexOf(a.string),string:a.string,fret:a.fret},beat:p,bar:h,beatInBar:p%4,durationBeats:t.beats,flagCount:t.flags}}),a=i.length*t.beats;return F({clef:`bass`,meter:`4/4`,transpositionSemitones:12,duration:e.duration,totalBeats:a,bars:Math.ceil(a/4),events:i})}var R=[`E`,`A`,`D`,`G`],z=[1,2,3,4];function B(e,t){let n=p(e,t);return{structure:n,positions:g(h({strings:R,fretMin:0,fretMax:24}),n)}}function V(e,t,n){let r=e.find(e=>e.window.fretMin===t&&e.window.fretMax===n);if(!r)throw Error(`Форма с окном ${t}–${n} не найдена.`);return r}function H(e,t){let{structure:n,positions:r}=B(e.selection.root,e.selection.structureId),i=j({box:e.selection,positions:r,structure:n,pattern:`ascending`}).notes,a=j({box:t.selection,positions:r,structure:n,pattern:`descending`}).notes;return{notes:[...i,...a],shared:D(e,t),split:i.length}}function U(e,t){let n=p(t,`natural-minor`),r=g(h({strings:R,fretMin:e,fretMax:e+3}),n);return{notes:r,fingers:r.map(t=>z[t.fret-e])}}var W=e=>e.map(e=>({id:e.id,string:e.string,fret:e.fret,midi:e.midi,name:f(e.midi,e.noteName??e.naturalName),degree:e.degree}));function G(){let e=E(`A`,`minor-pentatonic`),t=V(e,5,8),n=V(e,7,10),r=H(t,n),i=E(`C`,`major-triad`).find(e=>e.selection.anchorString===`E`&&e.selection.anchorFret===8);if(!i)throw Error(`Компактная форма C от E/8 не найдена.`);let a=B(`C`,`major-triad`),o=j({box:i.selection,...a,pattern:`round-trip`}).notes,s=U(5,`A`);return{ex1:{title:`Связка форм A→B · пентатоника Am`,formA:{label:t.label,window:t.window,ids:t.positions.map(e=>e.id),fingers:t.fingers},formB:{label:n.label,window:n.window,ids:n.positions.map(e=>e.id),fingers:n.fingers},shared:r.shared,split:r.split,notes:W(r.notes),notation:L({positions:r.notes,duration:`eighth`})},ex2:{title:`Арпеджио 1–3–5–8 · C-мажор от E/8`,notes:W(o),fingers:i.fingers,notation:L({positions:o,duration:`quarter`})},ex3:{title:`Хроматика 1-2-3-4 · позиция V`,notes:W(s.notes),fingers:s.fingers,notation:L({positions:s.notes,duration:`eighth`})}}}return e.buildLessonMaterial=G,e.chromaticPosition=U,e.connectBoxes=H,e.createNotationPlan=L,e.createStructure=p,e.formatMidi=f,e.getBoxCatalogue=E,e.getBoxOverlap=D,e})({});
+</script>
+<style>
+  #studio-lesson{--s-paper:light-dark(#fafaf7,#1c2420);--s-nav:light-dark(#f0f2ec,#202c25);--s-panel:light-dark(#f5f6f0,#202923);--s-input:light-dark(#ffffff,#26332b);--s-ink:light-dark(#27372e,#edf4e8);--s-muted:light-dark(#5d6b61,#b0beb0);--s-line:light-dark(#d9e1d5,#405346);--s-line-strong:light-dark(#74836d,#82917d);--s-hover:light-dark(#eaf0e5,#324337);--s-green:light-dark(#345d42,#bdd5ab);--s-on-green:light-dark(#ffffff,#17271c);--s-green-soft:light-dark(#e8eee1,#31482f);--s-gold:light-dark(#956124,#edbf7e);--s-gold-soft:light-dark(#f3e2bf,#564321);--s-info:light-dark(#35556e,#bbd9f1);--s-info-soft:light-dark(#e7eff5,#2b3d4a);--s-focus:light-dark(#246bb4,#92c8ff);--s-neck:#1a2b22;--s-neck-text:#e5eee0;--s-neck-muted:#c3d0bf;--s-neck-line:#abbcad;--s-note:#e6efdc;--s-note-ink:#213a29;--s-root:#f3c180;--s-root-ink:#3c2913;--s-form-b:#a4cce2;--s-form-b-ink:#16303f;--s-playing:#fbdf8e;--s-shared:#cbb5e7;
+    color-scheme:light;font:14px/1.5 'Segoe UI Variable','Segoe UI',Arial,sans-serif;color:var(--s-ink);background:var(--s-paper);width:100%;}
+  #studio-lesson[data-theme="dark"]{color-scheme:dark;}
+  #studio-lesson *{box-sizing:border-box;}
+  #studio-lesson button{font:inherit;color:inherit;cursor:pointer;}
+  #studio-lesson :focus-visible{outline:3px solid var(--s-focus);outline-offset:2px;}
+  #studio-lesson h1,#studio-lesson h2,#studio-lesson h3,#studio-lesson p{margin:0;}
+  #studio-lesson [data-candidate-panel]{display:none;}
+  #studio-lesson[data-candidate="a"] [data-candidate-panel="a"],#studio-lesson[data-candidate="b"] [data-candidate-panel="b"],#studio-lesson[data-candidate="c"] [data-candidate-panel="c"]{display:contents;}
+  /* Оболочка: новое меню D-043 */
+  #studio-lesson .lr-app{display:grid;grid-template-columns:208px minmax(0,1fr);height:100vh;min-height:620px;background:var(--s-paper);border:1px solid var(--s-line);border-radius:14px;overflow:hidden;}
+  #studio-lesson .lr-nav{background:var(--s-nav);border-right:1px solid var(--s-line);padding:24px 14px 18px;display:flex;flex-direction:column;gap:22px;min-height:0;}
+  #studio-lesson .lr-brand{display:flex;align-items:center;gap:10px;font-size:24px;font-weight:730;letter-spacing:-1.2px;padding-left:4px;}
+  #studio-lesson .lr-brand-word>span{color:var(--s-gold);}
+  #studio-lesson .lr-brand-mark{width:27px;height:28px;display:flex;gap:4px;align-items:center;}
+  #studio-lesson .lr-brand-mark i{display:block;width:3px;border-radius:3px;background:var(--s-green);}
+  #studio-lesson .lr-brand-mark i:nth-child(1){height:22px}#studio-lesson .lr-brand-mark i:nth-child(2){height:28px}#studio-lesson .lr-brand-mark i:nth-child(3){height:17px}#studio-lesson .lr-brand-mark i:nth-child(4){height:24px}
+  #studio-lesson .lr-nav-list{display:flex;flex-direction:column;gap:3px;}
+  #studio-lesson .lr-nav-item{display:flex;align-items:center;gap:11px;border:0;background:none;text-align:left;padding:9px 12px;border-radius:8px;font-size:15px;color:var(--s-muted);}
+  #studio-lesson .lr-nav-item svg{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+  #studio-lesson .lr-nav-item:hover{background:var(--s-hover);color:var(--s-ink);}
+  #studio-lesson .lr-nav-item[aria-current="page"]{background:var(--s-paper);color:var(--s-ink);font-weight:650;box-shadow:inset 3px 0 0 var(--s-green);}
+  #studio-lesson .lr-nav-bottom{margin-top:auto;display:flex;flex-direction:column;gap:10px;}
+  #studio-lesson .lr-theme{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--s-line);border-radius:8px;padding:3px;background:var(--s-paper);}
+  #studio-lesson .lr-theme button{border:0;background:none;border-radius:6px;padding:5px 0;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .lr-theme button[aria-pressed="true"]{background:var(--s-panel);color:var(--s-ink);font-weight:650;box-shadow:0 0 0 1px var(--s-line);}
+  #studio-lesson .lr-status{font-size:11px;color:var(--s-muted);padding-left:4px;}
+  #studio-lesson .lr-main{min-width:0;min-height:0;overflow:auto;padding:22px 26px;display:flex;flex-direction:column;gap:16px;}
+  /* Общие примитивы */
+  #studio-lesson .lr-eyebrow{font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--s-muted);}
+  #studio-lesson .lr-h1{font-size:26px;font-weight:650;letter-spacing:-.6px;}
+  #studio-lesson .lr-sub{color:var(--s-muted);font-size:13px;}
+  #studio-lesson .lr-card{background:var(--s-panel);border:1px solid var(--s-line);border-radius:12px;padding:16px 18px;}
+  #studio-lesson .lr-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--s-line-strong);background:var(--s-input);border-radius:8px;padding:8px 14px;font-weight:600;font-size:13px;}
+  #studio-lesson .lr-btn:hover{background:var(--s-hover);}
+  #studio-lesson .lr-btn-primary{background:var(--s-green);border-color:var(--s-green);color:var(--s-on-green);}
+  #studio-lesson .lr-btn-primary:hover{background:var(--s-green);filter:brightness(1.08);}
+  #studio-lesson .lr-btn-primary .lr-kbd{color:inherit;border-color:currentColor;opacity:.75;}
+  #studio-lesson .lr-btn-ghost{border-color:transparent;background:none;}
+  #studio-lesson .lr-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--s-line);border-radius:999px;padding:2px 9px;font-size:12px;color:var(--s-muted);background:var(--s-paper);}
+  #studio-lesson .lr-chip-concept{border-color:var(--s-info);color:var(--s-info);background:var(--s-info-soft);}
+  #studio-lesson .lr-kbd{font:600 11px/1 'Segoe UI',Arial;border:1px solid var(--s-line-strong);border-bottom-width:2px;border-radius:4px;padding:2px 5px;color:var(--s-muted);}
+  #studio-lesson .lr-seg{display:inline-flex;border:1px solid var(--s-line);border-radius:8px;padding:3px;gap:2px;background:var(--s-paper);}
+  #studio-lesson .lr-seg button{border:0;background:none;border-radius:6px;padding:5px 10px;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .lr-seg button[aria-pressed="true"]{background:var(--s-panel);color:var(--s-ink);font-weight:650;box-shadow:0 0 0 1px var(--s-line);}
+  #studio-lesson .lr-meter{height:6px;border-radius:3px;background:var(--s-green-soft);overflow:hidden;}
+  #studio-lesson .lr-meter>i{display:block;height:100%;background:var(--s-green);}
+  /* Гриф и TAB */
+  #studio-lesson .lr-board{background:var(--s-neck);border-radius:12px;padding:8px 10px 6px;}
+  #studio-lesson .lr-board svg,#studio-lesson .lr-tab svg{display:block;width:100%;height:auto;}
+  #studio-lesson .lr-tab{background:var(--s-paper);border:1px solid var(--s-line);border-radius:12px;padding:8px 12px;}
+  #studio-lesson .lr-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .lr-legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid var(--s-line-strong);}
+  /* Транспорт */
+  #studio-lesson .lr-transport{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--s-panel);border:1px solid var(--s-line);border-radius:12px;padding:10px 14px;}
+  #studio-lesson .lr-transport .lr-play{min-width:118px;justify-content:center;}
+  #studio-lesson .lr-bpm{display:flex;align-items:center;gap:4px;}
+  #studio-lesson .lr-bpm output{font:700 22px/1 'Segoe UI',Arial;min-width:46px;text-align:center;font-variant-numeric:tabular-nums;}
+  #studio-lesson .lr-bpm small{font-size:11px;color:var(--s-muted);}
+  #studio-lesson .lr-icon-btn{width:30px;height:30px;border:1px solid var(--s-line-strong);border-radius:7px;background:var(--s-input);font-weight:700;}
+  #studio-lesson .lr-toggle{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--s-line);border-radius:7px;background:var(--s-paper);padding:5px 9px;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .lr-toggle[aria-pressed="true"]{border-color:var(--s-green);color:var(--s-ink);background:var(--s-green-soft);}
+  #studio-lesson .lr-transport{position:relative;}
+  #studio-lesson .lr-countin{position:absolute;left:50%;bottom:calc(100% + 12px);transform:translateX(-50%);min-width:120px;padding:10px 22px;border-radius:14px;background:var(--s-gold-soft);border:2px solid var(--s-gold);color:var(--s-ink);font:800 44px/1 'Segoe UI',Arial;text-align:center;box-shadow:0 8px 24px rgb(0 0 0 / .18);z-index:5;}
+  #studio-lesson .lr-countin::before{content:'Отсчёт ';font-size:14px;font-weight:600;vertical-align:middle;margin-right:8px;color:var(--s-muted);}
+  #studio-lesson .lr-restart{padding:8px 10px;}
+  #studio-lesson .lr-progress{flex:1;min-width:120px;}
+  #studio-lesson .lr-progress small{font-size:11px;color:var(--s-muted);}
+  /* Карточка понятия и самооценка */
+  #studio-lesson .lr-concept{border:1px solid var(--s-info);background:var(--s-info-soft);border-radius:10px;padding:10px 12px;font-size:13px;}
+  #studio-lesson .lr-concept summary{cursor:pointer;font-weight:650;color:var(--s-info);list-style:none;display:flex;gap:8px;align-items:center;}
+  #studio-lesson .lr-concept summary::-webkit-details-marker{display:none;}
+  #studio-lesson .lr-concept p{margin-top:6px;color:var(--s-ink);}
+  #studio-lesson .lr-after{display:none;}
+  #studio-lesson .lr-after.is-open{display:flex;}
+  #studio-lesson .lr-rate{gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--s-gold);background:var(--s-gold-soft);border-radius:10px;padding:10px 14px;font-size:13px;}
+  #studio-lesson .lr-rate strong{margin-right:4px;}
+  @media (max-width:1100px){#studio-lesson .lr-app{grid-template-columns:72px minmax(0,1fr);}#studio-lesson .lr-nav{padding:18px 8px;align-items:center;}#studio-lesson .lr-brand-word,#studio-lesson .lr-nav-item span,#studio-lesson .lr-status{display:none;}#studio-lesson .lr-nav-item{justify-content:center;padding:10px;}#studio-lesson .lr-theme{grid-template-columns:1fr;}#studio-lesson .lr-main{padding:18px;}}
+</style>
+<script>
+(() => {
+  const M = BassLessonModel;
+  const material = M.buildLessonMaterial();
+  const NS = 'http://www.w3.org/2000/svg';
+  const STRINGS = ['G', 'D', 'A', 'E'];
+  const ICONS = {
+    lesson: '<svg viewBox="0 0 20 20"><path d="M4 3h9l3 3v11H4z"/><path d="M7 9h6M7 12h6M7 6h3"/></svg>',
+    neck: '<svg viewBox="0 0 20 20"><rect x="2" y="5" width="16" height="10" rx="2"/><path d="M6 5v10M10 5v10M14 5v10M2 8.5h16M2 11.5h16"/></svg>',
+    rhythm: '<svg viewBox="0 0 20 20"><path d="M7 17 9 3h2l2 14z"/><path d="M10 11l5-6"/></svg>',
+    songs: '<svg viewBox="0 0 20 20"><path d="M8 15V4l9-2v11"/><circle cx="5.5" cy="15" r="2.5"/><circle cx="14.5" cy="13" r="2.5"/></svg>',
+    progress: '<svg viewBox="0 0 20 20"><path d="M3 16h14"/><path d="M5 13l4-4 3 2 4-6"/></svg>',
+    settings: '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v2.5M10 15.5V18M2 10h2.5M15.5 10H18M4.3 4.3l1.8 1.8M13.9 13.9l1.8 1.8M4.3 15.7l1.8-1.8M13.9 6.1l1.8-1.8"/></svg>',
+  };
+  const NAV = [['lesson', 'Занятие'], ['neck', 'Гриф'], ['rhythm', 'Ритм'], ['songs', 'Песни'], ['progress', 'Прогресс']];
+  const esc = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const deg = value => value ? String(value).replace('b', '♭').replace('#', '♯') : '';
+
+  /** Боковое меню из пяти разделов; «Настройки» и тема — внизу. */
+  function shell(current, main) {
+    const items = NAV.map(([id, label]) => `<button type="button" class="lr-nav-item"${id === current ? ' aria-current="page"' : ''}>${ICONS[id]}<span>${label}</span></button>`).join('');
+    return `<div class="lr-app"><nav class="lr-nav" aria-label="Разделы тренажёра"><div class="lr-brand" aria-label="bass.study"><span class="lr-brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="lr-brand-word">bass<span>.</span>study</span></div><div class="lr-nav-list">${items}</div><div class="lr-nav-bottom"><button type="button" class="lr-nav-item"${current === 'settings' ? ' aria-current="page"' : ''}>${ICONS.settings}<span>Настройки</span></button><div class="lr-theme" role="group" aria-label="Тема"><button type="button" data-lr-theme="light">Светлая</button><button type="button" data-lr-theme="dark">Тёмная</button></div><span class="lr-status">● Локально · сохранено</span></div></nav><main class="lr-main">${main}</main></div>`;
+  }
+
+  /**
+   * SVG грифа: строки G-D-A-E сверху вниз, лады fretMin..fretMax.
+   * notes: [{id, label, kind: root|a|b|shared|plain|ghost, finger}], current/next — id позиций.
+   */
+  function fretboard({ fretMin = 0, fretMax = 12, notes = [], current = null, next = null, width = 1000, marker = 46, labels = true }) {
+    const left = 34, right = 14, top = labels ? 26 : 10, rowGap = marker * 1.32, height = top + marker * 0.45 + rowGap * 3 + marker * 0.5 + 12;
+    const span = fretMax - fretMin + 1;
+    const cell = (width - left - right) / span;
+    const x = fret => left + (fret - fretMin + 0.5) * cell;
+    const y = string => top + marker * 0.45 + STRINGS.indexOf(string) * rowGap;
+    const r = marker / 2;
+    const parts = [];
+    if (labels) for (let f = fretMin; f <= fretMax; f++) parts.push(`<text x="${x(f)}" y="15" text-anchor="middle" font-size="12" fill="#c3d0bf" font-family="Consolas,monospace">${f}</text>`);
+    for (let f = fretMin; f <= fretMax + 1; f++) {
+      const lx = left + (f - fretMin) * cell;
+      parts.push(`<line x1="${lx}" x2="${lx}" y1="${y('G') - r * 0.7}" y2="${y('E') + r * 0.7}" stroke="#abbcad" stroke-opacity="${f === 1 && fretMin === 0 ? 1 : .45}" stroke-width="${f === 1 && fretMin === 0 ? 4 : 1.2}"/>`);
+    }
+    for (const f of [3, 5, 7, 9, 15, 17, 19, 21]) if (f >= fretMin && f <= fretMax) parts.push(`<circle cx="${x(f)}" cy="${(y('D') + y('A')) / 2}" r="4" fill="#c3d0bf" opacity=".45"/>`);
+    for (const f of [12, 24]) if (f >= fretMin && f <= fretMax) { parts.push(`<circle cx="${x(f)}" cy="${(y('G') + y('D')) / 2}" r="4" fill="#c3d0bf" opacity=".45"/>`, `<circle cx="${x(f)}" cy="${(y('A') + y('E')) / 2}" r="4" fill="#c3d0bf" opacity=".45"/>`); }
+    for (const s of STRINGS) {
+      parts.push(`<text x="12" y="${y(s) + 5}" font-size="14" font-weight="600" fill="#e5eee0">${s}</text>`);
+      parts.push(`<line x1="${left}" x2="${width - right}" y1="${y(s)}" y2="${y(s)}" stroke="#d7e2d2" stroke-width="${({ G: 1.4, D: 1.9, A: 2.4, E: 3 })[s]}" opacity=".8"/>`);
+    }
+    const fills = { root: ['#f3c180', '#3c2913'], a: ['#e6efdc', '#213a29'], b: ['#a4cce2', '#16303f'], shared: ['#cbb5e7', '#2a1d3d'], plain: ['#e6efdc', '#213a29'], ghost: ['transparent', '#c3d0bf'] };
+    for (const note of notes) {
+      const [string, fretText] = note.id.split(':');
+      const fret = Number(fretText);
+      if (fret < fretMin || fret > fretMax) continue;
+      const cx = x(fret), cy = y(string);
+      const [fill, ink] = fills[note.kind] || fills.plain;
+      const isCurrent = note.id === current, isNext = note.id === next;
+      if (isNext) parts.push(`<circle cx="${cx}" cy="${cy}" r="${r + 5}" fill="none" stroke="#fbdf8e" stroke-width="2.5" stroke-dasharray="5 4"/>`);
+      if (isCurrent) parts.push(`<circle cx="${cx}" cy="${cy}" r="${r + 7}" fill="none" stroke="#ffffff" stroke-width="4"/>`);
+      parts.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${isCurrent ? '#fbdf8e' : fill}" stroke="${note.kind === 'ghost' ? '#c3d0bf' : 'none'}" stroke-width="1.5" ${note.kind === 'ghost' ? 'stroke-dasharray="3 3"' : ''}/>`);
+      if (note.root && note.kind !== 'root') parts.push(`<circle cx="${cx}" cy="${cy}" r="${r - 2.5}" fill="none" stroke="#e0a24f" stroke-width="4"/>`);
+      if (note.label) parts.push(`<text x="${cx}" y="${cy + marker * 0.14}" text-anchor="middle" font-size="${Math.round(marker * 0.39)}" font-weight="700" fill="${isCurrent ? '#3c2913' : ink}" font-family="Segoe UI,Arial">${esc(note.label)}</text>`);
+      if (note.finger) parts.push(`<text x="${cx + r * 0.78}" y="${cy - r * 0.62}" text-anchor="middle" font-size="${Math.max(10, Math.round(marker * 0.25))}" font-weight="700" fill="#fbdf8e" font-family="Segoe UI,Arial">${note.finger}</text>`);
+    }
+    return `<svg xmlns="${NS}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Гриф, лады ${fretMin}–${fretMax}">${parts.join('')}</svg>`;
+  }
+
+  /** SVG табулатуры по событиям createNotationPlan: 4 линии G-D-A-E, номера ладов, такты, курсор. */
+  function tab({ events, current = -1, width = 1000, perBar = 8, from = 0, count = events.length, lineGap = 20, fontSize = 15, showCount = true, dimPlayed = false }) {
+    const shown = events.slice(from, from + count);
+    const top = showCount ? 22 : 10, left = 30, right = 12;
+    const height = top + lineGap * 3 + 22;
+    const slot = (width - left - right) / shown.length;
+    const parts = [];
+    STRINGS.forEach((s, row) => {
+      const ly = top + row * lineGap;
+      parts.push(`<line x1="${left}" x2="${width - right}" y1="${ly}" y2="${ly}" stroke="currentColor" stroke-opacity=".35"/>`);
+      parts.push(`<text x="6" y="${ly + 4}" font-size="11" fill="currentColor" opacity=".7" font-family="Consolas,monospace">${s}</text>`);
+    });
+    parts.push(`<line x1="${left}" x2="${left}" y1="${top}" y2="${top + lineGap * 3}" stroke="currentColor" stroke-opacity=".6" stroke-width="2"/>`);
+    shown.forEach((event, i) => {
+      const index = from + i;
+      const cx = left + slot * (i + 0.5);
+      if (i > 0 && index % perBar === 0) parts.push(`<line x1="${left + slot * i}" x2="${left + slot * i}" y1="${top}" y2="${top + lineGap * 3}" stroke="currentColor" stroke-opacity=".55"/>`);
+      if (index === current) parts.push(`<rect x="${cx - slot * 0.42}" y="${top - lineGap * 0.6}" width="${slot * 0.84}" height="${lineGap * 4.2}" rx="6" fill="#f2c94c" fill-opacity=".22" stroke="#d9a520" stroke-width="2.5"/>`);
+      const ly = top + event.tab.row * lineGap;
+      const label = String(event.tab.fret);
+      const w = label.length * fontSize * 0.62 + 6;
+      parts.push(`<rect x="${cx - w / 2}" y="${ly - fontSize * 0.62}" width="${w}" height="${fontSize * 1.24}" style="fill:${index === current ? 'transparent' : 'var(--s-tab-bg,var(--s-paper))'}"/>`);
+      parts.push(`<text x="${cx}" y="${ly + fontSize * 0.36}" text-anchor="middle" font-size="${fontSize}" font-weight="700" fill="currentColor" opacity="${dimPlayed && index < current ? .4 : 1}" font-family="Consolas,monospace">${label}</text>`);
+      if (showCount) {
+        const beatText = event.beatInBar % 1 === 0 ? String(event.beatInBar + 1) : 'и';
+        parts.push(`<text x="${cx}" y="12" text-anchor="middle" font-size="10" fill="currentColor" opacity=".55" font-family="Segoe UI,Arial">${beatText}</text>`);
+      }
+    });
+    parts.push(`<line x1="${width - right}" x2="${width - right}" y1="${top}" y2="${top + lineGap * 3}" stroke="currentColor" stroke-opacity=".6" stroke-width="2"/>`);
+    return `<svg xmlns="${NS}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Табулатура">${parts.join('')}</svg>`;
+  }
+
+  /** Ноты EX-1 для грифа: форма A, форма B, общие позиции, тоники. */
+  /**
+   * Общие позиции важнее тоники: они остаются сиреневыми, тоника на них — золотое кольцо.
+   * Пальцы берутся из формы, которую сейчас играют (phase 'a' | 'b').
+   */
+  function ex1BoardNotes({ labels = 'name', fingers = false, phase = 'a' } = {}) {
+    const ex = material.ex1;
+    const shared = new Set(ex.shared);
+    const ids = [...new Set([...ex.formA.ids, ...ex.formB.ids])];
+    const byId = new Map(ex.notes.map(n => [n.id, n]));
+    const fingerOf = id => {
+      const own = phase === 'b' ? ex.formB.fingers : ex.formA.fingers;
+      const other = phase === 'b' ? ex.formA.fingers : ex.formB.fingers;
+      return own[id] ?? other[id];
+    };
+    return ids.map(id => {
+      const note = byId.get(id);
+      const inA = ex.formA.ids.includes(id);
+      const isRoot = note?.degree === '1';
+      const kind = shared.has(id) ? 'shared' : isRoot ? 'root' : inA ? 'a' : 'b';
+      const label = labels === 'degree' ? deg(note?.degree) : labels === 'finger' ? String(fingerOf(id)) : labels === 'none' ? '' : note?.name.replace(/\d$/, '') ?? '';
+      const finger = fingers ? fingerOf(id) : null;
+      return { id, label, kind, finger, root: isRoot };
+    });
+  }
+
+  /**
+   * Демонстрационный плеер: отсчёт 4 доли только при старте с начала, восьмые по BPM, петля; звука нет.
+   * Пауза сохраняет позицию: «Продолжить» играет следующую ноту без повторного отсчёта.
+   */
+  function player({ steps, bpm = 72, countIn = true, loop = true, onStep, onCount, onFinish, onState }) {
+    let timer = null, index = -1, counting = 0, state = { bpm, countIn, loop };
+    const interval = () => 60000 / state.bpm / 2;
+    const status = () => timer ? 'playing' : index >= 0 ? 'paused' : 'stopped';
+    function tick() {
+      if (counting > 0) { onCount?.(5 - counting); counting--; timer = setTimeout(tick, interval() * 2); return; }
+      onCount?.(null);
+      index++;
+      if (index >= steps) {
+        if (!state.loop) { index = -1; halt(); onFinish?.(); return; }
+        index = 0; onFinish?.({ looped: true });
+      }
+      onStep?.(index);
+      timer = setTimeout(tick, interval());
+    }
+    function halt() { clearTimeout(timer); timer = null; counting = 0; onCount?.(null); onState?.(status()); }
+    function play() {
+      if (timer) return;
+      counting = index < 0 && state.countIn ? 4 : 0;
+      timer = setTimeout(tick, 0); onState?.('playing');
+    }
+    const pause = () => { if (timer) halt(); };
+    function restart() { halt(); index = -1; onStep?.(-1); onState?.('stopped'); }
+    return { play, pause, restart, toggle() { timer ? pause() : play(); }, get status() { return status(); }, get index() { return index; }, set(key, value) { state[key] = value; } };
+  }
+
+  /** Разметка транспорта; data-lr-* подключает bindTransport. */
+  function transport({ bpm = 72, ladder = '72 → 96, +4', compact = false } = {}) {
+    return `<div class="lr-transport" data-lr-transport>
+      <button type="button" class="lr-btn lr-btn-primary lr-play" data-lr-play>▶ Играть <span class="lr-kbd">Пробел</span></button>
+      <button type="button" class="lr-btn lr-restart" data-lr-restart title="Вернуться к первой ноте; следующий старт — с отсчётом">⏮ С начала <span class="lr-kbd">Esc</span></button>
+      <div class="lr-bpm"><button type="button" class="lr-icon-btn" data-lr-bpm="-4" aria-label="Медленнее">−</button><output data-lr-bpm-value>${bpm}</output><button type="button" class="lr-icon-btn" data-lr-bpm="4" aria-label="Быстрее">+</button><small>BPM ♩<br>играем восьмыми</small></div>
+      <button type="button" class="lr-toggle" data-lr-flag="countIn" aria-pressed="true">Отсчёт 4</button>
+      <button type="button" class="lr-toggle" data-lr-flag="loop" aria-pressed="true">⟲ По кругу</button>
+      ${compact ? '' : `<button type="button" class="lr-toggle" data-lr-ladder aria-pressed="false" title="Лестница темпа">↗ Лестница ${esc(ladder)}</button>`}
+      <div class="lr-progress"><div class="lr-meter"><i data-lr-meter style="width:0%"></i></div><small data-lr-position>Нота 0 из ${material.ex1.notes.length}</small></div>
+      <div class="lr-countin" data-lr-count aria-live="assertive" hidden></div>
+    </div>`;
+  }
+
+  /** Подключает транспорт внутри контейнера к плееру; render(index) перерисовывает сцену (−1 — до первой ноты). */
+  function bindTransport(container, { steps, bpm = 72, render, onPass }) {
+    const playButton = container.querySelector('[data-lr-play]');
+    const out = container.querySelector('[data-lr-bpm-value]');
+    const count = container.querySelector('[data-lr-count]');
+    const meter = container.querySelector('[data-lr-meter]');
+    const position = container.querySelector('[data-lr-position]');
+    let passes = 0;
+    const labels = { playing: '❚❚ Пауза', paused: '▶ Продолжить', stopped: '▶ Играть' };
+    const sync = status => { playButton.innerHTML = `${labels[status]} <span class="lr-kbd">Пробел</span>`; container.dataset.lrStatus = status; };
+    const p = player({
+      steps, bpm,
+      onStep(i) {
+        render(i);
+        if (meter) meter.style.width = `${i < 0 ? 0 : ((i + 1) / steps) * 100}%`;
+        if (position) position.textContent = i < 0 ? `Нота 0 из ${steps} · с начала` : `Нота ${i + 1} из ${steps} · проход ${passes + 1}`;
+      },
+      onCount(n) { if (!count) return; count.hidden = !n; count.textContent = n ? String(n) : ''; },
+      onFinish(info) { passes++; onPass?.(passes, info); },
+      onState: sync,
+    });
+    playButton.addEventListener('click', () => p.toggle());
+    container.querySelector('[data-lr-restart]').addEventListener('click', () => { passes = 0; p.restart(); });
+    container.querySelectorAll('[data-lr-bpm]').forEach(button => button.addEventListener('click', () => {
+      const value = Math.min(200, Math.max(40, Number(out.value || out.textContent) + Number(button.dataset.lrBpm)));
+      out.textContent = value; p.set('bpm', value);
+    }));
+    container.querySelectorAll('[data-lr-flag]').forEach(button => button.addEventListener('click', () => {
+      const on = button.getAttribute('aria-pressed') !== 'true';
+      button.setAttribute('aria-pressed', String(on)); p.set(button.dataset.lrFlag, on);
+    }));
+    container.querySelector('[data-lr-ladder]')?.addEventListener('click', event => {
+      const button = event.currentTarget; button.setAttribute('aria-pressed', String(button.getAttribute('aria-pressed') !== 'true'));
+    });
+    document.addEventListener('keydown', event => {
+      if (!['Space', 'Escape'].includes(event.code) || event.target.closest?.('input,textarea,select,button')) return;
+      if (getComputedStyle(container).display === 'none' || !container.offsetParent) return;
+      event.preventDefault();
+      if (event.code === 'Space') p.toggle(); else { passes = 0; p.restart(); }
+    });
+    sync('stopped');
+    return p;
+  }
+
+  /** Связывает переключатели темы и кандидата; поддерживает ?candidate=b&theme=dark. */
+  function mount(root, { candidates }) {
+    const params = new URLSearchParams(location.search);
+    const setTheme = theme => {
+      root.dataset.theme = theme;
+      root.querySelectorAll('[data-lr-theme]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lrTheme === theme)));
+      document.querySelectorAll('[data-review-theme]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.reviewTheme === theme)));
+      document.documentElement.style.colorScheme = theme;
+    };
+    const setCandidate = id => {
+      root.dataset.candidate = id;
+      document.querySelectorAll('[data-review-candidate]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.reviewCandidate === id)));
+    };
+    root.addEventListener('click', event => { const b = event.target.closest('[data-lr-theme]'); if (b) setTheme(b.dataset.lrTheme); });
+    document.querySelectorAll('[data-review-theme]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.reviewTheme)));
+    document.querySelectorAll('[data-review-candidate]').forEach(b => b.addEventListener('click', () => setCandidate(b.dataset.reviewCandidate)));
+    setTheme(params.get('theme') === 'dark' ? 'dark' : 'light');
+    setCandidate(candidates.includes(params.get('candidate')) ? params.get('candidate') : candidates[0]);
+  }
+
+  window.LessonRef = { material, shell, fretboard, tab, ex1BoardNotes, player, transport, bindTransport, mount, esc, deg, ICONS };
+})();
+</script>
+
+<style>
+  /* VIS-08 r1 «Прогресс»: A — упражнения, B — календарь. Только локальные стили, цвета — токены --s-* (графики тоже). */
+  #studio-lesson .lr-main{gap:12px;padding-top:14px;}
+  #studio-lesson .v8-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+  #studio-lesson .v8-btn-s{padding:5px 10px;font-size:12px;}
+  #studio-lesson .v8-toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--s-ink);color:var(--s-paper);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:min(560px,90vw);z-index:20;}
+  #studio-lesson .v8-toast.is-on{opacity:1;}
+
+  /* Шапка */
+  #studio-lesson .v8-top{flex:none;display:flex;align-items:center;gap:8px 18px;flex-wrap:wrap;}
+  #studio-lesson .v8-top h1{font-size:22px;font-weight:650;letter-spacing:-.5px;}
+  #studio-lesson .v8-top .lr-sub{flex:1;min-width:200px;}
+  #studio-lesson .v8-ctl{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v8-ctl[hidden]{display:none;}
+  #studio-lesson .v8-note{flex:none;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--s-muted);border-bottom:1px solid var(--s-line);padding-bottom:10px;}
+  #studio-lesson .v8-note b{color:var(--s-ink);font-weight:600;}
+  #studio-lesson .v8-demo{border:1px dashed var(--s-line-strong);border-radius:999px;padding:0 8px;}
+
+  /* Отметки самооценки: форма + цвет + слово */
+  #studio-lesson .v8-mark{display:inline-flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap;border:1px solid var(--s-line);border-radius:999px;padding:1px 8px;background:var(--s-paper);color:var(--s-ink);}
+  #studio-lesson .v8-mark svg{width:10px;height:10px;flex:none;}
+  #studio-lesson .v8-mark.is-clean{border-color:var(--s-green);}
+  #studio-lesson .v8-mark.is-err{border-color:var(--s-gold);background:var(--s-gold-soft);}
+  #studio-lesson .v8-mark.is-late{border-color:var(--s-line-strong);border-style:dashed;}
+  #studio-lesson .v8-mark.is-check{border-color:var(--s-info);background:var(--s-info-soft);}
+  #studio-lesson .v8-src{display:inline-flex;align-items:center;font-size:11px;font-weight:650;letter-spacing:.3px;color:var(--s-muted);white-space:nowrap;}
+  #studio-lesson .v8-src.is-check{color:var(--s-info);}
+  #studio-lesson .v8-legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v8-legend span{display:inline-flex;align-items:center;gap:5px;}
+  #studio-lesson .v8-legend svg{width:10px;height:10px;}
+
+  /* SVG-графики: классы вместо цветов в атрибутах */
+  #studio-lesson .g-grid{stroke:var(--s-line);stroke-width:1;}
+  #studio-lesson .g-axis{stroke:var(--s-line-strong);stroke-width:1;}
+  #studio-lesson .g-text{fill:var(--s-muted);font:12px 'Segoe UI',Arial,sans-serif;}
+  #studio-lesson .g-text-ink{fill:var(--s-ink);font:600 12px 'Segoe UI',Arial,sans-serif;}
+  #studio-lesson .g-path{stroke:var(--s-line-strong);stroke-width:1.5;fill:none;}
+  #studio-lesson .g-today{stroke:var(--s-line-strong);stroke-width:1;stroke-dasharray:3 3;}
+  #studio-lesson .m-clean{fill:var(--s-green);}
+  #studio-lesson .m-err{fill:var(--s-gold);}
+  #studio-lesson .m-late{stroke:var(--s-ink);stroke-width:2;stroke-linecap:round;fill:none;}
+  #studio-lesson .b-self{fill:var(--s-green);background:var(--s-green);}
+  #studio-lesson .b-fixed{fill:var(--s-gold);background:var(--s-gold);}
+  #studio-lesson .b-shown{fill:var(--s-line-strong);background:var(--s-line-strong);}
+  #studio-lesson .b-skip{fill:var(--s-line);background:var(--s-line);}
+
+  /* Общая боковая колонка */
+  #studio-lesson .v8-side{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto;padding:1px 2px 2px;}
+  #studio-lesson .v8-side .lr-card{padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+  #studio-lesson .v8-h2{font-size:15px;font-weight:650;display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  #studio-lesson .v8-h2 small{font-size:12px;font-weight:400;color:var(--s-muted);}
+  #studio-lesson .v8-hard{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  #studio-lesson .v8-hard li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 10px;align-items:center;border:1px solid var(--s-line);border-left:3px solid var(--s-gold);border-radius:8px;padding:7px 9px 8px 10px;background:var(--s-paper);}
+  #studio-lesson .v8-hard li.is-check{border-left-color:var(--s-info);}
+  #studio-lesson .v8-hard .v8-src{grid-column:1;grid-row:1;min-width:0;overflow:hidden;text-overflow:ellipsis;display:block;}
+  #studio-lesson .v8-hard .lr-btn{grid-column:2;grid-row:1;padding:3px 10px;}
+  #studio-lesson .v8-hard b{font-size:13px;font-weight:650;line-height:1.3;grid-column:1/-1;}
+  #studio-lesson .v8-hard p{font-size:12px;color:var(--s-muted);grid-column:1/-1;line-height:1.35;}
+  #studio-lesson .v8-plan[aria-pressed="true"]{border-color:var(--s-green);background:var(--s-green-soft);}
+  #studio-lesson .v8-quiet{font-size:12px;color:var(--s-muted);border:1px dashed var(--s-line-strong);border-radius:8px;padding:10px 12px;line-height:1.45;}
+
+  /* Неделя (A) */
+  #studio-lesson .v8-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;align-items:end;height:104px;}
+  #studio-lesson .v8-wd{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;height:100%;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v8-wd i{display:block;width:70%;max-width:26px;border-radius:4px 4px 0 0;background:var(--s-green);}
+  #studio-lesson .v8-wd .v8-wv{color:var(--s-ink);font-weight:600;font-variant-numeric:tabular-nums;}
+  #studio-lesson .v8-wd .v8-wl{border-top:1px solid var(--s-line-strong);align-self:stretch;text-align:center;padding-top:2px;}
+  #studio-lesson .v8-wd.is-today .v8-wl{color:var(--s-ink);font-weight:700;border-top:2px solid var(--s-ink);}
+  #studio-lesson .v8-wd.is-future i{background:none;border:1px dashed var(--s-line-strong);border-bottom:0;height:10px;}
+  #studio-lesson .v8-wtot{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v8-wtot b{color:var(--s-ink);font-size:14px;font-variant-numeric:tabular-nums;}
+
+  /* A · Упражнения */
+  #studio-lesson .v8a-grid{flex:1 1 0;min-height:380px;display:grid;grid-template-columns:minmax(0,1fr) 300px;grid-template-rows:minmax(0,1fr);gap:14px;}
+  #studio-lesson .v8a-list{display:flex;flex-direction:column;gap:8px;min-height:0;padding:12px 14px;}
+  #studio-lesson .v8a-head{display:flex;justify-content:space-between;align-items:center;gap:6px 14px;flex-wrap:wrap;}
+  #studio-lesson .v8a-cols,#studio-lesson .v8a-row{display:grid;grid-template-columns:minmax(0,1fr) 180px 72px 136px 16px;gap:12px;align-items:center;}
+  #studio-lesson .v8a-cols{font-size:12px;color:var(--s-muted);padding:0 10px 4px;border-bottom:1px solid var(--s-line);}
+  #studio-lesson .v8a-cols span:nth-child(3){text-align:right;}
+  #studio-lesson .v8a-items{list-style:none;margin:0;padding:0 4px 4px 0;display:flex;flex-direction:column;gap:6px;overflow:auto;min-height:0;flex:1 1 0;}
+  #studio-lesson .v8a-item{border:1px solid var(--s-line);border-radius:10px;background:var(--s-paper);}
+  #studio-lesson .v8a-item.is-open{border-color:var(--s-line-strong);}
+  #studio-lesson .v8a-row{width:100%;border:0;background:none;text-align:left;padding:7px 10px;border-radius:10px;}
+  #studio-lesson .v8a-row:hover{background:var(--s-hover);}
+  #studio-lesson .v8a-name{display:flex;flex-direction:column;min-width:0;}
+  #studio-lesson .v8a-name b{font-size:14px;font-weight:650;line-height:1.3;}
+  #studio-lesson .v8a-name span{font-size:12px;color:var(--s-muted);line-height:1.35;}
+  #studio-lesson .v8a-spark svg{display:block;}
+  #studio-lesson .v8a-best{text-align:right;display:flex;flex-direction:column;line-height:1.15;}
+  #studio-lesson .v8a-best b{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;}
+  #studio-lesson .v8a-best small{font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v8a-last{display:flex;flex-direction:column;align-items:flex-start;gap:2px;}
+  #studio-lesson .v8a-last small{font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v8a-chev{color:var(--s-muted);transition:transform .15s;}
+  #studio-lesson .is-open .v8a-chev{transform:rotate(90deg);}
+  #studio-lesson .v8a-detail{border-top:1px solid var(--s-line);padding:10px 12px 12px;display:flex;flex-direction:column;gap:10px;}
+  #studio-lesson .v8a-detail[hidden]{display:none;}
+  #studio-lesson .v8a-chart svg{display:block;}
+  #studio-lesson .v8a-dtop{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v8-table{width:100%;border-collapse:collapse;font-size:12px;}
+  #studio-lesson .v8-table th{text-align:left;font-weight:600;color:var(--s-muted);border-bottom:1px solid var(--s-line);padding:4px 8px 4px 0;}
+  #studio-lesson .v8-table td{border-bottom:1px solid var(--s-line);padding:5px 8px 5px 0;vertical-align:middle;}
+  #studio-lesson .v8-table td.num{font-variant-numeric:tabular-nums;font-weight:600;}
+  #studio-lesson .v8-stack{display:flex;height:12px;width:120px;border-radius:3px;overflow:hidden;gap:1px;background:var(--s-paper);}
+  #studio-lesson .v8-stack i{display:block;height:100%;}
+
+  /* Первый запуск */
+  #studio-lesson .v8-empty{align-self:start;display:flex;flex-direction:column;gap:12px;padding:20px 22px;background:var(--s-input);border-color:var(--s-line-strong);}
+  #studio-lesson .v8-empty h2{font-size:20px;font-weight:650;letter-spacing:-.3px;}
+  #studio-lesson .v8-empty ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;}
+  #studio-lesson .v8-empty li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;font-size:13px;line-height:1.45;}
+  #studio-lesson .v8-empty li>span:first-child{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--s-green-soft);color:var(--s-ink);}
+  #studio-lesson .v8-sample{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px dashed var(--s-line-strong);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v8-sample b{color:var(--s-ink);}
+  #studio-lesson .v8-empty-act{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--s-muted);}
+
+  /* B · Календарь */
+  #studio-lesson .v8b-grid{flex:1 1 0;min-height:420px;display:grid;grid-template-columns:minmax(0,1fr) 290px;grid-template-rows:minmax(0,1fr);gap:14px;}
+  #studio-lesson .v8b-left{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0;}
+  #studio-lesson .v8b-calcard{flex:none;padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+  #studio-lesson .v8b-cal{display:grid;grid-template-columns:76px repeat(7,minmax(0,1fr)) 84px;gap:4px;}
+  #studio-lesson .v8b-cal>.v8b-hd{font-size:12px;color:var(--s-muted);text-align:center;}
+  #studio-lesson .v8b-cal>.v8b-hd:first-child,#studio-lesson .v8b-cal>.v8b-hd:last-child{text-align:left;}
+  #studio-lesson .v8b-wk{font-size:12px;color:var(--s-muted);align-self:center;line-height:1.3;}
+  #studio-lesson .v8b-tot{font-size:12px;color:var(--s-muted);align-self:center;line-height:1.3;padding-left:4px;}
+  #studio-lesson .v8b-tot b{color:var(--s-ink);font-variant-numeric:tabular-nums;}
+  #studio-lesson .v8b-day{position:relative;height:50px;border:1px solid var(--s-line);border-radius:8px;background:var(--s-paper);padding:3px 6px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;min-width:0;color:var(--s-ink);}
+  #studio-lesson button.v8b-day:hover{border-color:var(--s-line-strong);}
+  #studio-lesson .v8b-day.lvl-1{background:color-mix(in srgb,var(--s-green) 10%,var(--s-paper));}
+  #studio-lesson .v8b-day.lvl-2{background:color-mix(in srgb,var(--s-green) 18%,var(--s-paper));}
+  #studio-lesson .v8b-day.lvl-3{background:color-mix(in srgb,var(--s-green) 28%,var(--s-paper));}
+  #studio-lesson .v8b-day.lvl-4{background:color-mix(in srgb,var(--s-green) 38%,var(--s-paper));}
+  #studio-lesson .v8b-dn{font-size:12px;line-height:1;}
+  #studio-lesson .v8b-dm{font-size:13px;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.1;}
+  #studio-lesson .v8b-dk{position:absolute;right:5px;top:4px;display:flex;gap:3px;}
+  #studio-lesson .v8b-dk i{display:block;width:7px;height:7px;}
+  #studio-lesson .v8b-dk i.is-play{border-radius:50%;background:var(--s-ink);}
+  #studio-lesson .v8b-dk i.is-check{border:1.5px solid var(--s-info);background:var(--s-info-soft);}
+  #studio-lesson .v8b-day.is-out,#studio-lesson .v8b-day.is-future{background:none;border-style:dashed;color:var(--s-muted);}
+  #studio-lesson .v8b-day.is-out{border-color:transparent;}
+  #studio-lesson .v8b-day.is-today{box-shadow:inset 0 0 0 1px var(--s-green);border-color:var(--s-green);border-style:solid;}
+  #studio-lesson .v8b-day.is-today .v8b-dn::after{content:' · сегодня';}
+  #studio-lesson .v8b-day[aria-pressed="true"]{border:2px solid var(--s-ink);padding:2px 5px;}
+  #studio-lesson .v8b-day.is-hi::after{content:'';position:absolute;left:5px;right:5px;bottom:2px;height:3px;border-radius:2px;background:var(--s-gold);}
+  #studio-lesson .v8b-legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v8b-scale{display:inline-flex;align-items:center;gap:3px;}
+  #studio-lesson .v8b-scale i{display:block;width:14px;height:12px;border:1px solid var(--s-line);border-radius:3px;}
+  #studio-lesson .v8b-scale i.lvl-1{background:color-mix(in srgb,var(--s-green) 10%,var(--s-paper));}
+  #studio-lesson .v8b-scale i.lvl-2{background:color-mix(in srgb,var(--s-green) 18%,var(--s-paper));}
+  #studio-lesson .v8b-scale i.lvl-3{background:color-mix(in srgb,var(--s-green) 28%,var(--s-paper));}
+  #studio-lesson .v8b-scale i.lvl-4{background:color-mix(in srgb,var(--s-green) 38%,var(--s-paper));}
+  #studio-lesson .v8b-legend .v8b-dk{position:static;display:inline-flex;}
+  #studio-lesson .v8b-daycard{flex:1 1 0;min-height:150px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+  #studio-lesson .v8b-entries{list-style:none;margin:0;padding:0 4px 0 0;display:flex;flex-direction:column;gap:6px;overflow:auto;min-height:0;flex:1 1 0;}
+  #studio-lesson .v8b-entry{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:2px 14px;align-items:center;border:1px solid var(--s-line);border-radius:8px;padding:7px 10px;background:var(--s-paper);}
+  #studio-lesson .v8b-entry b{font-size:13px;font-weight:650;}
+  #studio-lesson .v8b-entry p{font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v8b-entry .v8b-bpm{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;line-height:1.1;}
+  #studio-lesson .v8b-entry .v8b-bpm small{display:block;font-size:11px;font-weight:500;color:var(--s-muted);}
+  #studio-lesson .v8b-entry .v8b-min{font-size:12px;color:var(--s-muted);white-space:nowrap;text-align:right;}
+  #studio-lesson .v8b-res{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .v8-best{list-style:none;margin:0 -6px;padding:0;display:flex;flex-direction:column;gap:0;}
+  #studio-lesson .v8-best button{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 10px;align-items:baseline;border:1px solid transparent;background:none;text-align:left;border-radius:8px;padding:2px 6px;line-height:1.35;}
+  #studio-lesson .v8-best button:hover{background:var(--s-hover);}
+  #studio-lesson .v8-best button[aria-pressed="true"]{border-color:var(--s-gold);background:var(--s-gold-soft);}
+  #studio-lesson .v8-best b{font-size:13px;font-weight:600;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #studio-lesson .v8-best strong{font-size:16px;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;}
+  #studio-lesson .v8-best strong small{font-size:12px;font-weight:500;color:var(--s-muted);margin-left:4px;}
+  @media (max-width:1180px){
+    #studio-lesson .v8a-grid{grid-template-columns:minmax(0,1fr) 260px;}
+    #studio-lesson .v8a-cols,#studio-lesson .v8a-row{grid-template-columns:minmax(0,1fr) 150px 64px 118px 14px;gap:10px;}
+    #studio-lesson .v8b-grid{grid-template-columns:minmax(0,1fr) 260px;}
+    #studio-lesson .v8b-cal{grid-template-columns:62px repeat(7,minmax(0,1fr)) 70px;}
+    #studio-lesson .v8b-day.is-today .v8b-dn::after{content:'';}
+  }
+</style>
+<div id="studio-lesson" data-candidate="a" aria-label="VIS-08 r1 — Прогресс"></div>
+<script>
+(() => {
+  const L = window.LessonRef;
+  const esc = L.esc;
+  const root = document.getElementById('studio-lesson');
+
+  /* ---------- Даты: ключи YYYY-MM-DD, расчёт в UTC, чтобы часовой пояс макета не сдвигал дни ---------- */
+  const DAY = 864e5;
+  const TODAY = '2026-11-12';
+  const START = '2026-10-22';
+  const utc = key => { const [y, m, d] = key.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+  const keyOf = time => new Date(time).toISOString().slice(0, 10);
+  const addDays = (key, n) => keyOf(utc(key) + n * DAY);
+  const PERIOD = Math.round((utc(TODAY) - utc(START)) / DAY);
+  const idx = key => Math.round((utc(key) - utc(START)) / DAY);
+  const MON = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  const MONL = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  const WD = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  const d = key => new Date(utc(key));
+  const short = key => `${d(key).getUTCDate()} ${MON[d(key).getUTCMonth()]}`;
+  const long = key => `${WD[d(key).getUTCDay()]}, ${d(key).getUTCDate()} ${MONL[d(key).getUTCMonth()]}`;
+  const monday = key => addDays(key, -((d(key).getUTCDay() + 6) % 7));
+  const range = mon => { const sun = addDays(mon, 6); return d(mon).getUTCMonth() === d(sun).getUTCMonth() ? `${d(mon).getUTCDate()}–${short(sun)}` : `${short(mon)} – ${short(sun)}`; };
+  const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
+  const nDays = n => `${n} ${plural(n, 'день', 'дня', 'дней')}`;
+
+  /* ---------- Демонстрационные данные: ~3 недели, 13 дней занятий ---------- */
+  const EX = {
+    link: { title: 'Связка соседних форм', mat: 'пентатоника Am · формы A → B · восьмыми', src: 'play' },
+    chrom: { title: 'Хроматика 1-2-3-4', mat: 'позиция V · палец на лад', src: 'play' },
+    arp: { title: 'Арпеджио 1–3–5–8', mat: 'C мажор · от E/8, туда и обратно', src: 'play' },
+    penta: { title: 'Форма пентатоники вверх-вниз', mat: 'Am · форма A', src: 'play' },
+    scale: { title: 'Гамма в позиции «палец на лад»', mat: 'C мажор · II позиция', src: 'play' },
+    checkB: { title: 'Проверь себя: ступени формы B', mat: 'пентатоника Am · форма B · 6 вопросов', src: 'check' },
+  };
+  const P = (ex, bpm, mark, min, note = '') => ({ src: 'play', ex, bpm, mark, min, note });
+  const C = (ex, res, min, errors) => ({ src: 'check', ex, res, min, errors });
+  const NOTE_LINK = 'переход G/7 → G/9';
+  const HISTORY = [
+    ['2026-10-22', [P('link', 60, 'clean', 6), P('chrom', 72, 'clean', 5)]],
+    ['2026-10-23', [P('arp', 60, 'clean', 6)]],
+    ['2026-10-25', [P('chrom', 76, 'clean', 5), P('penta', 76, 'clean', 7)]],
+    ['2026-10-27', [P('link', 64, 'clean', 7), P('penta', 80, 'clean', 6)]],
+    ['2026-10-28', [C('checkB', { self: 3, fixed: 2, shown: 1, skipped: 0 }, 4, ['♭7', '4'])]],
+    ['2026-10-30', [P('chrom', 80, 'clean', 5), P('arp', 65, 'clean', 6)]],
+    ['2026-11-01', [P('penta', 84, 'clean', 7), P('link', 68, 'clean', 8)]],
+    ['2026-11-03', [P('chrom', 84, 'clean', 4), P('chrom', 88, 'late', 3)]],
+    ['2026-11-04', [P('link', 72, 'err', 8, NOTE_LINK), P('arp', 69, 'clean', 6)]],
+    ['2026-11-06', [P('penta', 88, 'clean', 6), P('link', 72, 'clean', 6), C('checkB', { self: 4, fixed: 1, shown: 0, skipped: 1 }, 4, ['♭7'])]],
+    ['2026-11-08', [P('chrom', 88, 'late', 3), P('scale', 60, 'err', 7, 'растяжка мизинцем на струне G')]],
+    ['2026-11-10', [P('link', 76, 'err', 7, NOTE_LINK), P('chrom', 84, 'clean', 4)]],
+    ['2026-11-11', [P('link', 76, 'clean', 7), P('penta', 88, 'clean', 6)]],
+  ].map(([date, entries]) => ({ date, entries: entries.map(e => ({ ...e, date })) }));
+  const BY_DATE = new Map(HISTORY.map(day => [day.date, day.entries]));
+  const HARD = [
+    { id: 'h1', src: 'play', title: 'Переход G/7 → G/9 в связке A→B', why: `2 отметки «С ошибками» · ${short('2026-11-04')} и ${short('2026-11-10')}`, plan: 'петля на переход G/7 → G/9, 68 BPM' },
+    { id: 'h2', src: 'check', title: '♭7 в форме B', why: `2 ошибки в ответах · ${short('2026-10-28')} и ${short('2026-11-06')}`, plan: 'Проверь себя: ♭7 и тоника в форме B' },
+    { id: 'h3', src: 'play', title: 'Темп 88 в хроматике — не успевал', why: `«Не успевал» ${d('2026-11-03').getUTCDate()} и ${short('2026-11-08')} · чисто — 84`, plan: 'хроматика, лестница 80 → 88, +2' },
+  ];
+  const MARK = { clean: 'Чисто', err: 'С ошибками', late: 'Не успевал' };
+  const SRC = { play: 'Игра · самооценка', check: 'Проверь себя · экран' };
+
+  const state = { demo: 'hist', src: 'all', open: null, day: '2026-11-11', hiEx: null, planned: new Set() };
+  const hasHistory = () => state.demo === 'hist';
+  const okSrc = src => state.src === 'all' || state.src === src;
+  const entries = () => hasHistory() ? HISTORY.flatMap(day => day.entries).filter(e => okSrc(e.src)) : [];
+  const dayEntries = key => hasHistory() ? (BY_DATE.get(key) || []).filter(e => okSrc(e.src)) : [];
+  const minutesOf = list => list.reduce((sum, e) => sum + e.min, 0);
+
+  /** Сводка упражнения: проходы по дате, лучший комфортный темп = самый быстрый проход с отметкой «Чисто». */
+  function summary(id) {
+    const list = HISTORY.flatMap(day => day.entries).filter(e => e.ex === id);
+    const last = list[list.length - 1];
+    if (EX[id].src === 'check') return { id, list, last, best: Math.max(...list.map(e => e.res.self)) };
+    const clean = list.filter(e => e.mark === 'clean').map(e => e.bpm);
+    return { id, list, last, first: list[0]?.bpm, best: clean.length ? Math.max(...clean) : null };
+  }
+  const total = res => res.self + res.fixed + res.shown + res.skipped;
+
+  /* ---------- Маркеры и графики (inline SVG, только классы с токенами) ---------- */
+  function marker(mark, px, py, s = 4) {
+    const x = Number(px), y = Number(py);
+    if (mark === 'clean') return `<circle class="m-clean" cx="${x}" cy="${y}" r="${s}"/>`;
+    if (mark === 'err') return `<path class="m-err" d="M${x} ${y - s - 1}L${x + s + 1} ${y}L${x} ${y + s + 1}L${x - s - 1} ${y}Z"/>`;
+    return `<path class="m-late" d="M${x - s} ${y - s}L${x + s} ${y + s}M${x + s} ${y - s}L${x - s} ${y + s}"/>`;
+  }
+  const markIcon = mark => `<svg viewBox="-6 -6 12 12" aria-hidden="true">${marker(mark, 0, 0, 4)}</svg>`;
+  const markChip = mark => `<span class="v8-mark is-${mark}">${markIcon(mark)}${MARK[mark]}</span>`;
+  const checkChip = res => `<span class="v8-mark is-check">${res.self} из ${total(res)} самостоятельно</span>`;
+  const legend = () => `<div class="v8-legend" aria-label="Обозначения отметок">${['clean', 'err', 'late'].map(m => `<span>${markIcon(m)}${MARK[m]}</span>`).join('')}</div>`;
+
+  /** Мини-график темпа: общая ось X — весь период, ось Y — собственный диапазон упражнения с подписями min/max. */
+  function spark(s, w = 180, h = 44) {
+    const x0 = 30, x1 = w - 5, y0 = 7, y1 = h - 7;
+    const X = key => x0 + (idx(key) / PERIOD) * (x1 - x0);
+    if (EX[s.id].src === 'check') {
+      const parts = [`<line class="g-axis" x1="${x0}" x2="${x1}" y1="${y1 + 0.5}" y2="${y1 + 0.5}"/>`, `<text class="g-text" x="${x0 - 6}" y="${y0 + 8}" text-anchor="end">6</text>`];
+      for (const e of s.list) {
+        const n = total(e.res), unit = (y1 - y0) / n, x = X(e.date) - 4;
+        let y = y1;
+        for (const [k, cls] of [['self', 'b-self'], ['fixed', 'b-fixed'], ['shown', 'b-shown'], ['skipped', 'b-skip']]) {
+          if (!e.res[k]) continue;
+          y -= unit * e.res[k];
+          parts.push(`<rect class="${cls}" x="${x}" y="${y}" width="8" height="${unit * e.res[k] - 0.5}"/>`);
+        }
+        parts.push(`<text class="g-text-ink" x="${x + 12}" y="${y1 - 2}">${e.res.self}</text>`);
+      }
+      return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">${parts.join('')}</svg>`;
+    }
+    const bpms = s.list.map(e => e.bpm), lo = Math.min(...bpms), hi = Math.max(...bpms);
+    const Y = bpm => hi === lo ? (y0 + y1) / 2 : y1 - ((bpm - lo) / (hi - lo)) * (y1 - y0);
+    const seen = {};
+    const pts = s.list.map(e => { const k = seen[e.date] = (seen[e.date] || 0) + 1; return { e, x: X(e.date) + (k - 1) * 6, y: Y(e.bpm) }; });
+    const parts = [
+      `<line class="g-grid" x1="${x0}" x2="${x1}" y1="${y0}" y2="${y0}"/>`, `<line class="g-grid" x1="${x0}" x2="${x1}" y1="${y1}" y2="${y1}"/>`,
+      `<text class="g-text" x="${x0 - 5}" y="${(hi === lo ? (y0 + y1) / 2 : y0) + 4}" text-anchor="end">${hi}</text>`,
+    ];
+    if (hi !== lo) parts.push(`<text class="g-text" x="${x0 - 5}" y="${y1 + 4}" text-anchor="end">${lo}</text>`);
+    if (pts.length > 1) parts.push(`<polyline class="g-path" points="${pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}"/>`);
+    for (const p of pts) parts.push(marker(p.e.mark, p.x.toFixed(1), p.y.toFixed(1), 3.5));
+    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">${parts.join('')}</svg>`;
+  }
+  const sparkText = s => EX[s.id].src === 'check'
+    ? `Самостоятельно по датам: ${s.list.map(e => `${short(e.date)} — ${e.res.self} из ${total(e.res)}`).join('; ')}`
+    : `Темп по датам: ${s.list.map(e => `${short(e.date)} — ${e.bpm}, ${MARK[e.mark]}`).join('; ')}`;
+
+  /** Крупный график темпа с подписанными осями: BPM ♩ по вертикали, даты по горизонтали. */
+  function bigChart(s, w) {
+    const h = 176, x0 = 44, x1 = w - 18, y0 = 26, y1 = h - 28;
+    const bpms = s.list.map(e => e.bpm);
+    const step = Math.max(...bpms) - Math.min(...bpms) > 24 ? 8 : 4;
+    const lo = Math.floor((Math.min(...bpms) - 2) / step) * step, hi = Math.ceil((Math.max(...bpms) + 2) / step) * step;
+    const X = key => x0 + (idx(key) / PERIOD) * (x1 - x0);
+    const Y = bpm => y1 - ((bpm - lo) / (hi - lo)) * (y1 - y0);
+    const parts = [`<text class="g-text" x="${x0 - 36}" y="14">BPM ♩</text>`];
+    for (let v = lo; v <= hi; v += step) parts.push(`<line class="g-grid" x1="${x0}" x2="${x1}" y1="${Y(v)}" y2="${Y(v)}"/>`, `<text class="g-text" x="${x0 - 8}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`);
+    parts.push(`<line class="g-axis" x1="${x0}" x2="${x1}" y1="${y1}" y2="${y1}"/>`);
+    const ticks = [START, '2026-10-26', '2026-11-02', '2026-11-09', TODAY];
+    ticks.forEach((key, i) => {
+      const anchor = i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle';
+      parts.push(`<line class="g-axis" x1="${X(key)}" x2="${X(key)}" y1="${y1}" y2="${y1 + 4}"/>`, `<text class="g-text" x="${X(key)}" y="${y1 + 18}" text-anchor="${anchor}">${key === TODAY ? 'сегодня' : short(key)}</text>`);
+    });
+    const seen = {};
+    const pts = s.list.map(e => { const k = seen[e.date] = (seen[e.date] || 0) + 1; return { e, x: X(e.date) + (k - 1) * 8, y: Y(e.bpm) }; });
+    parts.push(`<polyline class="g-path" points="${pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}"/>`);
+    for (const p of pts) parts.push(marker(p.e.mark, p.x.toFixed(1), p.y.toFixed(1), 5));
+    const best = pts.filter(p => p.e.mark === 'clean' && p.e.bpm === s.best).pop();
+    if (best) parts.push(`<text class="g-text-ink" x="${Math.min(best.x, x1 - 40)}" y="${best.y - 10}" text-anchor="middle">лучший ${s.best}</text>`);
+    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(sparkText(s))}">${parts.join('')}</svg>`;
+  }
+  const stack = res => `<span class="v8-stack" aria-hidden="true">${[['self', 'b-self'], ['fixed', 'b-fixed'], ['shown', 'b-shown'], ['skipped', 'b-skip']].filter(([k]) => res[k]).map(([k, c]) => `<i class="${c}" style="flex:${res[k]}"></i>`).join('')}</span>`;
+  const resText = res => [['self', 'самостоятельно'], ['fixed', 'с исправлением'], ['shown', 'показано'], ['skipped', 'пропущено']].filter(([k]) => res[k]).map(([k, t]) => `${t} ${res[k]}`).join(' · ');
+
+  /* ---------- Каркас ---------- */
+  const seg = (attr, items, current, label) => `<div class="lr-seg" role="group" aria-label="${esc(label)}">${items.map(([id, t]) => `<button type="button" data-${attr}="${id}" aria-pressed="${id === current}">${esc(t)}</button>`).join('')}</div>`;
+  root.innerHTML = L.shell('progress', `
+    <header class="v8-top">
+      <h1>Прогресс</h1>
+      <p class="lr-sub">Что получается и что стоит повторить.</p>
+      <div class="v8-ctl" data-src-ctl><span>Источник:</span>${seg('src', [['play', 'Игра (самооценка)'], ['check', 'Проверь себя'], ['all', 'Всё']], state.src, 'Источник результата')}</div>
+      <div class="v8-ctl"><span class="v8-demo">Демо</span>${seg('demo', [['hist', 'Есть история'], ['first', 'Первый запуск']], state.demo, 'Демо-состояние')}</div>
+    </header>
+    <p class="v8-note" data-note></p>
+    <div data-candidate-panel="a">
+      <div class="v8a-grid">
+        <div class="v8a-main" style="display:contents" data-a-main></div>
+        <aside class="v8-side" aria-label="Трудные места и неделя">
+          <section class="lr-card" aria-labelledby="v8a-hard-h"><h2 class="v8-h2" id="v8a-hard-h">Трудные места <small>повтори сегодня</small></h2><div data-hard="a"></div></section>
+          <section class="lr-card" aria-labelledby="v8a-week-h" data-week></section>
+        </aside>
+      </div>
+    </div>
+    <div data-candidate-panel="b">
+      <div class="v8b-grid">
+        <div class="v8b-left">
+          <section class="lr-card v8b-calcard" aria-labelledby="v8b-cal-h" data-cal-card></section>
+          <section class="lr-card v8b-daycard" aria-live="polite" data-day-card></section>
+        </div>
+        <aside class="v8-side v8b-side" aria-label="Лучший темп и трудные места">
+          <section class="lr-card" aria-labelledby="v8b-hard-h"><h2 class="v8-h2" id="v8b-hard-h">Трудные места <small>повтори сегодня</small></h2><div data-hard="b"></div></section>
+          <section class="lr-card" data-best-card></section>
+        </aside>
+      </div>
+    </div>
+  `) + '<div class="v8-toast" role="status" aria-live="polite" data-toast-box></div>';
+
+  const $ = (sel, scope = root) => scope.querySelector(sel);
+  const $$ = (sel, scope = root) => [...scope.querySelectorAll(sel)];
+  const toastBox = $('[data-toast-box]');
+  let toastTimer = null;
+  function toast(text) {
+    toastBox.textContent = text; toastBox.classList.add('is-on');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => toastBox.classList.remove('is-on'), 2600);
+  }
+
+  /* ---------- Общие блоки ---------- */
+  function renderNote() {
+    $('[data-note]').innerHTML = hasHistory()
+      ? `<span><b>Демонстрационные данные</b> · ${short(START)} — ${short(TODAY)} 2026</span><span>Темп и отметку «Чисто / С ошибками / Не успевал» ставишь ты после прохода; ответы «Проверь себя» записывает экран. Время — активное, без пауз.</span>`
+      : `<span><b>Демо: первый запуск</b> · записей ещё нет</span><span>Здесь будут твои отметки после прохода и ответы «Проверь себя». Приложение игру не оценивает.</span>`;
+    $('[data-src-ctl]').hidden = !hasHistory();
+  }
+  function renderHard() {
+    const items = HARD.filter(h => okSrc(h.src));
+    const html = !hasHistory()
+      ? `<p class="v8-quiet">Сюда попадут места с отметками «С ошибками» и «Не успевал», а также ошибки в «Проверь себя». Каждое можно добавить в план одной кнопкой.</p>`
+      : !items.length ? `<p class="v8-quiet">Для этого источника трудных мест нет.</p>`
+      : `<ul class="v8-hard">${items.map(h => {
+        const on = state.planned.has(h.id);
+        return `<li class="${h.src === 'check' ? 'is-check' : ''}"><span class="v8-src${h.src === 'check' ? ' is-check' : ''}">${esc(SRC[h.src])}</span><b>${esc(h.title)}</b><p>${esc(h.why)}</p><button type="button" class="lr-btn v8-btn-s v8-plan" data-plan="${h.id}" aria-pressed="${on}" aria-label="${esc(`${on ? 'Убрать из плана на сегодня' : 'Повторить: добавить в план на сегодня'} — ${h.plan}`)}">${on ? '✓ в плане' : 'Повторить'}</button></li>`;
+      }).join('')}</ul>`;
+    $$('[data-hard]').forEach(box => { box.innerHTML = html; });
+  }
+
+  /* ---------- A · Упражнения ---------- */
+  function renderA() {
+    const host = $('[data-a-main]');
+    if (!hasHistory()) {
+      host.innerHTML = `<section class="lr-card v8-empty" aria-label="Пока нет записей">
+        <p class="lr-eyebrow">Пока пусто — так и должно быть</p>
+        <h2>Здесь появится то, что у тебя получается</h2>
+        <ul>
+          <li><span>1</span><span><b>Лучший темп упражнения.</b> После прохода ты ставишь отметку «Чисто», «С ошибками» или «Не успевал». Самый быстрый проход с отметкой «Чисто» станет лучшим темпом.</span></li>
+          <li><span>2</span><span><b>Трудные места.</b> Отметки «С ошибками», «Не успевал» и ошибки в «Проверь себя» собираются справа — их можно повторить одной кнопкой.</span></li>
+          <li><span>3</span><span><b>Время занятий.</b> Считается только активное время, паузы не входят.</span></li>
+        </ul>
+        <div class="v8-sample" aria-label="Пример строки упражнения"><span>Пример:</span><b>Связка соседних форм</b>${spark(summary('link'))}<span>лучший темп</span><b>76</b>${markChip('clean')}</div>
+        <div class="v8-empty-act"><button type="button" class="lr-btn lr-btn-primary" data-toast="Откроется раздел «Занятие» — вкладка «Сегодня»">Перейти к занятию →</button><span>Первое упражнение появится здесь сразу после отметки.</span></div>
+      </section>`;
+      return;
+    }
+    const ids = Object.keys(EX).filter(id => okSrc(EX[id].src)).map(summary).sort((a, b) => utc(b.last.date) - utc(a.last.date));
+    host.innerHTML = `<section class="lr-card v8a-list" aria-labelledby="v8a-list-h">
+      <div class="v8a-head"><h2 class="v8-h2" id="v8a-list-h">Упражнения <small>${ids.length} · сначала недавние · нажми, чтобы открыть историю</small></h2>${state.src === 'check' ? `<div class="v8-legend"><span><svg viewBox="0 0 10 10" aria-hidden="true"><rect class="b-self" width="10" height="10"/></svg>самостоятельно</span><span><svg viewBox="0 0 10 10" aria-hidden="true"><rect class="b-fixed" width="10" height="10"/></svg>с исправлением</span><span><svg viewBox="0 0 10 10" aria-hidden="true"><rect class="b-shown" width="10" height="10"/></svg>показано</span><span><svg viewBox="0 0 10 10" aria-hidden="true"><rect class="b-skip" width="10" height="10"/></svg>пропущено</span></div>` : legend()}</div>
+      <div class="v8a-cols" aria-hidden="true"><span>Упражнение</span><span>Темп по датам · ${short(START)} — ${short(TODAY)}</span><span>Лучший</span><span>Последняя отметка</span><span></span></div>
+      <ul class="v8a-items">${ids.map(s => {
+        const open = state.open === s.id, ex = EX[s.id], isCheck = ex.src === 'check';
+        const n = s.list.length;
+        const best = isCheck ? `<b>${s.best}/6</b><small>самост.</small>`
+          : s.best ? `<b>${s.best}</b><small>было ${s.first}</small>` : `<b aria-hidden="true">—</b><small>ещё нет «Чисто»</small>`;
+        const last = isCheck ? `<span class="v8-mark is-check">${s.last.res.self} из ${total(s.last.res)}</span>` : markChip(s.last.mark);
+        return `<li class="v8a-item${open ? ' is-open' : ''}">
+          <button type="button" class="v8a-row" data-open="${s.id}" aria-expanded="${open}" aria-controls="v8a-d-${s.id}">
+            <span class="v8a-name"><b>${esc(ex.title)}</b><span>${esc(ex.mat)} · ${n} ${isCheck ? plural(n, 'проверка', 'проверки', 'проверок') : plural(n, 'проход', 'прохода', 'проходов')}</span></span>
+            <span class="v8a-spark">${spark(s)}<span class="v8-sr">${esc(sparkText(s))}</span></span>
+            <span class="v8a-best">${best}${!isCheck && !s.best ? '<span class="v8-sr">Лучшего темпа пока нет</span>' : ''}</span>
+            <span class="v8a-last">${last}<small>${short(s.last.date)}${isCheck ? ' · самостоятельно' : ` · ${s.last.bpm} BPM`}</small></span>
+            <span class="v8a-chev" aria-hidden="true">▸</span>
+          </button>
+          <div class="v8a-detail" id="v8a-d-${s.id}" data-detail="${s.id}"${open ? '' : ' hidden'}></div>
+        </li>`;
+      }).join('')}</ul>
+    </section>`;
+    if (state.open) fillDetail(state.open);
+  }
+  function fillDetail(id) {
+    const box = $(`[data-detail="${id}"]`);
+    if (!box) return;
+    const s = summary(id), ex = EX[id];
+    const rows = [...s.list].reverse();
+    if (ex.src === 'check') {
+      box.innerHTML = `<div class="v8a-dtop"><span>${esc(SRC.check)} · первый ответ без подсказки считается «самостоятельно»</span><button type="button" class="lr-btn v8-btn-s" data-toast="${esc(`Откроется «${ex.title}»`)}">Проверить снова</button></div>
+        <table class="v8-table"><thead><tr><th>Дата</th><th>Результат</th><th>Ответы</th><th>Ошибки</th><th>Время</th></tr></thead><tbody>${rows.map(e => `<tr><td>${short(e.date)}</td><td class="num">${e.res.self} из ${total(e.res)}</td><td><span class="v8b-res">${stack(e.res)}${esc(resText(e.res))}</span></td><td>${esc(e.errors.join(', '))}</td><td>${e.min} мин</td></tr>`).join('')}</tbody></table>`;
+      return;
+    }
+    box.innerHTML = `<div class="v8a-dtop"><span>${esc(SRC.play)} · ♩ = BPM${id === 'link' ? ', играешь восьмыми' : ''}</span><button type="button" class="lr-btn lr-btn-primary v8-btn-s" data-toast="${esc(`Откроется экран игры: ${ex.title} · ${s.best || s.last.bpm} BPM`)}">▶ Играть с ${s.best || s.last.bpm}</button></div>
+      <div class="v8a-chart" data-chart></div>
+      <table class="v8-table"><thead><tr><th>Дата</th><th>Темп</th><th>Отметка</th><th>Заметка</th><th>Время</th></tr></thead><tbody>${rows.map(e => `<tr><td>${short(e.date)}</td><td class="num">${e.bpm}</td><td>${markChip(e.mark)}</td><td>${esc(e.note || '—')}</td><td>${e.min} мин</td></tr>`).join('')}</tbody></table>`;
+    const chart = $('[data-chart]', box);
+    chart.innerHTML = bigChart(s, Math.max(320, Math.floor(chart.clientWidth || box.clientWidth - 24)));
+  }
+  function renderWeek() {
+    const mon = monday(TODAY), prev = addDays(mon, -7);
+    const days = Array.from({ length: 7 }, (_, i) => addDays(mon, i));
+    const mins = days.map(k => minutesOf(dayEntries(k)));
+    const max = Math.max(20, ...mins);
+    const stat = m => { const list = Array.from({ length: 7 }, (_, i) => minutesOf(dayEntries(addDays(m, i)))); return { min: list.reduce((a, b) => a + b, 0), days: list.filter(Boolean).length }; };
+    const now = stat(mon), before = stat(prev);
+    const scope = state.src === 'all' ? '' : state.src === 'play' ? ' · только игра' : ' · только «Проверь себя»';
+    $('[data-week]').innerHTML = `<h2 class="v8-h2" id="v8a-week-h">Эта неделя <small>${range(mon)}${scope}</small></h2>
+      <div class="v8-week" role="img" aria-label="${esc(`Активные минуты по дням: ${days.map((k, i) => `${WD[d(k).getUTCDay()]} ${utc(k) > utc(TODAY) ? 'впереди' : mins[i] ? `${mins[i]} мин` : 'без занятий'}`).join(', ')}`)}">${days.map((k, i) => {
+        const future = utc(k) > utc(TODAY), today = k === TODAY;
+        return `<div class="v8-wd${future ? ' is-future' : ''}${today ? ' is-today' : ''}">${mins[i] ? `<span class="v8-wv">${mins[i]}</span><i style="height:${Math.round(mins[i] / max * 64)}px"></i>` : future ? '<i></i>' : ''}<span class="v8-wl">${WD[d(k).getUTCDay()]}</span></div>`;
+      }).join('')}</div>
+      ${!hasHistory() ? `<p class="v8-quiet">Первое занятие отметится здесь — минуты активного времени по дням.</p>`
+        : `<div class="v8-wtot"><span><b>${now.min} мин</b> активного времени · ${nDays(now.days)} занятий${utc(TODAY) < utc(addDays(mon, 6)) ? ' (неделя идёт)' : ''}</span><span>Прошлая неделя: ${before.min} мин · ${nDays(before.days)}</span></div>`}`;
+  }
+
+  /* ---------- B · Календарь ---------- */
+  const level = m => !m ? '' : m < 8 ? 'lvl-1' : m < 13 ? 'lvl-2' : m < 16 ? 'lvl-3' : 'lvl-4';
+  function renderCal() {
+    const last = monday(TODAY);
+    const weeks = hasHistory() ? [addDays(last, -21), addDays(last, -14), addDays(last, -7), last] : [last];
+    const head = `<span class="v8b-hd">Неделя</span>${['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'].map(w => `<span class="v8b-hd">${w}</span>`).join('')}<span class="v8b-hd">Итог</span>`;
+    const rows = weeks.map(mon => {
+      let wMin = 0, wDays = 0;
+      const cells = Array.from({ length: 7 }, (_, i) => {
+        const k = addDays(mon, i), n = d(k).getUTCDate();
+        if (utc(k) > utc(TODAY)) return `<span class="v8b-day is-future" aria-hidden="true"><span class="v8b-dn">${n}</span></span>`;
+        if (hasHistory() && utc(k) < utc(START)) return `<span class="v8b-day is-out" title="До начала записей"><span class="v8b-dn">${n}</span></span>`;
+        const list = dayEntries(k), m = minutesOf(list);
+        if (m) { wMin += m; wDays++; }
+        const kinds = [...new Set(list.map(e => e.src))];
+        const hi = state.hiEx && list.some(e => e.ex === state.hiEx);
+        const sel = state.day === k;
+        const label = `${long(k)}${k === TODAY ? ', сегодня' : ''}: ${m ? `${m} мин, ${list.length} ${plural(list.length, 'запись', 'записи', 'записей')}` : 'без занятий'}${hi ? `, есть «${EX[state.hiEx].title}»` : ''}`;
+        return `<button type="button" class="v8b-day ${level(m)}${k === TODAY ? ' is-today' : ''}${hi ? ' is-hi' : ''}" data-day="${k}" aria-pressed="${sel}" tabindex="${sel ? 0 : -1}" aria-label="${esc(label)}"><span class="v8b-dn">${n}</span>${m ? `<span class="v8b-dm">${m} мин</span>` : '<span></span>'}${kinds.length ? `<span class="v8b-dk" aria-hidden="true">${kinds.map(s => `<i class="is-${s}"></i>`).join('')}</span>` : ''}</button>`;
+      }).join('');
+      const tot = !hasHistory() ? '' : wMin ? `<b>${wMin} мин</b><br>${nDays(wDays)}` : '—';
+      return `<span class="v8b-wk">${range(mon)}</span>${cells}<span class="v8b-tot">${tot}</span>`;
+    }).join('');
+    const scope = state.src === 'all' ? 'всё' : state.src === 'play' ? 'только игра' : 'только «Проверь себя»';
+    $('[data-cal-card]').innerHTML = `<h2 class="v8-h2" id="v8b-cal-h">Календарь <small>${hasHistory() ? `активные минуты · ${scope}` : 'эта неделя'}</small></h2>
+      <div class="v8b-cal" data-cal>${head}${rows}</div>
+      ${hasHistory() ? `<div class="v8b-legend"><span>Число в клетке — минуты.</span><span class="v8b-scale" aria-hidden="true">меньше <i class="lvl-1"></i><i class="lvl-2"></i><i class="lvl-3"></i><i class="lvl-4"></i> больше</span><span><span class="v8b-dk"><i class="is-play"></i></span> игра</span><span><span class="v8b-dk"><i class="is-check"></i></span> проверь себя</span>${state.hiEx ? `<span>▬ дни с «${esc(EX[state.hiEx].title)}» <button type="button" class="lr-btn lr-btn-ghost v8-btn-s" data-hi-clear>Снять</button></span>` : ''}</div>` : ''}`;
+  }
+  function renderDay() {
+    const box = $('[data-day-card]');
+    box.style.flex = hasHistory() ? '' : '0 0 auto';
+    if (!hasHistory()) {
+      box.innerHTML = `<div class="v8-empty" style="border:0;padding:4px 2px;background:none;gap:10px"><h2>Календарь заполнится после первого занятия</h2><p class="lr-sub">Каждый день покажет активные минуты, а по клику — что ты играл, в каком темпе, какую отметку поставил и как ответил в «Проверь себя».</p><div class="v8-empty-act"><button type="button" class="lr-btn lr-btn-primary" data-toast="Откроется раздел «Занятие» — вкладка «Сегодня»">Перейти к занятию →</button></div></div>`;
+      return;
+    }
+    const list = dayEntries(state.day), all = BY_DATE.get(state.day) || [];
+    const title = `<h2 class="v8-h2">${esc(long(state.day)[0].toUpperCase() + long(state.day).slice(1))}${state.day === TODAY ? ' · сегодня' : ''} <small>${list.length ? `${minutesOf(list)} мин активного времени · ${list.length} ${plural(list.length, 'запись', 'записи', 'записей')}` : ''}</small></h2>`;
+    if (!list.length) {
+      box.innerHTML = `${title}<p class="v8-quiet">${all.length ? 'В этот день были только записи другого источника — переключи фильтр на «Всё».' : state.day === TODAY ? 'Сегодня ещё не занимался. Трудные места справа можно добавить в план.' : 'В этот день занятий не было.'}</p>`;
+      return;
+    }
+    box.innerHTML = `${title}<ul class="v8b-entries">${list.map(e => {
+      const ex = EX[e.ex];
+      if (e.src === 'check') return `<li class="v8b-entry"><div><span class="v8-src is-check">${esc(SRC.check)}</span><br><b>${esc(ex.title)}</b><p>${esc(ex.mat)}</p><span class="v8b-res">${stack(e.res)}${esc(resText(e.res))}${e.errors.length ? ` · ошибки: ${esc(e.errors.join(', '))}` : ''}</span></div><span>${checkChip(e.res)}</span><span class="v8b-min">${e.min} мин</span></li>`;
+      return `<li class="v8b-entry"><div><span class="v8-src">${esc(SRC.play)}</span><br><b>${esc(ex.title)}</b><p>${esc(ex.mat)}${e.note ? ` · заметка: ${esc(e.note)}` : ''}</p></div><span style="display:flex;align-items:center;gap:12px">${markChip(e.mark)}<span class="v8b-bpm">${e.bpm}<small>BPM ♩</small></span></span><span class="v8b-min">${e.min} мин</span></li>`;
+    }).join('')}</ul>`;
+  }
+  function renderBest() {
+    const box = $('[data-best-card]');
+    const onlyCheck = state.src === 'check';
+    const head = `<h2 class="v8-h2" title="Нажми упражнение — дни с ним отметятся в календаре">${onlyCheck ? 'Проверь себя: лучший результат' : 'Лучший темп'} <small>${onlyCheck ? 'самостоятельно' : 'BPM ♩ · «Чисто»'}</small></h2>`;
+    if (!hasHistory()) { box.innerHTML = `${head}<p class="v8-quiet">Появится, когда отметишь первый проход «Чисто». Темп выбираешь ты — от удобного, без спешки.</p>`; return; }
+    const ids = Object.keys(EX).filter(id => okSrc(EX[id].src)).map(summary);
+    box.innerHTML = `${head}<ul class="v8-best">${ids.map(s => {
+      const ex = EX[s.id], on = state.hiEx === s.id;
+      const val = ex.src === 'check' ? `${s.best} из 6<small>сам.</small>` : s.best ? `${s.best}<small>было ${s.first}</small>` : `—<small>нет «Чисто»</small>`;
+      return `<li><button type="button" data-hi="${s.id}" aria-pressed="${on}" title="${esc(`${ex.mat} · отметить дни в календаре`)}"><b>${esc(ex.title)}</b><strong>${val}</strong></button></li>`;
+    }).join('')}</ul>`;
+  }
+
+  function renderAll() {
+    renderNote(); renderHard(); renderA(); renderWeek(); renderCal(); renderDay(); renderBest();
+    $$('[data-src]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.src === state.src)));
+    $$('[data-demo]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.demo === state.demo)));
+  }
+
+  /* ---------- События ---------- */
+  root.addEventListener('click', event => {
+    const t = event.target;
+    const src = t.closest('[data-src]'); if (src) { state.src = src.dataset.src; if (state.hiEx && !okSrc(EX[state.hiEx].src)) state.hiEx = null; renderAll(); return; }
+    const demo = t.closest('[data-demo]'); if (demo) { state.demo = demo.dataset.demo; state.open = null; state.hiEx = null; state.day = hasHistory() ? '2026-11-11' : TODAY; renderAll(); return; }
+    const open = t.closest('[data-open]');
+    if (open) {
+      const id = open.dataset.open;
+      state.open = state.open === id ? null : id;
+      renderA();
+      const again = $(`[data-open="${id}"]`); again.focus();
+      if (state.open) again.closest('.v8a-item').scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    const plan = t.closest('[data-plan]');
+    if (plan) {
+      const h = HARD.find(x => x.id === plan.dataset.plan);
+      if (state.planned.has(h.id)) { state.planned.delete(h.id); toast(`Убрано из плана на сегодня: ${h.plan}`); }
+      else { state.planned.add(h.id); toast(`Добавлено в план на сегодня: ${h.plan}`); }
+      const focusId = h.id; renderHard();
+      const target = $$(`[data-plan="${focusId}"]`).find(b => b.offsetParent); target?.focus();
+      return;
+    }
+    const day = t.closest('[data-day]'); if (day) { state.day = day.dataset.day; renderCal(); renderDay(); $(`[data-day="${state.day}"]`).focus(); return; }
+    const hi = t.closest('[data-hi]'); if (hi) { state.hiEx = state.hiEx === hi.dataset.hi ? null : hi.dataset.hi; renderBest(); renderCal(); $(`[data-hi="${hi.dataset.hi}"]`).focus(); return; }
+    if (t.closest('[data-hi-clear]')) { state.hiEx = null; renderBest(); renderCal(); return; }
+    const tt = t.closest('[data-toast]'); if (tt) toast(tt.dataset.toast);
+  });
+  /* Календарь: стрелки — соседний день и неделя, Home/End — начало и конец недели. */
+  root.addEventListener('keydown', event => {
+    const cell = event.target.closest?.('[data-day]');
+    if (!cell) return;
+    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
+    let next = null;
+    if (step) next = addDays(cell.dataset.day, step);
+    if (event.key === 'Home') next = monday(cell.dataset.day);
+    if (event.key === 'End') next = addDays(monday(cell.dataset.day), 6);
+    if (!next) return;
+    event.preventDefault();
+    if (!$(`[data-day="${next}"]`)) return;
+    state.day = next; renderCal(); renderDay(); $(`[data-day="${next}"]`).focus();
+  });
+  window.addEventListener('resize', () => { if (state.open && root.dataset.candidate === 'a') fillDetail(state.open); });
+
+  L.mount(root, { candidates: ['a', 'b'] });
+  renderAll();
+  new MutationObserver(() => { if (state.open) fillDetail(state.open); }).observe(root, { attributes: true, attributeFilter: ['data-candidate'] });
+})();
+</script>
+
+</div>
+<script>if (new URLSearchParams(location.search).has('capture')) document.body.classList.add('is-capture');</script>
+</body>
+</html>

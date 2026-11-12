@@ -1,0 +1,750 @@
+<style>
+  /* VIS-12 r1 «Справочник»: A — страница, B — панель поверх экрана игры. Только локальные стили, цвета — токены --s-*. */
+  #studio-lesson .lr-main{gap:12px;padding-top:14px;}
+  #studio-lesson .r-toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--s-ink);color:var(--s-paper);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:min(560px,90vw);z-index:40;}
+  #studio-lesson .r-toast.is-on{opacity:1;}
+
+  /* Подписи: ступень, римская цифра, палец, позиция, термин — разный вид */
+  #studio-lesson .r-pos{font:600 12.5px/1.2 Consolas,'Cascadia Mono',monospace;border:1px solid var(--s-line-strong);border-radius:5px;padding:0 5px;background:var(--s-input);white-space:nowrap;}
+  #studio-lesson .r-pitch{font-weight:650;white-space:nowrap;}
+  #studio-lesson .r-deg{display:inline-block;font:700 12.5px/1.25 'Segoe UI',Arial,sans-serif;color:var(--s-info);background:var(--s-info-soft);border:1px solid var(--s-info);border-radius:999px;padding:0 6px;white-space:nowrap;}
+  #studio-lesson .r-roman{font:italic 650 15px/1 Georgia,'Times New Roman',serif;letter-spacing:.6px;color:var(--s-ink);padding:0 2px;border-bottom:2px solid var(--s-line-strong);}
+  #studio-lesson .r-finger{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--s-gold-soft);border:1px solid var(--s-gold);font:700 11px/1 'Segoe UI',Arial,sans-serif;color:var(--s-ink);vertical-align:1px;}
+  #studio-lesson .r-term{border:0;background:none;padding:0;font:inherit;font-weight:600;color:var(--s-info);text-decoration:underline dotted 1.5px;text-underline-offset:3px;}
+  #studio-lesson .r-term:hover{text-decoration-style:solid;}
+  #studio-lesson .lr-chip.r-term{text-decoration:none;font-weight:500;}
+  #studio-lesson .lr-chip.r-term span{text-decoration:underline dotted 1.5px;text-underline-offset:3px;}
+
+  /* Поиск */
+  #studio-lesson .r-search{position:relative;display:block;}
+  #studio-lesson .r-search input{width:100%;font:inherit;font-size:13px;padding:7px 12px 7px 34px;border:1px solid var(--s-line-strong);border-radius:8px;background:var(--s-input);color:var(--s-ink);}
+  #studio-lesson .r-search input::placeholder{color:var(--s-muted);}
+  #studio-lesson .r-search>svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;stroke:var(--s-muted);fill:none;stroke-width:1.8;stroke-linecap:round;pointer-events:none;}
+  #studio-lesson .r-empty{font-size:12px;color:var(--s-muted);padding:8px 4px;}
+
+  /* Карточка понятия */
+  #studio-lesson .r-card{background:var(--s-panel);border:1px solid var(--s-line);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:14px;container-type:inline-size;min-width:0;}
+  #studio-lesson .r-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px 14px;flex-wrap:wrap;}
+  #studio-lesson .r-card-head>div{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  #studio-lesson .r-card-head h2{font-size:23px;font-weight:650;letter-spacing:-.5px;line-height:1.2;}
+  #studio-lesson .r-card-head h2:focus{outline:none;}
+  #studio-lesson .r-card-head h2:focus-visible{outline:3px solid var(--s-focus);outline-offset:3px;border-radius:4px;}
+  #studio-lesson .r-kind{color:var(--s-info);}
+  #studio-lesson .r-master{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--s-line-strong);background:var(--s-input);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;color:var(--s-muted);}
+  #studio-lesson .r-master:hover{background:var(--s-hover);color:var(--s-ink);}
+  #studio-lesson .r-master[aria-pressed="true"]{border-color:var(--s-green);background:var(--s-green-soft);color:var(--s-ink);}
+  #studio-lesson .r-body{display:grid;grid-template-columns:minmax(0,1fr);gap:14px 18px;align-items:start;}
+  @container (min-width:640px){#studio-lesson .r-body{grid-template-columns:minmax(0,1.6fr) minmax(240px,1fr);}}
+  #studio-lesson .r-col{display:flex;flex-direction:column;gap:14px;min-width:0;}
+  #studio-lesson .r-step{display:flex;flex-direction:column;gap:8px;}
+  #studio-lesson .r-step h3,#studio-lesson .r-side-box h3{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--s-muted);}
+  #studio-lesson .r-num{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;letter-spacing:0;background:var(--s-green);color:var(--s-on-green);}
+  #studio-lesson .r-step p{font-size:14px;line-height:1.6;}
+  #studio-lesson .r-step b{font-weight:700;}
+  #studio-lesson .r-board-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+  #studio-lesson .r-board-tools .lr-seg button{padding:4px 9px;}
+  #studio-lesson .r-shape{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;border:1px dashed var(--s-gold);background:var(--s-gold-soft);color:var(--s-ink);border-radius:999px;padding:2px 10px;}
+  #studio-lesson .r-board{background:var(--s-neck);border-radius:10px;padding:6px 8px 4px;width:100%;}
+  #studio-lesson .r-board svg{display:block;width:100%;height:auto;}
+  #studio-lesson .r-legend{font-size:11.5px;gap:4px 14px;}
+  #studio-lesson .r-legend i{border-color:var(--s-line-strong);}
+  #studio-lesson .r-listen{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;}
+  #studio-lesson .r-listen .lr-btn{padding:5px 12px;font-size:12px;}
+  #studio-lesson .r-listen small{font-size:12px;color:var(--s-muted);}
+  #studio-lesson .r-facts{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--s-ink);}
+  #studio-lesson .r-facts li::marker{color:var(--s-muted);}
+  #studio-lesson .r-note{border-left:3px solid var(--s-gold);background:var(--s-gold-soft);padding:8px 12px;border-radius:0 8px 8px 0;font-size:13px;line-height:1.55;}
+  #studio-lesson .r-note strong{display:block;margin-bottom:2px;}
+  #studio-lesson .r-table{width:100%;border-collapse:collapse;font-size:13px;background:var(--s-paper);border:1px solid var(--s-line);border-radius:8px;overflow:hidden;}
+  #studio-lesson .r-table th,#studio-lesson .r-table td{text-align:left;vertical-align:top;padding:6px 9px;border-bottom:1px solid var(--s-line);line-height:1.5;}
+  #studio-lesson .r-table thead th{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--s-muted);background:var(--s-panel);}
+  #studio-lesson .r-table tbody th{font:700 13px/1.5 Consolas,'Cascadia Mono',monospace;white-space:nowrap;}
+  #studio-lesson .r-table tr:last-child>*{border-bottom:0;}
+  #studio-lesson .r-table td:nth-child(2){white-space:nowrap;font-weight:600;}
+  #studio-lesson .r-formula{display:grid;gap:3px;}
+  #studio-lesson .r-formula span{display:flex;flex-direction:column;align-items:center;border:1px solid var(--s-line-strong);border-radius:6px;padding:3px 0;background:var(--s-paper);font-weight:700;font-size:13px;line-height:1.2;}
+  #studio-lesson .r-formula span.is-half{background:var(--s-gold-soft);border-color:var(--s-gold);}
+  #studio-lesson .r-formula small{font-size:10px;font-weight:500;color:var(--s-muted);}
+  #studio-lesson .r-labels{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center;font-size:13px;}
+  #studio-lesson .r-side-box{display:flex;flex-direction:column;gap:7px;border:1px solid var(--s-line);background:var(--s-paper);border-radius:10px;padding:10px 12px;}
+  #studio-lesson .r-side-box p{font-size:13px;line-height:1.55;}
+  #studio-lesson .r-why{border-color:var(--s-info);background:var(--s-info-soft);}
+  #studio-lesson .r-why h3{color:var(--s-info);}
+  #studio-lesson .r-rel{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;}
+  #studio-lesson .r-rel button{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:center;text-align:left;border:1px solid var(--s-line);background:var(--s-input);border-radius:8px;padding:6px 9px;font-size:13px;}
+  #studio-lesson .r-rel button:hover{background:var(--s-hover);border-color:var(--s-line-strong);}
+  #studio-lesson .r-rel button b{font-weight:600;line-height:1.3;}
+  #studio-lesson .r-rel button small{grid-column:1;font-size:11px;color:var(--s-muted);}
+  #studio-lesson .r-rel button i{grid-column:2;grid-row:1/span 2;font-style:normal;font-size:12px;color:var(--s-green);font-weight:700;}
+  #studio-lesson .r-check{border-color:var(--s-gold);}
+  #studio-lesson .r-check h3{justify-content:space-between;}
+  #studio-lesson .r-opts{display:flex;gap:6px;flex-wrap:wrap;}
+  #studio-lesson .r-opts .lr-btn{padding:5px 11px;font-size:13px;font-weight:500;}
+  #studio-lesson .r-opts .lr-btn[data-state="right"]{border-color:var(--s-green);background:var(--s-green-soft);font-weight:700;}
+  #studio-lesson .r-opts .lr-btn[data-state="wrong"]{border-color:var(--s-gold);background:var(--s-gold-soft);text-decoration:line-through;}
+  #studio-lesson .r-verdict{font-size:12.5px;color:var(--s-ink);}
+  #studio-lesson .r-verdict:empty{display:none;}
+  #studio-lesson .r-more{align-self:flex-start;border:0;background:none;padding:0;font-size:12px;color:var(--s-info);text-decoration:underline;text-underline-offset:3px;}
+
+  /* ---------- A · Страница ---------- */
+  #studio-lesson .r-top{flex:none;display:flex;align-items:flex-end;gap:4px 18px;flex-wrap:wrap;border-bottom:1px solid var(--s-line);}
+  #studio-lesson .r-top h1{font-size:22px;font-weight:650;letter-spacing:-.5px;padding-bottom:8px;}
+  #studio-lesson .r-tabs{display:flex;gap:2px;flex:1;flex-wrap:wrap;}
+  #studio-lesson .r-tab{display:inline-flex;align-items:center;gap:7px;border:0;background:none;border-radius:8px 8px 0 0;padding:8px 12px 10px;margin-bottom:-1px;font-size:15px;color:var(--s-muted);box-shadow:inset 0 -3px 0 transparent;}
+  #studio-lesson .r-tab:hover{color:var(--s-ink);background:var(--s-hover);}
+  #studio-lesson .r-tab[aria-current="page"]{color:var(--s-ink);font-weight:650;box-shadow:inset 0 -3px 0 var(--s-info);}
+  #studio-lesson .r-tab svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+  #studio-lesson .r-tab-ref{margin-left:auto;}
+  #studio-lesson .r-ctx{flex:none;display:flex;align-items:center;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;}
+  #studio-lesson .r-ctx-left{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;min-width:0;}
+  #studio-lesson .r-back{border:1px solid var(--s-line);background:var(--s-paper);border-radius:999px;padding:3px 11px;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .r-back:hover{color:var(--s-ink);background:var(--s-hover);}
+  #studio-lesson .r-count{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--s-muted);}
+  #studio-lesson .r-count .lr-meter{width:90px;}
+  #studio-lesson .r-grid{flex:1 1 0;min-height:0;display:grid;grid-template-columns:minmax(232px,280px) minmax(0,1fr);gap:16px;}
+  #studio-lesson .r-side{display:flex;flex-direction:column;gap:8px;min-height:0;background:var(--s-panel);border:1px solid var(--s-line);border-radius:12px;padding:12px 10px 10px;}
+  #studio-lesson .r-list{flex:1;min-height:0;overflow:auto;padding:0 2px 4px;}
+  #studio-lesson .r-group h3{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--s-muted);margin:10px 4px 4px;}
+  #studio-lesson .r-group:first-child h3{margin-top:2px;}
+  #studio-lesson .r-group h3 small{margin-left:auto;font-size:11px;font-weight:600;letter-spacing:0;text-transform:none;}
+  #studio-lesson .r-lvl{flex:none;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--s-line-strong);display:grid;place-items:center;font-size:10px;letter-spacing:0;color:var(--s-ink);background:var(--s-paper);}
+  #studio-lesson .r-group ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px;}
+  #studio-lesson .r-item{width:100%;display:flex;align-items:center;gap:8px;border:1px solid transparent;background:none;text-align:left;border-radius:7px;padding:4px 8px;font-size:13px;line-height:1.35;}
+  #studio-lesson .r-item:hover{background:var(--s-hover);}
+  #studio-lesson .r-item[aria-current="true"]{background:var(--s-paper);border-color:var(--s-line-strong);font-weight:650;box-shadow:inset 3px 0 0 var(--s-info);}
+  #studio-lesson .r-item>span{flex:1;min-width:0;}
+  #studio-lesson .r-item .r-ok{flex:none;width:16px;text-align:center;color:var(--s-green);font-weight:700;}
+  #studio-lesson .r-item .r-tag{flex:none;font-size:10px;font-weight:600;color:var(--s-muted);border:1px solid var(--s-line);border-radius:999px;padding:0 6px;}
+  #studio-lesson .r-side-note{font-size:11.5px;color:var(--s-muted);border-top:1px solid var(--s-line);padding:7px 4px 0;}
+  #studio-lesson .r-cardwrap{min-height:0;overflow:auto;padding-right:2px;}
+
+  /* ---------- B · Панель поверх ---------- */
+  #studio-lesson [data-candidate-panel="b"] .lr-app{position:relative;}
+  #studio-lesson .r-hint{flex:none;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--s-muted);border:1px dashed var(--s-line-strong);border-radius:8px;padding:5px 10px;}
+  #studio-lesson .r-bg{display:flex;flex-direction:column;gap:12px;}
+  #studio-lesson .r-bg-head{display:flex;flex-direction:column;gap:3px;}
+  #studio-lesson .r-bg-head .r-back{align-self:flex-start;border:0;background:none;padding:0;}
+  #studio-lesson .r-bg-title{display:flex;align-items:baseline;gap:6px 10px;flex-wrap:wrap;}
+  #studio-lesson .r-bg-title h1{font-size:24px;font-weight:650;letter-spacing:-.6px;}
+  #studio-lesson .r-bg-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--s-muted);margin-top:4px;}
+  #studio-lesson .r-bg>.lr-concept{max-width:min(540px,calc(100% - 470px));min-width:300px;}
+  #studio-lesson .r-bg>.lr-concept p{margin-top:0;line-height:1.6;}
+  #studio-lesson .r-term.is-open{background:var(--s-info-soft);box-shadow:0 0 0 2px var(--s-info);border-radius:4px;}
+  #studio-lesson .lr-chip.r-term.is-open{background:var(--s-info);color:var(--s-paper);box-shadow:none;border-radius:999px;}
+  #studio-lesson .r-bg .lr-tab{padding:4px 12px 2px;}
+  #studio-lesson .r-bg .lr-tab header{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--s-muted);padding-top:4px;}
+  #studio-lesson .r-bg-row{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;}
+  #studio-lesson .r-bg-row>.lr-legend{flex:1 1 300px;align-items:center;}
+  #studio-lesson .r-bg .lr-transport{gap:12px;}
+  #studio-lesson .r-scrim{position:absolute;inset:0;background:color-mix(in srgb,var(--s-neck) 42%,transparent);z-index:9;}
+  #studio-lesson .r-drawer{position:absolute;top:0;right:0;bottom:0;width:min(460px,calc(100% - 96px));background:var(--s-paper);border-left:1px solid var(--s-line-strong);box-shadow:-14px 0 34px color-mix(in srgb,var(--s-neck) 30%,transparent);display:flex;flex-direction:column;z-index:10;}
+  #studio-lesson .r-scrim[hidden],#studio-lesson .r-drawer[hidden]{display:none;}
+  #studio-lesson .r-d-head{flex:none;display:flex;align-items:center;gap:8px;padding:12px 14px 10px;border-bottom:1px solid var(--s-line);}
+  #studio-lesson .r-d-head strong{font-size:15px;}
+  #studio-lesson .r-d-head .lr-sub{font-size:12px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #studio-lesson .r-d-icon{flex:none;width:30px;height:30px;border:1px solid var(--s-line);border-radius:7px;background:var(--s-input);font-size:14px;line-height:1;}
+  #studio-lesson .r-d-icon:hover{background:var(--s-hover);}
+  #studio-lesson .r-d-icon[hidden]{display:none;}
+  #studio-lesson .r-d-close{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--s-line-strong);background:var(--s-input);border-radius:7px;padding:4px 9px;font-size:13px;}
+  #studio-lesson .r-d-close:hover{background:var(--s-hover);}
+  #studio-lesson .r-d-search{flex:none;padding:10px 14px 0;}
+  #studio-lesson .r-d-hits{list-style:none;margin:0;padding:6px 14px 0;display:flex;flex-direction:column;gap:2px;}
+  #studio-lesson .r-d-hits[hidden]{display:none;}
+  #studio-lesson .r-d-hits button{width:100%;display:flex;justify-content:space-between;gap:10px;border:0;background:none;text-align:left;border-radius:6px;padding:6px 9px;font-size:13px;}
+  #studio-lesson .r-d-hits button:hover,#studio-lesson .r-d-hits button:focus-visible{background:var(--s-hover);}
+  #studio-lesson .r-d-hits small{color:var(--s-muted);white-space:nowrap;}
+  #studio-lesson .r-d-body{flex:1;min-height:0;overflow:auto;padding:10px 14px 14px;}
+  #studio-lesson .r-d-body .r-card{padding:14px;gap:12px;}
+  #studio-lesson .r-d-body .r-card-head h2{font-size:20px;}
+  #studio-lesson .r-d-foot{flex:none;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 14px;border-top:1px solid var(--s-line);font-size:12px;color:var(--s-muted);}
+  #studio-lesson .r-d-foot button{border:0;background:none;padding:0;color:var(--s-info);font-size:12px;text-decoration:underline;text-underline-offset:3px;}
+
+  @media (max-width:1100px){
+    #studio-lesson .r-grid{grid-template-columns:minmax(220px,250px) minmax(0,1fr);gap:12px;}
+    #studio-lesson .r-tab{padding:8px 10px 10px;}
+    #studio-lesson .r-card{padding:14px;}
+  }
+</style>
+<div id="studio-lesson" data-candidate="a" aria-label="VIS-12 r1 — Справочник"></div>
+<script>
+(() => {
+  const L = window.LessonRef;
+  const esc = L.esc;
+  const ex = L.material.ex1;
+  const root = document.getElementById('studio-lesson');
+  const params = new URLSearchParams(location.search);
+
+  /* ---------- Самопроверка высоты: MIDI = E 28, A 33, D 38, G 43 + лад; C2 = 36 ---------- */
+  const OPEN = { E: 28, A: 33, D: 38, G: 43 };
+  const PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const midiOfPos = id => { const [s, f] = id.split(/[:/]/); if (!(s in OPEN)) throw new Error(`VIS-12: неизвестная струна в ${id}`); return OPEN[s] + Number(f); };
+  function midiOfName(name) {
+    const m = /^([A-G])([♯♭]?)(\d)$/.exec(name);
+    if (!m) throw new Error(`VIS-12: не разобрана нота ${name}`);
+    return (Number(m[3]) + 1) * 12 + PC[m[1]] + (m[2] === '♯' ? 1 : m[2] === '♭' ? -1 : 0);
+  }
+  function assertPitch(id, pitch) {
+    if (midiOfPos(id) !== midiOfName(pitch)) throw new Error(`VIS-12: позиция ${id} звучит как MIDI ${midiOfPos(id)}, а подписана ${pitch} (MIDI ${midiOfName(pitch)}).`);
+  }
+  if (midiOfName('C2') !== 36 || midiOfName('E1') !== 28) throw new Error('VIS-12: сбита научная нумерация октав.');
+
+  /* ---------- Разметка текста: экранирование, затем токены ---------- */
+  // {p:E/5} или {p:E/5|A1} — позиция (высота сверяется), {d:♭3} — ступень, {r:vi} — римская цифра аккорда,
+  // {f:1} — палец, {t:id|подпись} — термин-ссылка, **…** — жирный.
+  function rich(text) {
+    return esc(text)
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/\{([pdrft]):([^{}]+)\}/g, (_, kind, body) => {
+        if (kind === 'p') {
+          const [pos, pitch] = body.split('|');
+          if (pitch) assertPitch(pos, pitch); else midiOfPos(pos);
+          return `<span class="r-pos">${pos}</span>${pitch ? ` <span class="r-pitch">${pitch}</span>` : ''}`;
+        }
+        if (kind === 'd') return `<span class="r-deg" title="ступень">${body}</span>`;
+        if (kind === 'r') return `<span class="r-roman" title="римская цифра — аккорд на ступени">${body}</span>`;
+        if (kind === 'f') return `<span class="r-finger" title="палец">${body}</span>`;
+        const [id, label] = body.split('|');
+        return `<button type="button" class="r-term" data-term="${id}">${label}</button>`;
+      });
+  }
+
+  /* ---------- Каталог R-026: названия связанных упражнений ---------- */
+  const CATALOG = {
+    'Хроматика 1-2-3-4 в позиции': 'Разминка и техника', 'Смена позиции по струне': 'Разминка и техника',
+    'Одна нота по всему грифу': 'Ноты на грифе', 'Октавы: +2 струны, +2 лада': 'Ноты на грифе',
+    'Форма пентатоники вверх-вниз': 'Формы', 'Мажорная и минорная пентатоника: одни ноты — разные тоники': 'Формы', 'Гамма в одной позиции': 'Формы',
+    'Связка соседних форм': 'Связки форм', 'Пентатоника по всему грифу': 'Связки форм',
+    'Гамма в позиции «палец на лад»': 'Гаммы по позициям', 'Гамма на одной струне': 'Гаммы по позициям',
+    'Арпеджио 1–3–5–8': 'Арпеджио и тоны аккорда', 'Root–5–8': 'Арпеджио и тоны аккорда',
+    'Группы по три': 'Секвенции', 'Терциями по гамме': 'Секвенции',
+    'Паттерн по квинтовому кругу': 'Транспонирование', 'Та же форма от другой тоники': 'Транспонирование',
+  };
+  const SECTIONS = { 'Раздел «Ритм» · четверти с метрономом': 'вне каталога · раздел «Ритм»', 'Раздел «Песни» · TAB и ноты песни': 'вне каталога · раздел «Песни»' };
+
+  /* ---------- Материал EX-1 (модель продукта): формы A/B, общие позиции, ступени, пальцы ---------- */
+  const byId = new Map(ex.notes.map(n => [n.id, n]));
+  const STRING_ORDER = ['E', 'A', 'D', 'G'];
+  const byString = (a, b) => STRING_ORDER.indexOf(a[0]) - STRING_ORDER.indexOf(b[0]) || Number(a.split(':')[1]) - Number(b.split(':')[1]);
+  const sharedIds = [...ex.shared].sort(byString);
+  const sharedSet = new Set(sharedIds);
+  const plainName = n => n.name.replace(/\d$/, '');
+  const sharedText = sharedIds.map(id => `{p:${id.replace(':', '/')}|${byId.get(id).name}}`).join(', ');
+  const sharedBoard = [...new Set([...ex.formA.ids, ...ex.formB.ids])].map(id => {
+    const n = byId.get(id), isRoot = n.degree === '1', inA = ex.formA.ids.includes(id);
+    return { id, k: sharedSet.has(id) ? 'shared' : isRoot ? 'root' : inA ? 'a' : 'b', p: n.name, n: plainName(n), d: L.deg(n.degree), root: isRoot && sharedSet.has(id) };
+  });
+  const degreeBoard = ex.formA.ids.map(id => {
+    const n = byId.get(id);
+    return { id, k: n.degree === '1' ? 'root' : 'a', p: n.name, n: plainName(n), d: L.deg(n.degree), f: ex.formA.fingers[id] };
+  });
+  const ex2 = L.material.ex2;
+  const triadIds = [...new Set(ex2.notes.map(n => n.id))];
+  const triadBoard = triadIds.map((id, i) => {
+    const n = ex2.notes.find(x => x.id === id);
+    return { id, k: n.degree === '1' ? 'root' : 'a', p: n.name, n: plainName(n), d: i === 3 ? '8' : L.deg(n.degree), f: ex2.fingers[id] };
+  });
+  const formAUp = ex.notes.slice(0, ex.split).map(n => n.name).join(' ');
+
+  const LEG = {
+    root: ['--s-root', 'Тоника'], a: ['--s-note', 'Нота'], b: ['--s-form-b', 'Нота'], shared: ['--s-shared', 'Общая нота'],
+  };
+  const LENS_LABEL = { n: 'Ноты', i: 'Интервалы от тоники', d: 'Ступени', c: 'Тоны аккорда' };
+
+  /* ---------- Уровни R-027 и понятия первой версии ---------- */
+  const LEVELS = [
+    { id: '0', mark: '0', title: 'Ориентация' },
+    { id: '1', mark: '1', title: 'Интервалы как формы' },
+    { id: '2', mark: '2', title: 'Ступени и гаммы' },
+    { id: '3', mark: '3', title: 'Тоны аккорда' },
+    { id: 'r', mark: '♩', title: 'Ритм · параллельно' },
+    { id: 'c', mark: 'T', title: 'Чтение · параллельно' },
+  ];
+  const N = (id, k, p, n, extra = {}) => ({ id, k, p, n, ...extra });
+
+  const CONCEPTS = [
+    /* ===== 0. Ориентация ===== */
+    { id: 'semitone', lv: '0', title: 'Тон и полутон', full: true, keys: 'полутон тон лад шаг хроматика',
+      play: 'Поставь первый палец на {p:E/5|A1} и сыграй. Потом второй палец — {p:E/6|A♯1}, соседний лад. Потом третий — {p:E/7|B1}.',
+      board: { min: 3, max: 9, notes: [N('E:5', 'root', 'A1', 'A', { f: 1 }), N('E:6', 'a', 'A♯1', 'A♯', { f: 2 }), N('E:7', 'a', 'B1', 'B', { f: 3 })], legend: [['--s-root', 'Старт · A1'], ['--s-note', 'Шаг по ладам']], fingers: true },
+      shape: 'соседний лад = полутон · через лад = тон',
+      term: 'Шаг на соседний лад — **полутон**, самый маленький шаг на грифе. Два полутона — **тон**: через лад, {p:E/5} → {p:E/7}.',
+      facts: ['Двенадцать полутонов — и нота повторяется октавой выше: {p:E/0|E1} → {p:E/12|E2}.', 'Между E и F и между B и C — полутон: «чёрной» ноты между ними нет.'],
+      listen: 'A1, A♯1, B1 — шаг за шагом',
+      why: 'Формулы гамм — это цепочки тонов и полутонов: «Т-Т-П-…» читается прямо по ладам.',
+      related: ['Хроматика 1-2-3-4 в позиции', 'Смена позиции по струне'],
+      check: { q: 'От {p:E/5|A1} на тон вверх по той же струне — какой лад?', opts: ['6', '7', '8'], a: 1, why: 'Тон — два полутона: 5 + 2 = 7. Это {p:E/7|B1}.' } },
+
+    { id: 'accidentals', lv: '0', title: 'Диез и бемоль', keys: 'диез бемоль ♯ ♭ знак альтерации',
+      play: 'Сыграй {p:A/0|A1}, затем {p:A/1|A♯1}, затем {p:A/2|B1}. Средний звук назовём двумя способами.',
+      term: '**Диез** ♯ поднимает ноту на полутон — на лад вверх. **Бемоль** ♭ опускает на полутон — на лад вниз. {p:A/1} — это A♯ («ля-диез») и одновременно B♭ («си-бемоль»).',
+      why: 'Без диезов и бемолей не прочитать ни гамму, ни аккорд вроде B♭.',
+      related: ['Одна нота по всему грифу', 'Хроматика 1-2-3-4 в позиции'],
+      check: { q: 'Что такое E♭?', opts: ['Нота на лад ниже E', 'Нота на лад выше E', 'То же, что E'], a: 0, why: 'Бемоль опускает на полутон: E♭2 — {p:A/6}, на лад ниже {p:A/7|E2}.' } },
+
+    { id: 'enharmonic', lv: '0', title: 'Энгармонизм', keys: 'энгармонизм одна нота два имени a# bb',
+      play: 'Сыграй {p:E/6}, потом {p:A/1}. Звук один и тот же.',
+      board: { min: 0, max: 8, notes: [N('E:6', 'b', 'A♯1', 'A♯'), N('A:1', 'b', 'B♭1', 'B♭')], legend: [['--s-form-b', 'Один звук · A♯1 = B♭1']] },
+      term: 'Один звук — два имени. Это **энгармонизм**: A♯ = B♭. Имя выбирает гамма: в F мажоре пишут B♭, в B мажоре — A♯.',
+      why: 'Знак в нотах или в названии аккорда (B♭, E♭) сразу находится на грифе, как бы он ни был записан.',
+      related: ['Одна нота по всему грифу', 'Паттерн по квинтовому кругу'],
+      check: { q: 'Какое второе имя у G♯?', opts: ['A♭', 'A♯', 'G♭'], a: 0, why: 'G♯ на полутон выше G, A♭ на полутон ниже A — это один лад.' } },
+
+    { id: 'octave', lv: '0', alsoLv: '1', title: 'Октава', full: true, keys: 'октава +2 струны +2 лада 8 root-5-8',
+      play: 'Первый палец — {p:E/5|A1}, третий или четвёртый — {p:D/7|A2}. Сыграй по очереди: та же нота, только выше.',
+      board: { min: 3, max: 9, notes: [N('E:5', 'root', 'A1', 'A1', { i: '1' }), N('D:7', 'root', 'A2', 'A2', { i: '8' })], lenses: ['n', 'i'], legend: [['--s-root', 'Нота A в двух октавах']] },
+      shape: '+2 струны, +2 лада',
+      term: 'Это **октава**: та же нота, вдвое выше по частоте. Буква не меняется, растёт номер: A1 → A2.',
+      facts: ['Октава на одной струне — через 12 ладов: {p:E/0|E1} → {p:E/12|E2}.', 'Форма «+2 струны, +2 лада» работает от струн E и A; от D и G октава вверх уходит за пределы четырёх струн.'],
+      listen: 'A1, затем A2',
+      why: 'Октава — вторая опора после тоники: root–5–8, октавные грувы, проверка, что нашёл ту же ноту.',
+      related: ['Октавы: +2 струны, +2 лада', 'Одна нота по всему грифу', 'Root–5–8'],
+      check: { q: 'Где октава от {p:A/3|C2}?', opts: ['{p:G/5}', '{p:D/5}', '{p:G/3}'], a: 0, why: '+2 струны, +2 лада: {p:A/3} → {p:G/5|C3}. {p:D/5|G2} — квинта, {p:G/3|A♯2} — не C.' } },
+
+    { id: 'unison', lv: '0', title: 'Унисон', keys: 'унисон прима одинаковая высота 5-й лад настройка',
+      play: 'Сыграй {p:E/5}, затем открытую {p:A/0}. Звучат одинаково.',
+      board: { min: 0, max: 7, notes: [N('E:5', 'b', 'A1', 'A1'), N('A:0', 'b', 'A1', 'A1')], legend: [['--s-form-b', 'Один звук · A1']] },
+      term: 'Одна высота в двух местах — **унисон**. 5-й лад равен следующей открытой струне: {p:A/5} = {p:D/0|D2}, {p:D/5} = {p:G/0|G2}.',
+      why: 'По 5-му ладу настраивают бас; унисон даёт выбор, где сыграть ту же ноту удобнее.',
+      related: ['Одна нота по всему грифу'],
+      check: { q: 'С какой открытой струной в унисоне {p:D/5}?', opts: ['G', 'A', 'E'], a: 0, why: '5-й лад равен следующей открытой струне: {p:D/5|G2} = открытая G.' } },
+
+    { id: 'octnum', lv: '0', title: 'Номера октав', full: true, keys: 'номер октавы контроктава большая малая первая e1 a1 научная нумерация h b си',
+      play: 'Сыграй открытые струны снизу вверх: E, A, D, G. Потом {p:A/2|B1} и {p:A/3|C2} — на этом шаге номер меняется.',
+      board: { min: 0, max: 5, notes: [N('E:0', 'b', 'E1', 'E1'), N('A:0', 'b', 'A1', 'A1'), N('D:0', 'b', 'D2', 'D2'), N('G:0', 'b', 'G2', 'G2'), N('A:2', 'a', 'B1', 'B1'), N('A:3', 'root', 'C2', 'C2')], legend: [['--s-form-b', 'Открытые струны'], ['--s-note', 'B1'], ['--s-root', 'C2 — номер сменился']] },
+      term: 'Цифра после буквы — **номер октавы**. Открытая E — E1, открытая D — уже D2. Номер растёт на ноте C: B1 → C2.',
+      extra: 'octaves',
+      listen: 'E1, A1, D2, G2 — открытые струны',
+      why: 'Номер различает одну ноту в разных местах грифа и совпадает с подписями в нотах, тюнерах и программах.',
+      related: ['Одна нота по всему грифу', 'Октавы: +2 струны, +2 лада'],
+      check: { q: '{p:D/0|D2} — как это сказать по-русски?', opts: ['ре контроктавы', 'ре большой октавы', 'ре малой октавы'], a: 1, why: 'C2–B2 — большая октава.' } },
+
+    /* ===== 1. Интервалы как формы ===== */
+    { id: 'fourth', lv: '1', title: 'Кварта', full: true, keys: 'кварта 4 интервал строй квартовый соседняя струна тот же лад',
+      play: 'Сыграй {p:E/5|A1}, затем {p:A/5|D2} — тем же пальцем, перекатом.',
+      board: { min: 3, max: 8, notes: [N('E:5', 'root', 'A1', 'A', { i: '1' }), N('A:5', 'a', 'D2', 'D', { i: '4' })], lenses: ['n', 'i'], legend: [['--s-root', 'Тоника A1'], ['--s-note', 'Кварта D2']] },
+      shape: 'соседняя струна, тот же лад',
+      term: 'Это **кварта**: 5 полутонов, A → D. Бас настроен квартами, поэтому открытые E–A–D–G — тоже кварты.',
+      facts: ['Кварта вниз — та же форма обратно: {p:A/5} → {p:E/5}.', 'Кварта + квинта = октава: A1 → D2 → A2.'],
+      listen: 'A1, затем D2',
+      why: 'Ход на кварту — самый частый шаг баса между аккордами: C → F, G → C. Квинтовый круг — это кварты вверх.',
+      related: ['Паттерн по квинтовому кругу', 'Та же форма от другой тоники'],
+      check: { q: 'Кварта вверх от {p:A/3|C2}?', opts: ['{p:D/3}', '{p:D/5}', '{p:D/2}'], a: 0, why: 'Соседняя струна, тот же лад: {p:D/3|F2}. {p:D/5|G2} — квинта, {p:D/2|E2} — большая терция.' } },
+
+    { id: 'fifth', lv: '1', title: 'Квинта', full: true, keys: 'квинта 5 интервал root-5-8 +1 струна +2 лада',
+      play: 'Первый палец — {p:E/5|A1}, третий — {p:A/7|E2}: на струну выше и на два лада дальше. Добавь {p:D/7|A2} — получится root–5–8.',
+      board: { min: 3, max: 9, notes: [N('E:5', 'root', 'A1', 'A', { i: '1' }), N('A:7', 'a', 'E2', 'E', { i: '5' }), N('D:7', 'root', 'A2', 'A', { i: '8' })], lenses: ['n', 'i'], legend: [['--s-root', 'Тоника и октава'], ['--s-note', 'Квинта E2']] },
+      shape: '+1 струна, +2 лада',
+      term: 'Это **квинта**: 7 полутонов, A → E. Вместе с тоникой и октавой — каркас простой басовой партии.',
+      facts: ['Квинта вниз — на струну ниже и на 2 лада назад: от {p:A/5|D2} это {p:E/3|G1}.', 'На одной струне квинта — через 7 ладов: {p:E/5|A1} → {p:E/12|E2}.'],
+      listen: 'A1, E2, A2 — root–5–8',
+      why: 'Тоника и квинта держат аккорд: так звучат кантри, рок и большинство простых партий.',
+      related: ['Root–5–8', 'Арпеджио 1–3–5–8', 'Паттерн по квинтовому кругу'],
+      check: { q: 'Квинта вверх от {p:D/5|G2}?', opts: ['{p:G/7}', '{p:G/5}', '{p:D/7}'], a: 0, why: '+1 струна, +2 лада: {p:G/7|D3}. {p:G/5|C3} — кварта, {p:D/7|A2} — тон.' } },
+
+    { id: 'thirds', lv: '1', title: 'Терции', keys: 'терция малая большая м3 б3 мажор минор',
+      play: 'Сыграй {p:E/5|A1}, потом {p:A/3|C2}, потом {p:A/4|C♯2}. Второй звук темнее, третий светлее.',
+      board: { min: 2, max: 7, notes: [N('E:5', 'root', 'A1', 'A', { i: '1' }), N('A:3', 'a', 'C2', 'C', { i: 'м3' }), N('A:4', 'b', 'C♯2', 'C♯', { i: 'б3' })], lenses: ['n', 'i'], legend: [['--s-root', 'Тоника'], ['--s-note', 'Малая терция'], ['--s-form-b', 'Большая терция']] },
+      term: 'Это **терции**. Малая — 3 полутона (A → C), большая — 4 (A → C♯). Малая звучит темнее, большая — светлее: в этом разница минора и мажора.',
+      why: 'Терция решает, мажор или минор у аккорда: её бас играет в арпеджио и проходах.',
+      related: ['Терциями по гамме', 'Арпеджио 1–3–5–8'],
+      check: { q: 'Какая терция от A — {p:A/4|C♯2}?', opts: ['Большая', 'Малая'], a: 0, why: 'A1 → C♯2 — 4 полутона, большая терция.' } },
+
+    /* ===== 2. Ступени и гаммы ===== */
+    { id: 'degree', lv: '2', title: 'Ступень', full: true, keys: 'ступень ступени ♭3 ♭7 b3 b7 номер от тоники римские цифры vi пальцы подписи',
+      play: 'Сыграй форму A пентатоники Am снизу вверх с {p:E/5|A1}. Пальцы — маленькие цифры у кружков.',
+      board: { min: 4, max: 9, notes: degreeBoard, lenses: ['n', 'd'], defaultLens: 'd', fingers: true, legend: [['--s-root', 'Тоника · ступень 1'], ['--s-note', 'Другие ступени формы A']] },
+      term: 'Номер ноты от тоники — **ступень**. В Am: A — 1, C — {d:♭3}, D — 4, E — 5, G — {d:♭7}. Знак ♭ у ступени значит «на полутон ниже, чем в мажоре».',
+      extra: 'labels',
+      listen: `форма A вверх: ${formAUp}`,
+      why: 'Ступени переносят знание с одной тоники на все: форма «1 ♭3 4 5 ♭7» звучит одинаково от любой ноты.',
+      related: ['Форма пентатоники вверх-вниз', 'Та же форма от другой тоники', 'Группы по три'],
+      check: { q: 'Ступень {d:♭7} в Am — какая нота?', opts: ['G', 'F', 'G♯'], a: 0, why: 'В Am: A 1, C ♭3, D 4, E 5, G ♭7.' } },
+
+    { id: 'major', lv: '2', title: 'Формула мажора', keys: 'мажор формула т-т-п-т-т-т-п гамма тон полутон',
+      play: 'Сыграй по струне A от {p:A/3|C2}: лады 3, 5, 7, 8, 10, 12, 14, 15. Где шаг в один лад — там полутон.',
+      board: { min: 3, max: 15, notes: [N('A:3', 'root', 'C2', 'C', { d: '1' }), N('A:5', 'a', 'D2', 'D', { d: '2' }), N('A:7', 'a', 'E2', 'E', { d: '3' }), N('A:8', 'a', 'F2', 'F', { d: '4' }), N('A:10', 'a', 'G2', 'G', { d: '5' }), N('A:12', 'a', 'A2', 'A', { d: '6' }), N('A:14', 'a', 'B2', 'B', { d: '7' }), N('A:15', 'root', 'C3', 'C', { d: '8' })], lenses: ['n', 'd'], legend: [['--s-root', 'Тоника C'], ['--s-note', 'Ступени 2–7']] },
+      formula: 'ТТПТТТП',
+      term: 'Формула **мажора**: Т-Т-П-Т-Т-Т-П. Полутоны — между 3 и 4 и между 7 и 8 ступенью.',
+      why: 'По формуле строится мажор от любой тоники — не нужно заучивать ноты каждой гаммы.',
+      related: ['Гамма на одной струне', 'Гамма в позиции «палец на лад»', 'Гамма в одной позиции'],
+      check: { q: 'Между какими ступенями мажора полутоны?', opts: ['3–4 и 7–8', '2–3 и 6–7', '4–5 и 7–8'], a: 0, why: 'Т-Т-П-Т-Т-Т-П: полутон третьим и седьмым шагом.' } },
+
+    { id: 'minor', lv: '2', title: 'Натуральный минор', keys: 'минор натуральный т-п-т-т-п-т-т ♭3 ♭6 ♭7',
+      play: 'Сыграй по струне A с открытой: лады 0, 2, 3, 5, 7, 8, 10, 12 — от {p:A/0|A1} до {p:A/12|A2}.',
+      formula: 'ТПТТПТТ',
+      term: 'Формула **натурального минора**: Т-П-Т-Т-П-Т-Т. Ступени: 1 2 {d:♭3} 4 5 {d:♭6} {d:♭7}. Am — A B C D E F G.',
+      why: 'Большинство рок- и поп-партий в миноре держатся на 1, {d:♭3}, 5 и {d:♭7}.',
+      related: ['Гамма в позиции «палец на лад»', 'Гамма в одной позиции'],
+      check: { q: 'Сколько полутонов от 1 до {d:♭3}?', opts: ['3', '4', '2'], a: 0, why: '{d:♭3} — малая терция, 3 полутона: A → C.' } },
+
+    { id: 'relative', lv: '2', title: 'Параллельные тональности', keys: 'параллельные тональности c мажор a минор relative одни ноты разные тоники vi',
+      play: 'Сыграй ноты C D E G A с опорой на {p:A/3|C2}, потом те же ноты с опорой на {p:E/5|A1}. Ноты те же — «дом» другой.',
+      term: 'C мажор и A минор — одни и те же ноты, разные тоники. Такие тональности называют **параллельными**. Тоника минора — 6-я ступень мажора, аккорд на ней — {r:vi}.',
+      facts: ['В английских источниках это relative keys; parallel там значит одну тонику: C и Cm.'],
+      why: 'Знаешь одну форму — знаешь две тональности.',
+      related: ['Мажорная и минорная пентатоника: одни ноты — разные тоники'],
+      check: { q: 'Параллельный минор для G мажора?', opts: ['Em', 'Gm', 'Am'], a: 0, why: '6-я ступень G мажора — E.' } },
+
+    { id: 'penta', lv: '2', title: 'Пентатоника', keys: 'пентатоника пять нот форма минорная мажорная',
+      play: 'Форма A от {p:E/5|A1}: по две ноты на каждой струне — первым и третьим или четвёртым пальцем.',
+      term: '**Пентатоника** — пять нот без полутонов. Минорная: 1 {d:♭3} 4 5 {d:♭7} (Am: A C D E G). Мажорная: 1 2 3 5 6 (C: C D E G A) — те же ноты.',
+      why: 'Пять форм пентатоники покрывают весь гриф — с них начинается свобода на грифе.',
+      related: ['Форма пентатоники вверх-вниз', 'Пентатоника по всему грифу', 'Группы по три'],
+      check: { q: 'Какой ноты нет в пентатонике Am?', opts: ['B', 'C', 'G'], a: 0, why: 'Am пентатоника: A C D E G.' } },
+
+    { id: 'shared', lv: '2', title: 'Общие ноты соседних форм', full: true, keys: 'общие ноты соседние формы связка позиция переход пентатоника',
+      play: `Сыграй форму A вверх, затем форму B вниз. На ${sharedText} рука уже стоит — это мостик между формами.`,
+      board: { min: 4, max: 11, notes: sharedBoard, lenses: ['n', 'd'], legend: [['--s-root', 'Тоника A (на общей ноте — кольцо)'], ['--s-note', 'Форма A · 5–8'], ['--s-form-b', 'Форма B · 7–10'], ['--s-shared', 'Общие ноты']] },
+      term: `Позиции, которые есть в обеих формах, — **общие ноты**. У форм A и B пентатоники Am их ${sharedIds.length}.`,
+      facts: ['Переход: {p:E/8} — палец 4 в форме A и палец 2 в форме B; рука сдвигается на 2 лада.'],
+      listen: 'форма A вверх, форма B вниз — 16 восьмых',
+      why: 'Через общие ноты рука переходит в соседнюю позицию без прыжка — пять форм складываются в одну карту грифа.',
+      related: ['Связка соседних форм', 'Пентатоника по всему грифу'],
+      check: { q: 'Какая позиция общая для форм A и B?', opts: ['{p:A/7}', '{p:A/5}', '{p:G/9}'], a: 0, why: `Общие: ${sharedIds.map(id => id.replace(':', '/')).join(', ')}. {p:A/5} — только в форме A, {p:G/9} — только в форме B.` } },
+
+    /* ===== 3. Тоны аккорда ===== */
+    { id: 'triad', lv: '3', title: 'Трезвучие 1–3–5', full: true, keys: 'трезвучие аккорд тоны аккорда 1-3-5 арпеджио мажорное минорное vi iv римские',
+      play: 'От {p:E/8|C2}: второй палец, потом {p:A/7|E2} первым, {p:A/10|G2} и {p:D/10|C3} — мизинцем. Это арпеджио C.',
+      board: { min: 6, max: 11, notes: triadBoard, lenses: ['n', 'c'], fingers: true, legend: [['--s-root', 'Тоника C и октава'], ['--s-note', 'Терция и квинта']] },
+      term: 'Три ноты через терцию — **трезвучие**: 1–3–5. В C мажорном это C, E, G. В минорном терция малая: 1–{d:♭3}–5, Am — A, C, E.',
+      facts: ['Аккорд обозначают буквой: C — мажорное трезвучие, Cm — минорное.', 'Аккорды тональности пишут римскими цифрами: в C мажоре F — {r:IV}, Am — {r:vi}.'],
+      listen: 'C2, E2, G2, C3 — арпеджио',
+      why: 'Тоны аккорда — надёжные ноты: играешь 1, 3 или 5 — и бас совпадает с гармонией.',
+      related: ['Арпеджио 1–3–5–8', 'Root–5–8', 'Терциями по гамме'],
+      check: { q: 'Где терция от {p:E/8|C2}?', opts: ['{p:A/7}', '{p:A/8}', '{p:A/10}'], a: 0, why: '{p:A/7|E2} — большая терция. {p:A/8|F2} — кварта, {p:A/10|G2} — квинта.' } },
+
+    { id: 'slash', lv: '3', later: true, title: 'Слеш-аккорд', keys: 'слеш аккорд c/e бас под аккордом обращение',
+      play: 'Под аккорд C вместо тоники сыграй {p:A/7|E2} — его терцию. Звучит мягче и «в движении».',
+      term: '**C/E** — аккорд C, а в басу E. Буква после черты — нота баса. В первой версии — чтобы узнать обозначение в песне; уровень «Аккорды» придёт позже.',
+      why: 'Слеш прямо говорит басисту, какую ноту играть, когда это не тоника.',
+      related: ['Арпеджио 1–3–5–8'],
+      check: { q: 'Что играет бас на G/B?', opts: ['B', 'G', 'D'], a: 0, why: 'Нота после черты — нота баса.' } },
+
+    /* ===== Ритм ===== */
+    { id: 'beat', lv: 'r', title: 'Доля и такт', keys: 'доля такт 4/4 размер метроном счёт сильная',
+      play: 'Включи метроном на 72 и сыграй {p:A/0|A1} на каждый щелчок, на «раз» — чуть громче.',
+      term: '**Доля** — ровный шаг счёта, под который хочется топать ногой. **Такт** — группа долей; в 4/4 их четыре, первая — сильная.',
+      why: 'Бас вместе с барабаном держит доли — от этого зависит, качает ли песня.',
+      related: ['Раздел «Ритм» · четверти с метрономом', 'Хроматика 1-2-3-4 в позиции'],
+      check: { q: 'Сколько долей в такте 4/4?', opts: ['4', '8', '2'], a: 0, why: 'Верхняя цифра размера — число долей.' } },
+
+    { id: 'count', lv: 'r', title: 'Счёт «1 и 2 и»', keys: 'счёт 1 и 2 и восьмые доля пополам',
+      play: 'Считай вслух «1 и 2 и 3 и 4 и» и играй {p:E/5|A1} на каждый слог.',
+      term: 'Восьмые делят долю пополам. Цифра — на долю, «и» — посередине между долями. «Связка соседних форм» — 16 восьмых, два такта.',
+      why: 'Счёт вслух держит ровность, когда ноты меняются быстрее доли.',
+      related: ['Связка соседних форм', 'Хроматика 1-2-3-4 в позиции'],
+      check: { q: 'Сколько восьмых в такте 4/4?', opts: ['8', '4', '16'], a: 0, why: 'Четыре доли по две восьмые.' } },
+
+    /* ===== Чтение ===== */
+    { id: 'tab', lv: 'c', title: 'TAB и чего в нём нет', keys: 'tab табулатура линии струны лад цифра длительность',
+      play: 'Прочитай: на нижней линии 5 и 8 — это {p:E/5|A1} и {p:E/8|C2}. Сыграй их.',
+      tab: true,
+      term: '**TAB** — четыре линии, сверху G, снизу E; цифра — лад. Чего в нём нет: длительностей, пауз и пальцев. Ритм бери из счёта над TAB или из нот.',
+      why: 'TAB быстро показывает, где играть; что и когда — дополняют счёт и ноты.',
+      related: ['Связка соседних форм', 'Раздел «Песни» · TAB и ноты песни'],
+      check: { q: 'Цифра 7 на второй линии сверху — это…', opts: ['{p:D/7}', '{p:A/7}', '{p:G/7}'], a: 0, why: 'Линии сверху вниз: G, D, A, E.' } },
+
+    { id: 'clef', lv: 'c', title: 'Басовый ключ', keys: 'басовый ключ ноты нотоносец октава выше звучания запись',
+      play: 'Сыграй открытую {p:E/0|E1} и найди её в нотах экрана игры: первая добавочная линейка под нотоносцем.',
+      term: 'Бас пишут в **басовом ключе** на октаву выше, чем он звучит, — так ноты не уходят далеко под нотоносец. Открытая E записана как E2 на первой добавочной линейке снизу, а звучит E1.',
+      why: 'Иначе почти каждую ноту баса пришлось бы писать на нескольких добавочных линейках.',
+      related: ['Раздел «Песни» · TAB и ноты песни', 'Одна нота по всему грифу'],
+      check: { q: 'В нотах для баса записано A2. Что звучит?', opts: ['A1 — открытая A', 'A2', 'A3'], a: 0, why: 'Запись на октаву выше звучания.' } },
+  ];
+  const BY = new Map(CONCEPTS.map(c => [c.id, c]));
+  // Проверка данных: каталог R-026, позиции досок, токены текстов (rich бросает ошибку при расхождении).
+  for (const c of CONCEPTS) {
+    for (const r of c.related) if (!CATALOG[r] && !SECTIONS[r]) throw new Error(`VIS-12: «${r}» нет в каталоге R-026.`);
+    for (const n of c.board?.notes ?? []) assertPitch(n.id, n.p);
+    [c.play, c.term, c.why, c.check.q, c.check.why, ...(c.facts ?? []), ...c.check.opts].forEach(rich);
+  }
+  const OCTAVE_ROWS = [
+    ['C1–B1', 'контроктава', 'ми контроктавы — {p:E/0|E1}, открытая E; ля контроктавы — {p:A/0|A1}, открытая A.'],
+    ['C2–B2', 'большая октава', 'ре большой октавы — {p:D/0|D2}, открытая D; соль большой октавы — {p:G/0|G2}, открытая G; до большой октавы — {p:A/3|C2}.'],
+    ['C3–B3', 'малая октава', 'до малой октавы — {p:G/5|C3}; соль малой октавы — {p:G/12|G3}.'],
+    ['C4', 'первая октава', 'до первой октавы — {p:G/17|C4}, если на грифе есть 17-й лад; это «до» в середине клавиатуры фортепиано.'],
+  ];
+  OCTAVE_ROWS.forEach(row => rich(row[2]));
+
+  /* ---------- Состояние макета (только в памяти) ---------- */
+  const mastered = new Set(['semitone', 'accidentals', 'octave', 'unison', 'fourth', 'fifth', 'penta']);
+  const lensOf = {};
+  const asked = BY.has(params.get('concept')) ? params.get('concept') : null;
+
+  const norm = s => String(s).toLowerCase().replace(/ё/g, 'е').replace(/♭/g, 'b').replace(/♯/g, '#').replace(/[{}*|]/g, ' ');
+  const haystack = c => norm(`${c.title} ${c.keys} ${c.term}`);
+  const matches = (c, q) => !q || norm(q).split(/\s+/).filter(Boolean).every(w => haystack(c).includes(w));
+  const levelOf = id => LEVELS.find(l => l.id === id);
+  const SEARCH_ICON = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4.5 4.5"/></svg>';
+
+  /* ---------- Карточка понятия (общая для A и B) ---------- */
+  function boardHtml(c, scope) {
+    const b = c.board;
+    const lens = lensOf[`${scope}:${c.id}`] ?? b.defaultLens ?? 'n';
+    const span = b.max - b.min + 1;
+    const width = 44 + span * 64;
+    const svg = L.fretboard({
+      fretMin: b.min, fretMax: b.max, width, marker: span > 9 ? 50 : 38,
+      notes: b.notes.map(n => ({ id: n.id, kind: n.k, root: n.root, finger: b.fingers ? n.f : null, label: lens === 'n' ? n.n : (n[lens === 'c' ? 'd' : lens] ?? n.n) })),
+    });
+    return `<div class="lr-board r-board" style="max-width:${width + 16}px">${svg}</div>`;
+  }
+  function lensSeg(c, scope) {
+    if (!c.board?.lenses) return '';
+    const lens = lensOf[`${scope}:${c.id}`] ?? c.board.defaultLens ?? 'n';
+    return `<div class="lr-seg" role="group" aria-label="Линза грифа">${c.board.lenses.map(id => `<button type="button" data-lens="${id}" data-lens-card="${c.id}" aria-pressed="${id === lens}">${LENS_LABEL[id]}</button>`).join('')}</div>`;
+  }
+  const legendHtml = c => c.board?.legend ? `<div class="lr-legend r-legend">${c.board.legend.map(([token, label]) => `<span><i style="background:var(${token})"></i>${esc(label)}</span>`).join('')}${c.board.fingers ? '<span><span class="r-finger">1</span> палец</span>' : ''}</div>` : '';
+  const formulaHtml = steps => {
+    let degree = 1;
+    return `<div class="r-formula" style="grid-template-columns:${[...steps].map(s => (s === 'Т' ? '2fr' : '1fr')).join(' ')}" aria-label="Формула ${esc([...steps].join('-'))}">${[...steps].map(s => { const from = degree++; return `<span class="${s === 'П' ? 'is-half' : ''}">${esc(s)}<small>${from}–${from + 1}</small></span>`; }).join('')}</div>`;
+  };
+  function extraHtml(c) {
+    if (c.extra === 'octaves') return `
+      <table class="r-table"><caption class="lr-sub" style="caption-side:bottom;text-align:left;padding-top:6px">Научная нумерация — основная в приложении. Русские названия — для книг и учителей.</caption>
+        <thead><tr><th scope="col">Научная</th><th scope="col">По-русски</th><th scope="col">На басу E–A–D–G</th></tr></thead>
+        <tbody>${OCTAVE_ROWS.map(([sci, ru, bass]) => `<tr><th scope="row">${esc(sci)}</th><td>${esc(ru)}</td><td>${rich(bass)}</td></tr>`).join('')}</tbody></table>`;
+    if (c.extra === 'labels') return `
+      <div class="r-side-box"><h3>Три вида подписей — не путай</h3>
+        <div class="r-labels"><span class="r-deg">♭3</span><span>ступень — номер от тоники; на грифе внутри кружка</span>
+        <span class="r-roman">vi</span><span>римская цифра — аккорд на ступени: Am в C мажоре</span>
+        <span class="r-finger">1</span><span>палец левой руки — маленькая цифра у кружка</span></div></div>`;
+    return '';
+  }
+  function cardHtml(c, scope) {
+    const lvl = levelOf(c.lv);
+    const kind = c.later ? 'позже · пример будущего уровня' : c.full ? '' : 'короткая карточка';
+    const hid = `r-h-${scope}`;
+    const visual = c.board ? `${c.board.lenses || c.shape ? `<div class="r-board-tools">${c.shape ? `<span class="r-shape">◇ ${esc(c.shape)}</span>` : '<span></span>'}${lensSeg(c, scope)}</div>` : ''}<div data-board-host="${c.id}">${boardHtml(c, scope)}</div>${legendHtml(c)}`
+      : c.tab ? `<div class="lr-tab" style="max-width:640px">${L.tab({ events: ex.notation.events, width: 560, from: 0, count: 8, lineGap: 22, fontSize: 18 })}</div><div class="lr-legend r-legend"><span>Счёт над TAB — «1 и 2 и…»; длительностей в самом TAB нет</span></div>` : '';
+    const listen = c.listen ? `<div class="r-listen"><button type="button" class="lr-btn" data-listen="${esc(c.listen)}">♪ Послушать</button><small>прозвучит: ${esc(c.listen)} · в макете без звука</small></div>` : '';
+    const isMastered = mastered.has(c.id);
+    return `<article class="r-card" data-card="${c.id}" aria-labelledby="${hid}">
+      <header class="r-card-head"><div><span class="lr-eyebrow">${lvl.id === 'r' || lvl.id === 'c' ? esc(lvl.title) : `Уровень ${esc(lvl.mark)} · ${esc(lvl.title)}`}${kind ? ` · <span class="r-kind">${esc(kind)}</span>` : ''}</span><h2 id="${hid}" tabindex="-1">${esc(c.title)}</h2></div>
+        <button type="button" class="r-master" data-master="${c.id}" aria-pressed="${isMastered}" title="Отметка для себя: ничего не открывает и не закрывает">${isMastered ? '✓ Освоено' : '○ Отметить: освоено'}</button></header>
+      <div class="r-body">
+        <div class="r-col">
+          <section class="r-step"><h3><span class="r-num">1</span>Сыграй и послушай</h3><p>${rich(c.play)}</p>${visual}${listen}</section>
+          <section class="r-step"><h3><span class="r-num">2</span>Как это называется</h3><p>${rich(c.term)}</p>${c.formula ? formulaHtml(c.formula) : ''}${c.facts ? `<ul class="r-facts">${c.facts.map(f => `<li>${rich(f)}</li>`).join('')}</ul>` : ''}${extraHtml(c)}</section>
+        </div>
+        <div class="r-col">
+          <section class="r-side-box r-why"><h3>Зачем басисту</h3><p>${rich(c.why)}</p></section>
+          ${c.extra === 'octaves' ? '<div class="r-note"><strong>B или H?</strong>В приложении <b>B = си</b>, как в английской записи. В части русской (и в немецкой) традиции си обозначают <b>H</b>, а буквой B — си-бемоль. Увидел в книге H — это наша B; их B — наша B♭.</div>' : ''}
+          <section class="r-side-box"><h3>Связанные упражнения</h3><ul class="r-rel">${c.related.map(r => `<li><button type="button" data-rel="${esc(r)}"><b>${esc(r)}</b><small>${esc(CATALOG[r] ? `каталог · ${CATALOG[r]}` : SECTIONS[r])}</small><i>▶</i></button></li>`).join('')}</ul></section>
+          <section class="r-side-box r-check" data-check="${c.id}"><h3><span>Проверь себя · 1 мин</span></h3><p>${rich(c.check.q)}</p>
+            <div class="r-opts" role="group" aria-label="Варианты ответа">${c.check.opts.map((o, i) => `<button type="button" class="lr-btn" data-opt="${i}">${rich(o)}</button>`).join('')}</div>
+            <p class="r-verdict" aria-live="polite" data-verdict></p>
+            <button type="button" class="r-more" data-toast="${esc(`«Проверь себя» по понятию «${c.title}»: ещё 2–3 вопроса, около минуты`)}">Ещё вопросы →</button></section>
+        </div>
+      </div>
+    </article>`;
+  }
+
+  /* ---------- A · Страница ---------- */
+  const TAB_ICON = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h8.5a3 3 0 0 1 3 3V17H7a3 3 0 0 1-3-3z"/><path d="M4 14a3 3 0 0 1 3-3h8.5"/></svg>';
+  const listItem = (c, alias) => `<li><button type="button" class="r-item" data-concept="${c.id}"><span class="r-ok" aria-hidden="true">${mastered.has(c.id) ? '✓' : ''}</span><span>${esc(c.title)}</span>${alias ? '<span class="r-tag">ур. 0</span>' : c.later ? '<span class="r-tag">позже</span>' : ''}</button></li>`;
+  const mainA = `
+    <div class="r-top"><h1>Занятие</h1>
+      <nav class="r-tabs" aria-label="Вкладки занятия">
+        <button type="button" class="r-tab" data-toast="Вкладка «Сегодня» — VIS-10">Сегодня</button>
+        <button type="button" class="r-tab" data-toast="Вкладка «Библиотека» — VIS-10">Библиотека</button>
+        <button type="button" class="r-tab" data-toast="Вкладка «Основы» — VIS-10">Основы</button>
+        <button type="button" class="r-tab r-tab-ref" aria-current="page">${TAB_ICON}Справочник</button>
+      </nav></div>
+    <div class="r-ctx"><div class="r-ctx-left"><button type="button" class="r-back" data-toast="Вернёт в «Основы»: уровень 2, шаг «Общие ноты соседних форм»">← Основы · уровень 2</button><span class="lr-sub">Понятия по уровням: сначала звук и пальцы, потом термин. Ничего не закрыто.</span></div>
+      <div class="r-count"><span data-count></span><div class="lr-meter"><i data-count-meter></i></div></div></div>
+    <div class="r-grid">
+      <aside class="r-side" aria-label="Понятия">
+        <label class="r-search">${SEARCH_ICON}<input type="search" data-q placeholder="Найти: октава, ♭3, H, кварта…" aria-label="Поиск понятий" autocomplete="off"></label>
+        <nav class="r-list" data-list aria-label="Понятия по уровням"></nav>
+        <p class="r-side-note">✓ — отметил сам «освоено». Отметка ничего не открывает и не закрывает.</p>
+      </aside>
+      <div class="r-cardwrap" data-card-host="a"></div>
+    </div>`;
+
+  /* ---------- B · Панель поверх экрана игры ---------- */
+  const events = ex.notation.events;
+  const pausedAt = 5;
+  const bgBoard = L.fretboard({ fretMin: 3, fretMax: 12, notes: L.ex1BoardNotes({ labels: 'name' }), current: events[pausedAt].positionId, width: 1000, marker: 38 });
+  const termChip = (id, label) => `<button type="button" class="lr-chip lr-chip-concept r-term" data-term="${id}"><span>${esc(label)}</span></button>`;
+  const mainB = `
+    <div class="r-hint">ⓘ Подчёркнутое — термин: клик открывает справочник сбоку, игра ждёт на паузе. Esc — назад к термину.</div>
+    <section class="r-bg" data-bg>
+      <div class="r-bg-head"><button type="button" class="r-back" data-toast="Вернёт в «Занятие» · план на сегодня">← Занятие · план на сегодня, шаг 2 из 4</button>
+        <div class="r-bg-title"><h1>Связка соседних форм · Am · A → B</h1><span class="lr-sub">16 восьмых · 2 такта</span></div>
+        <div class="r-bg-chips"><span>Понятия:</span>${termChip('shared', 'Общие ноты')}${termChip('degree', 'Ступени ♭3 · ♭7')}${termChip('penta', 'Пентатоника')}</div></div>
+      <div class="lr-concept"><p>${rich(`Соседние формы {t:penta|пентатоники} делят {t:shared|общие ноты}: ${sharedText}. Тоника A звучит в двух {t:octnum|октавах} — A1 и A2 ({t:octave|октава}: +2 струны, +2 лада). Опорные {t:degree|ступени ♭3 и ♭7} — C и G.`)}</p></div>
+      <div class="lr-tab"><header><span>${rich('{t:tab|TAB} · бас E–A–D–G')}</span><span>${rich('счёт {t:count|1 и 2 и 3 и 4 и} · такт 1 — вверх по форме A')}</span></header>${L.tab({ events, current: pausedAt, width: 1000, lineGap: 16, fontSize: 15 })}</div>
+      <div class="lr-board">${bgBoard}</div>
+      <div class="r-bg-row">
+        <div class="lr-legend"><span><i style="background:var(--s-root)"></i>Тоника A</span><span><i style="background:var(--s-note)"></i>Форма A · 5–8</span><span><i style="background:var(--s-form-b)"></i>Форма B · 7–10</span><span><i style="background:var(--s-shared)"></i>Общие ноты</span></div>
+      </div>
+      <div class="lr-transport"><button type="button" class="lr-btn lr-btn-primary" data-toast="Фон упрощён: игра — в VIS-11">▶ Продолжить <span class="lr-kbd">Пробел</span></button><span class="lr-sub">Пауза на ноте ${pausedAt + 1} из ${events.length} · 76 BPM · продолжится со следующей ноты без отсчёта</span></div>
+    </section>`;
+  const drawer = `
+    <div class="r-scrim" data-scrim hidden></div>
+    <aside class="r-drawer" data-drawer role="dialog" aria-modal="true" aria-labelledby="r-d-title" hidden>
+      <header class="r-d-head"><button type="button" class="r-d-icon" data-d-back aria-label="Назад к предыдущему понятию" hidden>←</button><strong id="r-d-title">Справочник</strong><span class="lr-sub" data-d-from></span>
+        <button type="button" class="r-d-close" data-d-close aria-label="Закрыть справочник">✕ <span class="lr-kbd">Esc</span></button></header>
+      <div class="r-d-search"><label class="r-search">${SEARCH_ICON}<input type="search" data-dq placeholder="Другое понятие: кварта, E1, H…" aria-label="Поиск по справочнику" autocomplete="off"></label></div>
+      <ul class="r-d-hits" data-d-hits hidden></ul>
+      <div class="r-d-body" data-card-host="b"></div>
+      <footer class="r-d-foot"><span>Игра на паузе под панелью</span><button type="button" data-d-full>Весь справочник →</button></footer>
+    </aside>`;
+
+  root.innerHTML = `<div data-candidate-panel="a">${L.shell('lesson', mainA)}</div><div data-candidate-panel="b">${L.shell('lesson', mainB).replace(/<\/div>$/, `${drawer}</div>`)}</div><div class="r-toast" role="status" aria-live="polite" data-toast-box></div>`;
+  L.mount(root, { candidates: ['a', 'b'] });
+
+  const $ = (sel, scope = root) => scope.querySelector(sel);
+  const $$ = (sel, scope = root) => [...scope.querySelectorAll(sel)];
+  const panelA = $('[data-candidate-panel="a"]'), panelB = $('[data-candidate-panel="b"]');
+  const toastBox = $('[data-toast-box]');
+  let toastTimer = null;
+  function toast(text) {
+    toastBox.textContent = text; toastBox.classList.add('is-on');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => toastBox.classList.remove('is-on'), 2600);
+  }
+
+  /* A: список, поиск, выбор */
+  const A = { id: asked ?? 'octnum', q: '' };
+  const qA = $('[data-q]', panelA), listA = $('[data-list]', panelA), hostA = $('[data-card-host="a"]', panelA);
+  function renderList() {
+    const groups = LEVELS.map(l => {
+      const own = CONCEPTS.filter(c => c.lv === l.id && matches(c, A.q));
+      const alias = CONCEPTS.filter(c => c.alsoLv === l.id && matches(c, A.q));
+      const total = CONCEPTS.filter(c => c.lv === l.id);
+      if (!own.length && !alias.length) return '';
+      return `<section class="r-group"><h3><span class="r-lvl" aria-hidden="true">${esc(l.mark)}</span>${esc(l.title)}<small>${total.filter(c => mastered.has(c.id)).length} из ${total.length}</small></h3><ul>${own.map(c => listItem(c)).join('')}${alias.map(c => listItem(c, true)).join('')}</ul></section>`;
+    }).join('');
+    listA.innerHTML = groups || `<p class="r-empty">Ничего не нашлось по «${esc(A.q)}». Попробуй «октава», «ступень», «H» или «доля».</p>`;
+    $$('.r-item', listA).forEach(b => b.setAttribute('aria-current', String(b.dataset.concept === A.id)));
+    const done = CONCEPTS.filter(c => mastered.has(c.id)).length;
+    $('[data-count]', panelA).textContent = `Освоено ${done} из ${CONCEPTS.length}`;
+    $('[data-count-meter]', panelA).style.width = `${Math.round(done / CONCEPTS.length * 100)}%`;
+  }
+  function selectA(id, { focus = false } = {}) {
+    A.id = id;
+    hostA.innerHTML = cardHtml(BY.get(id), 'a');
+    hostA.scrollTop = 0;
+    renderList();
+    if (focus) $('h2', hostA).focus();
+  }
+  qA.addEventListener('input', () => { A.q = qA.value.trim(); renderList(); });
+  qA.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { const first = $('.r-item', listA); if (first) { selectA(first.dataset.concept); first.focus(); } }
+    if (e.key === 'ArrowDown') { e.preventDefault(); $('.r-item', listA)?.focus(); }
+    if (e.key === 'Escape' && qA.value) { e.preventDefault(); qA.value = ''; A.q = ''; renderList(); }
+  });
+  listA.addEventListener('keydown', e => {
+    if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+    const items = $$('.r-item', listA), i = items.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    if (e.key === 'ArrowUp' && i === 0) { qA.focus(); return; }
+    items[Math.max(0, Math.min(items.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))].focus();
+  });
+
+  /* B: панель поверх, история внутри панели, поиск, Esc и возврат фокуса */
+  const appB = $('.lr-app', panelB), drawerEl = $('[data-drawer]', panelB), scrim = $('[data-scrim]', panelB);
+  const hostB = $('[data-card-host="b"]', panelB), qB = $('[data-dq]', panelB), hitsB = $('[data-d-hits]', panelB);
+  const B = { stack: [], opener: null };
+  function renderB({ focus = true } = {}) {
+    const id = B.stack[B.stack.length - 1];
+    hostB.innerHTML = cardHtml(BY.get(id), 'b');
+    hostB.scrollTop = 0;
+    $('[data-d-back]', panelB).hidden = B.stack.length < 2;
+    $('[data-d-from]', panelB).textContent = B.opener ? `из экрана игры · «${B.opener.textContent.trim()}»` : '';
+    if (focus) $('h2', hostB).focus();
+  }
+  function setInert(on) { [$('.lr-nav', appB), $('.lr-main', appB)].forEach(el => { if (on) el.setAttribute('inert', ''); else el.removeAttribute('inert'); }); }
+  function openPanel(id, opener, { focus = true } = {}) {
+    B.opener?.classList.remove('is-open');
+    B.stack = [id]; B.opener = opener; opener?.classList.add('is-open');
+    qB.value = ''; hitsB.hidden = true;
+    drawerEl.hidden = false; scrim.hidden = false; setInert(true);
+    renderB({ focus });
+  }
+  function closePanel() {
+    if (drawerEl.hidden) return;
+    drawerEl.hidden = true; scrim.hidden = true; setInert(false);
+    B.opener?.classList.remove('is-open');
+    B.opener?.focus();
+  }
+  const goB = id => { B.stack.push(id); qB.value = ''; hitsB.hidden = true; renderB(); };
+  function searchB() {
+    const q = qB.value.trim();
+    if (!q) { hitsB.hidden = true; return; }
+    const hits = CONCEPTS.filter(c => matches(c, q)).slice(0, 6);
+    hitsB.innerHTML = hits.length ? hits.map(c => `<li><button type="button" data-d-hit="${c.id}"><span>${esc(c.title)}</span><small>${esc(levelOf(c.lv).title)}</small></button></li>`).join('') : `<li class="r-empty">Ничего не нашлось по «${esc(q)}».</li>`;
+    hitsB.hidden = false;
+  }
+  qB.addEventListener('input', searchB);
+  qB.addEventListener('keydown', e => { if (e.key === 'Enter') { const first = $('[data-d-hit]', hitsB); if (first) goB(first.dataset.dHit); } });
+  document.addEventListener('keydown', e => {
+    if (root.dataset.candidate !== 'b' || drawerEl.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); closePanel(); return; }
+    if (e.key !== 'Tab') return;
+    const focusable = $$('button:not([hidden]),input,[tabindex="0"]', drawerEl).filter(el => el.offsetParent !== null);
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (!drawerEl.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && (document.activeElement === first || document.activeElement === $('h2', hostB))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+
+  /* Общие действия: делегирование по корню */
+  root.addEventListener('click', e => {
+    const t = e.target;
+    const inB = panelB.contains(t);
+    const item = t.closest('[data-concept]');
+    if (item) { selectA(item.dataset.concept); return; }
+    const term = t.closest('[data-term]');
+    if (term) {
+      const id = term.dataset.term;
+      if (!inB) selectA(id, { focus: true });
+      else if (drawerEl.contains(term)) goB(id);
+      else openPanel(id, term);
+      return;
+    }
+    const hit = t.closest('[data-d-hit]'); if (hit) { goB(hit.dataset.dHit); return; }
+    if (t.closest('[data-d-close]') || t.closest('[data-scrim]')) { closePanel(); return; }
+    if (t.closest('[data-d-back]')) { B.stack.pop(); renderB(); return; }
+    if (t.closest('[data-d-full]')) { toast(`Откроется страница справочника на понятии «${BY.get(B.stack[B.stack.length - 1]).title}» (кандидат A)`); return; }
+    const master = t.closest('[data-master]');
+    if (master) {
+      const id = master.dataset.master;
+      mastered.has(id) ? mastered.delete(id) : mastered.add(id);
+      const on = mastered.has(id);
+      $$(`[data-master="${id}"]`).forEach(b => { b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '✓ Освоено' : '○ Отметить: освоено'; });
+      renderList();
+      toast(on ? 'Отмечено «освоено» — только для тебя, ничего не закрывается' : 'Отметка снята');
+      return;
+    }
+    const lens = t.closest('[data-lens]');
+    if (lens) {
+      const c = BY.get(lens.dataset.lensCard), scope = inB ? 'b' : 'a', card = lens.closest('.r-card');
+      lensOf[`${scope}:${c.id}`] = lens.dataset.lens;
+      $(`[data-board-host="${c.id}"]`, card).innerHTML = boardHtml(c, scope);
+      $$('[data-lens]', card).forEach(b => b.setAttribute('aria-pressed', String(b === lens)));
+      return;
+    }
+    const opt = t.closest('[data-opt]');
+    if (opt) {
+      const box = opt.closest('[data-check]'), c = BY.get(box.dataset.check), i = Number(opt.dataset.opt);
+      const right = i === c.check.a;
+      opt.dataset.state = right ? 'right' : 'wrong';
+      if (right) $$('[data-opt]', box).forEach(b => { b.disabled = b !== opt; });
+      $('[data-verdict]', box).innerHTML = `${right ? '<b>Верно.</b>' : '<b>Не то — попробуй ещё.</b>'} ${right ? rich(c.check.why) : ''}`;
+      return;
+    }
+    const listen = t.closest('[data-listen]'); if (listen) { toast(`♪ В макете звука нет. В приложении прозвучит: ${listen.dataset.listen}`); return; }
+    const rel = t.closest('[data-rel]'); if (rel) { toast(`Откроется экран игры: ${rel.dataset.rel}`); return; }
+    const tb = t.closest('[data-toast]'); if (tb) toast(tb.dataset.toast);
+  });
+
+  selectA(A.id);
+  // B открыт на термине, чтобы референс показывал панель; Esc закрывает и возвращает фокус к чипу.
+  const opener = (asked && $(`.r-bg [data-term="${asked}"]`, panelB)) || $('.r-bg-chips [data-term="shared"]', panelB);
+  openPanel(asked ?? 'shared', opener, { focus: false });
+  if (root.dataset.candidate === 'b' && !params.has('capture')) $('h2', hostB).focus();
+})();
+</script>
