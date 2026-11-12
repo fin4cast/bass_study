@@ -285,8 +285,8 @@ check('draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deleti
   await ready(page); await module(page, 'harmony');
   await page.locator('[data-rhythm-setting="bpm"]:visible').fill('80'); await page.locator('[data-rhythm-setting="bpm"]:visible').press('Tab');
   await page.locator('[data-rhythm-action="start"]').click();
-  await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState === 'running');
-  await new Promise(resolve => setTimeout(resolve, 360));
+  // Черновик создаётся только после накопленного времени практики: ждём вторую проигранную долю, а не фиксированное время.
+  await page.waitForFunction(() => { const view = document.querySelector('.rhythm-view'); return view?.dataset.rhythmPhase === 'practice' && (Number(view.dataset.rhythmBar) > 1 || Number(view.dataset.rhythmBeat) >= 2); });
   await page.locator('[data-rhythm-action="pause"]').click(); await history(page);
   const note = page.getByLabel('Заметка к практике', { exact: true });
   await note.fill('Сохранить эту заметку после reload'); await page.getByLabel('Комфортный темп', { exact: true }).fill('');
@@ -309,8 +309,8 @@ check('draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deleti
   await waitRaw(page, 'history', values => values.length === 0);
   await page.locator('.history-drawer > summary').click(); await module(page, 'harmony');
   await page.locator('[data-rhythm-action="start"]').click();
-  await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmPhase === 'practice');
-  await new Promise(resolve => setTimeout(resolve, 360));
+  // Черновик создаётся только после накопленного времени практики: ждём вторую проигранную долю, а не фиксированное время.
+  await page.waitForFunction(() => { const view = document.querySelector('.rhythm-view'); return view?.dataset.rhythmPhase === 'practice' && (Number(view.dataset.rhythmBar) > 1 || Number(view.dataset.rhythmBeat) >= 2); });
   await page.locator('[data-rhythm-action="pause"]').click(); await history(page);
   await note.fill('Удалить только этот черновик'); await waitRaw(page, 'practiceDrafts', values => values.some(draft => draft.note === 'Удалить только этот черновик'));
   const drawer = page.locator('.history-drawer'); await drawer.locator(':scope > summary').click(); await history(page);
@@ -437,6 +437,30 @@ check('history-keyboard-focus-survives-four-rerender-actions-and-save-validation
   return { records: 11, showMore: 'history-heading', refreshDraft: 'same button', useCurrent: 'manual-heading', cancelRestore: 'backup-heading', validationFailure: 'focused visible alert/invalid field', alertRect, invalidRect };
 });
 
+check('history-disclosures-and-scroll-survive-draft-checkpoint-rerender', async ({ page }) => {
+  await ready(page); await restoreUi(page, JSON.parse(await readFile(new URL('./fixtures/backup.json', import.meta.url), 'utf8')));
+  await module(page, 'harmony'); await page.locator('[data-rhythm-action="start"]').click();
+  await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState === 'running');
+  await history(page);
+  const screen = page.locator('[data-history-kind="screen"]'), route = page.locator('[data-history-kind="route"]');
+  const disclosures = [screen.locator('.history-question-details'), route.locator('.route-material-details'), page.locator('.history-context-groups')];
+  for (const details of disclosures) { await details.locator(':scope > summary').click(); assert.ok(await details.evaluate(element => element.open)); }
+  await screen.scrollIntoViewIfNeeded();
+  // Обычный щелчок по тексту без фокуса уводит фокус из панели: так панель снова перерисовывается при сохранении черновика.
+  await page.locator('#history-heading').click();
+  const before = await page.evaluate(() => ({ scrollY, active: document.activeElement === document.body }));
+  assert.ok(before.active, 'focus must leave the history body before the checkpoint');
+  const marker = await screen.evaluate(element => { element.dataset.u4Probe = 'before'; return element.dataset.u4Probe; });
+  const durationBefore = Object.fromEntries((await raw(page, 'practiceDrafts')).map(draft => [draft.id, draft.totalReferenceMs]));
+  await waitRaw(page, 'practiceDrafts', values => values.some(draft => draft.totalReferenceMs > (durationBefore[draft.id] ?? 0)), 9000);
+  await page.waitForFunction(() => !document.querySelector('[data-history-kind="screen"]')?.dataset.u4Probe, undefined, { timeout: 3000 });
+  const after = await page.evaluate(() => ({ scrollY, open: [...document.querySelectorAll('.history-body details[open]')].map(element => element.className) }));
+  for (const details of disclosures) assert.ok(await details.evaluate(element => element.open), `${await details.evaluate(element => element.className)} collapsed after draft checkpoint: ${JSON.stringify(after)}`);
+  assert.ok(Math.abs(after.scrollY - before.scrollY) <= 1, `scroll moved: ${before.scrollY} → ${after.scrollY}`);
+  await page.locator('[data-rhythm-action="pause"]').click();
+  return { checkpointRerenderedPanel: marker === 'before', durationBefore, before, after };
+});
+
 check('laptop-widths-show-board-by-500px-and-narrow-layout-uses-local-scroll', async ({ page, resultDir, cdp }) => {
   await ready(page); const evidence = [];
   for (const width of [1366, 1024, 640]) {
@@ -455,12 +479,11 @@ check('laptop-widths-show-board-by-500px-and-narrow-layout-uses-local-scroll', a
 });
 
 markFullOnly(checks, [
-  'draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deletion',
-], FULL_ONLY.unstable);
-markFullOnly(checks, [
   'themes-preserve-running-sequence-focus-and-authoritative-profile',
   'imported-system-profile-survives-binary-chooser-and-corrupt-first-frame-cache',
   'free-practice-choice-does-not-reopen-start-question-after-reload-or-restore',
   'meaningful-SVG-labels-fingers-focus-notation-and-TAB-masks-have-actual-contrast',
+  // 11–15 с; сохранение ручных отметок с заметкой в быстром наборе проверяет history-keyboard-focus….
+  'draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deletion',
 ], FULL_ONLY.smoke);
 await runNotationBrowserChecks(checks, { reportName: 'p8-uiux-edge.json', scope: 'P8 actual product UI, themes and first frame, source contexts, guided introduction, exact boxes, persistent manual drafts, confirmation, sampled computed contrast, laptop widths and CDP page scale. Native IndexedDB is only read, media access is denied before capture, no physical bass/latency assessment.' });

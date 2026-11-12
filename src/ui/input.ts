@@ -28,6 +28,8 @@ export function mountInput(container: HTMLElement, options: InputOptions = {}) {
   let devices: readonly InputDevice[] = [];
   let visible = !container.hidden;
   let disposed = false;
+  /** Незавершённые подключения: поздно выданную дорожку монитор останавливает при их завершении. */
+  const starts = new Set<Promise<void>>();
   let request = 0, enumeration = 0;
   let listing = false;
   let notice = '', actionError = '', lastStatus = '', detailsKey = '';
@@ -136,6 +138,8 @@ export function mountInput(container: HTMLElement, options: InputOptions = {}) {
       if (options.onBeforeStart?.() === false) return;
       if (disposed || !visible || current !== request) return;
       const pending = monitor.start(preferences.deviceId ? { deviceId: preferences.deviceId } : {});
+      const settled = pending.then(() => undefined, () => undefined);
+      starts.add(settled); void settled.then(() => starts.delete(settled));
       refresh();
       await pending;
       if (disposed || !visible || current !== request) return;
@@ -183,6 +187,6 @@ export function mountInput(container: HTMLElement, options: InputOptions = {}) {
       }
     },
     stop,
-    async dispose() { if (disposed) return; request++; enumeration++; disposed = true; controller.abort(); frame.setActive(false); await monitor.dispose(); },
+    async dispose() { if (disposed) return; request++; enumeration++; disposed = true; controller.abort(); frame.setActive(false); const pending = [...starts]; await monitor.dispose(); await Promise.all(pending); },
   };
 }

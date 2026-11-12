@@ -124,7 +124,11 @@ check('ui-denied-native-permission-is-visible-and-not-automatically-retried', 'u
 });
 
 check('ui-cancel-pending-native-acquisition-reaps-late-returned-tracks', 'ui', async ({ page, context, origin }) => {
-  await openInput(page); await allow(context, origin); await page.evaluate(() => { window.__inputObservations.delayMs = 450; }); await action(page, 'connect').click(); await stateIs(page, 'starting'); await action(page, 'stop').click(); await stateIs(page, 'stopped'); await delay(700); assert.equal(await liveTracks(page), 0); assert.equal(await calls(page), 1); await stateIs(page, 'stopped'); return { nativeAcquisitionDelayedOnlyByObserver: true, cancelledState: 'stopped', lateTracksReleased: true };
+  await openInput(page); await allow(context, origin); await page.evaluate(() => { window.__inputObservations.delayMs = 450; }); await action(page, 'connect').click(); await stateIs(page, 'starting'); await action(page, 'stop').click(); await stateIs(page, 'stopped');
+  // Ждём по событиям, а не по времени: настоящий getUserMedia на fake-устройстве под нагрузкой отвечает за 0,1–2 с.
+  await page.waitForFunction(() => window.__inputObservations.streams.length === 1, undefined, { timeout: 10000 });
+  await page.waitForFunction(() => window.__inputObservations.streams[0].getTracks().every(track => track.readyState === 'ended'), undefined, { timeout: 3000 });
+  assert.equal(await liveTracks(page), 0); assert.equal(await calls(page), 1); await delay(100); await stateIs(page, 'stopped'); return { nativeAcquisitionDelayedOnlyByObserver: true, cancelledState: 'stopped', lateTracksReleased: true };
 });
 
 check('ui-device-selection-stops-current-input-and-requires-new-connect', 'ui', async ({ page, context, origin }) => {
@@ -144,6 +148,26 @@ check('ui-device-preferences-preset-reload-and-schema-five-restore-never-capture
   await openHistory(page); await page.locator('[data-history-file]').setInputFiles({ name: 'input-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(before)) }); await page.getByTestId('backup-preview').waitFor(); assert.equal(await calls(page), 0); await page.getByRole('checkbox', { name: 'Понимаю, что текущие данные будут заменены', exact: true }).check(); await page.locator('[data-history-action="confirm-restore"]').click(); await page.getByTestId('backup-preview').waitFor({ state: 'detached' }); assert.equal(await calls(page), 0); assert.equal(await liveTracks(page), 0); assert.deepEqual(await exportUi(page), before); return { schemaVersion: before.schemaVersion, selectedDeviceId: selected, exactRoundtrip: true, captureCallsDuringPresetReloadRestore: 0, historyEntries: 0 };
 });
 
+check('ui-retirement-releases-writer-only-after-late-acquired-input-tracks-ended', 'ui', async ({ page, context, origin }) => {
+  await openInput(page); await allow(context, origin);
+  const next = await context.newPage(); await next.goto(origin);
+  await next.waitForFunction(() => document.querySelector('main')?.inert && !document.querySelector('#retry-tab')?.hidden);
+  await page.bringToFront();
+  // Настоящая fake-дорожка уже захвачена, но её выдача задержана: подключение ещё в состоянии «starting».
+  await page.evaluate(() => { window.__inputObservations.delayMs = 1000; });
+  await action(page, 'connect').click(); await stateIs(page, 'starting');
+  await page.waitForFunction(() => window.__inputObservations.streams.length === 1);
+  // Документ остаётся живым, вызывается только слушатель завершения страницы (как в release-browser).
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
+  // waitForFunction не дожидается Promise из предиката, поэтому опрос Web Locks идёт отсюда.
+  const writerHeld = () => next.evaluate(async () => (await navigator.locks.query()).held.some(lock => lock.name === 'bass-study:writer'));
+  const deadline = Date.now() + 6000; while (await writerHeld()) { assert.ok(Date.now() < deadline, 'writer lease was not released after retirement'); await delay(5); }
+  const atRelease = await page.evaluate(() => window.__inputObservations.streams.flatMap(stream => stream.getTracks()).map(track => track.readyState));
+  assert.deepEqual(atRelease, ['ended'], 'writer lease was released while the acquired input track was still live');
+  await next.close();
+  return { tracksAtWriterRelease: atRelease, getUserMediaCalls: await calls(page) };
+});
+
 check('ui-module-leave-stops-native-tracks-and-return-does-not-auto-connect', 'ui', async ({ page, context, origin }) => {
   await openInput(page); await connectUi(page, context, origin); await page.locator('[data-app-module="foundation"]').click(); assert.equal(await liveTracks(page), 0); await page.locator('[data-app-module="input"]').click(); await stateIs(page, 'stopped'); await delay(250); assert.equal(await calls(page), 1); return { liveTracksAfterExit: 0, noAutoConnectOnReturn: true };
 });
@@ -161,9 +185,6 @@ check('native-real-hidden-tab-stops-all-tracks-and-return-needs-explicit-connect
 markFullOnly(checks, [
   'native-real-hidden-tab-stops-all-tracks-and-return-needs-explicit-connect',
 ], FULL_ONLY.hiddenTab);
-markFullOnly(checks, [
-  'ui-cancel-pending-native-acquisition-reaps-late-returned-tracks',
-], FULL_ONLY.unstable);
 markFullOnly(checks, [
   'native-low-E1-WAV-keeps-sounding-octave',
   'native-dominant-harmonic-WAV-retains-fundamental-or-refuses-ambiguity',
