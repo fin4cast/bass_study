@@ -3,6 +3,15 @@ import {
   setTracksPlayback, trackPositionAt, validateTracksManifest, type TrackDescriptor, type TracksManifest,
 } from '../tracks';
 
+/** Длительность линейного перехода громкости: короче заметного «плавания», но без ступеньки (щелчка). */
+const MIX_RAMP_SECONDS = 0.02;
+function rampGain(gain: AudioParam, value: number, at: number) {
+  // Удерживаем фактическое текущее значение (в том числе посреди прежнего перехода) и ведём линию к новой цели.
+  if (typeof gain.cancelAndHoldAtTime === 'function') gain.cancelAndHoldAtTime(at);
+  else { gain.cancelScheduledValues(at); gain.setValueAtTime(gain.value, at); }
+  gain.linearRampToValueAtTime(value, at + MIX_RAMP_SECONDS);
+}
+
 /** Local-file playback. No persistence of PCM, source file bytes or object URLs. */
 export function createTracksPlayer() {
   let context: AudioContext | null = null;
@@ -46,9 +55,11 @@ export function createTracksPlayer() {
   function updateGains() {
     if (!context || !master || !manifest) return;
     for (const track of manifest.tracks) {
-      let gain = gains.get(track.id);
-      if (!gain) { gain = context.createGain(); gain.connect(master); gains.set(track.id, gain); }
-      gain.gain.setValueAtTime(track.muted ? 0 : track.volume, context.currentTime);
+      const target = track.muted ? 0 : track.volume;
+      const existing = gains.get(track.id);
+      // Новая шина ещё ничего не проводит: ставим значение сразу. Звучащую меняем коротким переходом.
+      if (!existing) { const gain = context.createGain(); gain.gain.value = target; gain.connect(master); gains.set(track.id, gain); }
+      else rampGain(existing.gain, target, context.currentTime);
     }
     for (const [id, gain] of gains) if (!manifest.tracks.some(track => track.id === id)) { gain.disconnect(); gains.delete(id); }
   }
