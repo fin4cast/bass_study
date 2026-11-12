@@ -418,4 +418,20 @@ markFullOnly(checks, [
   'native-hidden-tab-pauses-timed-route-and-return-requires-explicit-resume',
   'native-hidden-tab-cancels-cue-and-requires-new-complete-listen',
 ], FULL_ONLY.hiddenTab);
+markFullOnly(checks, [
+  'live-user-gesture-real-signal-and-completion-follow-actual-cue-clock',
+  'live-stop-in-rest-cancels-future-target-and-completion',
+  'live-three-restarts-do-not-complete-cancelled-cues',
+], FULL_ONLY.liveAudio);
+markFullOnly(checks, [
+  'pcm-reference-rest-target-A-minor-C',
+  'pcm-reference-rest-target-C-sharp-major-E-sharp',
+  'ui-labelled-study-and-revealed-answer-playback-do-not-create-score-events',
+  'ui-replay-is-counted-separately-from-first-answer-score',
+  'ui-stop-cancel-requires-a-new-full-listen-and-no-stale-completion',
+  'ui-ear-history-filter-counts-reload-and-backup-replacement-stay-separate',
+  'guided-route-shares-exact-material-and-links-screen-ear-results',
+  'route-card-preview-pauses-old-step-and-keeps-free-ear-unlinked-until-next',
+  'timed-route-five-second-checkpoint-preserves-history-field-focus-and-one-id',
+], FULL_ONLY.smoke);
 await runEarBrowserChecks(checks);

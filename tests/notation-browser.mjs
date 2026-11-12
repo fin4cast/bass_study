@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runNotationBrowserChecks } from './helpers/notation-browser-harness.mjs';
+import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
 const checks = [];
 const check = (name, scope, run) => checks.push({ name, scope, run });
@@ -257,4 +258,14 @@ check('built-dist-serves-exact-code-and-two-font-license-notices-locally', 'ui',
   return { licenses: results, fonts: await page.evaluate(() => [document.fonts.check('16px Bravura'), document.fonts.check('16px Academico')]) };
 });
 
+markFullOnly(checks, [
+  'real-audio-clock-fragment-cursor-count-in-pause-stop-with-one-player',
+], FULL_ONLY.liveAudio);
+markFullOnly(checks, [
+  'all-100-positions-high-G5-ledgers-stay-in-real-SVG-bounds',
+  'mobile-390-and-200-percent-scroll-stay-inside-page',
+  'built-app-one-shared-sequence-cursor-with-repeated-positions',
+  'built-app-fragment-uses-absolute-indices-across-repeated-passes',
+  'built-app-count-in-and-pulse-off-never-leak-notation-highlight',
+], FULL_ONLY.smoke);
 await runNotationBrowserChecks(checks);

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { runTracksBrowserChecks } from './helpers/tracks-browser-harness.mjs';
+import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
 const literal = JSON.parse(await readFile(fileURLToPath(new URL('./fixtures/backup.json', import.meta.url)), 'utf8'));
 const checks = [];
@@ -254,6 +255,12 @@ checks.push({ name: 'product-skips-one-damaged-record-keeps-database-and-offers-
   return { persistence, rawStores: Object.keys(dump.stores), rawVersion: dump.version };
 } });
 
+markFullOnly(checks, [
+  'native-real-v10-database-upgrades-to-empty-v11-and-product-persists',
+  'native-v10-upgrade-abort-after-recreating-stores-keeps-old-database-and-memory-mode',
+  'native-v11-cache-fresh-and-independent-raw-distinguish-external-commit-and-invalid-snapshot',
+  'native-v11-invalid-copy-preview-cancel-and-abort-after-successful-put-preserve-confirmed-snapshot',
+], FULL_ONLY.separateProcess);
 await runTracksBrowserChecks(checks, {
   scope: 'Schema 11: true native v10→11 upgrade to empty stores and its rollback, cached/fresh/independent raw IDB, metadata-only music bank strict restore. No memory substitute, no product test API, no audio/hardware claims.',
   reportFile: 'p10-music-bank-storage-edge.json',

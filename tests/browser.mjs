@@ -1,4 +1,5 @@
 import { browserRun, startBrowserBuild, writeBrowserReport } from './helpers/browser-runner.mjs';
+import { browserTier, FULL_ONLY } from './helpers/browser-case.mjs';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
@@ -41,7 +42,27 @@ const lastFret = () => page.getByLabel('Последний лад', { exact: tru
 const activePosition = () => page.evaluate(() => document.activeElement?.getAttribute('data-position'));
 const selectedPosition = () => page.locator('[data-position][aria-pressed="true"]').getAttribute('data-position');
 
+// Сценарии этого раннера выполняются сразу при вызове check, поэтому полный набор задаётся списком имён.
+const fullOnly = new Map([
+  'contextual-flat-and-sharp-spelling',
+  'restricted-string-and-fret-domain',
+  'inclusive-zero-twenty-four-and-upper-range',
+  'empty-filter-explains-and-recovers',
+  'same-height-different-string-and-octave',
+  'chromatic-position-is-selectable-and-context-is-explicit',
+  'labels-degrees-and-hidden-keep-accessible-position',
+  'root-and-selection-have-accessible-independent-states',
+  'keyboard-home-end-and-filtered-string-boundaries',
+  'narrow-viewport-scroll-and-last-fret-selection',
+].map(name => [name, FULL_ONLY.smoke]));
+const skippedChecks = [], seenFullOnly = new Set();
+
 async function check(name, operation) {
+  if (fullOnly.has(name)) {
+    seenFullOnly.add(name);
+    const { skipped } = browserTier([{ name, full: fullOnly.get(name) }]);
+    if (skipped.length) { skippedChecks.push(...skipped); console.log(`SKIP ${name}`); return; }
+  }
   const start = performance.now();
   try {
     // Every case specifies a fresh P2 baseline; persistence itself is tested in P5.
@@ -350,5 +371,7 @@ try {
   await cleanup('browser-context', async () => { await context?.close(); });
   await cleanup('browser', async () => { await browser?.close(); });
   await cleanup('local-server', async () => { await server?.close(); });
-  await writeBrowserReport(resultDir, 'p2-edge.json', report);
+  const unknown = [...fullOnly.keys()].filter(name => !seenFullOnly.has(name));
+  if (unknown.length && !report.setupError) report.setupError = `Сценарии полного набора не найдены: ${unknown.join(', ')}`;
+  await writeBrowserReport(resultDir, 'p2-edge.json', report, report.checks.length, skippedChecks);
 }

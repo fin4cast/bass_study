@@ -1,7 +1,7 @@
 /**
  * Режим набора: быстрый по умолчанию, полный — по `--full` или `BASS_FULL=1`.
- * Полный режим добавляет сценарии, помеченные `full: '<причина>'`: настоящие скрытые вкладки Edge через CDP
- * и визуальные матрицы на дополнительных ширинах. В быстром режиме они не исчезают, а попадают в отчёт как skipped.
+ * Полный режим добавляет сценарии, помеченные `full: '<причина>'` (см. FULL_ONLY). В быстром режиме они не исчезают,
+ * а попадают в отчёт как skipped с причиной.
  */
 export function suiteMode(argv = process.argv.slice(2), env = process.env) {
   if (argv.includes('--full')) return 'full';
@@ -19,13 +19,19 @@ export function browserTier(checks, mode = suiteMode()) {
   return {
     mode,
     checks: checks.filter(check => !check.full),
-    skipped: checks.filter(check => check.full).map(({ name, scope, full }) => ({ name, ...(scope ? { scope } : {}), status: 'skipped', reason: `Только полный набор: ${full}` })),
+    skipped: checks.filter(check => check.full).map(skippedCheck),
   };
 }
+
+export const skippedCheck = ({ name, scope, full }) => ({ name, ...(scope ? { scope } : {}), status: 'skipped', reason: `Только полный набор: ${full}` });
 
 export const FULL_ONLY = {
   hiddenTab: 'настоящая скрытая вкладка отдельного Edge через CDP',
   viewports: 'дополнительные ширины визуальной матрицы; типичная ширина в обеих темах проверяется в быстром наборе',
+  liveAudio: 'live-сигнал AudioContext в реальном времени; под нагрузкой параллельного пула нестабилен, PCM и UI раздела проверяются в быстром наборе',
+  separateProcess: 'отдельный процесс Edge (нативная IndexedDB в своём профиле или перезапуск браузера): долгий запуск',
+  unstable: 'нестабилен в RDP/под нагрузкой',
+  smoke: 'дымовой отбор: основные потоки раздела (загрузка, базовое действие, сохранение, ошибка) в быстром наборе покрыты другими сценариями',
 };
 
 /** Помечает сценарии полного набора по точным именам; неизвестное имя — ошибка, чтобы переименование не теряло отметку. */
@@ -33,6 +39,7 @@ export function markFullOnly(checks, names, reason) {
   for (const name of names) {
     const matches = checks.filter(check => check.name === name);
     if (matches.length !== 1) throw new Error(`Сценарий полного набора не найден однозначно: ${name}`);
+    if (matches[0].full) throw new Error(`Сценарий уже отнесён к полному набору: ${name}`);
     matches[0].full = reason;
   }
   return checks;

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runStorageBrowserChecks } from './helpers/storage-browser-harness.mjs';
 import { p12CompositionChecks } from './helpers/p12-composition-cases.mjs';
+import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
 const checks = [];
 const check = (name, run, options = {}) => checks.push({ name, run, ...options });
@@ -933,4 +934,20 @@ check('ui-unavailable-indexeddb-falls-back-to-explicit-memory-and-export', async
   return { explicitlyMemoryOnly: true, detailsOpenedByVisibleButton: true, reason, exportedRecords: exported.history.length, reloadClearedTemporaryHistory: true, nativePersistenceClaimed: false };
 }, { scope: 'ui', memory: true });
 
+markFullOnly(checks, [
+  'native-full-browser-process-restart-keeps-original-history-date',
+], FULL_ONLY.separateProcess);
+markFullOnly(checks, [
+  'composition-without-input-retains-unavailable-schema11-data',
+  'composition-without-ear-retains-unavailable-schema11-data',
+  'ui-finger-display-setting-survives-preset-reload-and-backup-restore',
+  'ui-draft-abort-still-downloads-confirmed-bytes-and-offers-retry',
+  'ui-restore-waits-for-successful-preliminary-writes-and-keeps-preview-for-retry',
+  'ui-preview-and-cancel-leave-active-practice-and-native-data-untouched',
+  'ui-restore-after-nonzero-practice-does-not-add-old-clock-to-imported-draft',
+  'ui-completed-screen-result-is-saved-once-and-survives-preference-changes',
+  'ui-lazy-history-opens-current-own-commits-and-partial-upsert-keeps-one-id',
+  'ui-manual-practice-has-self-report-source-and-consumes-duration',
+  'ui-history-filters-and-exact-error-review-subset-preserve-original-context',
+], FULL_ONLY.smoke);
 await runStorageBrowserChecks(checks);

@@ -161,4 +161,21 @@ check('native-real-hidden-tab-stops-all-tracks-and-return-needs-explicit-connect
 markFullOnly(checks, [
   'native-real-hidden-tab-stops-all-tracks-and-return-needs-explicit-connect',
 ], FULL_ONLY.hiddenTab);
+markFullOnly(checks, [
+  'ui-cancel-pending-native-acquisition-reaps-late-returned-tracks',
+], FULL_ONLY.unstable);
+markFullOnly(checks, [
+  'native-low-E1-WAV-keeps-sounding-octave',
+  'native-dominant-harmonic-WAV-retains-fundamental-or-refuses-ambiguity',
+  'native-500Hz-WAV-is-refused-outside-diagnostic-range',
+  'native-clipped-WAV-has-real-peak-and-clipping-flag',
+  'native-three-restarts-stop-and-dispose-release-every-acquired-track',
+  'native-unavailable-exact-device-fails-without-auto-retry',
+  'ui-first-open-and-return-do-not-claim-the-visible-section-is-closed',
+  'ui-device-selection-stops-current-input-and-requires-new-connect',
+  'ui-native-track-ended-event-releases-input-and-shows-explanation',
+  'ui-device-preferences-preset-reload-and-schema-five-restore-never-capture',
+  'ui-module-leave-stops-native-tracks-and-return-does-not-auto-connect',
+  'ui-noise-uncertainty-layout-and-non-grading-labels-are-visible',
+], FULL_ONLY.smoke);
 await runInputBrowserChecks(checks);

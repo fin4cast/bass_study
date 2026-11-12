@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runReleaseBrowserChecks } from './helpers/release-browser-harness.mjs';
+import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
 const checks = [];
 const check = (name, run, options = {}) => checks.push({ name, run, ...options });
@@ -472,4 +473,18 @@ check('local-production-server-refuses-busy-port-without-moving-origin', async (
   return { refused: true, refusal, originalOriginStillResponds: origin };
 }, { scope: 'ui' });
 
+markFullOnly(checks, [
+  'keyboard-only-full-practice-survives-browser-reopen-at-stable-origin',
+], FULL_ONLY.separateProcess);
+markFullOnly(checks, [
+  'genuine-v10-indexeddb-upgrades-to-v11-by-recreating-empty-stores',
+  'product-opens-real-v10-database-as-empty-persistent-v11-and-rejects-old-copy',
+  'chromatic-interval-mode-accepts-sharp-four-and-flat-five-by-height',
+  'revealed-interval-svg-and-feedback-use-contextual-enharmonic-names',
+  'inactive-invalid-tempo-ladder-does-not-block-ordinary-play-or-canonical-preferences',
+  'changing-active-quiz-count-archives-original-attempt-and-new-session-focuses-summary',
+  'manual-draft-keeps-old-material-and-merges-new-runs-without-double-counting',
+  'invalid-quiz-count-does-not-break-history-and-short-boards-stay-bounded',
+  'p12-sequence-retirement-saves-pending-note-before-next-writer',
+], FULL_ONLY.smoke);
 await runReleaseBrowserChecks(checks);

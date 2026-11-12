@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { runTrainingBrowserChecks } from './helpers/training-browser-harness.mjs';
+import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
 const checks = [];
 const check = (name, run) => checks.push({ name, run: async context => {
@@ -409,4 +410,20 @@ check('training-loads-locally-without-runtime-errors', async ({ page, resultDir,
   return { externalApplicationRequests: 0, pageErrors: [], screenshots: ['p3-quiz-desktop.png', 'p3-sequence-desktop.png'] };
 });
 
+markFullOnly(checks, [
+  'shown-answer-is-not-independent-correct',
+  'skipped-question-is-counted-separately',
+  'degree-question-uses-tonic-and-structure-context',
+  'empty-string-filter-does-not-create-impossible-question',
+  'empty-structure-intersection-explains-how-to-recover',
+  'configuration-change-ends-old-session-without-mixing-contexts',
+  'study-map-is-hidden-during-quiz-and-mode-change-ends-session',
+  'keyboard-can-answer-the-quiz-without-study-selection',
+  'sequence-deduplicates-height-and-uses-stable-string-priority',
+  'insufficient-sequence-explains-restriction-without-placeholder-player',
+  'selected-form-controls-exact-question-and-sequence-positions',
+  'answer-board-keeps-four-lettered-strings-when-only-E-is-available',
+  'interval-explicitly-uses-full-chromatic-range-and-keeps-spelling',
+  'advanced-and-route-disclosures-keep-user-state-through-renders',
+], FULL_ONLY.smoke);
 await runTrainingBrowserChecks(checks);

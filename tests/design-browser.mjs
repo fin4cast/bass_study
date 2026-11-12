@@ -675,4 +675,14 @@ markFullOnly(checks, [
   'approved-default-and-both-themes-at-four-other-widths',
   'default-desktop-fits-height-and-scroll-follows-explicit-disclosure-at-four-other-sizes',
 ], FULL_ONLY.viewports);
+markFullOnly(checks, [
+  'octave-semantics-independent-layers-and-shared-tonic',
+  'actual-picker-keyboard-focus-and-history-navigation',
+  'section-navigation-shares-styles-and-settings-panels-have-clear-edges',
+  'shared-visual-roles-across-the-six-sections',
+  'shared-form-and-disclosure-states',
+  'shared-lesson-result-metrics',
+  'explicit-route-start-repairs-invalid-display-before-quiz',
+  'notation-explicitly-reveals-offscreen-form-position-without-changing-material',
+], FULL_ONLY.smoke);
 await runNotationBrowserChecks(checks, { reportName: 'p9-design-edge.json', scope: 'Approved VIS-01 r5 with compact default shell: complete 46/18 fretboard, height-fit desktop, explicit disclosures, local photo, musical intervals/octaves and hidden quiz explorer. No physical bass or full WCAG certification.' });

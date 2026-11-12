@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runNotationBrowserChecks } from './helpers/notation-browser-harness.mjs';
+import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
 const checks = [];
 const check = (name, run) => checks.push({ name, scope: 'ui', run });
@@ -453,4 +454,13 @@ check('laptop-widths-show-board-by-500px-and-narrow-layout-uses-local-scroll', a
   return { evidence, zoom, zoomMethod: 'Actual CDP page scale (visual viewport/pinch zoom), not CSS zoom and not a claim about Edge desktop menu zoom.' };
 });
 
+markFullOnly(checks, [
+  'draft-note-autosaves-through-invalid-BPM-reload-save-and-confirmed-deletion',
+], FULL_ONLY.unstable);
+markFullOnly(checks, [
+  'themes-preserve-running-sequence-focus-and-authoritative-profile',
+  'imported-system-profile-survives-binary-chooser-and-corrupt-first-frame-cache',
+  'free-practice-choice-does-not-reopen-start-question-after-reload-or-restore',
+  'meaningful-SVG-labels-fingers-focus-notation-and-TAB-masks-have-actual-contrast',
+], FULL_ONLY.smoke);
 await runNotationBrowserChecks(checks, { reportName: 'p8-uiux-edge.json', scope: 'P8 actual product UI, themes and first frame, source contexts, guided introduction, exact boxes, persistent manual drafts, confirmation, sampled computed contrast, laptop widths and CDP page scale. Native IndexedDB is only read, media access is denied before capture, no physical bass/latency assessment.' });

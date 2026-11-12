@@ -413,6 +413,16 @@ markFullOnly(checks, [
   'product-native-tab-hide-pauses-and-return-waits-for-explicit-start',
 ], FULL_ONLY.hiddenTab);
 markFullOnly(checks, ['product-studio-scroll-and-both-themes-remain-visible-at-other-real-viewports'], FULL_ONLY.viewports);
+markFullOnly(checks, [
+  'product-independent-drums-live-volume-mute-solo-and-four-notation-states',
+], FULL_ONLY.liveAudio);
+markFullOnly(checks, [
+  'product-directory-search-pages-read-only-selected-file-and-no-full-catalogue-backup',
+  'product-studio-bindings-survive-foundation-shortcuts-and-full-preset-requires-rebind',
+  'product-pending-file-disables-old-mixer-and-cancel-retains-exact-context',
+  'product-module-switches-coordinate-bank-and-ear-audio-owners',
+  'product-engine-failure-keeps-committed-score-and-latest-selection-wins',
+], FULL_ONLY.smoke);
 const selection = browserCases(checks);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 inputs = await openMusicBankTestInputs(browserRun(root).resultDir);

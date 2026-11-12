@@ -349,4 +349,21 @@ check('native-hidden-tab-pauses-real-tracks-and-needs-explicit-resume', 'native'
 markFullOnly(checks, [
   'native-hidden-tab-pauses-real-tracks-and-needs-explicit-resume',
 ], FULL_ONLY.hiddenTab);
+markFullOnly(checks, [
+  'live-pause-seek-and-resume-keep-the-common-source-position-at-rate-one',
+  'live-mixing-keeps-common-clock-and-other-stem-running-without-a-restart',
+  'live-edit-guards-and-three-restarts-have-no-stale-sources-or-audible-tail',
+  'live-finite-end-is-actual-common-end-not-short-stem-end-or-lookahead',
+  'live-early-pause-and-disposal-cancel-voices-and-release-decoded-bindings',
+  'ui-live-mute-seek-pause-and-module-leave-preserve-one-common-timeline',
+], FULL_ONLY.liveAudio);
+markFullOnly(checks, [
+  'pcm-ab-is-half-open-and-two-loops-restart-both-stems-on-one-boundary',
+  'pcm-varispeed-changes-duration-and-pitch-without-claiming-time-stretch',
+  'count-type-source-size-clip-rate-and-manifest-errors-do-not-replace-valid-data',
+  'ui-exact-native-B-and-subsecond-fragment-show-hundredths-without-truncating-source',
+  'ui-set-A-and-B-here-captures-position-and-never-resumes-implicitly',
+  'ui-clear-names-the-loss-and-cancel-preserves-set-before-confirmation',
+  'ui-json-restore-stops-playback-and-requires-source-files-again',
+], FULL_ONLY.smoke);
 await runTracksBrowserChecks(checks);
