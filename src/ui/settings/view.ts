@@ -357,7 +357,13 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
     try { result = await options.onConfirmRestore(candidate); }
     catch (error) { result = { error: error instanceof Error ? error.message : 'неизвестная ошибка' }; }
     if (disposed || token !== dialogToken) return;
+    // Замена записана, но страницу нужно перезагрузить: оболочка стала inert. Модальный диалог внутри inert-области
+    // не отвечает и перехватывает указатель, закрывая путь к «Проверить снова» в баннере, поэтому он закрывается.
+    if (container.closest('[inert]')) { dialog.close(); return; }
     if (result && 'error' in result) { failure = result.error; showStep('failed'); return; }
+    // Восстановление применяет раздел из копии и может скрыть «Настройки»; модальный диалог в скрытом разделе
+    // оставил бы всю страницу инертной, поэтому он закрывается вместе с разделом.
+    if (container.hidden) { dialog.close(); return; }
     showStep('done');
   }
   function onDialogClick(event: MouseEvent) {
