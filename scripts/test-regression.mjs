@@ -16,7 +16,7 @@ const suites = [
   ['rhythm-browser', 'p10-rhythm-edge.json'], ['ear-browser', 'p7-ear-edge.json'], ['storage-browser', 'p5-edge.json'],
   ['release-browser', 'p6-edge.json'], ['audio-browser', 'p4-edge.json'],
   ['music-bank-browser', 'p10-music-bank-edge.json'], ['uiux-browser', 'p8-uiux-edge.json'], ['tracks-browser', 'p7-tracks-edge.json'],
-  ['design-browser', 'p9-design-edge.json'], ['training-browser', 'p3-edge.json'], ['browser', 'p2-edge.json'],
+  ['design-browser', 'p9-design-edge.json'], ['p13-browser', 'p13-edge.json'], ['training-browser', 'p3-edge.json'], ['browser', 'p2-edge.json'],
   ['notation-browser', 'p7-notation-edge.json'], ['music-bank-storage-browser', 'p10-music-bank-storage-edge.json'],
 ];
 // Захват fake-устройства в input анализируется в реальном времени: при занятом другими Edge процессоре сигнал рвётся
