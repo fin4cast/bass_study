@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { setTimeout as delay } from 'node:timers/promises';
 import { runNotationBrowserChecks } from './helpers/notation-browser-harness.mjs';
 import { markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 
@@ -148,102 +147,87 @@ check('real-audio-clock-fragment-cursor-count-in-pause-stop-with-one-player', 'f
   return { countIn: { phase: countIn.snapshot.phase, active: 0 }, ...rows };
 });
 
-async function setupApp(page, { pattern = 'ascending', countIn = false, duration = 'eighth' } = {}) {
-  await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
-  const free = page.locator('[data-intro="free"]'); if (await free.isVisible()) await free.click();
-  const area = page.locator('#area-settings'); if (!await area.evaluate(element => element.open)) await area.locator(':scope > summary').click();
-  await page.getByLabel('Тоника', { exact: true }).selectOption('C'); await page.getByLabel('Структура', { exact: true }).selectOption('major');
-  await page.getByLabel('Первый лад', { exact: true }).fill('0'); await page.getByLabel('Первый лад', { exact: true }).press('Tab');
-  await page.getByLabel('Последний лад', { exact: true }).fill('3'); await page.getByLabel('Последний лад', { exact: true }).press('Tab');
-  for (const string of ['E', 'A', 'D', 'G']) await page.getByRole('checkbox', { name: `Струна ${string}`, exact: true }).setChecked(string === 'E');
-  const contexts = await page.evaluate(() => window.__notationAudioContexts.length);
-  await page.locator('[data-training-mode="sequence"]').click(); await page.getByLabel('Материал последовательности', { exact: true }).selectOption('chromatic');
-  await page.getByLabel('Порядок последовательности', { exact: true }).selectOption(pattern);
-  assert.ok(await page.locator('.fretboard-section').isVisible(), 'The sequence opens on its fretboard view.');
-  assert.ok(await page.locator('#notation-mount').isHidden());
-  await page.locator('[data-sequence-view="notation"]').click();
-  await page.locator('#notation-mount [data-notation-index="0"]').first().waitFor();
-  assert.equal(await page.evaluate(() => window.__notationAudioContexts.length), contexts, 'Showing notation created another audio context.');
-  const bpm = page.locator('#player-mount').getByLabel('Темп, BPM', { exact: true });
-  await page.getByLabel('Длительность нот', { exact: true }).selectOption(duration);
-  await bpm.fill('120'); await bpm.press('Tab');
-  await page.getByLabel('Отсчёт перед стартом', { exact: true }).setChecked(countIn); await page.locator('#player-mount').getByLabel('Повтор', { exact: true }).selectOption('infinite');
-  return contexts;
+// Экран игры (P13-03/P13-08): нотная запись приложения — SVG-TAB по плану `createNotationPlan`; нотный стан VexFlow
+// проверяется изолированной fixture выше. Курсор TAB, текущая нота на грифе и текст прогресса — одна общая позиция.
+const playScene = page => page.locator('[data-lesson-screen="play"] .pl-scene');
+const playStatus = (page, status, timeout = 10000) => page.waitForFunction(value => document.querySelector('[data-lesson-screen="play"] .pl-scene')?.dataset.status === value, status, { timeout });
+async function openLibraryExercise(page, title, view) {
+  await page.waitForFunction(() => document.querySelector('[data-lesson-screen="home"] .ls-plan, [data-lesson-screen="home"] .ls-hero'), null, { timeout: 20000 });
+  const home = page.locator('[data-lesson-screen="home"]');
+  await home.getByRole('tab', { name: /^Библиотека/ }).click();
+  await home.getByRole('button', { name: `Играть: ${title}`, exact: true }).click();
+  await playScene(page).locator('[data-title]').waitFor();
+  assert.equal(await playScene(page).locator('[data-title]').innerText(), title);
+  await playScene(page).locator(`[data-view="${view}"]`).click();
+  await playScene(page).locator(`[data-view="${view}"][aria-pressed="true"]`).waitFor();
 }
-async function appSamples(page, milliseconds = 1300) {
+/** Снимки по кадрам: номер из текста прогресса, курсор TAB и текущая позиция на грифе вида «TAB и гриф». */
+async function playSamples(page, milliseconds) {
   return page.evaluate(async ms => {
     const rows = [], started = performance.now();
+    const scene = document.querySelector('[data-lesson-screen="play"] .pl-scene');
     while (performance.now() - started < ms) {
-      const player = document.querySelector('#player-mount'), index = player.dataset.noteIndex, position = player.dataset.currentPosition;
-      if (position) rows.push({ index: Number(index), position, board: [...document.querySelectorAll('#fretboard-container .position.is-playing')].map(group => group.dataset.position),
-        route: [...document.querySelectorAll('.sequence-route li.is-playing')].map(item => Number(item.dataset.sequenceIndex)),
-        notation: [...document.querySelectorAll('#notation-mount .notation-note.is-playing')].map(group => [Number(group.dataset.notationIndex), group.dataset.notationPosition]) });
+      const match = /Нота (\d+) из (\d+)/.exec(scene.querySelector('[data-progress-text]').textContent);
+      const tab = [...scene.querySelectorAll('[data-tab="both"] .pl-tab-fret.is-current')].map(text => ({ index: Number(text.dataset.index), id: `${text.dataset.string}:${text.textContent}` }));
+      rows.push({ status: scene.dataset.status, note: match ? Number(match[1]) : null, tab, cursors: scene.querySelectorAll('[data-tab="both"] .pl-tab-cursor').length,
+        board: [...scene.querySelectorAll('[data-board="both"] .pl-note.is-current')].map(group => group.dataset.position) });
       await new Promise(resolve => requestAnimationFrame(resolve));
     }
     return rows;
   }, milliseconds);
 }
-function consistent(rows) {
-  assert.ok(rows.length > 10);
-  for (const row of rows) { assert.deepEqual(row.board, [row.position]); assert.deepEqual(row.route, [row.index]); assert.deepEqual(row.notation, [[row.index, row.position], [row.index, row.position]]); }
-}
-const appAction = (page, name) => page.locator(`[data-player-action="${name}"]`);
 
-check('built-app-three-score-arrows-keep-focus-enter-and-return-are-explicit', 'ui', async ({ page }) => {
-  await setupApp(page);
-  await note(page, 0).focus();
-  const rows = [];
-  for (const expected of [1, 2, 3]) {
-    await page.keyboard.press('ArrowRight');
-    const actual = await page.evaluate(() => ({ index: document.activeElement?.dataset.notationIndex, inScore: !!document.activeElement?.closest('#notation-mount'), visible: !document.querySelector('#notation-mount').hidden, boardVisible: !document.querySelector('.fretboard-section').hidden }));
-    assert.equal(actual.index, String(expected)); assert.equal(actual.inScore, true); assert.equal(actual.visible, true); assert.equal(actual.boardVisible, false); rows.push(actual);
+check('built-app-play-tab-frets-count-labels-and-bar-lines-follow-the-exercise', 'ui', async ({ page }) => {
+  await openLibraryExercise(page, 'Хроматика 1-2-3-4 в позиции', 'both');
+  const tab = await playScene(page).locator('[data-tab="both"] svg').evaluate(svg => ({
+    label: svg.getAttribute('aria-label'),
+    frets: [...svg.querySelectorAll('.pl-tab-fret')].map(text => ({ index: Number(text.dataset.index), string: text.dataset.string, fret: Number(text.textContent) })),
+    counts: [...svg.querySelectorAll('.pl-tab-count')].map(text => text.textContent),
+    bars: [...svg.querySelectorAll('[data-bar-line]')].map(line => Number(line.dataset.barLine)),
+    strings: [...svg.querySelectorAll('.pl-tab-string')].map(text => text.textContent),
+    cursors: svg.querySelectorAll('.pl-tab-cursor').length,
+  }));
+  // Независимо: пальцы 1-2-3-4 на ладах 5–8 по струнам E, A, D, G — шестнадцать восьмых, два такта 4/4.
+  const expected = ['E', 'A', 'D', 'G'].flatMap(string => [5, 6, 7, 8].map(fret => ({ string, fret })));
+  assert.deepEqual(tab.frets.map(({ string, fret }) => ({ string, fret })), expected);
+  assert.deepEqual(tab.frets.map(item => item.index), expected.map((_, index) => index));
+  assert.deepEqual(tab.counts, Array.from({ length: 2 }, () => ['1', 'и', '2', 'и', '3', 'и', '4', 'и']).flat());
+  assert.deepEqual(tab.bars, [1]); assert.deepEqual(tab.strings, ['G', 'D', 'A', 'E']);
+  assert.equal(tab.cursors, 0, 'До старта курсора нет'); assert.equal(tab.label, 'Табулатура, такты 1–2');
+  assert.match(await playScene(page).locator('[data-sub]').innerText(), /^16 восьмых · 2 такта/);
+  return tab;
+});
+
+check('built-app-play-one-shared-cursor-for-tab-board-and-progress-with-repeated-positions', 'ui', async ({ page }) => {
+  await openLibraryExercise(page, 'Группы по три', 'both');
+  assert.equal(await playScene(page).locator('[data-flag="countIn"]').getAttribute('aria-pressed'), 'true');
+  await playScene(page).locator('[data-play]').click();
+  await playStatus(page, 'counting');
+  const counting = await playSamples(page, 300);
+  assert.ok(counting.filter(row => row.status === 'counting').every(row => !row.tab.length && !row.cursors && !row.board.length), 'В отсчёте нет курсора нот');
+  await playStatus(page, 'playing');
+  const rows = (await playSamples(page, 2600)).filter(row => row.status === 'playing' && row.note);
+  assert.ok(rows.length > 20, `Снимков игры: ${rows.length}`);
+  for (const row of rows) {
+    assert.equal(row.tab.length, 1, JSON.stringify(row)); assert.equal(row.cursors, 1);
+    assert.equal(row.tab[0].index, row.note - 1, `TAB и прогресс: ${JSON.stringify(row)}`);
+    assert.deepEqual(row.board, [row.tab[0].id], `Гриф и TAB: ${JSON.stringify(row)}`);
   }
-  await page.keyboard.press('Enter');
-  assert.ok(await page.locator('.fretboard-section').isVisible());
-  assert.equal(await page.evaluate(() => document.activeElement?.dataset.position), 'E:3');
-  await page.getByRole('button', { name: 'Вернуться к выбранной ноте в записи', exact: true }).click();
-  assert.ok(await page.locator('#notation-mount').isVisible());
-  assert.equal(await page.evaluate(() => document.activeElement?.dataset.notationIndex), '3');
-  return { rows, explicitBoardPosition: 'E:3', restoredScoreIndex: 3 };
-});
-
-check('built-app-one-shared-sequence-cursor-with-repeated-positions', 'ui', async ({ page, resultDir }) => {
-  const initialContexts = await setupApp(page, { pattern: 'groups-of-three' });
-  assert.deepEqual(await page.locator('.sequence-route li').evaluateAll(items => items.map(item => item.dataset.sequencePosition)), ['E:0', 'E:1', 'E:2', 'E:1', 'E:2', 'E:3']);
-  await appAction(page, 'start').click(); await page.waitForSelector('#notation-mount .notation-note.is-playing');
-  const rows = await appSamples(page, 1700); consistent(rows); assert.ok(new Set(rows.map(row => row.index)).size >= 5);
-  assert.ok(await page.evaluate(() => window.__notationAudioContexts.length) <= initialContexts + 1);
-  await page.screenshot({ path: join(resultDir, 'p7-notation-app-playing.png'), fullPage: true });
-  await appAction(page, 'pause').click(); assert.equal(await page.locator('#notation-mount .notation-note.is-playing').count(), 0);
-  await appAction(page, 'resume').click(); await page.waitForSelector('#notation-mount .notation-note.is-playing');
-  await appAction(page, 'stop').click(); assert.equal(await page.locator('#notation-mount .notation-note.is-playing').count(), 0); return { rows, screenshot: 'test-results/p7-notation-app-playing.png' };
-});
-
-check('built-app-fragment-uses-absolute-indices-across-repeated-passes', 'ui', async ({ page }) => {
-  await setupApp(page, { pattern: 'groups-of-three' });
-  await page.getByLabel('Первая нота фрагмента', { exact: true }).fill('2'); await page.getByLabel('Последняя нота фрагмента', { exact: true }).fill('4');
-  await appAction(page, 'start').click(); await page.waitForSelector('#notation-mount .notation-note.is-playing');
-  assert.match(await page.getByTestId('notation-fragment').innerText(), /ноты 2–4.*обе границы включены.*счёт метронома продолжается/);
-  assert.deepEqual(await page.locator('#notation-mount [data-notation-view="staff"].outside-fragment').evaluateAll(nodes => nodes.map(node => Number(node.dataset.notationIndex))), [0, 4, 5]);
-  assert.equal(await note(page, 1).getAttribute('data-fragment-boundary'), 'start');
-  assert.equal(await note(page, 3).getAttribute('data-fragment-boundary'), 'end');
-  assert.match(await page.getByTestId('notation-playback').innerText(), /Звучащий такт.*доля.*повтор/);
-  const rows = await appSamples(page, 1700); consistent(rows);
-  assert.deepEqual([...new Set(rows.map(row => row.index))].sort(), [1, 2, 3]);
-  await appAction(page, 'stop').click(); return { indices: [1, 2, 3], rows };
-});
-
-check('built-app-count-in-and-pulse-off-never-leak-notation-highlight', 'ui', async ({ page }) => {
-  await setupApp(page, { countIn: true }); await appAction(page, 'start').click();
-  await page.waitForFunction(() => document.querySelector('#player-mount').dataset.playerState === 'running');
-  assert.equal(await page.locator('#player-mount').getAttribute('data-player-phase'), 'count-in'); assert.equal(await page.locator('#notation-mount .notation-note.is-playing').count(), 0);
-  await appAction(page, 'pause').click(); assert.equal(await page.locator('#notation-mount .notation-note.is-playing').count(), 0);
-  await appAction(page, 'resume').click(); await page.waitForSelector('#notation-mount .notation-note.is-playing', { timeout: 5000 });
-  await appAction(page, 'stop').click();
-  await page.getByLabel('Отсчёт перед стартом', { exact: true }).uncheck(); await page.getByLabel('Показывать пульс', { exact: true }).uncheck(); await appAction(page, 'start').click();
-  await page.waitForFunction(() => document.querySelector('#player-mount').dataset.playerPhase === 'practice'); await delay(400);
-  assert.equal(await page.locator('#notation-mount .notation-note.is-playing').count(), 0); await appAction(page, 'stop').click();
-  return { noHighlightDuringCountInPauseOrPulseOff: true };
+  const indices = [...new Set(rows.map(row => row.tab[0].index))];
+  assert.ok(indices.length >= 4, `Курсор прошёл ноты ${indices.join(',')}`);
+  const byIndex = new Map(rows.map(row => [row.tab[0].index, row.tab[0].id]));
+  // Группы по три повторяют позиции (n+1, n+2 в следующей группе): курсор — по номеру события, а не по позиции.
+  assert.ok(byIndex.has(1) && byIndex.has(3), `Курсор прошёл события 1 и 3: ${indices.join(',')}`);
+  assert.equal(byIndex.get(1), byIndex.get(3), 'Повторная позиция — отдельное событие TAB');
+  await page.keyboard.press('Space');
+  await playStatus(page, 'paused');
+  const paused = await playSamples(page, 400);
+  assert.equal(new Set(paused.map(row => row.tab[0]?.index)).size, 1, 'Пауза держит курсор на месте');
+  await page.keyboard.press('Escape');
+  await playStatus(page, 'stopped');
+  const stopped = await playSamples(page, 200);
+  assert.ok(stopped.every(row => !row.tab.length && !row.board.length), 'После «С начала» курсора нет');
+  return { indices, repeated: { index1: byIndex.get(1), index3: byIndex.get(3) }, pausedAt: paused[0].tab[0]?.index };
 });
 
 check('built-dist-serves-exact-code-and-two-font-license-notices-locally', 'ui', async ({ page, root, origin }) => {
@@ -254,8 +238,7 @@ check('built-dist-serves-exact-code-and-two-font-license-notices-locally', 'ui',
     const actual = await response.text(); assert.equal(actual, expected); assert.match(actual, name.startsWith('vexflow') ? /Permission is hereby granted, free of charge/ : /SIL OPEN FONT LICENSE Version 1.1/);
     results.push({ name, bytes: Buffer.byteLength(actual) });
   }
-  await setupApp(page); assert.ok(await page.locator('#notation-mount .notation-svg').count());
-  return { licenses: results, fonts: await page.evaluate(() => [document.fonts.check('16px Bravura'), document.fonts.check('16px Academico')]) };
+  return { licenses: results };
 });
 
 markFullOnly(checks, [
@@ -264,8 +247,6 @@ markFullOnly(checks, [
 markFullOnly(checks, [
   'all-100-positions-high-G5-ledgers-stay-in-real-SVG-bounds',
   'mobile-390-and-200-percent-scroll-stay-inside-page',
-  'built-app-one-shared-sequence-cursor-with-repeated-positions',
-  'built-app-fragment-uses-absolute-indices-across-repeated-passes',
-  'built-app-count-in-and-pulse-off-never-leak-notation-highlight',
+  'built-app-play-one-shared-cursor-for-tab-board-and-progress-with-repeated-positions',
 ], FULL_ONLY.smoke);
 await runNotationBrowserChecks(checks);

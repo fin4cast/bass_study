@@ -14,7 +14,7 @@ export async function runNotationBrowserChecks(allChecks, suite = {}) {
   let fixtureUrl;
   const { resultDir, reuseRequested } = config;
   const report = { generatedAt: new Date().toISOString(), platform: process.platform, node: process.version, browserChannel: 'msedge', browserVersion: null,
-    scope: suite.scope ?? 'R018 independent real SVG geometry/glyphs, local bundled fonts, keyboard/mobile/zoom and existing sequence audio cursor; synthetic notes, no physical bass assessment.',
+    scope: suite.scope ?? 'R018 independent real SVG geometry/glyphs, local bundled fonts, keyboard/mobile/zoom and the shared player cursor in the isolated VexFlow fixture; built-app play-screen TAB (frets, count labels, bar lines) and one shared cursor for TAB, board and progress; synthetic notes, no physical bass assessment.',
     origin, fixtureOrigin, staticServer: { reuseRequested, owned: false, mode: 'not-started' },
     networkIsolation: 'Fresh Edge contexts, cache disabled, non-loopback HTTP denied; no user browser profile or hardware microphone.',
     checks: [], externalRequests: [], pageErrors: [], cleanupErrors: [] };

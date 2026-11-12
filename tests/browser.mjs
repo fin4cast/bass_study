@@ -41,6 +41,12 @@ const firstFret = () => page.getByLabel('Первый лад', { exact: true });
 const lastFret = () => page.getByLabel('Последний лад', { exact: true });
 const activePosition = () => page.evaluate(() => document.activeElement?.getAttribute('data-position'));
 const selectedPosition = () => page.locator('[data-position][aria-pressed="true"]').getAttribute('data-position');
+/** Стартовый раздел оболочки P13 — «Занятие»; атлас «Гриф» открывается из меню. */
+async function openAtlas() {
+  await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false' && !document.querySelector('main').inert);
+  await page.locator('.site-header [data-app-module="foundation"]').click();
+  await page.waitForSelector('[data-position="E:5"]');
+}
 
 // Сценарии этого раннера выполняются сразу при вызове check, поэтому полный набор задаётся списком имён.
 const fullOnly = new Map([
@@ -70,8 +76,7 @@ async function check(name, operation) {
     ({ ctx: context, nextPage: page } = await newContext());
     await page.setViewportSize({ width: 1280, height: 950 });
     await page.goto(origin);
-    await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
-    await page.waitForSelector('[data-position="E:5"]');
+    await openAtlas();
     await revealControl(firstFret());
     // P2 retains its explicit free-map baseline; P8 tests the new default form.
     await page.getByLabel('Учебная форма', { exact: true }).selectOption('');
@@ -158,6 +163,24 @@ try {
     assert.equal(await at('E:5').getAttribute('data-midi'), '33');
     assert.match(await detail().innerText(), /A1/);
     return { positions: 52, range: [0, 12], selected: 'E:5', selectedMidi: 33 };
+  });
+
+  await check('atlas-has-no-task-tabs-player-or-score-and-bridges-need-a-form', async () => {
+    // P13-08: атлас без вкладок «Задания»/«Последовательности», проигрывателя и нотации; звук здесь не начинается.
+    for (const selector of ['#training-mount', '#player-mount', '#notation-mount', '[data-player-action]', '[data-training-action]']) {
+      assert.equal(await page.locator(selector).count(), 0, selector);
+    }
+    assert.equal(await page.locator('[data-page-frame="foundation"] [role="tab"]').count(), 0);
+    const play = page.getByRole('button', { name: 'Сыграть эту форму', exact: true });
+    const checkForm = page.getByRole('button', { name: 'Проверь себя по этой форме', exact: true });
+    assert.equal(await play.isDisabled(), true); assert.equal(await checkForm.isDisabled(), true);
+    const reason = await page.locator('#atlas-bridge-note').innerText();
+    assert.match(reason, /Выбери учебную форму/);
+    assert.equal(await play.getAttribute('aria-describedby'), 'atlas-bridge-note');
+    await page.getByLabel('Учебная форма', { exact: true }).selectOption({ index: 1 });
+    assert.equal(await play.isDisabled(), false); assert.equal(await checkForm.isDisabled(), false);
+    assert.doesNotMatch(await page.locator('#atlas-bridge-note').innerText(), /Выбери учебную форму/);
+    return { removedMounts: 0, freeRangeReason: reason, formEnablesBridges: true };
   });
 
   await check('contextual-flat-and-sharp-spelling', async () => {
@@ -343,8 +366,7 @@ try {
     await context.close(); context = null;
     ({ ctx: context, nextPage: page } = await newContext());
     await page.goto(origin);
-    await page.waitForSelector('[data-position="E:5"]');
-    await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
+    await openAtlas();
     assert.equal(await positions().count(), 52);
     assert.match(await page.locator('#box-select option:checked').innerText(), /^Форма A/);
     assert.equal(await firstFret().inputValue(), '0'); assert.equal(await lastFret().inputValue(), '12');
