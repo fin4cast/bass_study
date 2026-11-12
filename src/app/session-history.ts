@@ -12,17 +12,21 @@ export function createSessionHistory(options: {
   failure(message: string): void;
 }) {
   let quizIds = new WeakMap<object, HistoryMetadata>();
+  /** Удалённые записи: продолжение той же серии не воскрешает запись. */
+  const deleted = new Set<string>();
 
   return {
     screen(session: QuizSession) {
       if (!options.canPublish()) return;
       const value = quizIds.get(session.questions) ?? metadata();
       quizIds.set(session.questions, value);
+      if (deleted.has(value.id)) return;
       try {
         const entry = makeScreenHistory(session, value);
         if (entry) options.save(entry);
       } catch (failure) { options.failure(`Результат не сохранён: ${failure instanceof Error ? failure.message : String(failure)}`); }
     },
-    reset() { quizIds = new WeakMap(); },
+    markDeleted(id: string) { deleted.add(id); },
+    reset() { quizIds = new WeakMap(); deleted.clear(); },
   };
 }

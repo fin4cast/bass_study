@@ -10,10 +10,10 @@ import { dateTicks, markerSvg, placeByDate, sparkSvg, sparkText, tempoChartSvg, 
 const spec = createExerciseSpec('connect-forms');
 let clock = 0;
 const play = (localDate: string, exerciseKey: string, bpm: number, assessment: PlayRecord['assessment'], minutes = 5, title = exerciseKey): PlayRecord => ({
-  kind: 'play', exerciseKey, title, spec, assessment, bpm, activeMs: minutes * 60_000, localDate, occurredAt: `${localDate}T10:00:${String(clock++ % 60).padStart(2, '0')}.000Z`,
+  kind: 'play', id: `p${clock}`, exerciseKey, title, spec, assessment, bpm, activeMs: minutes * 60_000, localDate, occurredAt: `${localDate}T10:00:${String(clock++ % 60).padStart(2, '0')}.000Z`,
 });
 const check = (localDate: string, exerciseKey: string, answers: CheckRecord['answers'], minutes = 4, title = exerciseKey): CheckRecord => ({
-  kind: 'check', exerciseKey, title, answers, activeMs: minutes * 60_000, localDate, occurredAt: `${localDate}T12:00:${String(clock++ % 60).padStart(2, '0')}.000Z`,
+  kind: 'check', id: `c${clock}`, exerciseKey, title, answers, activeMs: minutes * 60_000, localDate, occurredAt: `${localDate}T12:00:${String(clock++ % 60).padStart(2, '0')}.000Z`,
 });
 const TODAY = '2026-11-12';
 const records: PracticeRecord[] = [

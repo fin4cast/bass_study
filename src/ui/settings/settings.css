@@ -153,3 +153,9 @@
   .p13-settings .st-layout { grid-template-columns: minmax(0, 1fr); }
   .p13-settings .st-tabs { position: static; }
 }
+
+/* Сырая копия базы: предупреждение при пропущенных записях или «Подробнее» */
+.p13-settings .st-raw:empty { display: none; }
+.p13-settings .st-more { gap: 10px; padding: 12px 20px; }
+.p13-settings .st-more summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.p13-settings .st-more[open] summary { color: var(--text-primary); }

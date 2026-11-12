@@ -10,6 +10,8 @@ export const ASSESSMENT_LABELS: Readonly<Record<Assessment, string>> = Object.fr
 
 export interface PlayRecord {
   readonly kind: 'play';
+  /** ID записи истории — для удаления. */
+  readonly id: string;
   readonly exerciseKey: string;
   readonly title: string;
   readonly spec: ExerciseSpec;
@@ -23,6 +25,7 @@ export interface PlayRecord {
 export type CheckOutcome = 'correct' | 'corrected' | 'revealed' | 'skipped' | 'unanswered';
 export interface CheckRecord {
   readonly kind: 'check';
+  readonly id: string;
   readonly exerciseKey: string;
   readonly title: string;
   readonly activeMs: number;
@@ -31,8 +34,28 @@ export interface CheckRecord {
   /** Ступень вопроса (например, «b7») и исход; ошибки — число неверных ответов до верного. */
   readonly answers: readonly { readonly degree: string; readonly outcome: CheckOutcome; readonly errors: number }[];
 }
-export type PracticeRecord = PlayRecord | CheckRecord;
+/** Где сделана ручная отметка без упражнения: «Гриф» (изучение, последовательность) или «Ритм». */
+export type ManualArea = 'fretboard' | 'rhythm';
+/**
+ * Ручная отметка «Грифа» или «Ритма»: свой темп, время под звук и заметка, без самооценки прохода.
+ * Входит в минуты по дням и записи дня, но не в лучший темп упражнений и не в трудные места.
+ */
+export interface ManualRecord {
+  readonly kind: 'manual';
+  readonly id: string;
+  readonly area: ManualArea;
+  readonly title: string;
+  /** Комфортный темп, который отметил человек. */
+  readonly bpm: number;
+  readonly activeMs: number;
+  readonly note: string;
+  readonly localDate: string;
+  readonly occurredAt: string;
+}
+export type PracticeRecord = PlayRecord | CheckRecord | ManualRecord;
 export type SourceFilter = 'play' | 'check' | 'all';
+/** Источник записи для фильтра: ручные отметки — тоже самооценка игры. */
+export const recordSource = (record: PracticeRecord): 'play' | 'check' => (record.kind === 'check' ? 'check' : 'play');
 
 export interface ExerciseProgress {
   readonly exerciseKey: string;
@@ -120,11 +143,11 @@ export function difficulties(records: readonly PracticeRecord[]): readonly Diffi
   return Object.freeze(result.map(item => Object.freeze(item)));
 }
 
-/** Активные минуты по локальным датам для выбранного источника. */
+/** Активные минуты по локальным датам для выбранного источника (ручные отметки — в «Игре»). */
 export function minutesByDay(records: readonly PracticeRecord[], source: SourceFilter = 'all'): ReadonlyMap<string, number> {
   const totals = new Map<string, number>();
   for (const record of records) {
-    if (source !== 'all' && record.kind !== source) continue;
+    if (source !== 'all' && recordSource(record) !== source) continue;
     totals.set(record.localDate, (totals.get(record.localDate) ?? 0) + record.activeMs);
   }
   return new Map([...totals].sort(([a], [b]) => a.localeCompare(b)).map(([date, ms]) => [date, Math.round(ms / 60000)]));

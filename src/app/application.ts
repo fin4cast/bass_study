@@ -3,17 +3,17 @@ import { mountRhythm, type RhythmLibrary, type RhythmLibraryOperation } from '..
 import { DEFAULT_RHYTHM_PREFERENCES } from '../rhythm/model';
 import { mountStudio } from '../ui/studio';
 import { mountInput } from '../ui/input';
-import { mountProgress, type ProgressView } from '../ui/progress/view';
+import { mountProgress, type ProgressActionResult, type ProgressView } from '../ui/progress/view';
 import { mountSettings, type SettingsView } from '../ui/settings/view';
 import type { BackupChoice, BackupCounts, SaveStatus, SectionId, SettingsState } from '../ui/settings/model';
 import { mountReferencePanel } from '../ui/reference/panel';
 import { onPageVisibility } from '../ui/page-visibility';
 import type { ExerciseSpec } from '../exercises';
-import { practiceRecords } from '../practice/history';
+import { fretboardReview, practiceRecords, type FretboardReview } from '../practice/history';
 import { validateUserExercise, type UserExercise } from '../practice/library';
 import type { PracticeRecord } from '../practice/results';
 import {
-  createStudyStore, createMemoryStudyStore, describeSkippedRecords, DEFAULT_PROFILE, MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError,
+  createStudyStore, createMemoryStudyStore, describeSkippedRecords, exportRawDatabase, DEFAULT_PROFILE, MAX_BACKUP_BYTES, STUDY_SCHEMA_VERSION, StudyStorageError,
   type AppPreferences, type GlobalProfile, type HistoryCommit, type HistoryEntry, type PreparedStudyImport, type StudySnapshot,
 } from '../storage';
 import { version as APP_VERSION } from '../../package.json';
@@ -33,6 +33,7 @@ import { createPracticeContext, rhythmPracticeBinding } from './practice-context
 import { createSectionAudio, type AppSections } from './sections';
 import { createLessonSection } from './lesson-section';
 import { describeProgressRow, fromPlayDefaults, toPlayDefaults } from './lesson-flow';
+import { draftEditBpm, draftViews, reviewView, withoutHistoryEntry } from './progress-flow';
 import { acquireWriterLease } from './writer-lock';
 
 const message = (failure: unknown) => failure instanceof Error ? failure.message : String(failure);
@@ -66,7 +67,17 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
   /** Подтверждённая история и свои упражнения: из снимка при старте, дальше — только закоммиченные записи. */
   let historyEntries: HistoryEntry[] = [];
   let records: readonly PracticeRecord[] = [];
+  /**
+   * Повтор ошибок заданий «Грифа» из той же подтверждённой истории. Считается лениво — при показе «Прогресса»
+   * или «Повторить», а не после каждого экранного ответа; `undefined` — нужно пересчитать.
+   */
+  let review: FretboardReview | null | undefined;
+  const currentReview = () => (review === undefined ? (review = fretboardReview(historyEntries)) : review);
   let userExercises: readonly UserExercise[] = [];
+  /** Черновик последнего занятия на «Грифе» или в «Ритме» — первым в блоке «Не сохранено». */
+  let progressDraftId: string | null = null;
+  /** Видимые ошибки действий с черновиками; исчезают после успешного повтора записи. */
+  const draftErrors = new Map<string, string>();
   let store: ReturnType<typeof createStudyStore> | ReturnType<typeof createMemoryStudyStore> = createStudyStore();
   let persistent = true;
   let applyingPreferences = true;
@@ -100,7 +111,11 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     },
   });
   const showPersistenceStatus = status.show;
-  const writes = createWriteQueue(value => status.setWriteState(value));
+  const writes = createWriteQueue(value => {
+    status.setWriteState(value);
+    // Повтор прошёл: ошибок записи нет, и ошибки черновиков больше не актуальны.
+    if (!value.failures.length && value.pending === 0 && draftErrors.size) { draftErrors.clear(); refreshDrafts(); }
+  });
   byId('open-storage-details').addEventListener('click', status.toggleDetails, listen);
   const theme = createThemeController({ onChange(value) { setProfile({ ...profile, theme: value }); refreshSettings(); } });
   function setProfile(value: GlobalProfile) {
@@ -114,8 +129,8 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
   function enableHeader(enabled: boolean) { appShell.querySelectorAll<HTMLButtonElement>('.site-header button').forEach(button => { button.disabled = !enabled; }); }
   appShell.querySelectorAll<HTMLButtonElement>('.site-header [data-theme-choice]').forEach(button => button.addEventListener('click', () => { const value = button.dataset.themeChoice; if (value === 'light' || value === 'dark') theme.setPreference(value); }, listen));
   const drafts = createPracticeDrafts({ getStore: () => store, write: (operation, key) => writes.run(operation, key), supersede: key => writes.supersede(key), resolveSuperseded: key => writes.resolveSuperseded(key),
-    onCommit() { showPersistenceStatus(); refreshSettings(); }, onEntry(entry, linkedRoute) { publishHistoryCommit({ entry, linkedRoute }); },
-    onChange() { showPersistenceStatus(); },
+    onCommit() { showPersistenceStatus(); refreshSettings(); refreshDrafts(); }, onEntry(entry, linkedRoute) { publishHistoryCommit({ entry, linkedRoute }); },
+    onChange() { showPersistenceStatus(); refreshDrafts(); },
   });
   const practice = createPracticeContext({
     drafts,
@@ -134,8 +149,12 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
 
   function applyStudyData(snapshot: StudySnapshot) {
     historyEntries = [...snapshot.history];
-    records = practiceRecords(historyEntries);
+    deriveFromHistory();
     userExercises = snapshot.exercises;
+  }
+  function deriveFromHistory() {
+    records = practiceRecords(historyEntries);
+    review = undefined;
   }
 
   async function changeRhythmLibrary(operation: RhythmLibraryOperation, onCommit: (library: RhythmLibrary) => void) {
@@ -172,7 +191,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
       const index = historyEntries.findIndex(item => item.id === entry.id);
       if (index === -1) historyEntries.push(entry); else historyEntries[index] = entry;
     }
-    records = practiceRecords(historyEntries);
+    deriveFromHistory();
     sections.lesson?.refresh();
     refreshProgress();
     refreshSettings();
@@ -184,6 +203,37 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     void writes.run(() => store.addHistory(entry), key, writes.supersede(key), commit => {
       if (snapshotGeneration === phase.generation) publishHistoryCommit(commit);
     }).catch(() => {});
+  }
+
+  /** Удаление записи истории (R-023): поколение ключа не даёт старой записи вернуться; список меняется после записи. */
+  async function deleteHistoryRecord(id: string): Promise<ProgressActionResult> {
+    try { requireWritable(); } catch (failure) { return { error: message(failure) }; }
+    sessions.markDeleted(id);
+    const key = `history:${id}`;
+    const snapshotGeneration = phase.generation;
+    try {
+      await writes.run(() => store.deleteHistory(id), key, writes.supersede(key), () => {
+        if (snapshotGeneration !== phase.generation || retiring) return;
+        historyEntries = withoutHistoryEntry(historyEntries, id);
+        deriveFromHistory();
+        sections.lesson?.refresh();
+        refreshProgress();
+        refreshSettings();
+      });
+    } catch (failure) { return { error: message(failure) }; }
+  }
+
+  /** «Повторить» в «Задания на грифе»: «Гриф» в исходном контексте, квиз только по ошибочным позициям (R-011). */
+  function repeatFretboardErrors() {
+    const target = currentReview();
+    const foundation = sections.foundation;
+    if (!target?.positionIds.length || !foundation) return;
+    switchModule('foundation');
+    foundation.finishSession('Занятие остановлено для повтора ошибок');
+    foundation.stop();
+    try { foundation.repeatErrors(target.positionIds, target.context); }
+    catch (failure) { reportFailure(`Повтор ошибок не открылся: ${message(failure)}`); }
+    syncPracticeBinding();
   }
 
   function saveExercise(spec: ExerciseSpec, name: string) {
@@ -249,7 +299,9 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
   function switchModule(next: AppSection) {
     if (!available.includes(next)) return;
     if (next === activeModule) { savePreferences({ activeModule: next }); return; }
-    drafts.capture();
+    // Черновик последнего занятия «Грифа» или «Ритма» откроется первым в блоке «Не сохранено».
+    const captured = drafts.capture();
+    if (captured && (activeModule === 'foundation' || activeModule === 'harmony')) progressDraftId = captured.id;
     if (activeModule === 'foundation') { sections.foundation?.finishSession('Занятие остановлено при смене раздела'); audio.end('sequence', 'section'); }
     if (activeModule === 'lesson') { audio.end('play', 'section'); audio.end('check', 'section'); }
     if (activeModule === 'settings') audio.end('input', 'section');
@@ -355,11 +407,52 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
   });
 
   /* ---------- «Прогресс» ---------- */
+  const currentDraftViews = () => draftViews(drafts.all(), progressDraftId, draftErrors);
   function refreshProgress() {
     if (!progressView) return;
     if (activeModule !== 'progress') { progressStale = true; return; }
     progressStale = false;
-    progressView.update({ records, plan: sections.lesson?.plannedProgressIds() ?? [] });
+    progressView.update({ records, plan: sections.lesson?.plannedProgressIds() ?? [], drafts: currentDraftViews(), review: reviewView(currentReview()) });
+  }
+  /** Ввод в поля черновика обновляет только блок «Не сохранено». */
+  function refreshDrafts() {
+    if (!progressView || retiring) return;
+    if (activeModule !== 'progress') { progressStale = true; return; }
+    progressView.setDrafts(currentDraftViews());
+  }
+  function editDraft(id: string, note: string, bpm: number | null) {
+    const draft = drafts.get(id);
+    if (!draft) return;
+    try {
+      draftErrors.delete(id);
+      drafts.edit(id, note, draftEditBpm(bpm, draft));
+    } catch (failure) {
+      draftErrors.set(id, `Черновик не сохранён: ${message(failure)}`);
+      refreshDrafts();
+    }
+  }
+  async function saveDraft(id: string, note: string, bpm: number): Promise<ProgressActionResult> {
+    try {
+      requireWritable();
+      await drafts.save(id, note, bpm);
+      draftErrors.delete(id);
+    } catch (failure) {
+      const text = `Отметка не сохранена: ${message(failure)}`;
+      draftErrors.set(id, text);
+      return { error: text };
+    } finally { refreshDrafts(); }
+  }
+  async function deleteDraft(id: string): Promise<ProgressActionResult> {
+    try {
+      requireWritable();
+      await drafts.remove(id);
+      draftErrors.delete(id);
+      if (progressDraftId === id) progressDraftId = null;
+    } catch (failure) {
+      const text = `Черновик не удалён: ${message(failure)}`;
+      draftErrors.set(id, text);
+      return { error: text };
+    } finally { refreshDrafts(); refreshSettings(); }
   }
   /** Вкладка и источник приходят из настроек только при монтировании, поэтому после восстановления экран монтируется заново. */
   function mountProgressView() {
@@ -367,7 +460,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     progressView?.dispose();
     const lesson = preferences.value.lesson;
     progressView = mountProgress(byId('progress-mount'), {
-      records, plan: sections.lesson?.plannedProgressIds() ?? [],
+      records, plan: sections.lesson?.plannedProgressIds() ?? [], drafts: currentDraftViews(), review: reviewView(currentReview()),
       initialTab: lesson.progressTab, initialSource: lesson.progressSource,
       describe: row => describeProgressRow(row, historyEntries),
       onRepeat(target) { if (!sections.lesson?.addToPlan(target)) { progressStale = true; refreshProgress(); } },
@@ -375,6 +468,11 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
       onGoToLesson() { switchModule('lesson'); sections.lesson?.showHome(); },
       onTabChange: tab => { savePreferences({ lesson: { ...preferences.value.lesson, progressTab: tab } }); },
       onSourceChange: source => { savePreferences({ lesson: { ...preferences.value.lesson, progressSource: source } }); },
+      onRepeatErrors: repeatFretboardErrors,
+      onDeleteRecord: deleteHistoryRecord,
+      onDraftEdit: editDraft,
+      onDraftSave: saveDraft,
+      onDraftDelete: deleteDraft,
     });
     progressStale = false;
     progressView.setVisible(activeModule === 'progress');
@@ -397,6 +495,8 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
       version: APP_VERSION,
       dataVersion: STUDY_SCHEMA_VERSION,
       counts: currentCounts(),
+      dataIssue: persistent ? describeSkippedRecords(store.skippedRecords())
+        : 'Локальная база этого браузера не открылась. Сохранённое в ней не сброшено, но здесь не показано: сейчас тренажёр работает только в памяти страницы.',
     };
   }
   function refreshSettings() {
@@ -412,6 +512,14 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     incomplete ||= writes.failureCount > 0 || drafts.hasPendingChanges() || status.preferenceIssue !== '';
     downloadJson(await store.exportBackup(), 'bass-study-backup');
     if (incomplete) return { notice: 'Копия скачана, но в неё вошли только сохранённые данные. Повтори сохранение и скачай копию заново.' };
+  }
+  /** Сырая копия базы как есть (D-042): нужна, когда часть записей не читается. Сначала дожидается очереди записи. */
+  async function exportRawBackup() {
+    let incomplete = false;
+    try { await flushAll(); } catch { incomplete = true; }
+    incomplete ||= writes.failureCount > 0 || drafts.hasPendingChanges();
+    downloadJson(await exportRawDatabase(), 'bass-study-raw');
+    if (incomplete) return { notice: 'Сырая копия скачана, но последние изменения ещё не записаны и в неё не вошли. Повтори сохранение и скачай заново.' };
   }
   async function readBackupFile(file: File): Promise<BackupChoice> {
     if (file.size > MAX_BACKUP_BYTES) return { kind: 'error', reason: 'too-large', fileName: file.name, message: `Копия должна быть не больше ${MAX_BACKUP_BYTES / 1024 / 1024} МиБ.` };
@@ -484,6 +592,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
         refreshSettings();
       },
       onExport: exportBackup,
+      onExportRaw: exportRawBackup,
       onChooseBackup: chooseBackup,
       async onConfirmRestore(preview) {
         try { requireWritable(); await restoreBackup(preview.payload as PreparedStudyImport); }

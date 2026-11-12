@@ -4,9 +4,10 @@
  * Самооценка игры и экранные ответы «Проверь себя» не смешиваются: у каждой строки свой источник.
  */
 import {
-  ASSESSMENT_LABELS, difficulties, exerciseProgress, minutesByDay,
-  type Assessment, type CheckOutcome, type CheckRecord, type Difficulty, type PlayRecord, type PracticeRecord, type SourceFilter,
+  ASSESSMENT_LABELS, difficulties, exerciseProgress, minutesByDay, recordSource,
+  type Assessment, type CheckOutcome, type CheckRecord, type Difficulty, type ManualArea, type ManualRecord, type PlayRecord, type PracticeRecord, type SourceFilter,
 } from '../../practice/results';
+import type { FretboardReview } from '../../practice/history';
 
 export const DAY_MS = 86_400_000;
 const DATE_KEY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -75,12 +76,14 @@ export function formatActive(ms: number) {
 /** Ступень проверки для экрана: `b7` → `♭7`. */
 export const degreeLabel = (degree: string) => degree.replace(/^b/, '♭').replace(/^#/, '♯');
 
-export const matchesSource = (record: PracticeRecord, source: SourceFilter) => source === 'all' || record.kind === source;
+export const matchesSource = (record: PracticeRecord, source: SourceFilter) => source === 'all' || recordSource(record) === source;
 const chronological = <T extends PracticeRecord>(records: readonly T[]) => [...records].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
 
 /* ---------- Источники и исходы ---------- */
 
 export const SOURCE_LABELS = Object.freeze({ play: 'Игра · самооценка', check: 'Проверь себя · экран' });
+/** Подпись ручной отметки без упражнения: «Ручная отметка · Гриф». */
+export const MANUAL_LABELS: Readonly<Record<ManualArea, string>> = Object.freeze({ fretboard: 'Ручная отметка · Гриф', rhythm: 'Ручная отметка · Ритм' });
 export const SOURCE_FILTER_LABELS: Readonly<Record<SourceFilter, string>> = Object.freeze({ play: 'Игра (самооценка)', check: 'Проверь себя', all: 'Всё' });
 export const MARK_LABELS: Readonly<Record<Assessment, string>> = ASSESSMENT_LABELS;
 export type OutcomeGroup = 'self' | 'fixed' | 'shown' | 'skipped' | 'unanswered';
@@ -106,7 +109,7 @@ export const missedDegrees = (record: CheckRecord) =>
 
 /* ---------- Строки упражнений (A) ---------- */
 
-export interface PlayPass { readonly localDate: string; readonly occurredAt: string; readonly bpm: number; readonly assessment: Assessment; readonly activeMs: number }
+export interface PlayPass { readonly id: string; readonly localDate: string; readonly occurredAt: string; readonly bpm: number; readonly assessment: Assessment; readonly activeMs: number }
 export interface PlayRow {
   readonly kind: 'play';
   readonly key: string;
@@ -117,7 +120,7 @@ export interface PlayRow {
   readonly last: PlayPass;
   readonly spec: PlayRecord['spec'];
 }
-export interface CheckPass { readonly localDate: string; readonly occurredAt: string; readonly tally: CheckTally; readonly missed: readonly string[]; readonly activeMs: number }
+export interface CheckPass { readonly id: string; readonly localDate: string; readonly occurredAt: string; readonly tally: CheckTally; readonly missed: readonly string[]; readonly activeMs: number }
 export interface CheckRow {
   readonly kind: 'check';
   readonly key: string;
@@ -136,7 +139,7 @@ export function progressRows(records: readonly PracticeRecord[], source: SourceF
     const plays = chronological(records.filter((record): record is PlayRecord => record.kind === 'play'));
     for (const progress of exerciseProgress(plays)) {
       const group = plays.filter(record => record.exerciseKey === progress.exerciseKey);
-      const passes = group.map(record => Object.freeze({ localDate: record.localDate, occurredAt: record.occurredAt, bpm: record.bpm, assessment: record.assessment, activeMs: record.activeMs }));
+      const passes = group.map(record => Object.freeze({ id: record.id, localDate: record.localDate, occurredAt: record.occurredAt, bpm: record.bpm, assessment: record.assessment, activeMs: record.activeMs }));
       rows.push(Object.freeze({
         kind: 'play', key: progress.exerciseKey, title: progress.title, passes: Object.freeze(passes),
         bestCleanBpm: progress.bestCleanBpm, firstBpm: progress.firstBpm, last: passes.at(-1)!, spec: group.at(-1)!.spec,
@@ -148,7 +151,7 @@ export function progressRows(records: readonly PracticeRecord[], source: SourceF
     const groups = new Map<string, CheckRecord[]>();
     for (const record of checks) groups.set(record.exerciseKey, [...(groups.get(record.exerciseKey) ?? []), record]);
     for (const [key, group] of groups) {
-      const passes = group.map(record => Object.freeze({ localDate: record.localDate, occurredAt: record.occurredAt, tally: checkTally(record), missed: Object.freeze(missedDegrees(record)), activeMs: record.activeMs }));
+      const passes = group.map(record => Object.freeze({ id: record.id, localDate: record.localDate, occurredAt: record.occurredAt, tally: checkTally(record), missed: Object.freeze(missedDegrees(record)), activeMs: record.activeMs }));
       const best = passes.reduce((top, pass) => (pass.tally.self >= top.tally.self ? pass : top), passes[0]).tally;
       rows.push(Object.freeze({ kind: 'check', key, title: group.at(-1)!.title, passes: Object.freeze(passes), best, last: passes.at(-1)! }));
     }
@@ -185,6 +188,52 @@ export function describeDifficulty(difficulty: Difficulty): DifficultyView {
 }
 export const difficultyViews = (records: readonly PracticeRecord[], source: SourceFilter) =>
   Object.freeze(difficulties(records).map(describeDifficulty).filter(view => source === 'all' || view.source === source));
+
+/** Карточка «Задания на грифе» в «Трудных местах»: экранные ответы, поэтому видна в «Проверь себя» и «Всё». */
+export interface FretboardReviewView { readonly title: string; readonly detail: string; readonly reasons: string; readonly count: number }
+export function describeFretboardReview(review: FretboardReview): FretboardReviewView {
+  const count = review.positionIds.length;
+  const { errors, hints, skipped } = review.reasons;
+  const reasons = [errors && `ошибка — ${errors}`, hints && `показ ответа — ${hints}`, skipped && `пропуск — ${skipped}`].filter(Boolean).join(', ');
+  return Object.freeze({
+    count,
+    title: `Задания на грифе: ${countWord(count, 'позиция', 'позиции', 'позиций')} с ошибками`,
+    detail: `${review.material} · ${joinDates(review.dates)}`,
+    reasons: reasons ? `В вопросах: ${reasons}.` : '',
+  });
+}
+export const showsFretboardReview = (source: SourceFilter) => source !== 'play';
+
+/* ---------- Не сохранено: черновики ручной практики ---------- */
+
+/** Черновик для блока «Не сохранено»: время под звук, предложенный темп и заметка ещё не записаны в историю. */
+export interface DraftView {
+  readonly id: string;
+  readonly area: ManualArea;
+  readonly title: string;
+  /** Несохранённое время под звук. */
+  readonly activeMs: number;
+  readonly bpm: number;
+  readonly minBpm: number;
+  readonly maxBpm: number;
+  readonly note: string;
+  readonly localDate: string;
+  /** Черновик последнего занятия на «Грифе» или в «Ритме». */
+  readonly current: boolean;
+  /** Ошибка последнего действия; видна до успешного повтора. */
+  readonly error?: string;
+}
+/** Время черновика: «2 мин 05 с», меньше минуты — «45 с». */
+export function formatDraftTime(ms: number) {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  return seconds < 60 ? `${seconds} с` : `${Math.floor(seconds / 60)} мин ${String(seconds % 60).padStart(2, '0')} с`;
+}
+/** Темп из поля: целое число в границах; иначе `null`. */
+export function parseTempo(text: string, min: number, max: number): number | null {
+  if (!/^\s*\d+\s*$/.test(text)) return null;
+  const value = Number(text);
+  return Number.isInteger(value) && value >= min && value <= max ? value : null;
+}
 
 /* ---------- Неделя (A) и календарь (B) ---------- */
 
@@ -249,7 +298,7 @@ export function calendarWeeks(records: readonly PracticeRecord[], today: string,
       const state: DayState = date > today ? 'future' : date === today ? 'today' : date < earliest ? 'before' : 'past';
       const list = state === 'future' ? [] : byDate.get(date) ?? [];
       const value = state === 'future' ? 0 : minutes.get(date) ?? 0;
-      const kinds = (['play', 'check'] as const).filter(kind => list.some(record => record.kind === kind));
+      const kinds = (['play', 'check'] as const).filter(kind => list.some(record => recordSource(record) === kind));
       return Object.freeze({ date, day: dayOfMonth(date), state, minutes: value, records: list.length, kinds: Object.freeze(kinds), level: intensityLevel(value, max) });
     });
     return Object.freeze({
@@ -280,4 +329,4 @@ export function datePeriod(records: readonly PracticeRecord[], today: string) {
 }
 
 export { ASSESSMENT_LABELS };
-export type { Assessment, Difficulty, PracticeRecord, SourceFilter };
+export type { Assessment, Difficulty, ManualArea, ManualRecord, PracticeRecord, SourceFilter };

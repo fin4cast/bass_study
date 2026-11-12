@@ -20,7 +20,7 @@ export function rhythmPracticeBinding(practice: RhythmPracticeClock, readClock: 
   return { context: null, material, routeRef: null, label: rhythmPracticeLabel(material), readClock };
 }
 
-/** Какой материал и чьи часы сейчас питают черновик ручной практики, и как черновик выглядит в «Моих занятиях». */
+/** Какой материал и чьи часы сейчас питают черновик ручной практики. `view` — прежний показ черновика; блок «Не сохранено» в «Прогрессе» строит `progress-flow.ts`. */
 export function createPracticeContext(options: PracticeContextOptions) {
   let bindingKey = '';
 

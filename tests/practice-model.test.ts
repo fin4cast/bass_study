@@ -83,9 +83,9 @@ describe('библиотека', () => {
 });
 
 const play = (date: string, assessment: 'clean' | 'errors' | 'slow', bpm: number, key = 'builtin:connect-forms', spec = connect): PracticeRecord =>
-  ({ kind: 'play', exerciseKey: key, title: key === 'builtin:connect-forms' ? 'Связка соседних форм' : 'Хроматика 1-2-3-4 в позиции', spec, assessment, bpm, activeMs: 300000, localDate: date, occurredAt: `${date}T18:00:00.000Z` });
+  ({ kind: 'play', id: `play-${date}-${key}-${bpm}`, exerciseKey: key, title: key === 'builtin:connect-forms' ? 'Связка соседних форм' : 'Хроматика 1-2-3-4 в позиции', spec, assessment, bpm, activeMs: 300000, localDate: date, occurredAt: `${date}T18:00:00.000Z` });
 const check = (date: string, answers: { degree: string; outcome: 'correct' | 'corrected' | 'revealed' | 'skipped' | 'unanswered'; errors: number }[]): PracticeRecord =>
-  ({ kind: 'check', exerciseKey: 'builtin:pentatonic-form', title: 'Ступени формы B', activeMs: 120000, localDate: date, occurredAt: `${date}T18:10:00.000Z`, answers });
+  ({ kind: 'check', id: `check-${date}`, exerciseKey: 'builtin:pentatonic-form', title: 'Ступени формы B', activeMs: 120000, localDate: date, occurredAt: `${date}T18:10:00.000Z`, answers });
 
 const history: PracticeRecord[] = [
   play('2026-11-01', 'clean', 60), play('2026-11-04', 'errors', 72), play('2026-11-06', 'clean', 72), play('2026-11-10', 'errors', 76), play('2026-11-11', 'clean', 76),

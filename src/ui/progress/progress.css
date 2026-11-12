@@ -199,3 +199,29 @@
   .p13-progress :is(.pg-grid-a, .pg-grid-b) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
   .p13-progress .pg-items { overflow: visible; }
 }
+
+/* Не сохранено: черновики ручной практики «Грифа» и «Ритма» */
+.p13-progress .pg-drafts[hidden] { display: none; }
+.p13-progress .pg-drafts { border-color: var(--selection); }
+.p13-progress .pg-draftlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.p13-progress .pg-draft { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 10px; align-items: start; border: 1px solid var(--border); border-left: 3px solid var(--selection); border-radius: 8px; padding: 8px 10px; background: var(--surface); }
+.p13-progress .pg-draft > :is(.pg-src, b, .pg-draft-time, .pg-draft-error, .pg-draft-act) { grid-column: 1 / -1; }
+.p13-progress .pg-draft b { font-size: 13px; font-weight: 650; line-height: 1.3; }
+.p13-progress .pg-draft-time { font-size: 12px; color: var(--text-secondary); }
+.p13-progress .pg-draft-time strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.p13-progress .pg-draft label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-secondary); min-width: 0; }
+.p13-progress .pg-draft .form-control { width: 100%; min-width: 0; font-size: 13px; }
+.p13-progress .pg-draft textarea.form-control { resize: vertical; min-height: 38px; }
+.p13-progress .pg-draft .form-control[aria-invalid="true"] { border-color: var(--danger-border); }
+.p13-progress .pg-draft-error { font-size: 12px; color: var(--danger-text); }
+.p13-progress .pg-draft-error[hidden] { display: none; }
+.p13-progress .pg-draft-act { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.p13-progress .pg-src.is-manual { color: var(--text-secondary); }
+
+/* Ручные отметки и удаление записей */
+.p13-progress .pg-entry { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+.p13-progress .pg-entry.is-manual { border-left: 3px solid var(--border-strong); }
+.p13-progress .pg-entry-note { font-size: 12px; color: var(--text-secondary); white-space: pre-line; overflow-wrap: anywhere; }
+.p13-progress .pg-table td.pg-act { text-align: right; white-space: nowrap; }
+.p13-progress .pg-del { white-space: nowrap; }
+.p13-progress .pg-hard li.is-board { border-left-style: double; border-left-width: 4px; }

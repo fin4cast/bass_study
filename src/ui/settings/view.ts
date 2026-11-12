@@ -29,6 +29,8 @@ export interface SettingsOptions {
   readonly onConfirmRestore?: (preview: BackupPreview) => Promise<ActionResult>;
   readonly onRetrySave?: () => void;
   readonly onRecheckWriter?: () => void;
+  /** Скачать сырую копию базы браузера: всё как есть, без проверки (D-042). */
+  readonly onExportRaw?: () => ActionResult | Promise<ActionResult>;
   /** Смена раздела: например, чтобы остановить аудиовход при уходе из «Аудиовхода». */
   readonly onSectionChange?: (section: SectionId) => void;
 }
@@ -90,7 +92,8 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
         <div class="st-state"><span data-save-line><span class="st-dot"></span><span data-save-detail></span></span><span data-writer-line></span></div>
         <div class="st-cols"><div><strong class="st-text">В копии</strong><ul class="st-list-dots" data-copy-list></ul></div><div><strong class="st-text">Не входят</strong><ul class="st-list-dots"><li>аудиофайлы и партитуры — после восстановления их нужно выбрать заново в «Песнях»</li></ul></div></div>
         <p class="st-note"><strong>Копия подходит только для текущей версии данных (<span data-data-version></span>).</strong> Если обновление тренажёра меняет устройство данных, сохранённое начинается заново, а копии прежней версии не загружаются.</p>
-      </div>`,
+      </div>
+      <div class="st-raw" data-raw-slot></div>`,
     input: `<div class="st-card"><p class="st-info">Это диагностика сигнала: она показывает, доходит ли звук баса до компьютера, но игру не оценивает.</p>
       <div class="st-input-mount" data-input-mount></div></div>`,
     about: `<div class="st-card"><dl class="st-dl">
@@ -158,6 +161,8 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
     const summaries = sectionSummaries(state);
     for (const element of $$('[data-summary]')) element.textContent = summaries[element.dataset.summary as SectionId];
 
+    syncRaw();
+
     const banners: string[] = [];
     if (locked()) banners.push(`<div class="st-banner" role="region" aria-label="Тренажёр открыт в другой вкладке"><div><strong>Тренажёр открыт в другой вкладке.</strong><p>Записывать данные может только одна вкладка — так сохранённое не перепутается. Здесь сейчас только просмотр. Закрой ту вкладку и нажми «Проверить снова».</p></div><div class="st-banner-actions"><button type="button" class="secondary-button" data-recheck>Проверить снова</button></div></div>`);
     if (kind === 'error') banners.push(`<div class="st-banner is-warn" role="alert"><div><strong>Не сохранилось: ${escapeHtml(errorText(state.saveStatus))}</strong><p>Изменение видно на экране, но не записано. Сообщение останется, пока повтор не пройдёт.</p></div><div class="st-banner-actions"><button type="button" class="secondary-button" data-retry>Повторить сохранение</button></div></div>`);
@@ -169,6 +174,41 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
       lastBanners = html;
       if (hadFocus) ($('[data-banners] button') ?? $('[data-save-head]') ?? $('[data-title]'))?.focus();
     }
+  }
+
+  /* ---------- Сырая копия базы ---------- */
+  let lastRaw = '';
+  let rawBusy = false;
+  const RAW_TEXT = 'Сырая копия — всё содержимое базы этого браузера как есть, без проверки. Восстановить из неё можно только вручную; для переноса и восстановления нужна обычная копия JSON.';
+  function rawButton() {
+    return `<button type="button" class="secondary-button" data-raw-export${rawBusy ? ' disabled' : ''}>${rawBusy ? 'Готовим сырую копию…' : 'Скачать сырую копию базы'}</button>`;
+  }
+  function syncRaw() {
+    const issue = state.dataIssue?.trim() ?? '';
+    const html = issue
+      ? `<div class="st-banner is-warn" role="region" aria-label="Не всё прочиталось" data-raw-warning><div><strong>Часть сохранённого не прочиталась</strong><p>${escapeHtml(issue)}</p><p>${escapeHtml(RAW_TEXT)}</p></div><div class="st-banner-actions">${rawButton()}</div></div>`
+      : `<details class="st-card st-more" data-raw-more><summary>Подробнее</summary><p class="st-text">${escapeHtml(RAW_TEXT)}</p><div>${rawButton()}</div></details>`;
+    if (html === lastRaw) return;
+    const slot = $('[data-raw-slot]')!;
+    const details = $<HTMLDetailsElement>('[data-raw-more]', slot);
+    const open = details?.open ?? false;
+    const hadFocus = slot.contains(document.activeElement);
+    slot.innerHTML = html;
+    lastRaw = html;
+    const next = $<HTMLDetailsElement>('[data-raw-more]', slot);
+    if (next && open) next.open = true;
+    if (hadFocus) ($('[data-raw-export]', slot) ?? $('summary', slot))?.focus();
+  }
+  async function exportRaw() {
+    if (rawBusy || !options.onExportRaw) return;
+    rawBusy = true; syncRaw();
+    let result: ActionResult;
+    try { result = await options.onExportRaw(); }
+    catch (error) { result = { error: error instanceof Error ? error.message : 'неизвестная ошибка' }; }
+    if (disposed) return;
+    rawBusy = false; syncRaw();
+    if (result && 'error' in result) toast(`Сырая копия не скачалась: ${result.error}`);
+    else toast(result && 'notice' in result ? result.notice : 'Сырая копия базы скачана. Это не резервная копия: восстановление из неё — вручную.');
   }
 
   function showSection(next: SectionId, focusTab = false) {
@@ -355,6 +395,7 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
     if (button.dataset.bpm) { setDefaults(stepBpm(state.playDefaults, Number(button.dataset.bpm))); return; }
     if (button.dataset.dialogOpen) { openDialog(button.dataset.dialogOpen as 'download' | 'restore', button); return; }
     if (button.matches('[data-retry]')) { options.onRetrySave?.(); return; }
+    if (button.matches('[data-raw-export]')) { void exportRaw(); return; }
     if (button.matches('[data-recheck]')) { options.onRecheckWriter?.(); toast('Проверяем, свободна ли запись…'); }
   }
   function onKeydown(event: KeyboardEvent) {

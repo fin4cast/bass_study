@@ -18,7 +18,7 @@ const arpeggio = createExerciseSpec('arpeggio-1358');
 const own: UserExercise = { version: 'user-exercise-v1', id: 'own-1', name: 'Моя пентатоника', spec: penta, createdAt: '2026-11-10T10:00:00.000Z' };
 const meta = (id: string, occurredAt = '2026-11-12T10:00:00.000Z') => ({ id, occurredAt, timeZone: 'Europe/Moscow' });
 const playRecord = (key: string, bpm: number, occurredAt: string, assessment: 'clean' | 'errors' | 'slow' = 'clean', spec = arpeggio): PracticeRecord =>
-  ({ kind: 'play', exerciseKey: key, title: 'Арпеджио', spec, assessment, bpm, activeMs: 60000, localDate: occurredAt.slice(0, 10), occurredAt });
+  ({ kind: 'play', id: `play-${key}-${occurredAt}`, exerciseKey: key, title: 'Арпеджио', spec, assessment, bpm, activeMs: 60000, localDate: occurredAt.slice(0, 10), occurredAt });
 const checkSpec = (exercise = penta): CheckSpec => ({ version: 'check-v1', exercise, kind: 'name-degree', count: 6, ear: false });
 
 describe('план на сегодня', () => {
@@ -144,7 +144,7 @@ describe('«Повторить» и «В план» из «Прогресса»'
     const records = [
       playRecord('builtin:arpeggio-1358', 70, '2026-11-11T10:00:00.000Z', 'errors'),
       playRecord('builtin:arpeggio-1358', 70, '2026-11-12T10:00:00.000Z', 'errors'),
-      { kind: 'check', exerciseKey: 'builtin:pentatonic-form', title: 'Проверь себя', activeMs: 1000, localDate: TODAY, occurredAt: '2026-11-12T11:00:00.000Z',
+      { kind: 'check', id: 'check-1', exerciseKey: 'builtin:pentatonic-form', title: 'Проверь себя', activeMs: 1000, localDate: TODAY, occurredAt: '2026-11-12T11:00:00.000Z',
         answers: [{ degree: 'b7', outcome: 'revealed', errors: 0 }, { degree: 'b7', outcome: 'skipped', errors: 0 }] },
     ] satisfies PracticeRecord[];
     const [errors, degree] = difficulties(records);

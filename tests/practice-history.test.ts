@@ -13,14 +13,16 @@ const play = (id: string, occurredAt: string, assessment: 'clean' | 'errors' | '
 }), { id, occurredAt, timeZone: 'Europe/Moscow' });
 
 describe('записи «Прогресса» из истории', () => {
-  it('проход упражнения → PlayRecord, «Проверь себя» → CheckRecord; прочие записи пропускаются', () => {
+  it('проход упражнения → PlayRecord, «Проверь себя» → CheckRecord, ручная отметка ритма → ManualRecord; прочие записи пропускаются', () => {
     const history = parseBackup(backupJson).history;
     const records = practiceRecords(history);
     expect(records).toEqual([
-      { kind: 'check', exerciseKey: 'builtin:pentatonic-form', title: 'Форма пентатоники вверх-вниз', activeMs: 95000, localDate: '2026-11-09', occurredAt: '2026-11-08T22:45:00.000Z',
+      { kind: 'check', id: 'fixture-check-history', exerciseKey: 'builtin:pentatonic-form', title: 'Форма пентатоники вверх-вниз', activeMs: 95000, localDate: '2026-11-09', occurredAt: '2026-11-08T22:45:00.000Z',
         answers: history.find(entry => entry.result.kind === 'check')!.result.kind === 'check' ? (history.find(entry => entry.result.kind === 'check')!.result as { answers: unknown }).answers : [] },
-      { kind: 'play', exerciseKey: 'user:fixture-penta', title: 'Am пентатоника, форма B', spec: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), assessment: 'clean',
+      { kind: 'play', id: 'fixture-exercise-history', exerciseKey: 'user:fixture-penta', title: 'Am пентатоника, форма B', spec: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), assessment: 'clean',
         bpm: 84, activeMs: 180000, localDate: '2026-11-09', occurredAt: '2026-11-08T22:40:00.000Z' },
+      { kind: 'manual', id: 'fixture-rhythm-history', area: 'rhythm', title: 'Ритм-секция · Триольный грув · Основной грув · 117 BPM', bpm: 117, activeMs: 600,
+        note: 'Отметка ритма', localDate: '2026-11-09', occurredAt: '2026-11-08T22:35:00.000Z' },
     ]);
     expect(history.length).toBeGreaterThan(records.length);
     expect(Object.isFrozen(records)).toBe(true);
