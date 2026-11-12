@@ -15,7 +15,8 @@ if (process.argv.slice(2).some(argument => argument !== '--model-only')) {
 const base = new URL('./', import.meta.url);
 const repository = new URL('../../../', base);
 const resolve = name => new URL(name, base);
-const VIEWS = ['lesson-r2-vis10', 'lesson-r2-vis11'];
+// Экраны P13 на общем каркасе: занятие и игра (r2), «Проверь себя», «Прогресс», «Настройки», справочник (r1).
+const VIEWS = ['lesson-r2-vis10', 'lesson-r2-vis11', 'p13-r1-vis02', 'p13-r1-vis08', 'p13-r1-vis09', 'p13-r1-vis12'];
 const GLOBAL = 'BassLessonModel';
 
 const output = await build({
