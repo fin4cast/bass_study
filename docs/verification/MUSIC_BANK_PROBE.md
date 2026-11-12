@@ -1,6 +1,6 @@
 # Проба свободного музбанка P10-00
 
-Дата: **2026-11-08**, Europe/Moscow. Основание — [D-029](../DECISIONS.md#d-029), [R-024](../REQUIREMENTS.md#r-024), [P10](../PLAN.md#p10). Проверен отдельный [стенд](../../experiments/music-bank/README.md), не продуктовая версия 1.4.0.
+Дата: **2026-11-08**, Europe/Moscow. Основание — [D-029](../DECISIONS.md#d-029), [R-024](../REQUIREMENTS.md#r-024), [P10](../PLAN.md#done). Проверен отдельный [стенд](../../experiments/music-bank/README.md), не продуктовая версия 1.4.0.
 
 ## Результат и решение
 
