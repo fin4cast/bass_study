@@ -379,7 +379,9 @@
   font-size: 13px;
   font-weight: 500;
   line-height: 1.13;
-  overflow-wrap: anywhere;
+  /* В узкой колонке имя переносится по слогам («Закры-тый»), а не посреди слова без дефиса. */
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 .rhythm-view button.rhythm-lane-name:hover:not(:disabled) { background: var(--rhythm-board-key-hover); }
 .rhythm-view button.rhythm-lane-name[aria-pressed="true"] { border-left-color: var(--board-root); background: var(--rhythm-board-key); }
@@ -779,6 +781,28 @@
   align-content: center;
   gap: 3px;
 }
+/* Крупный отсчёт над пультом — тот же знак, что на экране игры (P14-01). */
+.rhythm-view .rhythm-countin {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 140px;
+  padding: 10px 22px;
+  transform: translateX(-50%);
+  border: 2px solid var(--selection);
+  border-radius: 14px;
+  background: var(--selection-soft);
+  box-shadow: 0 8px 24px var(--shadow);
+  color: var(--text-primary);
+  font: 800 44px/1 "Segoe UI", Arial, sans-serif;
+  pointer-events: none;
+}
+.rhythm-view .rhythm-countin[hidden] { display: none; }
+.rhythm-view .rhythm-countin small { color: var(--text-secondary); font-size: 14px; font-weight: 600; }
 
 .rhythm-view .rhythm-play-module > :is(.rhythm-position, .rhythm-play-buttons, .rhythm-count-in) {
   width: 100%;

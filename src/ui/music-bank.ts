@@ -56,7 +56,7 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
       </div>
     </div>
     <details class="mb-catalogue" data-mb="catalogue"><summary class="section-disclosure">Файлы папки <span data-mb="catalogue-count">не выбраны</span></summary><div class="mb-catalogue-body"><div class="mb-catalogue-tools"><label class="mb-search form-label">Поиск по названию или пути<input type="search" class="form-control" data-mb="search" placeholder="Исполнитель или песня" autocomplete="off"></label><span data-mb="catalogue-notice"></span></div><div class="mb-file-list" data-mb="file-list" role="list" aria-label="Файлы выбранной папки"></div><div class="mb-pagination"><button type="button" data-mb="previous">← Назад</button><span data-mb="page-count"></span><button type="button" data-mb="next">Далее →</button></div></div></details>
-    <section class="mb-transport content-panel content-panel-raised" aria-label="Проигрывание"><div class="mb-transport-line"><div class="studio-playback"><button type="button" class="primary-button button-compact" data-mb="play" disabled>Старт<span aria-hidden="true">▶</span></button><button type="button" class="secondary-button button-compact" data-mb="pause" disabled>Пауза</button><button type="button" class="secondary-button button-compact" data-mb="stop" disabled>Стоп</button></div><label class="mb-inline-field form-label">Скорость<select class="form-control form-control-compact" data-mb="speed"><option value="0.25">25%</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></label><label class="mb-master">Громкость<input data-mb="master" type="range" min="0" max="1" step="0.05"></label></div>
+    <section class="mb-transport content-panel content-panel-raised" aria-label="Проигрывание"><div class="mb-transport-line"><div class="studio-playback"><button type="button" class="primary-button button-compact" data-mb="play" aria-keyshortcuts="Space" title="Старт или продолжение с той же позиции (пробел)" disabled>Старт<span aria-hidden="true">▶</span></button><button type="button" class="secondary-button button-compact" data-mb="pause" aria-keyshortcuts="Space" title="Пауза (пробел)" disabled>Пауза</button><button type="button" class="secondary-button button-compact" data-mb="stop" aria-keyshortcuts="Escape" title="Стоп и к началу фрагмента (Esc)" disabled>Стоп</button></div><label class="mb-inline-field form-label">Скорость<select class="form-control form-control-compact" data-mb="speed"><option value="0.25">25%</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></label><label class="mb-master">Громкость<input data-mb="master" type="range" min="0" max="1" step="0.05"></label></div>
       <div class="studio-timeline"><label><span class="sr-only">Позиция в песне</span><input data-mb="seek" type="range" min="0" max="1" step="0.05" value="0" disabled></label><output data-mb="position">0:00 / 0:00</output></div>
       <div class="mb-range"><span class="mb-range-caption">Фрагмент · такты</span><label class="sr-only" for="${id}-from">Первый такт</label><input id="${id}-from" data-mb="from" type="number" class="form-control form-control-compact" min="1" value="1" disabled><span>—</span><label class="sr-only" for="${id}-to">Последний такт</label><input id="${id}-to" data-mb="to" type="number" class="form-control form-control-compact" min="1" value="4" disabled><button type="button" data-mb="apply-range" disabled>Выбрать</button><label class="mb-check"><input data-mb="loop" type="checkbox" aria-label="Повторять фрагмент партитуры" disabled>Повтор</label><button type="button" class="text-button button-compact" data-mb="full-range" disabled>Вся песня</button><span class="mb-current-bar" data-mb="current-bar"></span></div><p class="mb-range-description" data-mb="range-description"></p></section>
     <div class="mb-work"><section class="mb-sheet content-panel" aria-label="Партитура"><div class="mb-sheet-toolbar"><span class="mb-sheet-label" data-mb="sheet-label">Партитура</span><div class="mb-sheet-options"><label class="mb-check"><input data-mb="staff" type="checkbox">Ноты</label><label class="mb-check"><input data-mb="tab" type="checkbox">TAB</label><label class="mb-check mb-follow"><input data-mb="follow" type="checkbox">Следовать</label><button type="button" data-mb="toggle-mixer" aria-controls="${id}-mixer" aria-expanded="true">Микшер</button></div></div><div id="${id}-sheet" class="mb-sheet-scroll" data-mb="sheet-scroll" tabindex="0" aria-label="Прокрутка партитуры"><div class="mb-score" data-mb="score"></div><div class="mb-score-empty studio-empty" data-mb="empty"><span aria-hidden="true">♫</span><h3 data-mb="empty-heading">Музыка начинается с выбора</h3><p data-mb="empty-copy">Открой файл Guitar Pro. Звук синтезируется по нотам и не является записью исполнителя.</p></div></div></section>
@@ -86,6 +86,10 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     // A pending intent must always have an accessible cancellation control.
     element<HTMLButtonElement>('cancel').hidden = !loading;
     element<HTMLButtonElement>('stop').disabled = !canUse && !loading;
+    // Единый транспорт P14-01: пауза — только во время звучания, после паузы старт продолжает с той же позиции.
+    element<HTMLButtonElement>('pause').disabled = !canUse || transportState !== 'playing';
+    const play = element<HTMLButtonElement>('play'), label = transportState === 'paused' ? 'Продолжить' : 'Старт';
+    if (play.firstChild?.nodeType === Node.TEXT_NODE && play.firstChild.nodeValue !== label) play.firstChild.nodeValue = label;
     for (const name of ['speed', 'master', 'staff', 'tab', 'follow', 'toggle-mixer', 'close-mixer']) {
       element<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>(name).disabled = loading;
     }
@@ -484,9 +488,13 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     if (disposed || !visible || event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey) return;
     const target = event.target as HTMLElement;
     if (event.key === 'Escape' && preferences.mixerOpen && container.clientWidth <= 900 && element('mixer').contains(target)) {
-      setMixer(false, true); event.preventDefault(); return;
+      setMixer(false, true); event.preventDefault();
     }
-    handleTransportKey(event, container, { stop, toggle: () => { if (api?.playerState === 1) api.pause(); else play(); } });
+  }, listen);
+  // Клавиши транспорта действуют на открытой вкладке и без фокуса внутри неё — как на экране игры.
+  document.addEventListener('keydown', event => {
+    if (disposed || !visible) return;
+    handleTransportKey(event, container, { stop, toggle: () => { if (api?.playerState === 1) { api.pause(); controls(); } else play(); } });
   }, listen);
   onPageVisibility(abort.signal, () => {
     if (disposed) return;
