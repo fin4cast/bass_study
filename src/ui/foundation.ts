@@ -557,7 +557,9 @@ export function mountFoundation(host: HTMLElement, options: FoundationOptions) {
     },
     getPracticeFallback() {
       return { context: { root: structure.root, structureId: structure.id, scope: 'structure' as const, positionIds: rangeIsValid() ? exerciseMaterial.exact.map(position => position.id) : [], box: state.box },
-        durationMs: 0, comfortableBpm: currentPlayerPreferences().bpm, note: '', label: foundationMode === 'study' ? 'Изучение грифа' : 'Последовательность на грифе', available: visible && foundationMode !== 'quiz' };
+        // Без запущенного эталона отметка относится к изучению грифа: этот материал и сохраняется.
+        material: { kind: 'fretboard' as const, box: state.box },
+        durationMs: 0, comfortableBpm: currentPlayerPreferences().bpm, note: '', label: 'Изучение грифа', available: visible && foundationMode !== 'quiz' };
     },
     dispose() {
       boardResizeObserver.disconnect();

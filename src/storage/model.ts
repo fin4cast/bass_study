@@ -15,10 +15,10 @@ import { validateTracksManifest, type TracksManifest } from '../tracks';
 import { validateMusicBankPreferences, type MusicBankPreferences } from '../music-bank/model';
 import { validateRhythmPlaybackConfig, validateRhythmPreferences, validateRhythmProject, type RhythmPreferences, type RhythmProject } from '../rhythm/model';
 import { createBoxSelection, getBoxInstanceV1, validateBoxSelectionV1, type BoxSelection } from '../music/boxes';
-import type { StoredPracticeMaterial, PracticeMaterial } from '../training/results';
+import type { PracticeMaterial } from '../training/results';
 import { DEFAULT_PROFILE, type GlobalProfile, type PracticeDraft, type DrainDraftRequest } from './contracts';
 export * from './contracts';
-export type { PracticeMaterial, StoredPracticeMaterial } from '../training/results';
+export type { PracticeMaterial } from '../training/results';
 export type { RouteRef } from '../route';
 
 export interface AppPreferences {
@@ -287,7 +287,7 @@ export function validateRouteRef(value: unknown): import('../route').RouteRef | 
   return immutable({ routeId: text(data.routeId, 'ID маршрута', 160), step: oneOf(data.step, ['fretboard', 'ear', 'sequence'] as const, 'Блок маршрута') });
 }
 
-export function validatePracticeMaterial(value: unknown, area?: QuestionContext | null, allowLegacy = false): StoredPracticeMaterial {
+export function validatePracticeMaterial(value: unknown, area?: QuestionContext | null): PracticeMaterial {
   if (!value || typeof value !== 'object' || Array.isArray(value)) invalid('Отсутствует материал практики.');
   const descriptor = Object.getOwnPropertyDescriptor(value, 'kind');
   if (!descriptor || !Object.hasOwn(descriptor, 'value')) invalid('Вид материала должен быть обычным полем.');
@@ -299,7 +299,6 @@ export function validatePracticeMaterial(value: unknown, area?: QuestionContext 
     return immutable({ kind, playback });
   }
   if (area === null) invalid('Для этого материала нужен исходный контекст грифа.');
-  if (kind === 'legacy-unknown') { object(value, ['kind'], 'Старый материал'); if (!allowLegacy) invalid('Новый черновик требует известного материала.'); return immutable({ kind }); }
   if (kind === 'harmony') {
     const data = object(value, ['kind', 'patternId'], 'Сопровождение');
     if (data.patternId !== 'CFGC-1-3-5-3-v1') invalid('Неизвестный рисунок сопровождения.');
@@ -322,7 +321,7 @@ export function validatePracticeMaterial(value: unknown, area?: QuestionContext 
     duration: oneOf(data.duration, DURATIONS as readonly ('quarter' | 'eighth' | 'sixteenth')[], 'Длительность практики'), fragment: { from, toExclusive } });
 }
 
-function manualBpm(value: unknown, material: StoredPracticeMaterial, label: string): number {
+function manualBpm(value: unknown, material: PracticeMaterial, label: string): number {
   const [min, max] = manualTempoBounds(material);
   return number(value, min, max, label);
 }
@@ -528,7 +527,7 @@ export function validateHistoryEntry(value: unknown, check: RecordCheck = 'full'
     const result = object(raw.result, ['kind', 'source', 'comfortableBpm', 'durationMs', 'note', 'context', 'material'], 'Ручная отметка');
     if (result.source !== 'self-report') invalid('Ручная отметка должна быть явно помечена как самооценка.');
     const area = result.context === null ? null : context(result.context);
-    const material = validatePracticeMaterial(result.material, area, true);
+    const material = validatePracticeMaterial(result.material, area);
     if (material.kind === 'rhythm' && routeRef !== null) invalid('Практика метронома и ритма не относится к маршруту.');
     const manual = createManualPracticeResult({
       context: area, comfortableBpm: manualBpm(result.comfortableBpm, material, 'Комфортный темп'),

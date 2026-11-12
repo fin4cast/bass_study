@@ -20,7 +20,7 @@
       return makeScreenHistory(session, { ...metadata, id });
     }
     function manual(id = 'fixture-manual', note = 'Ручная отметка; не измеренная точность.') {
-      return makeManualHistory(createManualPracticeResult({ context, comfortableBpm: 72, durationMs: 300000, note }), { ...metadata, id });
+      return makeManualHistory(createManualPracticeResult({ context, material: { kind: 'sequence', pattern: 'ascending', routePositionIds: ['E:0', 'E:12'], duration: 'quarter', fragment: { from: 0, toExclusive: 2 }, box: null }, comfortableBpm: 72, durationMs: 300000, note }), { ...metadata, id });
     }
     function route(id, atMs = 2500) {
       const session = startRouteSession({ id: `session-${id}`, material: createRouteMaterial() });

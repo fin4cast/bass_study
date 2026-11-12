@@ -97,7 +97,7 @@ describe('переносимые метаданные дорожек и выбо
 function quiz(mode: QuizMode = 'name-note', count = 1) { return startQuiz({ positions, structure, mode, scope: 'structure', seed: 100 }, count); }
 function completed() { return makeScreenHistory(nextQuestion(submitAnswer(quiz(), 'E', 350)), metadata)!; }
 function manual() {
-  return makeManualHistory(createManualPracticeResult({ context, comfortableBpm: 72, durationMs: 300000, note: 'Синтетическая самооценка.' }), { ...metadata, id: 'synthetic-manual' });
+  return makeManualHistory(createManualPracticeResult({ context, material: { kind: 'sequence', pattern: 'ascending', routePositionIds: ['E:0', 'E:12'], duration: 'quarter', fragment: { from: 0, toExclusive: 2 }, box: null }, comfortableBpm: 72, durationMs: 300000, note: 'Синтетическая самооценка.' }), { ...metadata, id: 'synthetic-manual' });
 }
 
 function earSession() { return startEarSession({ root: 'A', quality: 'minor', count: 2, seed: 10000 }); }
@@ -508,6 +508,8 @@ describe('достоверность и переносимость копии', 
     const entry: HistoryEntry = completed();
     expect(() => validateSnapshot({ ...emptySnapshot(), history: [entry, entry] })).toThrow(/повторяются/);
     const wrong: any = clone(manual()); wrong.result.accuracy = 100;
+    const unknownMaterial: any = clone(manual()); unknownMaterial.result.material = { kind: 'legacy-unknown' };
+    expect(() => validateHistoryEntry(unknownMaterial)).toThrow(/материал/i);
     expect(() => validateHistoryEntry(wrong)).toThrow(/неизвестные/);
     expect(() => validateHistoryEntry({ ...entry, occurredAt: '2026-02-30T00:00:00.000Z' })).toThrow();
   });

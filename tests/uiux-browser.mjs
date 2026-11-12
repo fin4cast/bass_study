@@ -182,7 +182,8 @@ check('free-practice-choice-does-not-reopen-start-question-after-reload-or-resto
   // Do not use ready()'s automatic free-choice helper: it would hide the regression.
   await ready(page, false);
   assert.equal(await page.locator('#onboarding-mount').isVisible(), false);
-  assert.equal((await raw(page, 'profile', 'current')).onboarding.choice, null, 'A quiet startup must not manufacture an onboarding choice');
+  // A fresh database has no profile record until the first explicit choice; reading uses the default.
+  assert.equal((await raw(page, 'profile', 'current'))?.onboarding.choice ?? null, null, 'A quiet startup must not manufacture an onboarding choice');
   await page.locator('#open-introduction').click();
   assert.equal(await page.locator('[data-intro="free"]').isVisible(), true);
   await page.locator('[data-intro="free"]').click();

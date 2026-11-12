@@ -17,9 +17,8 @@ export type PracticeMaterial = {
 } | { readonly kind: 'fretboard'; readonly box: BoxSelection | null }
   | { readonly kind: 'harmony'; readonly patternId: 'CFGC-1-3-5-3-v1' }
   | RhythmPracticeMaterial;
-export type StoredPracticeMaterial = PracticeMaterial | { readonly kind: 'legacy-unknown' };
 
-export function manualTempoBounds(material?: StoredPracticeMaterial): readonly [number, number] {
+export function manualTempoBounds(material?: PracticeMaterial): readonly [number, number] {
   return material?.kind === 'rhythm' ? [30, 240] : [40, 220];
 }
 
@@ -48,7 +47,7 @@ export interface ManualPracticeResult {
   readonly durationMs: number;
   readonly note: string;
   readonly context: QuestionContext | null;
-  readonly material: StoredPracticeMaterial;
+  readonly material: PracticeMaterial;
 }
 
 export type TrainingResult = QuizResult | ManualPracticeResult;
@@ -58,8 +57,9 @@ export function createManualPracticeResult(input: {
   comfortableBpm: number;
   durationMs: number;
   note?: string;
-  material?: StoredPracticeMaterial;
+  material: PracticeMaterial;
 }): ManualPracticeResult {
+  if (!input.material) throw new RangeError('Для ручной отметки нужен материал практики.');
   const [minBpm, maxBpm] = manualTempoBounds(input.material);
   if (!Number.isInteger(input.comfortableBpm) || input.comfortableBpm < minBpm || input.comfortableBpm > maxBpm) {
     throw new RangeError(`Комфортный темп должен быть целым числом от ${minBpm} до ${maxBpm} BPM.`);
@@ -76,6 +76,6 @@ export function createManualPracticeResult(input: {
     durationMs: input.durationMs,
     note,
     context: input.context === null ? null : Object.freeze({ ...input.context, positionIds: Object.freeze([...input.context.positionIds]) }),
-    material: freezeMaterial(structuredClone(input.material ?? { kind: 'legacy-unknown' as const })),
+    material: freezeMaterial(structuredClone(input.material)),
   });
 }

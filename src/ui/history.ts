@@ -2,7 +2,7 @@ import './history.css';
 import { STRUCTURES, createStructure, formatMidi, getPosition, type StringId } from '../music';
 import { getBoxInstance } from '../music/boxes';
 import { createManualPracticeResult, type QuestionContext } from '../training';
-import { manualTempoBounds, rhythmPracticeLabel, type PracticeMaterial, type StoredPracticeMaterial } from '../training/results';
+import { manualTempoBounds, rhythmPracticeLabel, type PracticeMaterial } from '../training/results';
 import type { RouteRef, RouteMaterial } from '../route';
 import type { SavedEarResult } from '../ear';
 import { confirmAction } from './confirm';
@@ -101,8 +101,8 @@ function fretsForString(ids: readonly string[], string: StringId): string {
   return ranges.join(',');
 }
 
-function materialName(material?: StoredPracticeMaterial): string {
-  if (!material || material.kind === 'legacy-unknown') return 'Прежняя отметка · вид материала не был сохранён';
+function materialName(material?: PracticeMaterial): string {
+  if (!material) return 'Материал не выбран';
   if (material.kind === 'harmony') return 'Аккомпанемент C–F–G–C · бас: основной тон–3–5–3';
   if (material.kind === 'rhythm') return rhythmPracticeLabel(material);
   if (material.kind === 'fretboard') return 'Изучение грифа';
@@ -585,6 +585,7 @@ export function mountHistory(container: HTMLElement, options: HistoryOptions) {
           if (current) { manualDraft = current; manualNote = current.note ?? ''; manualBpm = String(current.comfortableBpm); }
           else { manualDraft = null; manualNote = ''; manualBpm = null; }
         } else {
+          if (!draft.material) throw new Error('Начни практику или выбери сохранённый черновик.');
           const result = createManualPracticeResult({ context: draft.context, material: draft.material, comfortableBpm: bpm, durationMs: draft.durationMs, note: manualNote });
           const entry = makeManualHistory(result, { id: `manual-${crypto.randomUUID()}`, occurredAt: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, routeRef: draft.routeRef });
           await options.saveManual(entry);
