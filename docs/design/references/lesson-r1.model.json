@@ -1,7 +1,7 @@
 {
   "format": "bass-study-reference-model",
   "revision": "lesson-r1",
-  "gitHead": "a5f4c4d27252a3bf6cffdf9f2ef089aa236abda5",
+  "gitHead": "6f5212d475d5fba5b21f7c50f5b19fe18716a625",
   "inputs": {
     "src/music/index.ts": "67ba00cb3457507ff5d7bc7b5f40f257b044b001e1c747c852ba7ab5a3bc366d",
     "src/music/boxes.ts": "91ff78638f5222fa7b8002c95d1e6741a79e6b9a306fa78a43421a00366b7e55",
@@ -9,7 +9,7 @@
     "src/training/quiz-rules-v1.ts": "3cb3be7a7d73baab3a57b124a6869512023bca0cb2c6f9bb896fcdc51ae4ed8d",
     "src/notation/index.ts": "9002fbb35666c2dabf839f39679fc2b3417368f7e832b5c4e7c47cb4c7a240b7"
   },
-  "entrySha256": "a82a3d3c6cb1ac5b0a379ae5cbd3d4e69113e6adb6761d58c33988da82911cd6",
+  "entrySha256": "91f74f1f3a7007e93e653a7d3b769c413eb130b81f9002297c1608f81d4fa702",
   "bundleSha256": "8e0078307abbac24e7d6787e850aa71ebb46d08fcf8cbd3a421d01b58d54c504",
   "global": "BassLessonModel",
   "target": "es2022",
