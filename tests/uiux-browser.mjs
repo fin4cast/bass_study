@@ -401,6 +401,27 @@ check('meaningful-SVG-labels-fingers-focus-and-play-TAB-have-actual-contrast', a
   return { evidence, method: 'Actual computed SVG fills/strokes/gradient stops, circle/finger backgrounds and parent opacity; running play-screen TAB cursor and digit masks over the real card background. No inverse filters or source-hex-only audit.' };
 });
 
+// Esc закрывает диалог сразу, а событие `close` приходит отдельной задачей. Повторное открытие до него
+// (Enter сразу после Esc) не должно очищаться запоздавшим `close`: иначе диалог открыт, но пуст.
+check('settings-dialog-reopened-before-late-close-event-keeps-its-content', async ({ page }) => {
+  await ready(page);
+  await settingsSection(page, 'data');
+  const opener = page.locator('[data-page-frame="settings"] [data-dialog-open="restore"]');
+  await opener.click();
+  await page.locator('[data-dialog] [data-dlg="choose"]').waitFor();
+  const reopened = await page.evaluate(async () => {
+    const dialog = document.querySelector('[data-page-frame="settings"] [data-dialog]');
+    dialog.close();
+    document.querySelector('[data-page-frame="settings"] [data-dialog-open="restore"]').click();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    return { open: dialog.open, choose: Boolean(dialog.querySelector('[data-dlg="choose"]')), text: dialog.textContent.trim().slice(0, 60) };
+  });
+  assert.deepEqual({ open: reopened.open, choose: reopened.choose }, { open: true, choose: true }, JSON.stringify(reopened));
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.activeElement?.dataset.dialogOpen === 'restore');
+  return reopened;
+});
+
 check('settings-dialogs-and-progress-deletion-keep-keyboard-focus', async ({ page }) => {
   await ready(page);
   // «Настройки → Данные»: диалоги открываются клавиатурой, Esc и «Закрыть» возвращают фокус на кнопку открытия.

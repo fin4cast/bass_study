@@ -308,6 +308,9 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
   const busy = () => dialogStep === 'replacing' || dialogStep === 'exporting';
   function closeDialog() { if (dialog.open && !busy()) dialog.close(); }
   function onDialogClose() {
+    // Событие `close` приходит отдельной задачей после close(). Если диалог уже открыт снова (Enter сразу после Esc),
+    // это запоздавшее событие прежнего закрытия: openDialog уже сбросил состояние, очищать новое содержимое нельзя.
+    if (dialog.open) return;
     const back = opener;
     opener = null; dialogStep = null; preview = null; rejection = null; confirmed = false; failure = '';
     dialogToken++;
