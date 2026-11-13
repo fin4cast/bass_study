@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { DEFAULT_EDGE_PATH, launchIsolatedEdge } from './native-edge.mjs';
+import { DEFAULT_EDGE_PATH, launchIsolatedEdge, NAVIGATION_TIMEOUT_MS } from './native-edge.mjs';
 
 const loopback = url => ['localhost', '127.0.0.1', '[::1]'].includes(new URL(url).hostname);
 
@@ -44,7 +44,7 @@ export async function runTracksBrowserChecks(allChecks, suite = {}) {
     const context = await browser.newContext({ viewport: { width: 1360, height: 1050 } });
     contexts.add(context); await isolate(context);
     const page = await context.newPage();
-    page.setDefaultTimeout(6000);
+    page.setDefaultTimeout(6000); page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
     const cdp = await context.newCDPSession(page);
     await cdp.send('Network.enable');
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
@@ -60,7 +60,7 @@ export async function runTracksBrowserChecks(allChecks, suite = {}) {
     try {
       nativeEdge = await launchIsolatedEdge({ executablePath, userDataDir: join(temporary, nativeProfile), args: ['--mute-audio'] });
       const context = nativeEdge.context; await isolate(context);
-      const page = nativeEdge.page; page.setDefaultTimeout(6000);
+      const page = nativeEdge.page; page.setDefaultTimeout(6000); page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
       page.on('pageerror', error => report.pageErrors.push(error.message));
       await page.goto(origin);
       await page.waitForFunction(() => document.querySelector('.site-header [data-app-module="tracks"]'), undefined, { polling: 100 });

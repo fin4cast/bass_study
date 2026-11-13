@@ -265,7 +265,8 @@ check('product-invalid-range-cannot-continue-previous-valid-loop', 'ui', async (
 check('product-module-switches-coordinate-bank-and-rhythm-audio-owners', 'ui', async ({ page }) => {
   await observe(page); await enter(page); await load(page, 'sample-05'); await row(page, 1).locator('[data-control=solo]').check();
   await field(page, 'play').click(); await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState === 'playing');
-  assert.ok((await page.evaluate(() => window.__bankLive(700))).peak > 1e-5);
+  await untilBankAudioMoves(page);
+  assert.ok((await page.evaluate(() => window.__bankLive(1500))).peak > 1e-5);
   await go(page, 'harmony'); await delay(150);
   assert.notEqual(await bank(page).getAttribute('data-music-bank-state'), 'playing');
   const stoppedBank = await page.evaluate(() => window.__bankLive(350)); assert.ok(stoppedBank.peak < 1e-7);
@@ -276,7 +277,8 @@ check('product-module-switches-coordinate-bank-and-rhythm-audio-owners', 'ui', a
   await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState !== 'running');
   await field(page, 'play').click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState === 'playing');
-  const resumedBank = await page.evaluate(() => window.__bankLive(700)); assert.ok(resumedBank.peak > 1e-5);
+  await untilBankAudioMoves(page);
+  const resumedBank = await page.evaluate(() => window.__bankLive(1500)); assert.ok(resumedBank.peak > 1e-5);
   return { bankStoppedOnLeave: stoppedBank, rhythmOwnerPausedOnReturn: true, bankRestartedAfterRhythm: resumedBank };
 });
 
@@ -330,7 +332,10 @@ check('product-native-tab-hide-pauses-and-return-waits-for-explicit-start', 'nat
   const signal = await page.evaluate(() => window.__bankLive(1500)); assert.ok(signal.peak > 1e-5);
   const other = await context.newPage(); await other.goto(`${origin}/vendor/music-bank/patch-manifest.json`); await other.bringToFront();
   await page.waitForFunction(() => document.hidden, undefined, { polling: 100 }); await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState !== 'playing', undefined, { polling: 100 });
-  const position = await field(page, 'seek').inputValue(); await delay(250); assert.equal(await field(page, 'seek').inputValue(), position);
+  // В скрытой вкладке ползунок получает место паузы не сразу: сначала ждём, пока значение установится.
+  let position = await field(page, 'seek').inputValue();
+  for (const settled = Date.now() + 3000; Date.now() < settled;) { await delay(150); const next = await field(page, 'seek').inputValue(); if (next === position) break; position = next; }
+  await delay(250); assert.equal(await field(page, 'seek').inputValue(), position);
   await page.bringToFront(); await page.waitForFunction(() => !document.hidden); assert.equal(await field(page, 'play').isEnabled(), true);
   assert.notEqual(await bank(page).getAttribute('data-music-bank-state'), 'playing'); await field(page, 'play').click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState === 'playing');

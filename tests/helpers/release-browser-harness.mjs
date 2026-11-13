@@ -7,7 +7,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { audioClockScript } from './data-ui.mjs';
-import { NATIVE_NAVIGATION_TIMEOUT_MS } from './native-edge.mjs';
+import { NAVIGATION_TIMEOUT_MS } from './native-edge.mjs';
 
 export async function runReleaseBrowserChecks(allChecks) {
   const { checks, skipped: skippedChecks } = browserTier(allChecks);
@@ -48,11 +48,10 @@ export async function runReleaseBrowserChecks(allChecks) {
     await prepare(context);
     await context.addInitScript(audioClockScript);
     if (memory) await context.addInitScript(() => Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: undefined }));
-    if (persistentName) context.setDefaultNavigationTimeout(NATIVE_NAVIGATION_TIMEOUT_MS);
+    if (persistentName) context.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
     const page = persistentName ? context.pages()[0] : await context.newPage();
-    if (persistentName) page.setDefaultNavigationTimeout(NATIVE_NAVIGATION_TIMEOUT_MS);
     if (persistentName) page.on('pageerror', error => report.pageErrors.push(error.message));
-    page.setDefaultTimeout(7000);
+    page.setDefaultTimeout(7000); page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
     const cdp = await context.newCDPSession(page);
     await cdp.send('Network.enable'); await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
     await page.goto(url);

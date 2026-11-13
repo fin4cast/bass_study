@@ -11,10 +11,11 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 
 /**
- * Первая навигация в отдельном процессе Edge (холодный профиль) на раннере GitHub не укладывается в обычные 6–8 с.
- * Тайм-аут навигации задаётся отдельно и главнее setDefaultTimeout раннеров; ожидания внутри сценариев не меняются.
+ * Первая навигация на холодном старте (отдельный процесс Edge, одновременный запуск раннеров, раннер GitHub) не всегда
+ * укладывается в обычные 6–8 с. Тайм-аут навигации задаётся отдельно и главнее setDefaultTimeout раннеров;
+ * ожидания внутри сценариев не меняются.
  */
-export const NATIVE_NAVIGATION_TIMEOUT_MS = 30000;
+export const NAVIGATION_TIMEOUT_MS = 30000;
 export const DEFAULT_EDGE_PATH = join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe');
 const OUTPUT_LIMIT = 4000;
 
@@ -123,9 +124,9 @@ export async function launchIsolatedEdge({ executablePath = DEFAULT_EDGE_PATH, u
     browser = await withTimeout(chromium.connectOverCDP(endpoint, { noDefaults: true, timeout: remaining }), remaining + 1000, `Isolated Edge CDP connection timed out (${endpoint})`);
     const context = browser.contexts()[0];
     // Edge may open its own edge:// pages (e.g. a sync dialog) besides the requested about:blank tab.
-    context.setDefaultNavigationTimeout(NATIVE_NAVIGATION_TIMEOUT_MS);
+    context.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
     const page = context.pages().find(tab => tab.url() === 'about:blank') ?? context.pages().find(tab => !tab.url().startsWith('edge://')) ?? await context.newPage();
-    page.setDefaultNavigationTimeout(NATIVE_NAVIGATION_TIMEOUT_MS);
+    page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
     return { browser, context, page, userDataDir, endpointSource, close };
   } catch (error) {
     try { await close(); } catch { /* the launch failure is the primary error */ }

@@ -5,6 +5,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { NAVIGATION_TIMEOUT_MS } from './native-edge.mjs';
 
 export async function runNotationBrowserChecks(allChecks, suite = {}) {
   const { checks, skipped: skippedChecks } = browserTier(allChecks);
@@ -35,7 +36,7 @@ export async function runNotationBrowserChecks(allChecks, suite = {}) {
         window.AudioContext = wrapped; if (window.webkitAudioContext === original) window.webkitAudioContext = wrapped;
       }
     });
-    const page = await context.newPage(); page.setDefaultTimeout(8000);
+    const page = await context.newPage(); page.setDefaultTimeout(8000); page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
     page.on('pageerror', error => report.pageErrors.push(error.message));
     const cdp = await context.newCDPSession(page); await cdp.send('Network.enable'); await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
     await page.goto(url);

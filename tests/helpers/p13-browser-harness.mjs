@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { browserRun, startBrowserBuild, writeBrowserReport } from './browser-runner.mjs';
 import { browserTier } from './browser-case.mjs';
-import { DEFAULT_EDGE_PATH, launchIsolatedEdge } from './native-edge.mjs';
+import { DEFAULT_EDGE_PATH, launchIsolatedEdge, NAVIGATION_TIMEOUT_MS } from './native-edge.mjs';
 
 const loopback = url => ['localhost', '127.0.0.1', '[::1]'].includes(new URL(url).hostname);
 const VIEWPORT = { width: 1366, height: 900 };
@@ -95,7 +95,7 @@ export async function runP13BrowserChecks(allChecks, suite = {}) {
     });
   }
   async function preparePage(page) {
-    page.setDefaultTimeout(8000);
+    page.setDefaultTimeout(8000); page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Network.enable');
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
