@@ -76,10 +76,11 @@ describe('музыкальное написание', () => {
   });
 });
 
-describe('шесть базовых структур', () => {
+describe('структуры', () => {
   it('содержит только заданный набор структур', () => {
     expect(STRUCTURES.map(item => item.id)).toEqual([
       'major', 'natural-minor', 'major-pentatonic', 'minor-pentatonic', 'major-triad', 'minor-triad',
+      'diminished-triad', 'major-seventh', 'dominant-seventh', 'minor-seventh', 'half-diminished-seventh', 'blues',
     ]);
   });
 
@@ -90,6 +91,12 @@ describe('шесть базовых структур', () => {
     ['minor-pentatonic', ['C', 'E♭', 'F', 'G', 'B♭'], ['1', 'b3', '4', '5', 'b7']],
     ['major-triad', ['C', 'E', 'G'], ['1', '3', '5']],
     ['minor-triad', ['C', 'E♭', 'G'], ['1', 'b3', '5']],
+    ['diminished-triad', ['C', 'E♭', 'G♭'], ['1', 'b3', 'b5']],
+    ['major-seventh', ['C', 'E', 'G', 'B'], ['1', '3', '5', '7']],
+    ['dominant-seventh', ['C', 'E', 'G', 'B♭'], ['1', '3', '5', 'b7']],
+    ['minor-seventh', ['C', 'E♭', 'G', 'B♭'], ['1', 'b3', '5', 'b7']],
+    ['half-diminished-seventh', ['C', 'E♭', 'G♭', 'B♭'], ['1', 'b3', 'b5', 'b7']],
+    ['blues', ['C', 'E♭', 'F', 'G♭', 'G', 'B♭'], ['1', 'b3', '4', 'b5', '5', 'b7']],
   ] as const)('%s от C имеет правильные ноты и функции', (id, expected, degrees) => {
     const structure = createStructure('C', id);
     expect(structure.notes.map(note => note.name)).toEqual(expected);

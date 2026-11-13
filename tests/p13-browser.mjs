@@ -80,6 +80,101 @@ async function waitDb(page, predicate, what, timeout = 10000) {
 }
 const planTitles = page => home(page).locator('.ls-plan .ls-step-title').allInnerTexts();
 
+
+/* ---------- Цели «Основ» и настройка карточки (D-049) ---------- */
+
+check('goal-pentatonic-step-memory-whole-pass-masters-step-and-today-adds-goal-steps', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'план первого запуска');
+  await lessonTab(page, 'Основы');
+  // Первый запуск: открыт вид «Цели» с выбором цели.
+  assert.equal(await home(page).locator('[data-act="basics-view"][data-value="goals"]').getAttribute('aria-pressed'), 'true');
+  assert.match(await home(page).locator('.ls-goal-choose h2').innerText(), /Выбери цель/);
+  await home(page).locator('[data-key="goal-card:pentatonic"]').click();
+  const head = home(page).locator('.ls-level-head h2');
+  assert.equal(await head.innerText(), 'Пентатоника на всём грифе · Am');
+  await home(page).locator('[data-control="goal-root"]').selectOption('E');
+  assert.equal(await head.innerText(), 'Пентатоника на всём грифе · Em');
+  assert.equal(await home(page).locator('.ls-goal-strip .ls-st').count(), 14);
+  await home(page).locator('[data-act="goal-step"][data-value="form-b"]').click();
+  const card = home(page).locator('section[aria-label="Шаг цели"]');
+  assert.match(await card.innerText(), /Шаг 2 из 14[\s\S]*не начат[\s\S]*Em · минорная пентатоника · форма B[\s\S]*«По памяти»/i);
+  await home(page).locator('[data-key="make-goal"]').click();
+  const saved = await waitDb(page, db => db.preferences?.lesson?.goal?.id === 'pentatonic', 'цель сохранена');
+  assert.deepEqual(saved.preferences.lesson.goal, { id: 'pentatonic', root: 'E' });
+  assert.equal(await home(page).locator('[data-badge="basics"]').innerText(), '0/14');
+
+  // Проход целиком в виде «По памяти» с отметкой «Чисто» осваивает шаг.
+  await card.locator('[data-key="goal-primary"]').click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  assert.equal(await playScene(page).locator('[data-title]').innerText(), 'Форма пентатоники вверх-вниз');
+  const loop = playScene(page).locator('[data-flag="loop"]');
+  if (await loop.getAttribute('aria-pressed') === 'true') await loop.click();
+  await playScene(page).locator('button[data-view="memory"]').click();
+  await assertAttribute(playScene(page).locator('button[data-view="memory"]'), 'aria-pressed', 'true');
+  for (let index = 0; index < 12; index++) await playScene(page).getByRole('button', { name: /^Быстрее на/ }).click();
+  await playScene(page).locator('[data-play]').click();
+  const rate = playScene(page).getByRole('group', { name: 'Самооценка прохода' });
+  await rate.waitFor({ timeout: 30000 });
+  await rate.getByRole('button', { name: 'Чисто', exact: true }).click();
+  const db = await waitDb(page, db => db.history.some(entry => entry.result?.assessment === 'clean'), '«Чисто» в истории');
+  const entry = db.history.find(item => item.result?.assessment === 'clean');
+  assert.equal(entry.result.material.view, 'memory');
+  assert.equal(entry.result.material.wholePass, true);
+  assert.equal(entry.result.material.key, 'builtin:pentatonic-form.E.minor-pentatonic.penta-b');
+  await page.locator('[data-lesson-screen="play"] [data-back]').click();
+  await page.locator('[data-lesson-screen="home"]:not([hidden])').waitFor();
+  await lessonTab(page, 'Основы');
+  assert.match(await home(page).locator('[data-act="goal-step"][data-value="form-b"]').innerText(), /✓ по памяти · \d+/);
+  assert.equal(await home(page).locator('[data-badge="basics"]').innerText(), '1/14');
+
+  // «Сегодня»: строка цели и «Добавить шаги цели» без повторов материала.
+  await lessonTab(page, 'Сегодня');
+  assert.match(await home(page).locator('.ls-goal-line').innerText(), /Цель: Пентатоника на всём грифе · Em · освоено 1\/14/);
+  const before = (await readDb(page)).preferences.lesson.plan.steps.length;
+  await home(page).locator('[data-key="hero-goal-steps"]').click();
+  const grown = await waitDb(page, db => db.preferences.lesson.plan.steps.length > before, 'шаги цели в плане');
+  const keys = grown.preferences.lesson.plan.steps.map(step => JSON.stringify(step.content));
+  assert.equal(new Set(keys).size, keys.length, 'Без повторов материала');
+  const added = grown.preferences.lesson.plan.steps.slice(before).map(step => step.content.spec.params?.shapeId ?? step.content.spec.templateId);
+  assert.ok(added.includes('penta-a') && added.includes('penta-c'), `Добавлены следующие неосвоенные формы: ${added}`);
+  assert.ok(!added.includes('penta-b'), 'Освоенная форма B не добавляется');
+  return { goal: saved.preferences.lesson.goal, entry: entry.result.material, added };
+});
+
+check('library-card-configure-form-b-keeps-form-a-in-plan-and-star-saves-configured-material', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'план первого запуска');
+  await lessonTab(page, 'Библиотека');
+  const card = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: 'Форма пентатоники вверх-вниз', exact: true }) });
+  await card.locator('[data-act="toggle-plan"]').click();
+  await assertAttribute(card.locator('[data-act="toggle-plan"]'), 'aria-pressed', 'true');
+  await card.locator('[data-act="configure"]').click();
+  const shape = card.locator('[data-control="card-param"][data-param="shapeId"]');
+  // Пользователь меняет значение со списка в фокусе (клавиатурой или мышью).
+  await shape.focus();
+  await shape.selectOption('penta-b');
+  // Фокус остаётся на списке после перерисовки.
+  assert.ok(await card.locator('[data-control="card-param"][data-param="shapeId"]').evaluate(element => document.activeElement === element), 'Фокус на списке формы');
+  await card.locator('[data-control="card-param"][data-param="root"]').selectOption('E');
+  assert.match(await card.locator('.ls-meta').innerText(), /Em · минорная пентатоника · форма B/);
+  assert.equal(await card.locator('[data-act="toggle-plan"]').getAttribute('aria-pressed'), 'false', 'Форма B — другой материал, форма A остаётся в плане');
+  await card.locator('[data-act="toggle-plan"]').click();
+  const plan = await waitDb(page, db => db.preferences.lesson.plan.steps.length === 5, 'обе формы в плане');
+  const shapes = plan.preferences.lesson.plan.steps.filter(step => step.content.spec?.templateId === 'pentatonic-form').map(step => `${step.content.spec.params.root}:${step.content.spec.params.shapeId}`);
+  assert.deepEqual(shapes, ['A:penta-a', 'E:penta-b']);
+  await card.locator('[data-act="save-start"]').click();
+  await card.locator('[data-save-name]').fill('Моя форма B');
+  await card.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  const own = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: 'Моя форма B', exact: true }) });
+  await own.waitFor();
+  assert.match(await own.locator('.ls-meta').innerText(), /Em · минорная пентатоника · форма B/, '☆ сохранил настроенный материал');
+  assert.equal(await own.locator('[data-act="configure"]').count(), 0, 'Свои карточки не настраиваются');
+  await card.locator('[data-act="card-reset"]').click();
+  assert.match(await card.locator('.ls-meta').innerText(), /Am · минорная пентатоника · форма A/);
+  return { shapes };
+});
+
 /* ---------- Экран игры ---------- */
 
 async function openPlanStep(page, title) {
@@ -309,7 +404,7 @@ check('today-first-run-plan-is-shown-and-saved', 'ui', async ({ page, origin }) 
   assert.deepEqual(statuses, ['is-current', 'is-pending', 'is-pending']);
   // План первого дня сохраняется, а не выводится заново при каждом показе.
   const db = await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'план первого запуска');
-  assert.equal(db.version, 11);
+  assert.equal(db.version, 12);
   const plan = db.preferences.lesson.plan;
   assert.deepEqual(plan.steps.map(step => step.content.spec.templateId), ['note-all-positions', 'octaves', 'chromatic-position']);
   return { plan: { localDate: plan.localDate, steps: plan.steps.map(({ id, minutes, status }) => ({ id, minutes, status })) } };
@@ -451,8 +546,15 @@ check('play-self-assessment-clean-is-saved-and-visible-in-progress-after-reload'
 
 /* ---------- «Проверь себя» ---------- */
 
-async function openBasicsCheck(page, level, step) {
+async function basicsLevels(page) {
   await lessonTab(page, 'Основы');
+  const toggle = home(page).locator('[data-act="basics-view"][data-value="levels"]');
+  await toggle.click();
+  await assertAttribute(toggle, 'aria-pressed', 'true');
+}
+
+async function openBasicsCheck(page, level, step) {
+  await basicsLevels(page);
   await home(page).locator(`[data-act="level"][data-value="${level}"]`).click();
   await home(page).locator(`[data-act="basics-step"][data-value="${step}"]`).click();
   await home(page).locator('[data-key="focus-primary"]', { hasText: 'Проверь себя' }).click();
@@ -573,7 +675,7 @@ check('check-board-answer-positions-hidden-then-correction-and-reveal-match-inde
 
 check('reference-page-search-selects-card-and-back-returns-to-lesson', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
-  await lessonTab(page, 'Основы');
+  await basicsLevels(page);
   const concept = await home(page).locator('.ls-focus h2').innerText();
   await home(page).locator('[data-key="focus-concept"]').click();
   const reference = page.locator('[data-lesson-screen="reference"]');

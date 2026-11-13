@@ -45,8 +45,8 @@
     };
     let seconds = 0;
     const at = date => `${date}T17:${String(10 + Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds++ % 60).padStart(2, '0')}.000Z`;
-    const P = (date, ex, bpm, assessment, minutes) => ({ kind: 'play', exerciseKey: EX[ex][0], title: EX[ex][1], spec: createExerciseSpec(EX[ex][2]), assessment, bpm, activeMs: minutes * 60000, localDate: date, occurredAt: at(date) });
-    const C = (date, answers, minutes) => ({ kind: 'check', exerciseKey: EX.checkB[0], title: EX.checkB[1], answers, activeMs: minutes * 60000, localDate: date, occurredAt: at(date) });
+    const P = (date, ex, bpm, assessment, minutes) => ({ kind: 'play', exerciseKey: EX[ex][0], title: EX[ex][1], spec: createExerciseSpec(EX[ex][2]), assessment, bpm, activeMs: minutes * 60000, localDate: date, occurredAt: at(date), view: 'both', wholePass: true });
+    const C = (date, answers, minutes) => ({ kind: 'check', exerciseKey: EX.checkB[0], title: EX.checkB[1], spec: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), checkKind: 'name-degree', ear: false, answers, activeMs: minutes * 60000, localDate: date, occurredAt: at(date) });
     const A = (degree, outcome, errors = 0) => ({ degree, outcome, errors });
     const HISTORY = [
       P('2026-10-22', 'link', 60, 'clean', 6), P('2026-10-22', 'chrom', 72, 'clean', 5),

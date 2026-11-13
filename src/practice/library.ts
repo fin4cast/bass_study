@@ -7,6 +7,7 @@ import {
   type ConceptId, type ExerciseCategory, type ExerciseParams, type ExerciseSpec, type ExerciseTemplateId,
 } from '../exercises';
 import { parseNote, type StructureId } from '../music';
+import { builtinTemplateOf, exerciseKey } from './material';
 
 export const CATEGORY_TITLES: Readonly<Record<ExerciseCategory, string>> = Object.freeze({
   warmup: 'Разминка и техника',
@@ -17,6 +18,7 @@ export const CATEGORY_TITLES: Readonly<Record<ExerciseCategory, string>> = Objec
   arpeggios: 'Арпеджио и тоны аккорда',
   sequences: 'Секвенции',
   transposition: 'Транспонирование',
+  progressions: 'Последовательности аккордов',
 });
 export const CATEGORY_ORDER = Object.keys(CATEGORY_TITLES) as readonly ExerciseCategory[];
 
@@ -28,7 +30,9 @@ export interface UserExercise {
   readonly createdAt: string;
 }
 export interface LibraryItem {
-  /** `builtin:<шаблон>` или `user:<id>`; по ключу связываются план, результаты и прогресс. */
+  /** Неизменный id карточки: `tpl:<шаблон>` или `user:<id>` (разметка, фокус, настройка карточки). */
+  readonly id: string;
+  /** `builtin:<материал>` или `user:<id>`; по ключу связываются план, результаты и прогресс. */
   readonly key: string;
   readonly title: string;
   readonly category: ExerciseCategory;
@@ -68,6 +72,7 @@ const ROOT_PARAM: Partial<Record<ExerciseTemplateId, 'root' | 'minorRoot' | 'not
   'note-all-positions': 'note', octaves: 'note', 'pentatonic-form': 'root', 'pentatonic-relative': 'minorRoot', 'scale-compact': 'root',
   'connect-forms': 'root', 'pentatonic-neck': 'root', 'scale-one-string': 'root', 'scale-position': 'root', 'arpeggio-1358': 'root',
   'root-five-eight': 'root', 'groups-of-three': 'root', thirds: 'root', 'cycle-fourths': 'root',
+  'blues-scale': 'root', 'arpeggio-seventh': 'root', 'arpeggio-inversion': 'root', progression: 'root',
 };
 
 /**
@@ -83,7 +88,7 @@ export function builtinLibrary(playFrom: string | null = null): readonly Library
       try { spec = createExerciseSpec(template.id, { [param]: root } as Partial<ExerciseParams[typeof template.id]>); }
       catch { /* Тоника не подходит этому шаблону: остаётся его материал по умолчанию. */ }
     }
-    return { key: `builtin:${template.id}`, title: template.title, category: template.category, concepts: template.concepts, spec, builtin: true };
+    return { id: `tpl:${template.id}`, key: exerciseKey(spec), title: template.title, category: template.category, concepts: template.concepts, spec, builtin: true };
   }));
 }
 
@@ -91,7 +96,7 @@ export function userLibrary(exercises: readonly UserExercise[]): readonly Librar
   const templates = new Map(EXERCISE_TEMPLATES.map(template => [template.id, template]));
   return deepFreeze(exercises.map(exercise => {
     const template = templates.get(exercise.spec.templateId)!;
-    return { key: `user:${exercise.id}`, title: exercise.name, category: template.category, concepts: template.concepts, spec: exercise.spec, builtin: false };
+    return { id: `user:${exercise.id}`, key: `user:${exercise.id}`, title: exercise.name, category: template.category, concepts: template.concepts, spec: exercise.spec, builtin: false };
   }));
 }
 
@@ -99,7 +104,18 @@ function structureOf(spec: ExerciseSpec): StructureId | null {
   const params = spec.params as Record<string, unknown>;
   if (typeof params.structureId === 'string') return params.structureId as StructureId;
   if (spec.templateId === 'pentatonic-relative') return 'minor-pentatonic';
+  if (spec.templateId === 'blues-scale') return 'blues';
   return null;
+}
+
+/**
+ * Упражнение «в работе»: своё — по своему ключу, встроенное — если играно любое исполнение шаблона
+ * (другая тоника или форма тоже считаются: «Играть от» не делает упражнение «неигранным»).
+ */
+export function isPlayed(item: LibraryItem, played: ReadonlySet<string>): boolean {
+  if (!item.builtin) return played.has(item.key);
+  for (const key of played) if (builtinTemplateOf(key) === item.spec.templateId) return true;
+  return false;
 }
 
 /** Фильтр библиотеки; `played` — ключи упражнений, по которым уже есть самооценка. */
@@ -108,7 +124,7 @@ export function filterLibrary(items: readonly LibraryItem[], filter: LibraryFilt
     (!filter.category || item.category === filter.category)
     && (!filter.structureId || structureOf(item.spec) === filter.structureId)
     && (!filter.concept || item.concepts.includes(filter.concept))
-    && (filter.status === undefined || filter.status === 'all' || (filter.status === 'new') !== played.has(item.key)));
+    && (filter.status === undefined || filter.status === 'all' || (filter.status === 'new') !== isPlayed(item, played)));
 }
 
 export function countByCategory(items: readonly LibraryItem[]): Readonly<Record<ExerciseCategory, number>> {

@@ -4,13 +4,14 @@
  * возвращаются новыми проверенными планами `plan-v1`.
  */
 import { createExerciseSpec, EXERCISE_TEMPLATES, type ConceptId, type ExerciseCategory, type ExerciseSpec, type ExerciseTemplateId } from '../../exercises';
-import { builtinLibrary, CATEGORY_ORDER, CATEGORY_TITLES, countByCategory, filterLibrary, userLibrary, type LibraryItem, type UserExercise } from '../../practice/library';
+import { builtinLibrary, CATEGORY_ORDER, isPlayed, CATEGORY_TITLES, countByCategory, filterLibrary, userLibrary, type LibraryItem, type UserExercise } from '../../practice/library';
 import {
   addStep, currentStep, doneMinutes, MAX_PLAN_STEPS, PLAN_TEMPLATES, plannedMinutes, removeStep, validatePlan,
   type CheckKind, type CheckSpec, type DayPlan, type PlanStep, type PlanStepContent,
 } from '../../practice/plan';
 import { ASSESSMENT_LABELS, exerciseProgress, playedKeys, type Assessment, type PracticeRecord } from '../../practice/results';
 import { recommend } from '../../practice/recommend';
+import { goalProgress, GOALS, isGoalId, nextGoalSteps, recordsByMaterial, type GoalId, type GoalProgress, type GoalStep, type MasteryRule } from '../../practice/goals';
 import { conceptForExerciseConcept, REFERENCE_CONCEPTS, REFERENCE_LEVELS, type ReferenceConcept, type ReferenceLevel } from '../../practice/concepts';
 import { annotatePositions, getPosition, type StructureId } from '../../music';
 import type { BoardNote } from './mini-board';
@@ -26,17 +27,16 @@ export interface LessonState {
   readonly firstRun: boolean;
   readonly playFrom: string | null;
   readonly tab: LessonTab;
+  /** Текущая учебная цель; неизвестная цель хранилища сюда не попадает. */
+  readonly goal: { readonly id: GoalId; readonly root: string | null } | null;
+  readonly basicsView: BasicsView;
 }
+export type BasicsView = 'goals' | 'levels';
 
 /* ---------- Ключи и подписи шагов ---------- */
 
-const sameSpec = (a: ExerciseSpec, b: ExerciseSpec) => JSON.stringify(a) === JSON.stringify(b);
-
-/** Ключ упражнения как в библиотеке и результатах: `user:<id>` для своего описания, иначе `builtin:<шаблон>`. */
-export function exerciseKey(spec: ExerciseSpec, userExercises: readonly UserExercise[] = []): string {
-  const own = userExercises.find(exercise => sameSpec(exercise.spec, spec));
-  return own ? `user:${own.id}` : `builtin:${spec.templateId}`;
-}
+import { exerciseKey, materialId, sameSpec } from '../../practice/material';
+export { exerciseKey, materialId };
 
 export const CHECK_KIND_TITLES: Readonly<Record<CheckKind, string>> = Object.freeze({ 'find-degree': 'найди ступень', 'name-degree': 'назови ступень' });
 
@@ -168,7 +168,9 @@ export function planRows(plan: DayPlan, records: readonly PracticeRecord[], user
 }
 
 export interface HeroModel {
-  readonly mode: 'continue' | 'first-run' | 'empty';
+  readonly mode: 'continue' | 'first-run' | 'empty' | 'goal';
+  /** Строка цели над главным блоком: «Цель: Пентатоника на всём грифе · Am · освоено 3/14». */
+  readonly goalLine: string | null;
   readonly eyebrow: string;
   readonly title: string;
   readonly meta: string;
@@ -178,11 +180,27 @@ export interface HeroModel {
   readonly stats: readonly { readonly value: string; readonly label: string }[];
 }
 
-export function heroModel(state: Pick<LessonState, 'plan' | 'records' | 'userExercises' | 'firstRun'>): HeroModel {
+/** Подпись тоники цели: минорные цели — «Am», остальные — нота. */
+export function goalRootLabel(progress: GoalProgress): string {
+  if (progress.root === null) return '';
+  return ['pentatonic', 'natural-minor', 'blues'].includes(progress.goal.id) ? `${progress.root}m` : progress.root;
+}
+export function goalLine(progress: GoalProgress): string {
+  const root = goalRootLabel(progress);
+  return `Цель: ${progress.goal.title}${root ? ` · ${root}` : ''} · освоено ${progress.done}/${progress.total}`;
+}
+
+export function heroModel(state: Pick<LessonState, 'plan' | 'records' | 'userExercises' | 'firstRun'>, goal: GoalProgress | null = null): HeroModel {
   const step = currentStep(state.plan);
-  if (state.firstRun) {
-    return { mode: 'first-run', eyebrow: 'Первый запуск', title: 'Начни с «Основ»', meta: 'Короткие шаги: понятие → упражнение → проверка. Или сразу сыграй готовый план — около 10 минут.',
+  const line = goal ? goalLine(goal) : null;
+  if (state.firstRun && !goal) {
+    return { mode: 'first-run', goalLine: null, eyebrow: 'Первый запуск', title: 'Начни с «Основ»', meta: 'Короткие шаги: понятие → упражнение → проверка. Или сразу сыграй готовый план — около 10 минут.',
       content: step?.content ?? null, stepId: step?.id ?? null, concepts: [], stats: [] };
+  }
+  if (!step && goal?.next) {
+    const next = goal.next;
+    return { mode: 'goal', goalLine: line, eyebrow: 'Следующий шаг цели', title: stepTitle(next.content, state.userExercises),
+      meta: `${stepMaterial(next.content)} · ${RULE_HINTS[next.rule]}`, content: next.content, stepId: null, concepts: [], stats: [] };
   }
   let content: PlanStepContent | null = step?.content ?? null;
   let eyebrow = step ? `Продолжить · шаг ${state.plan.steps.indexOf(step) + 1} из ${state.plan.steps.length} плана` : '';
@@ -190,7 +208,7 @@ export function heroModel(state: Pick<LessonState, 'plan' | 'records' | 'userExe
     const last = [...state.records].filter(record => record.kind === 'play').sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)).at(-1);
     if (last?.kind === 'play') { content = { kind: 'exercise', spec: last.spec }; eyebrow = 'Продолжить · с прошлого занятия'; }
   }
-  if (!content) return { mode: 'empty', eyebrow: 'План пуст', title: 'Собери план на сегодня', meta: 'Добавь упражнения из библиотеки или возьми готовый шаблон плана.', content: null, stepId: null, concepts: [], stats: [] };
+  if (!content) return { mode: 'empty', goalLine: line, eyebrow: 'План пуст', title: 'Собери план на сегодня', meta: 'Добавь упражнения из библиотеки или возьми готовый шаблон плана.', content: null, stepId: null, concepts: [], stats: [] };
   const exercise = content.kind === 'exercise' ? content.spec : content.spec.exercise;
   const key = exerciseKey(exercise, state.userExercises);
   const progress = content.kind === 'exercise' ? exerciseProgress(state.records).find(item => item.exerciseKey === key) : undefined;
@@ -198,7 +216,7 @@ export function heroModel(state: Pick<LessonState, 'plan' | 'records' | 'userExe
   if (progress?.bestCleanBpm) stats.push({ value: String(progress.bestCleanBpm), label: 'лучший удобный темп' });
   if (progress) stats.push({ value: String(progress.last.bpm), label: 'темп в прошлый раз' }, { value: ASSESSMENT_LABELS[progress.last.assessment], label: 'твоя отметка' });
   return {
-    mode: 'continue', eyebrow, title: stepTitle(content, state.userExercises), meta: stepMaterial(content),
+    mode: 'continue', goalLine: line, eyebrow, title: stepTitle(content, state.userExercises), meta: stepMaterial(content),
     content, stepId: step && step.content === content ? step.id : null,
     concepts: exercisePlan(exercise).concepts.slice(0, 3).map(concept => CONCEPT_LABELS[concept]), stats,
   };
@@ -269,7 +287,14 @@ const PENTATONIC_REC: RecommendationCard = Object.freeze({
 });
 
 /** Три рекомендации «Сегодня» с причиной; одна из них — про пентатонику (VIS-10 r2). */
-export function recommendationCards(records: readonly PracticeRecord[], firstRun: boolean): readonly RecommendationCard[] {
+export function recommendationCards(records: readonly PracticeRecord[], firstRun: boolean, goalStep: { readonly progress: GoalProgress; readonly step: GoalStep } | null = null): readonly RecommendationCard[] {
+  if (goalStep) {
+    const { progress, step } = goalStep;
+    const card: RecommendationCard = { id: 'goal', eyebrow: 'Шаг цели', title: stepTitle(step.content), reason: `${progress.goal.title} · ${stepMaterial(step.content)}. ${RULE_HINTS[step.rule]}`,
+      concept: false, content: step.content, conceptId: null, openBasics: false };
+    const rest = recommendationCards(records, firstRun).filter(item => !(item.content && JSON.stringify(item.content) === JSON.stringify(step.content)));
+    return [card, ...rest].slice(0, 3);
+  }
   if (firstRun || !records.length) {
     return [
       { id: 'semitone', eyebrow: 'Понятие', title: 'Тон и полутон', reason: 'Соседний лад — полутон, через лад — тон. С этого читаются все формулы.', concept: true, content: null, conceptId: 'semitone', openBasics: false },
@@ -308,10 +333,12 @@ export interface LibraryControls {
 }
 export const DEFAULT_LIBRARY: LibraryControls = Object.freeze({ category: 'all', structureId: null, concept: null, status: 'all', sort: 'recommended' });
 export const LIBRARY_CONCEPTS: readonly ConceptId[] = Object.freeze(['degrees', 'pentatonic', 'shared-notes', 'relative-keys', 'triad', 'octave', 'finger-per-fret']);
-export const LIBRARY_STRUCTURES: readonly StructureId[] = Object.freeze(['minor-pentatonic', 'major-pentatonic', 'major', 'natural-minor', 'major-triad', 'minor-triad']);
+export const LIBRARY_STRUCTURES: readonly StructureId[] = Object.freeze(['minor-pentatonic', 'major-pentatonic', 'major', 'natural-minor', 'blues', 'major-triad', 'minor-triad', 'diminished-triad', 'major-seventh', 'dominant-seventh', 'minor-seventh', 'half-diminished-seventh']);
 const FEATURED: ReadonlySet<ExerciseTemplateId> = new Set(['pentatonic-relative']);
 
 export interface LibraryCard {
+  /** Неизменный id карточки (`tpl:<шаблон>` / `user:<id>`); `key` — материал и меняется вместе с параметрами. */
+  readonly id: string;
   readonly key: string;
   readonly title: string;
   readonly category: string;
@@ -324,6 +351,8 @@ export interface LibraryCard {
   readonly inPlan: boolean;
   readonly featured: boolean;
   readonly builtin: boolean;
+  /** Материал настроен на карточке. */
+  readonly configured: boolean;
   readonly content: PlanStepContent;
 }
 
@@ -331,26 +360,40 @@ export function libraryItems(playFrom: string | null, userExercises: readonly Us
   return [...builtinLibrary(playFrom), ...userLibrary(userExercises)];
 }
 
-export function libraryModel(state: Pick<LessonState, 'plan' | 'records' | 'userExercises' | 'playFrom'>, controls: LibraryControls) {
-  const items = libraryItems(state.playFrom, state.userExercises);
+/** Элементы библиотеки с настроенным на карточках материалом (свои упражнения не настраиваются). */
+export function configuredItems(playFrom: string | null, userExercises: readonly UserExercise[], cardSpecs: ReadonlyMap<string, ExerciseSpec>): readonly LibraryItem[] {
+  return libraryItems(playFrom, userExercises).map(item => {
+    const spec = item.builtin ? cardSpecs.get(item.id) : undefined;
+    return spec && spec.templateId === item.spec.templateId ? { ...item, spec, key: exerciseKey(spec, userExercises) } : item;
+  });
+}
+
+/**
+ * Модель библиотеки. `cardSpecs` — материал, настроенный на встроенной карточке (по id карточки): он важнее «Играть от»
+ * и определяет ключ, «в плане», лучший темп и то, что сохраняет ☆.
+ */
+export function libraryModel(state: Pick<LessonState, 'plan' | 'records' | 'userExercises' | 'playFrom'>, controls: LibraryControls,
+  cardSpecs: ReadonlyMap<string, ExerciseSpec> = new Map()) {
+  const items = configuredItems(state.playFrom, state.userExercises, cardSpecs);
   const played = playedKeys(state.records);
   const progress = new Map(exerciseProgress(state.records).map(item => [item.exerciseKey, item]));
   const scoped = controls.category === 'user' ? items.filter(item => !item.builtin)
     : controls.category === 'all' ? items : items.filter(item => item.builtin && item.category === controls.category);
   const filtered = filterLibrary(scoped, { structureId: controls.structureId, concept: controls.concept, status: controls.status }, played);
   const indexed = filtered.map((item, index) => ({ item, index }));
-  const rank = (item: LibraryItem) => controls.sort === 'recommended' ? (FEATURED.has(item.spec.templateId) && item.builtin ? 0 : played.has(item.key) ? 1 : 2)
-    : controls.sort === 'played' ? (played.has(item.key) ? 0 : 1) : 0;
+  const rank = (item: LibraryItem) => controls.sort === 'recommended' ? (FEATURED.has(item.spec.templateId) && item.builtin ? 0 : isPlayed(item, played) ? 1 : 2)
+    : controls.sort === 'played' ? (isPlayed(item, played) ? 0 : 1) : 0;
   indexed.sort((a, b) => rank(a.item) - rank(b.item) || a.index - b.index);
   const cards: LibraryCard[] = indexed.map(({ item }) => {
     const content: PlanStepContent = { kind: 'exercise', spec: item.spec };
     const entry = progress.get(item.key);
     return {
-      key: item.key, title: item.title, category: CATEGORY_TITLES[item.category], material: materialLabel(item.spec),
+      id: item.id, key: item.key, title: item.title, category: CATEGORY_TITLES[item.category], material: materialLabel(item.spec),
       concepts: item.concepts.map(concept => CONCEPT_LABELS[concept]), minutes: TEMPLATE_MINUTES[item.spec.templateId],
-      bestBpm: entry?.bestCleanBpm ?? null, played: played.has(item.key),
+      bestBpm: entry?.bestCleanBpm ?? null, played: isPlayed(item, played),
       playedToday: state.plan.steps.some(step => step.status === 'done' && step.content.kind === 'exercise' && exerciseKey(step.content.spec, state.userExercises) === item.key),
       inPlan: inPlanFor(state.plan, item, state.userExercises), featured: item.builtin && FEATURED.has(item.spec.templateId), builtin: item.builtin, content,
+      configured: cardSpecs.has(item.id),
     };
   });
   const counts = countByCategory(items.filter(item => item.builtin));
@@ -407,13 +450,24 @@ export interface BasicsLevel {
 
 /** Порядок понятий уровня 2: пентатоника и связки форм — до гамм по позициям (VIS-10 r2). */
 const LEVEL_ORDER: Partial<Record<string, readonly string[]>> = {
-  2: ['degree', 'pentatonic', 'shared-notes', 'relative-keys', 'major-formula', 'natural-minor'],
+  2: ['degree', 'pentatonic', 'shared-notes', 'relative-keys', 'major-formula', 'natural-minor', 'blues-scale'],
 };
-/** Упражнение шага там, где первое связанное упражнение каталога с параметрами по умолчанию не подходит понятию. */
+/**
+ * Упражнение шага там, где первое связанное упражнение каталога с параметрами по умолчанию не подходит понятию
+ * или повторяет материал другого понятия: во всём курсе у каждого понятия свой материал (D-049).
+ */
 const STEP_EXERCISE: Partial<Record<string, () => ExerciseSpec>> = {
+  accidentals: () => createExerciseSpec('note-all-positions', { note: 'F♯' }),
+  enharmonic: () => createExerciseSpec('note-all-positions', { note: 'B♭' }),
+  unison: () => createExerciseSpec('note-all-positions', { note: 'C' }),
+  'octave-numbers': () => createExerciseSpec('octaves', { note: 'E' }),
+  degree: () => createExerciseSpec('form-transpose'),
   'natural-minor': () => createExerciseSpec('scale-compact', { root: 'A', structureId: 'natural-minor' }),
-  'octave-numbers': () => createExerciseSpec('octaves'),
   'shared-notes': () => createExerciseSpec('connect-forms'),
+  'beat-bar': () => createExerciseSpec('chromatic-position', { startFret: 3 }),
+  counting: () => createExerciseSpec('connect-forms', { shapeId: 'penta-b' }),
+  tab: () => createExerciseSpec('scale-one-string', { root: 'G', structureId: 'major', string: 'E' }),
+  'bass-clef': () => createExerciseSpec('note-all-positions', { note: 'G' }),
 };
 const FORM_TEMPLATES: ReadonlySet<ExerciseTemplateId> = new Set(['pentatonic-form', 'connect-forms', 'pentatonic-neck', 'groups-of-three', 'pentatonic-relative']);
 
@@ -477,30 +531,99 @@ export function nextExerciseStep(level: BasicsLevel, from: BasicsStep): BasicsSt
 }
 
 /** Плашка вкладки «Основы»: номер уровня, на котором ты сейчас. */
-export function basicsBadge(levels: readonly BasicsLevel[]) {
+export function basicsBadge(levels: readonly BasicsLevel[], goal: GoalProgress | null = null) {
+  if (goal) return `${goal.done}/${goal.total}`;
   const current = levels.find(level => level.status === 'current');
   return current ? `ур. ${current.mark}` : 'пройдено';
 }
 
 /* ---------- Поиск «Основ» ---------- */
 
-export function searchBasics(query: string, levels: readonly BasicsLevel[], items: readonly LibraryItem[]) {
-  const normalize = (value: string) => value.toLowerCase().replace(/ё/g, 'е');
-  const words = normalize(query).split(/\s+/).filter(Boolean);
-  if (!words.length) return [];
+const normalizeSearch = (value: string) => value.toLowerCase().replace(/ё/g, 'е');
+/**
+ * Слово запроса подходит, если входит в текст или совпадает с началом слова текста по основе: при длине ≥ 4 —
+ * без двух последних букв, но не короче четырёх («минорную» → «минорная», «гамму» → «гамма»).
+ */
+export function searchMatches(query: string, text: string): boolean {
+  const words = normalizeSearch(query).split(/\s+/).filter(Boolean);
+  const haystack = normalizeSearch(text);
+  const tokens = haystack.split(/[^a-zа-я0-9♭♯#-]+/).filter(Boolean);
+  return words.length > 0 && words.every(word => {
+    if (haystack.includes(word)) return true;
+    if (word.length < 4) return false;
+    const stem = word.slice(0, Math.max(4, word.length - 2));
+    return tokens.some(token => token.startsWith(stem));
+  });
+}
+
+export type SearchHit =
+  | { readonly kind: 'goal'; readonly title: string; readonly hint: string; readonly goalId: GoalId }
+  | { readonly kind: 'concept'; readonly title: string; readonly hint: string; readonly levelKey: string; readonly stepKey: string }
+  | { readonly kind: 'exercise'; readonly title: string; readonly hint: string; readonly content: PlanStepContent };
+
+/** Поиск «Основ»: цели, понятия справочника, упражнения библиотеки (по названию и словам их понятий). */
+export function searchBasics(query: string, levels: readonly BasicsLevel[], items: readonly LibraryItem[]): readonly SearchHit[] {
+  if (!normalizeSearch(query).trim()) return [];
+  const goalHits: SearchHit[] = GOALS.filter(goal => searchMatches(query, [goal.title, goal.summary, ...goal.keywords].join(' ')))
+    .map(goal => ({ kind: 'goal', title: goal.title, hint: 'цель', goalId: goal.id }));
   const steps = levels.flatMap(level => level.steps.filter(step => step.kind === 'concept').map(step => ({ level, step })));
   const conceptHits = steps.filter(({ step }) => {
     const concept = REFERENCE_CONCEPTS.find(item => item.id === step.conceptId)!;
-    const haystack = normalize([concept.title, concept.summary, ...concept.keywords].join(' '));
-    return words.every(word => haystack.includes(word));
-  }).map(({ level, step }) => ({ kind: 'concept' as const, title: step.title, hint: `понятие · ${level.title}`, levelKey: level.key, stepKey: step.key, content: null as PlanStepContent | null }));
+    return searchMatches(query, [concept.title, concept.summary, ...concept.keywords].join(' '));
+  }).map(({ level, step }) => ({ kind: 'concept' as const, title: step.title, hint: `понятие · ${level.title}`, levelKey: level.key, stepKey: step.key }));
   const unique = [...new Map(conceptHits.map(hit => [hit.stepKey.split(':').slice(1).join(':'), hit])).values()];
-  const exerciseHits = items.filter(item => words.every(word => normalize(item.title).includes(word)))
-    .map(item => ({ kind: 'exercise' as const, title: item.title, hint: 'упражнение', levelKey: null, stepKey: null, content: { kind: 'exercise', spec: item.spec } as PlanStepContent }));
-  return [...unique, ...exerciseHits].slice(0, 8);
+  const exerciseHits: SearchHit[] = items.filter(item => {
+    const concept = item.concepts[0] ? conceptForExerciseConcept(item.concepts[0]) : null;
+    return searchMatches(query, [item.title, ...item.concepts.map(id => CONCEPT_LABELS[id]), ...(concept?.keywords ?? [])].join(' '));
+  }).map(item => ({ kind: 'exercise', title: item.title, hint: 'упражнение', content: { kind: 'exercise', spec: item.spec } }));
+  // Совпадение в названии — выше совпадения только по описанию и ключевым словам; внутри — цели, понятия, упражнения.
+  const all = [...goalHits, ...unique, ...exerciseHits];
+  return [...all.filter(hit => searchMatches(query, hit.title)), ...all.filter(hit => !searchMatches(query, hit.title))].slice(0, 10);
 }
 
 /** Подписи шаблонов для понятий без своей карточки (для тестов и подсказок). */
 export const TEMPLATE_TITLES: Readonly<Record<ExerciseTemplateId, string>> = Object.freeze(Object.fromEntries(EXERCISE_TEMPLATES.map(template => [template.id, template.title])) as Record<ExerciseTemplateId, string>);
 
 export const ASSESSMENT_SCALE: readonly Assessment[] = Object.freeze(['clean', 'errors', 'slow']);
+
+/* ---------- Цели «Основ» (D-049) ---------- */
+
+export const RULE_HINTS: Readonly<Record<MasteryRule, string>> = Object.freeze({
+  memory: 'Сыграй с подсказкой, потом целиком в виде «По памяти» и отметь «Чисто».',
+  clean: 'Сыграй целиком и отметь «Чисто».',
+  check: 'Ответь верно с первой попытки на 5 вопросов из 6.',
+});
+
+/** Цель из настроек: неизвестный id (каталог целей меняется) — цели нет. */
+export function storedGoal(value: { readonly id: string; readonly root: string | null } | null): LessonState['goal'] {
+  return value && isGoalId(value.id) ? { id: value.id, root: value.root } : null;
+}
+
+/** Прогресс всех целей: для выбранной цели — её тоника, для остальных — тоника по умолчанию. */
+export function goalsOverview(records: readonly PracticeRecord[], roots: ReadonlyMap<GoalId, string | null> = new Map()): readonly GoalProgress[] {
+  const index = recordsByMaterial(records);
+  return GOALS.map(goal => goalProgress(goal.id, roots.get(goal.id) ?? goal.defaultRoot, records, index));
+}
+
+export function currentGoalProgress(state: Pick<LessonState, 'goal' | 'records'>): GoalProgress | null {
+  return state.goal ? goalProgress(state.goal.id, state.goal.root, state.records) : null;
+}
+
+export const goalStepTitle = (step: GoalStep, userExercises: readonly UserExercise[] = []) => stepTitle(step.content, userExercises);
+
+/**
+ * «Добавить шаги цели»: два следующих неосвоенных шага и разминка — следующий шаг «Четырёх пальцев»
+ * (если цель не они). Без повторов по материалу среди незавершённых шагов, не больше предела плана.
+ */
+export function addGoalSteps(plan: DayPlan, progress: GoalProgress, records: readonly PracticeRecord[], userExercises: readonly UserExercise[] = []) {
+  const warmup = progress.goal.id === 'four-fingers' ? [] : nextGoalSteps(goalProgress('four-fingers', null, records), 1);
+  let next = plan;
+  const added: GoalStep[] = [];
+  for (const step of [...warmup, ...nextGoalSteps(progress, 2)]) {
+    if (pendingMatches(next, step.content, userExercises).length) continue;
+    if (next.steps.length >= MAX_PLAN_STEPS) break;
+    next = addStep(next, { id: nextStepId(next), content: step.content, minutes: contentMinutes(step.content) });
+    added.push(step);
+  }
+  return { plan: next, added };
+}

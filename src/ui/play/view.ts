@@ -27,7 +27,14 @@ export interface RateEvent {
   readonly passIndex: number;
   /** Активное время прохода по аудиочасам: без отсчёта и пауз. */
   readonly activeMs: number;
+  /** Самый подсказывающий вид, включённый за проход: «По памяти» засчитывается, только если весь проход прошёл в нём. */
+  readonly passView: PlayView;
+  /** Проход целиком: без петли-фрагмента. */
+  readonly wholePass: boolean;
 }
+
+const HINT_VIEWS: readonly PlayView[] = ['memory', 'tab', 'both', 'board'];
+const HINT_RANK: Readonly<Record<PlayView, number>> = { memory: 0, tab: 1, both: 2, board: 3 };
 
 export interface MountPlayOptions {
   /** Порт звука; по умолчанию — `createEnginePort()`, который экран освобождает сам. */
@@ -199,7 +206,9 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   let passBpm = settings.bpm;
   let activeMs = 0;
   let previous: { status: PlayState['status']; audioTime: number } | null = null;
-  let pendingRate: { passIndex: number; bpm: number; activeMs: number } | null = null;
+  let pendingRate: { passIndex: number; bpm: number; activeMs: number; passView: PlayView; wholePass: boolean } | null = null;
+  /** Подсказка за текущий проход: от «Гриф крупно» (3) до «По памяти» (0). */
+  let passHint = 0;
   let rated: { assessment: Assessment; bpm: number } | null = null;
   let sceneKey = '';
   let srKey = '';
@@ -264,7 +273,10 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (plan?.notes.some(note => note.degree === '1')) items.push({ cls: 'is-root', text: 'Тоника (на общей позиции — кольцо)' });
     const segments = plan?.segments ?? [];
     if (segments.length <= 2) segments.forEach((segment, index) => items.push({ cls: index % 2 ? 'is-b' : 'is-a', text: segment.label }));
-    else items.push({ cls: 'is-a', text: 'Сегменты 1, 3, 5…' }, { cls: 'is-b', text: 'Сегменты 2, 4…' });
+    else {
+      const part = plan?.spec.templateId === 'progression' ? 'Такты' : 'Сегменты';
+      items.push({ cls: 'is-a', text: `${part} 1, 3, 5…` }, { cls: 'is-b', text: `${part} 2, 4…` });
+    }
     if (plan && boardNotesFromPlan(plan).some(note => note.kind === 'shared')) items.push({ cls: 'is-shared', text: 'Общие позиции' });
     items.push({ cls: 'is-next', text: 'Следующая нота' });
     legendEl.replaceChildren(...items.map(item => {
@@ -290,6 +302,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (!isPlayView(next)) return;
     const changed = next !== view;
     view = next;
+    if (runActive()) passHint = Math.max(passHint, HINT_RANK[view]);
     scene.dataset.view = view;
     all<HTMLButtonElement>('button[data-view]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === view)));
     at('[data-labels]').hidden = !(view === 'board' || view === 'both');
@@ -483,8 +496,10 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   function completePass(passIndex: number) {
     if (passIndex <= completedPass) return;
     completedPass = passIndex;
-    pendingRate = { passIndex, bpm: Math.round(passBpm), activeMs: Math.round(activeMs) };
+    const running = runSettings ?? settings;
+    pendingRate = { passIndex, bpm: Math.round(passBpm), activeMs: Math.round(activeMs), passView: HINT_VIEWS[passHint], wholePass: !running.range };
     activeMs = 0;
+    passHint = HINT_RANK[view];
     openRate();
   }
   function openRate() {
@@ -563,7 +578,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (listening) { listening = false; restart = true; }
     const config = playbackConfig(plan, settings);
     runSettings = { ...settings };
-    lastPass = 0; completedPass = -1; activeMs = 0; passBpm = settings.bpm; previous = null; fromStart = false; shownIndex = null;
+    lastPass = 0; completedPass = -1; activeMs = 0; passBpm = settings.bpm; previous = null; fromStart = false; shownIndex = null; passHint = HINT_RANK[view];
     busy = true;
     const run = restart ? port.restart(config) : port.start(config);
     update();

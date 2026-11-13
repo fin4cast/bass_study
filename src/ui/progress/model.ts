@@ -3,6 +3,8 @@
  * Даты — локальные ключи YYYY-MM-DD; арифметика дней идёт в UTC, чтобы часовой пояс не сдвигал сетку.
  * Самооценка игры и экранные ответы «Проверь себя» не смешиваются: у каждой строки свой источник.
  */
+import { builtinTemplateOf } from '../../practice/material';
+import { EXERCISE_TEMPLATES } from '../../exercises';
 import {
   ASSESSMENT_LABELS, difficulties, exerciseProgress, minutesByDay, recordSource,
   type Assessment, type CheckOutcome, type CheckRecord, type Difficulty, type ManualArea, type ManualRecord, type PlayRecord, type PracticeRecord, type SourceFilter,
@@ -160,6 +162,34 @@ export function progressRows(records: readonly PracticeRecord[], source: SourceF
     }
   }
   return Object.freeze(rows.sort((a, b) => b.last.occurredAt.localeCompare(a.last.occurredAt) || a.title.localeCompare(b.title, 'ru')));
+}
+
+/**
+ * Группа строк «Упражнений»: одно упражнение (встроенный шаблон) с раскрытием по материалу (D-049).
+ * Свои упражнения и проверки разных видов не смешиваются со встроенными проходами.
+ */
+export interface ProgressGroup {
+  readonly key: string;
+  readonly title: string;
+  readonly kind: ProgressRow['kind'];
+  readonly rows: readonly ProgressRow[];
+  /** Лучший темп «Чисто» среди материалов группы (только проходы). */
+  readonly bestCleanBpm: number | null;
+}
+
+export function progressGroups(rows: readonly ProgressRow[]): readonly ProgressGroup[] {
+  const groups = new Map<string, ProgressRow[]>();
+  for (const row of rows) {
+    const template = builtinTemplateOf(row.key);
+    const key = template ? `${row.kind}:tpl:${template}` : `${row.kind}:${row.key}`;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  return Object.freeze([...groups].map(([key, group]) => {
+    const template = builtinTemplateOf(group[0].key);
+    const title = EXERCISE_TEMPLATES.find(item => item.id === template)?.title ?? group[0].title;
+    const tempos = group.flatMap(row => row.kind === 'play' && row.bestCleanBpm !== null ? [row.bestCleanBpm] : []);
+    return Object.freeze({ key, title, kind: group[0].kind, rows: Object.freeze(group), bestCleanBpm: tempos.length ? Math.max(...tempos) : null });
+  }));
 }
 
 /* ---------- Трудные места ---------- */

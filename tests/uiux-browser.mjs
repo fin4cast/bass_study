@@ -315,6 +315,13 @@ check('sections-errors-and-empty-states-have-computed-light-and-dark-contrast', 
   for (const choice of ['light', 'dark']) {
     await theme(page, choice);
     await module(page, 'lesson'); evidence.push(await contrast(page, `${choice}:lesson-today`));
+    // «Основы» → «Цели»: выбор цели и карточка шага (D-049).
+    const lessonHome = page.locator('[data-lesson-screen="home"]');
+    await lessonHome.getByRole('tab', { name: /^Основы/ }).click();
+    const starter = lessonHome.locator('[data-key="goal-card:pentatonic"]');
+    if (await starter.count()) { evidence.push(await contrast(page, `${choice}:lesson-goal-choose`)); await starter.click(); }
+    await lessonHome.locator('section[aria-label="Шаг цели"]').waitFor(); evidence.push(await contrast(page, `${choice}:lesson-goal-step`));
+    await lessonHome.getByRole('tab', { name: /^Сегодня/ }).click();
     await module(page, 'foundation'); evidence.push(await contrast(page, `${choice}:fretboard-atlas`));
     await page.locator('#atlas-check').click(); await page.locator('[data-lesson-screen="check"] [data-ck-title]').waitFor();
     evidence.push(await contrast(page, `${choice}:check-question`));
@@ -480,6 +487,17 @@ check('laptop-widths-show-board-by-500px-and-narrow-layout-uses-local-scroll', a
     const geometry = await page.evaluate(() => ({ width: innerWidth, page: document.documentElement.scrollWidth, boardY: document.querySelector('#fretboard-container').getBoundingClientRect().top + scrollY }));
     assert.ok(geometry.page <= width + 2, JSON.stringify(geometry)); if (width >= 1024) assert.ok(geometry.boardY <= 500, JSON.stringify(geometry));
     await page.screenshot({ path: join(resultDir, `p8-uiux-${width}.png`), fullPage: true }); evidence.push(geometry);
+    // Панель целей «Основ» без горизонтальной прокрутки страницы на каждой ширине.
+    await module(page, 'lesson');
+    const lessonHome = page.locator('[data-lesson-screen="home"]');
+    await lessonHome.getByRole('tab', { name: /^Основы/ }).click();
+    const starter = lessonHome.locator('[data-key="goal-card:pentatonic"]');
+    if (await starter.count()) await starter.click();
+    await lessonHome.locator('section[aria-label="Шаг цели"]').waitFor();
+    const goals = await page.evaluate(() => ({ width: innerWidth, page: document.documentElement.scrollWidth }));
+    assert.ok(goals.page <= width + 2, `Цели «Основ»: ${JSON.stringify(goals)}`);
+    await page.screenshot({ path: join(resultDir, `p8-uiux-goals-${width}.png`), fullPage: true }); evidence.push({ goals });
+    await lessonHome.getByRole('tab', { name: /^Сегодня/ }).click();
   }
   await page.setViewportSize({ width: 1366, height: 768 });
   await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 2 });

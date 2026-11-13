@@ -1,4 +1,4 @@
-import { annotatePositions, createStructure, getPosition, parseNote, type AnnotatedPosition, type StringId, type StructureId } from './index';
+import { annotatePositions, createStructure, formatDegree, getPosition, parseNote, type AnnotatedPosition, type StringId, type StructureId } from './index';
 
 export type BoxShapeId = 'penta-a' | 'penta-b' | 'penta-c' | 'penta-d' | 'penta-e' | 'compact-e' | 'compact-a';
 export interface BoxSelection {
@@ -24,6 +24,14 @@ const COMPACT: Readonly<Record<string, readonly CompactNote[]>> = {
   'natural-minor': [[0, 0, 1], [0, 2, 3], [0, 3, 4], [1, 0, 1], [1, 2, 3], [1, 3, 4], [2, 0, 1], [2, 2, 3]],
   'major-triad': [[0, 0, 2], [1, -1, 1], [1, 2, 4], [2, 2, 4]],
   'minor-triad': [[0, 0, 1], [0, 3, 4], [1, 2, 3], [2, 2, 3]],
+  // D-049: не больше трёх струн — одна таблица служит формам от E и от A. Все формы аккордов включают октаву тоники.
+  'diminished-triad': [[0, 0, 1], [0, 3, 4], [1, 1, 2], [2, 2, 3]],
+  'major-seventh': [[0, 0, 2], [1, -1, 1], [1, 2, 4], [2, 1, 3], [2, 2, 4]],
+  'dominant-seventh': [[0, 0, 2], [1, -1, 1], [1, 2, 4], [2, 0, 2], [2, 2, 4]],
+  'minor-seventh': [[0, 0, 1], [0, 3, 4], [1, 2, 3], [2, 0, 1], [2, 2, 3]],
+  'half-diminished-seventh': [[0, 0, 1], [0, 3, 4], [1, 1, 2], [2, 0, 1], [2, 2, 3]],
+  // Форма A минорной пентатоники в одну октаву и ♭5 на соседней струне: 1 ♭3 | 4 ♭5 5 | ♭7 8.
+  blues: [[0, 0, 1], [0, 3, 4], [1, 0, 1], [1, 1, 2], [1, 2, 3], [2, 0, 1], [2, 2, 3]],
 };
 const mod = (value: number) => (value % 12 + 12) % 12;
 function freeze<T>(value: T): T {
@@ -58,7 +66,7 @@ function instance(selection: BoxSelection): BoxInstance {
   }
   if (positions.some(position => !position.inStructure)) throw new RangeError('Форма содержит ноту вне выбранной структуры.');
   const first = positions[0];
-  const label = pentatonic ? `Начальная нота ${first.noteName} · ступень ${first.degree?.replace('b', '♭')} · лад ${first.fret}`
+  const label = pentatonic ? `Начальная нота ${first.noteName} · ступень ${formatDegree(first.degree)} · лад ${first.fret}`
     : `Тоника ${structure.root} · лад ${selection.anchorFret}`;
   return freeze({ selection, positions, fingers, referencePositionIds: positions.map(position => position.id), window: { fretMin, fretMax }, label });
 }
@@ -79,7 +87,18 @@ export function createBoxSelection(input: Omit<BoxSelection, 'version'>): BoxSel
 export function getBoxInstanceV1(selection: BoxSelection): BoxInstance { return instance(validateBoxSelectionV1(selection)); }
 export const getBoxInstance = getBoxInstanceV1;
 /** All complete closed instances, including +12 copies; no silently clipped forms. */
+/** Каталог чистый и заморожен: повторный запрос (последовательность аккордов, гриф, проверки) берётся из памяти. */
+const catalogues = new Map<string, readonly BoxInstance[]>();
 export function getBoxCatalogue(root: string, structureId: StructureId): readonly BoxInstance[] {
+  const structure = createStructure(root, structureId);
+  const key = `${structure.root}|${structureId}`;
+  const known = catalogues.get(key);
+  if (known) return known;
+  const catalogue = buildCatalogue(structure.root, structureId);
+  catalogues.set(key, catalogue);
+  return catalogue;
+}
+function buildCatalogue(root: string, structureId: StructureId): readonly BoxInstance[] {
   const structure = createStructure(root, structureId); const pentatonic = structureId.endsWith('pentatonic');
   const shapes = pentatonic ? Object.keys(PENTA) as BoxShapeId[] : ['compact-e', 'compact-a'] as const;
   const result: BoxInstance[] = [];

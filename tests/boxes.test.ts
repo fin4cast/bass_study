@@ -80,15 +80,19 @@ describe('компактные формы и точная область зад�
     expect(() => startQuiz(config, 5)).toThrow();
     expect(createSequence({ ...config, pattern: 'ascending' }).notes.map(note => note.id)).toEqual(['E:8', 'A:7', 'A:10', 'D:10']);
   });
-  it('12 тоник × 6 структур: целые формы, квинта/терция над нижней тоникой, допустимые пальцы', () => {
+  it('12 тоник × 12 структур: целые формы, терция и квинта из интервалов структуры над нижней тоникой, допустимые пальцы', () => {
     for (const root of ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']) for (const structure of STRUCTURES) {
       const boxes = getBoxCatalogue(root, structure.id);
       expect(boxes.length).toBeGreaterThanOrEqual(structure.id.endsWith('pentatonic') ? 5 : 2);
       for (const box of boxes) {
         const reference = box.positions.filter(position => position.isRoot).sort((a, b) => a.midi - b.midi)[0].midi;
-        const third = structure.id.startsWith('minor') || structure.id === 'natural-minor' ? 3 : 4;
+        // Терция (3 или 4 полутона) и квинта (6 или 7) — из интервалов структуры, а не из её имени: у уменьшённых квинта ♭5.
+        const third = structure.intervals.find(interval => interval === 3 || interval === 4)!;
+        const fifth = structure.intervals.find(interval => interval === 6 || interval === 7)!;
         expect(box.positions.some(position => position.midi === reference + third)).toBe(true);
-        expect(box.positions.some(position => position.midi === reference + 7)).toBe(true);
+        expect(box.positions.some(position => position.midi === reference + fifth)).toBe(true);
+        // Обе формы — от E и от A: формы не длиннее трёх струн, одна таблица служит обоим якорям.
+        if (!structure.id.endsWith('pentatonic')) expect(new Set(boxes.map(item => item.selection.anchorString))).toEqual(new Set(['E', 'A']));
         expect(Object.values(box.fingers).every(finger => Number.isInteger(finger) && finger >= 1 && finger <= 4)).toBe(true);
       }
     }

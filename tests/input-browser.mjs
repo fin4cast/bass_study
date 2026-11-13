@@ -202,7 +202,7 @@ check('ui-native-track-ended-event-releases-input-and-shows-explanation', 'ui', 
 check('ui-device-preferences-reload-and-restore-never-capture', 'ui', async ({ page, context, origin }) => {
   await openInput(page); await allow(context, origin); await action(page, 'refresh').click(); const picker = page.locator('[data-input-setting="deviceId"]'); await page.waitForFunction(() => document.querySelector('[data-input-setting=deviceId]').options.length > 1); const selected = await picker.locator('option').evaluateAll(elements => elements.find(element => element.value)?.value); await picker.selectOption(selected); await savedDevice(page, selected);
   assert.equal(await calls(page), 0);
-  const before = await exportUi(page); assert.equal(before.schemaVersion, 11); assert.equal(before.preferences.input.deviceId, selected); assert.deepEqual(before.exercises, []); assert.equal(before.history.length, 0);
+  const before = await exportUi(page); assert.equal(before.schemaVersion, 12); assert.equal(before.preferences.input.deviceId, selected); assert.deepEqual(before.exercises, []); assert.equal(before.history.length, 0);
   await page.reload(); await openInput(page); assert.equal(await picker.inputValue(), selected); assert.equal(await calls(page), 0);
   await restoreUi(page, before, async () => { assert.equal(await calls(page), 0); });
   assert.equal(await calls(page), 0); assert.equal(await liveTracks(page), 0); assert.deepEqual(await exportUi(page), before);

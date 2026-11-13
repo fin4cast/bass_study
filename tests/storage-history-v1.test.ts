@@ -14,7 +14,7 @@ describe('буквальные резервные копии и историче
     expect(snapshot.history.find(entry => entry.result.kind === 'screen')?.result).toMatchObject({ questionPolicy: 'triad-6-v1' });
     expect(snapshot.rhythmProjects[0].channels[0].velocityDefaults).toEqual({ hit: 61, accent: 88 });
     expect(snapshot.history.find(entry => entry.id === 'fixture-exercise-history')?.result).toMatchObject({ kind: 'manual', assessment: 'clean', context: null, material: { kind: 'exercise', key: 'user:fixture-penta', view: 'both' } });
-    expect(snapshot.history.find(entry => entry.result.kind === 'check')?.result).toMatchObject({ source: 'screen-check', exerciseKey: 'builtin:pentatonic-form', activeMs: 95000 });
+    expect(snapshot.history.find(entry => entry.result.kind === 'check')?.result).toMatchObject({ source: 'screen-check', exerciseKey: 'builtin:pentatonic-form.A.minor-pentatonic.penta-b', activeMs: 95000 });
     expect(snapshot.history.find(entry => entry.id === 'fixture-rhythm-history')?.result).toMatchObject({ kind: 'manual', assessment: null });
     expect(snapshot.exercises).toEqual([expect.objectContaining({ id: 'fixture-penta', name: 'Am пентатоника, форма B' })]);
     expect(snapshot.preferences).toMatchObject({ lesson: { tab: 'today', playFrom: 'C', plan: { steps: [{ status: 'done' }, { status: 'current' }] } }, play: { labels: 'degree', bpm: 76 }, reference: { mastered: ['semitone', 'octave'] } });

@@ -29,10 +29,10 @@
     // Проход упражнения на экране игры: самооценка обязательна, контекста грифа нет.
     function exercisePass(id = 'fixture-exercise-pass', assessment = 'clean') {
       return makeManualHistory(createManualPracticeResult({ context: null, comfortableBpm: 84, durationMs: 180000, note: 'Проход упражнения', assessment,
-        material: { kind: 'exercise', key: 'user:fixture-exercise-a', title: 'Нижняя форма', spec: pentatonic('penta-a'), view: 'both' } }), { ...metadata, id });
+        material: { kind: 'exercise', key: 'user:fixture-exercise-a', title: 'Нижняя форма', spec: pentatonic('penta-a'), view: 'both', wholePass: true } }), { ...metadata, id });
     }
     function check(id = 'fixture-check') {
-      return makeCheckHistory({ exerciseKey: 'builtin:pentatonic-form', title: 'Форма пентатоники вверх-вниз', activeMs: 95000,
+      return makeCheckHistory({ exerciseKey: 'builtin:pentatonic-form.A.minor-pentatonic.penta-b', title: 'Форма пентатоники вверх-вниз', activeMs: 95000,
         spec: { version: 'check-v1', exercise: pentatonic('penta-b'), kind: 'name-degree', count: 3, ear: false },
         answers: [{ degree: 'b3', outcome: 'correct', errors: 0 }, { degree: 'b7', outcome: 'corrected', errors: 2 }, { degree: '4', outcome: 'unanswered', errors: 0 }] }, { ...metadata, id });
     }

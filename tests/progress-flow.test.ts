@@ -25,7 +25,7 @@ const manualEntry = (id: string, occurredAt: string, material: PracticeMaterial,
   makeManualHistory(createManualPracticeResult({ context: material.kind === 'rhythm' ? null : context, material, comfortableBpm: bpm, durationMs, note }), meta(id, occurredAt));
 const playEntry = (id: string, occurredAt: string, assessment: 'clean' | 'errors' | 'slow', bpm: number) => makeManualHistory(createManualPracticeResult({
   context: null, comfortableBpm: bpm, durationMs: 120_000, assessment,
-  material: { kind: 'exercise', key: 'user:arp', title: 'Моё арпеджио', spec: createExerciseSpec('arpeggio-1358'), view: 'board' },
+  material: { kind: 'exercise', key: 'user:arp', title: 'Моё арпеджио', spec: createExerciseSpec('arpeggio-1358'), view: 'board', wholePass: true },
 }), meta(id, occurredAt));
 
 function quiz(count = 2) { return startQuiz({ positions, structure, mode: 'name-note', scope: 'structure', seed: 7 }, count); }
@@ -129,7 +129,7 @@ describe('черновики для блока «Не сохранено»', () 
     context: material.kind === 'rhythm' || material.kind === 'exercise' ? null : context, material, routeRef: null,
     totalReferenceMs: total, recordedThroughMs: recorded, suggestedBpm: 80, comfortableBpm: 88, note, editRevision: 1,
   });
-  const exercise: PracticeMaterial = { kind: 'exercise', key: 'user:arp', title: 'Моё арпеджио', spec: createExerciseSpec('arpeggio-1358'), view: 'board' };
+  const exercise: PracticeMaterial = { kind: 'exercise', key: 'user:arp', title: 'Моё арпеджио', spec: createExerciseSpec('arpeggio-1358'), view: 'board', wholePass: true };
 
   it('показывают только несохранённое время, текущий черновик первым, без черновиков упражнений', () => {
     const drafts = [

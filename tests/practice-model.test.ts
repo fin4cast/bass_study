@@ -57,21 +57,21 @@ describe('план на сегодня', () => {
 });
 
 describe('библиотека', () => {
-  it('17 встроенных шаблонов в 8 категориях; «Играть от» меняет тонику только у шаблонов с тоникой', () => {
+  it('22 встроенных шаблона в 9 категориях; «Играть от» меняет тонику только у шаблонов с тоникой', () => {
     const items = builtinLibrary('E');
-    expect(items).toHaveLength(17);
-    expect(Object.values(countByCategory(items)).reduce((a, b) => a + b, 0)).toBe(17);
-    expect((items.find(item => item.key === 'builtin:connect-forms')!.spec.params as { root: string }).root).toBe('E');
-    expect(items.find(item => item.key === 'builtin:chromatic-position')!.spec).toEqual(chromatic);
+    expect(items).toHaveLength(22);
+    expect(Object.values(countByCategory(items)).reduce((a, b) => a + b, 0)).toBe(22);
+    expect((items.find(item => item.id === 'tpl:connect-forms')!.spec.params as { root: string }).root).toBe('E');
+    expect(items.find(item => item.id === 'tpl:chromatic-position')!.spec).toEqual(chromatic);
   });
   it('фильтры по категории, структуре, понятию и статусу', () => {
     const items = builtinLibrary();
-    expect(filterLibrary(items, { category: 'connections' }).map(item => item.key)).toEqual(['builtin:connect-forms', 'builtin:pentatonic-neck']);
+    expect(filterLibrary(items, { category: 'connections' }).map(item => item.id)).toEqual(['tpl:connect-forms', 'tpl:pentatonic-neck']);
     expect(filterLibrary(items, { structureId: 'minor-pentatonic' }).length).toBeGreaterThanOrEqual(5);
-    expect(filterLibrary(items, { concept: 'shared-notes' }).map(item => item.key)).toContain('builtin:connect-forms');
+    expect(filterLibrary(items, { concept: 'shared-notes' }).map(item => item.id)).toContain('tpl:connect-forms');
     const played = new Set(['builtin:connect-forms']);
-    expect(filterLibrary(items, { status: 'played' }, played).map(item => item.key)).toEqual(['builtin:connect-forms']);
-    expect(filterLibrary(items, { status: 'new' }, played)).toHaveLength(16);
+    expect(filterLibrary(items, { status: 'played' }, played).map(item => item.id)).toEqual(['tpl:connect-forms']);
+    expect(filterLibrary(items, { status: 'new' }, played)).toHaveLength(21);
   });
   it('собственные упражнения проверяются строго и попадают в библиотеку по своему ключу', () => {
     const own = validateUserExercise({ version: 'user-exercise-v1', id: 'my-1', name: 'Связка в E', spec: createExerciseSpec('connect-forms', { root: 'E' }), createdAt: '2026-11-12T10:00:00.000Z' });
@@ -83,9 +83,9 @@ describe('библиотека', () => {
 });
 
 const play = (date: string, assessment: 'clean' | 'errors' | 'slow', bpm: number, key = 'builtin:connect-forms', spec = connect): PracticeRecord =>
-  ({ kind: 'play', id: `play-${date}-${key}-${bpm}`, exerciseKey: key, title: key === 'builtin:connect-forms' ? 'Связка соседних форм' : 'Хроматика 1-2-3-4 в позиции', spec, assessment, bpm, activeMs: 300000, localDate: date, occurredAt: `${date}T18:00:00.000Z` });
+  ({ kind: 'play', id: `play-${date}-${key}-${bpm}`, exerciseKey: key, title: key === 'builtin:connect-forms' ? 'Связка соседних форм' : 'Хроматика 1-2-3-4 в позиции', spec, assessment, bpm, activeMs: 300000, localDate: date, occurredAt: `${date}T18:00:00.000Z`, view: 'both', wholePass: true });
 const check = (date: string, answers: { degree: string; outcome: 'correct' | 'corrected' | 'revealed' | 'skipped' | 'unanswered'; errors: number }[]): PracticeRecord =>
-  ({ kind: 'check', id: `check-${date}`, exerciseKey: 'builtin:pentatonic-form', title: 'Ступени формы B', activeMs: 120000, localDate: date, occurredAt: `${date}T18:10:00.000Z`, answers });
+  ({ kind: 'check', id: `check-${date}`, exerciseKey: 'builtin:pentatonic-form', title: 'Ступени формы B', spec: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), checkKind: 'name-degree', ear: false, activeMs: 120000, localDate: date, occurredAt: `${date}T18:10:00.000Z`, answers });
 
 const history: PracticeRecord[] = [
   play('2026-11-01', 'clean', 60), play('2026-11-04', 'errors', 72), play('2026-11-06', 'clean', 72), play('2026-11-10', 'errors', 76), play('2026-11-11', 'clean', 76),

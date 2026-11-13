@@ -92,6 +92,8 @@
 .p13-progress .pg-items { list-style: none; margin: 0; padding: 0 4px 4px 0; display: flex; flex-direction: column; gap: 6px; overflow: auto; min-height: 0; flex: 1 1 0; }
 .p13-progress .pg-item { border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--surface); }
 .p13-progress .pg-item.is-open { border-color: var(--border-strong); }
+.p13-progress .pg-sub { overflow: visible; flex: none; padding: 0 8px 8px 22px; }
+.p13-progress .pg-sub .pg-item { background: var(--surface-raised); }
 .p13-progress .pg-row { width: 100%; border: 0; border-radius: var(--radius-l); background: none; text-align: left; padding: 7px 10px; color: var(--text-primary); }
 .p13-progress .pg-row:hover { background: var(--surface-hover); }
 .p13-progress .pg-name { display: flex; flex-direction: column; min-width: 0; }

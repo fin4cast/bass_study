@@ -155,7 +155,7 @@ try {
     assert.equal(await rootSelect().inputValue(), 'A');
     assert.equal(await structureSelect().inputValue(), 'minor-pentatonic');
     assert.equal(await rootSelect().locator('option').count(), 12);
-    assert.equal(await structureSelect().locator('option').count(), 6);
+    assert.equal(await structureSelect().locator('option').count(), 12);
     assert.equal(await firstFret().inputValue(), '0');
     assert.equal(await lastFret().inputValue(), '12');
     assert.equal(await positions().count(), 52);

@@ -31,7 +31,10 @@ export interface ExercisePracticeMaterial {
   readonly key: string;
   readonly title: string;
   readonly spec: ExerciseSpec;
+  /** Самый подсказывающий вид за проход (D-049). */
   readonly view: ExerciseView;
+  /** Проход целиком, без петли-фрагмента. */
+  readonly wholePass: boolean;
 }
 
 export function manualTempoBounds(material?: PracticeMaterial): readonly [number, number] {

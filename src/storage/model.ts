@@ -12,6 +12,7 @@ import { collectEarResults, createEarQuestionV1, createEarQuestionsV1, isEarQual
 import { exerciseStructure, validateExerciseSpec } from '../exercises';
 import { validateCheckSpec, validatePlan, type CheckSpec, type DayPlan } from '../practice/plan';
 import { validateUserExercise, type UserExercise } from '../practice/library';
+import { materialId } from '../practice/material';
 import { REFERENCE_CONCEPTS } from '../practice/concepts';
 import type { CheckOutcome } from '../practice/results';
 import { getRouteResult, replayRouteResultV1, type RouteEvent, type RouteResult } from '../route';
@@ -28,8 +29,8 @@ export type { UserExercise } from '../practice/library';
 
 export type ActiveModule = 'lesson' | 'foundation' | 'harmony' | 'tracks' | 'progress' | 'settings';
 export const ACTIVE_MODULES: readonly ActiveModule[] = Object.freeze(['lesson', 'foundation', 'harmony', 'tracks', 'progress', 'settings']);
-/** Ключ упражнения библиотеки: `builtin:<шаблон>` или `user:<id>`. */
-export const EXERCISE_KEY = /^(builtin|user):[A-Za-z0-9_-]{1,64}$/;
+/** Ключ упражнения библиотеки: `builtin:<материал>` (шаблон и параметры, D-049) или `user:<id>`. */
+export const EXERCISE_KEY = /^(builtin|user):[A-Za-z0-9_.-]{1,160}$/;
 export const MAX_EXERCISE_VIEWS = 200;
 /** Самое долгое активное время одной проверки «Проверь себя». */
 export const MAX_CHECK_ACTIVE_MS = 6 * 60 * 60 * 1000;
@@ -42,7 +43,13 @@ export interface LessonPreferences {
   readonly viewByExercise: Readonly<Record<string, ExerciseView>>;
   readonly progressTab: 'exercises' | 'calendar';
   readonly progressSource: 'play' | 'check' | 'all';
+  /** Текущая учебная цель «Основ» (D-049): id цели и её тоника; null — цель не выбрана. */
+  readonly goal: LessonGoal | null;
+  /** Что показывают «Основы»: цели или уровни теории. */
+  readonly basicsView: 'goals' | 'levels';
 }
+/** Учебная цель «Основ»; `root: null` — у цели нет тоники («Четыре пальца», «Ноты на грифе»). */
+export interface LessonGoal { readonly id: string; readonly root: string | null }
 export interface PlayPreferences {
   readonly defaultView: ExerciseView;
   readonly newExerciseView: ExerciseView | null;
@@ -104,7 +111,7 @@ export class StudyStorageError extends Error {
 }
 export const MAX_BACKUP_BYTES = 67_108_864;
 /** Version of the IndexedDB schema and the backup format. Raising it starts every older database empty (no migrations). */
-export const STUDY_SCHEMA_VERSION = 11;
+export const STUDY_SCHEMA_VERSION = 12;
 
 const ROOT_IDS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const MODES: readonly QuizMode[] = ['name-note', 'name-degree', 'find-note', 'find-all', 'find-degree', 'find-pitch', 'find-interval'];
@@ -223,7 +230,7 @@ export const DEFAULT_PREFERENCES: AppPreferences = immutable({
   tracks: null, musicBank: null, input: { deviceId: '' },
   rhythm: null,
   activeModule: 'lesson',
-  lesson: { plan: null, tab: 'today', playFrom: null, viewByExercise: {}, progressTab: 'exercises', progressSource: 'all' },
+  lesson: { plan: null, tab: 'today', playFrom: null, viewByExercise: {}, progressTab: 'exercises', progressSource: 'all', goal: null, basicsView: 'goals' },
   play: { defaultView: 'both', newExerciseView: 'board', countIn: true, labels: 'name', bpm: 72 },
   reference: { mastered: [] },
   study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12,
@@ -243,13 +250,13 @@ function position(id: string) { const [string, fret] = id.split(':'); return get
 
 const CONCEPT_IDS = new Set(REFERENCE_CONCEPTS.map(concept => concept.id));
 function exerciseKey(value: unknown, label: string): string {
-  const key = text(value, label, 72);
-  if (!EXERCISE_KEY.test(key)) invalid(`${label}: ожидается builtin:<шаблон> или user:<id>.`);
+  const key = text(value, label, 168);
+  if (!EXERCISE_KEY.test(key)) invalid(`${label}: ожидается builtin:<материал> или user:<id>.`);
   return key;
 }
 function exerciseTitle(value: unknown): string { return text(value, 'Название упражнения', 120); }
 function validateLessonPreferences(value: unknown): LessonPreferences {
-  const data = object(value, ['plan', 'tab', 'playFrom', 'viewByExercise', 'progressTab', 'progressSource'], 'Настройки занятия');
+  const data = object(value, ['plan', 'tab', 'playFrom', 'viewByExercise', 'progressTab', 'progressSource', 'goal', 'basicsView'], 'Настройки занятия');
   const plan = data.plan === null ? null : rhythmData('План на сегодня', () => validatePlan(data.plan));
   let playFrom: string | null = null;
   if (data.playFrom !== null) {
@@ -263,7 +270,20 @@ function validateLessonPreferences(value: unknown): LessonPreferences {
   const viewByExercise = Object.fromEntries(entries.map(([key, view]) => [exerciseKey(key, 'Ключ вида упражнения'), oneOf(view, EXERCISE_VIEWS, 'Вид упражнения')]));
   return { plan, tab: oneOf(data.tab, ['today', 'library', 'basics'] as const, 'Вкладка занятия'), playFrom, viewByExercise,
     progressTab: oneOf(data.progressTab, ['exercises', 'calendar'] as const, 'Вкладка прогресса'),
-    progressSource: oneOf(data.progressSource, ['play', 'check', 'all'] as const, 'Источник прогресса') };
+    progressSource: oneOf(data.progressSource, ['play', 'check', 'all'] as const, 'Источник прогресса'),
+    goal: data.goal === null ? null : lessonGoal(data.goal),
+    basicsView: oneOf(data.basicsView, ['goals', 'levels'] as const, 'Вид «Основ»') };
+}
+/** Цель хранится строго по формату; неизвестный id интерфейс считает отсутствием цели (каталог целей может меняться). */
+function lessonGoal(value: unknown): LessonGoal {
+  const data = object(value, ['id', 'root'], 'Учебная цель');
+  const id = text(data.id, 'Цель', 40);
+  if (!/^[a-z0-9-]{1,40}$/.test(id)) invalid('Цель: некорректный идентификатор.');
+  if (data.root === null) return { id, root: null };
+  const note = text(data.root, 'Тоника цели', 8);
+  let root = '';
+  try { root = parseNote(note).name; } catch { invalid('Тоника цели: некорректная нота.'); }
+  return { id, root };
 }
 function validatePlayPreferences(value: unknown): PlayPreferences {
   const data = object(value, ['defaultView', 'newExerciseView', 'countIn', 'labels', 'bpm'], 'Настройки экрана игры');
@@ -356,12 +376,13 @@ export function validatePracticeMaterial(value: unknown, area?: QuestionContext 
     return immutable({ kind, playback });
   }
   if (kind === 'exercise') {
-    const data = object(value, ['kind', 'key', 'title', 'spec', 'view'], 'Материал упражнения');
+    const data = object(value, ['kind', 'key', 'title', 'spec', 'view', 'wholePass'], 'Материал упражнения');
     if (area) invalid('Проход упражнения задаётся описанием упражнения, а не контекстом грифа.');
     const key = exerciseKey(data.key, 'Ключ упражнения');
     const spec = rhythmData('Описание упражнения', () => validateExerciseSpec(data.spec));
-    if (key.startsWith('builtin:') && key.slice('builtin:'.length) !== spec.templateId) invalid('Ключ встроенного упражнения не соответствует его шаблону.');
-    return immutable({ kind, key, title: exerciseTitle(data.title), spec, view: oneOf(data.view, EXERCISE_VIEWS, 'Вид экрана игры') });
+    if (key.startsWith('builtin:') && key !== `builtin:${materialId(spec)}`) invalid('Ключ встроенного упражнения не соответствует его материалу.');
+    if (typeof data.wholePass !== 'boolean') invalid('Признак целого прохода должен быть логическим.');
+    return immutable({ kind, key, title: exerciseTitle(data.title), spec, view: oneOf(data.view, EXERCISE_VIEWS, 'Вид экрана игры'), wholePass: data.wholePass });
   }
   if (area === null) invalid('Для этого материала нужен исходный контекст грифа.');
   if (kind !== 'sequence' && kind !== 'fretboard') invalid('Неизвестный материал практики.');
@@ -582,7 +603,7 @@ function validateCheckHistory(value: unknown): CheckHistoryResult {
   if (raw.source !== 'screen-check') invalid('Итог «Проверь себя» должен иметь источник screen-check.');
   const key = exerciseKey(raw.exerciseKey, 'Ключ упражнения проверки');
   const spec = rhythmData('Описание проверки', () => validateCheckSpec(raw.spec));
-  if (key.startsWith('builtin:') && key.slice('builtin:'.length) !== spec.exercise.templateId) invalid('Ключ встроенного упражнения не соответствует его шаблону.');
+  if (key.startsWith('builtin:') && key !== `builtin:${materialId(spec.exercise)}`) invalid('Ключ встроенного упражнения не соответствует его материалу.');
   const structure = exerciseStructure(spec.exercise);
   if (!structure) invalid('В материале этого упражнения нет ступеней одной структуры — проверка ступеней недоступна.');
   const degrees = new Set(structure.notes.map(note => note.degree));

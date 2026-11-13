@@ -5,6 +5,7 @@
  */
 import type { ExerciseSpec } from '../exercises';
 import { builtinLibrary, type UserExercise } from '../practice/library';
+import { builtinTemplateOf } from '../practice/material';
 import { addStep, completeStep, createPlan, currentStep, planFromTemplate, type CheckSpec, type DayPlan, type PlanStepContent } from '../practice/plan';
 import { difficulties, type Assessment, type Difficulty, type PracticeRecord } from '../practice/results';
 import {
@@ -56,12 +57,17 @@ export function rememberView(views: Readonly<Record<string, ExerciseView>>, key:
 }
 
 /** Темп открытия: последний сыгранный темп упражнения («продолжить с прежним темпом»), иначе умолчание. */
+/** Темп: последний проход этого материала, иначе последний проход того же шаблона (другая форма или тоника), иначе запасной. */
 export function bpmForExercise(key: string, records: readonly PracticeRecord[], fallback: number): number {
+  const template = builtinTemplateOf(key);
   let last: { bpm: number; occurredAt: string } | null = null;
+  let sameTemplate: { bpm: number; occurredAt: string } | null = null;
   for (const record of records) {
-    if (record.kind === 'play' && record.exerciseKey === key && (!last || record.occurredAt >= last.occurredAt)) last = record;
+    if (record.kind !== 'play') continue;
+    if (record.exerciseKey === key && (!last || record.occurredAt >= last.occurredAt)) last = record;
+    else if (template && builtinTemplateOf(record.exerciseKey) === template && (!sameTemplate || record.occurredAt >= sameTemplate.occurredAt)) sameTemplate = record;
   }
-  return last?.bpm ?? fallback;
+  return last?.bpm ?? sameTemplate?.bpm ?? fallback;
 }
 
 export const hasPlayed = (key: string, records: readonly PracticeRecord[]) => records.some(record => record.kind === 'play' && record.exerciseKey === key);
@@ -144,10 +150,10 @@ const clampInteger = (value: number, [min, max]: readonly [number, number]) => M
 
 /** Самооценка прохода упражнения как ручная отметка истории (R-026, R-011). */
 export function playRatingEntry(input: {
-  readonly spec: ExerciseSpec; readonly userExercises: readonly UserExercise[]; readonly view: ExerciseView;
+  readonly spec: ExerciseSpec; readonly userExercises: readonly UserExercise[]; readonly view: ExerciseView; readonly wholePass: boolean;
   readonly assessment: Assessment; readonly bpm: number; readonly activeMs: number;
 }, metadata: HistoryMetadata): ManualHistoryEntry {
-  const material = { kind: 'exercise' as const, key: exerciseKey(input.spec, input.userExercises), title: exerciseTitle(input.spec, input.userExercises), spec: input.spec, view: input.view };
+  const material = { kind: 'exercise' as const, key: exerciseKey(input.spec, input.userExercises), title: exerciseTitle(input.spec, input.userExercises), spec: input.spec, view: input.view, wholePass: input.wholePass };
   const result = createManualPracticeResult({
     context: null, material, assessment: input.assessment,
     comfortableBpm: clampInteger(input.bpm, manualTempoBounds(material)),

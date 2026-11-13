@@ -1,6 +1,6 @@
 {
   "format": "bass-study-backup",
-  "schemaVersion": 11,
+  "schemaVersion": 12,
   "preferences": {
     "activeModule": "harmony",
     "lesson": {
@@ -51,11 +51,16 @@
       "tab": "today",
       "playFrom": "C",
       "viewByExercise": {
-        "builtin:chromatic-position": "tab",
+        "builtin:chromatic-position.5": "tab",
         "user:fixture-penta": "memory"
       },
       "progressTab": "exercises",
-      "progressSource": "all"
+      "progressSource": "all",
+      "goal": {
+        "id": "pentatonic-neck",
+        "root": "A"
+      },
+      "basicsView": "goals"
     },
     "play": {
       "defaultView": "both",
@@ -300,7 +305,7 @@
       "result": {
         "kind": "check",
         "source": "screen-check",
-        "exerciseKey": "builtin:pentatonic-form",
+        "exerciseKey": "builtin:pentatonic-form.A.minor-pentatonic.penta-b",
         "title": "Форма пентатоники вверх-вниз",
         "spec": {
           "version": "check-v1",
@@ -526,7 +531,8 @@
               "shapeId": "penta-b"
             }
           },
-          "view": "both"
+          "view": "both",
+          "wholePass": true
         }
       }
     },

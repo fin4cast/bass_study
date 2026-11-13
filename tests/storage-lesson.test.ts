@@ -3,6 +3,7 @@ import backupJson from './fixtures/backup.json?raw';
 import { createExerciseSpec } from '../src/exercises';
 import { createPlan } from '../src/practice/plan';
 import { REFERENCE_CONCEPTS } from '../src/practice/concepts';
+import { materialId } from '../src/practice/material';
 import { annotatePositions, createStructure, getPosition, parseNote } from '../src/music';
 import { nextQuestion, startQuiz, submitAnswer } from '../src/training';
 import { createManualPracticeResult, type ExercisePracticeMaterial } from '../src/training/results';
@@ -17,11 +18,11 @@ const metadata = { occurredAt: '2026-11-08T22:30:00.000Z', timeZone: 'Europe/Mos
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const pentaB = createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' });
 const material = (patch: Partial<ExercisePracticeMaterial> = {}): ExercisePracticeMaterial =>
-  ({ kind: 'exercise', key: 'builtin:pentatonic-form', title: 'Форма пентатоники вверх-вниз', spec: pentaB, view: 'both', ...patch });
+  ({ kind: 'exercise', key: `builtin:${materialId(pentaB)}`, title: 'Форма пентатоники вверх-вниз', spec: pentaB, view: 'both', wholePass: true, ...patch });
 const pass = (id = 'exercise-pass', assessment: 'clean' | 'errors' | 'slow' = 'clean', bpm = 84) =>
   makeManualHistory(createManualPracticeResult({ context: null, comfortableBpm: bpm, durationMs: 120000, note: '', assessment, material: material() }), { ...metadata, id });
 const checkResult = () => ({
-  exerciseKey: 'builtin:pentatonic-form', title: 'Форма пентатоники вверх-вниз', activeMs: 90000,
+  exerciseKey: `builtin:${materialId(pentaB)}`, title: 'Форма пентатоники вверх-вниз', activeMs: 90000,
   spec: { version: 'check-v1' as const, exercise: pentaB, kind: 'name-degree' as const, count: 4, ear: false },
   answers: [{ degree: 'b3', outcome: 'correct' as const, errors: 0 }, { degree: 'b7', outcome: 'corrected' as const, errors: 1 },
     { degree: '4', outcome: 'revealed' as const, errors: 2 }, { degree: '1', outcome: 'unanswered' as const, errors: 0 }],
@@ -38,7 +39,7 @@ describe('настройки P13: занятие, экран игры, спра�
   it('умолчания и новый стартовый раздел', () => {
     expect(validatePreferences(DEFAULT_PREFERENCES)).toMatchObject({
       activeModule: 'lesson',
-      lesson: { plan: null, tab: 'today', playFrom: null, viewByExercise: {}, progressTab: 'exercises', progressSource: 'all' },
+      lesson: { plan: null, tab: 'today', playFrom: null, viewByExercise: {}, progressTab: 'exercises', progressSource: 'all', goal: null, basicsView: 'goals' },
       play: { defaultView: 'both', newExerciseView: 'board', countIn: true, labels: 'name', bpm: 72 },
       reference: { mastered: [] },
     });
@@ -48,12 +49,14 @@ describe('настройки P13: занятие, экран игры, спра�
   it('принимает план, «Играть от», виды упражнений и освоенные понятия', () => {
     const plan = createPlan('2026-11-12', [{ id: 'step-1', content: { kind: 'exercise', spec: pentaB }, minutes: 5 }]);
     const value = validatePreferences({ ...clone(DEFAULT_PREFERENCES),
-      lesson: { plan, tab: 'library', playFrom: 'F♯', viewByExercise: { 'builtin:octaves': 'memory', 'user:my-1': 'tab' }, progressTab: 'calendar', progressSource: 'check' },
+      lesson: { plan, tab: 'library', playFrom: 'F♯', viewByExercise: { 'builtin:octaves.G': 'memory', 'user:my-1': 'tab' }, progressTab: 'calendar', progressSource: 'check', goal: { id: 'pentatonic-neck', root: 'E' }, basicsView: 'levels' },
       play: { defaultView: 'tab', newExerciseView: null, countIn: false, labels: 'finger', bpm: 40 },
       reference: { mastered: REFERENCE_CONCEPTS.slice(0, 3).map(concept => concept.id) } });
     expect(value.lesson.plan).toEqual(plan);
     expect(value.lesson.playFrom).toBe(parseNote('F♯').name);
-    expect(value.lesson.viewByExercise).toEqual({ 'builtin:octaves': 'memory', 'user:my-1': 'tab' });
+    expect(value.lesson.viewByExercise).toEqual({ 'builtin:octaves.G': 'memory', 'user:my-1': 'tab' });
+    expect(value.lesson.goal).toEqual({ id: 'pentatonic-neck', root: 'E' });
+    expect(value.lesson.basicsView).toBe('levels');
     expect(value.play.newExerciseView).toBeNull();
     expect(Object.isFrozen(value.lesson.viewByExercise)).toBe(true);
     const views = Object.fromEntries(Array.from({ length: 200 }, (_, index) => [`user:e${index}`, 'board']));
@@ -75,6 +78,12 @@ describe('настройки P13: занятие, экран игры, спра�
     ['вид массивом', (x: any) => { x.lesson.viewByExercise = []; }],
     ['вкладка прогресса', (x: any) => { x.lesson.progressTab = 'history'; }],
     ['источник прогресса', (x: any) => { x.lesson.progressSource = 'ear'; }],
+    ['цель без тоники', (x: any) => { x.lesson.goal = { id: 'pentatonic-neck' }; }],
+    ['цель с лишним полем', (x: any) => { x.lesson.goal = { id: 'pentatonic-neck', root: 'A', step: 1 }; }],
+    ['id цели с пробелом', (x: any) => { x.lesson.goal = { id: 'my goal', root: 'A' }; }],
+    ['тоника цели', (x: any) => { x.lesson.goal = { id: 'pentatonic-neck', root: 'H' }; }],
+    ['вид «Основ»', (x: any) => { x.lesson.basicsView = 'tracks'; }],
+    ['прежний ключ шаблона', (x: any) => { x.lesson.viewByExercise = { 'builtin:octaves:G': 'board' }; }],
     ['два текущих шага плана', (x: any) => { x.lesson.plan = { version: 'plan-v1', localDate: '2026-11-12', steps: [
       { id: 'a', content: { kind: 'exercise', spec: clone(pentaB) }, minutes: 3, status: 'current' },
       { id: 'b', content: { kind: 'exercise', spec: clone(pentaB) }, minutes: 3, status: 'current' }] }; }],
@@ -96,6 +105,15 @@ describe('настройки P13: занятие, экран игры, спра�
 });
 
 describe('проход упражнения: самооценка и материал', () => {
+  it('ключ материала с параметрами (D-049): шесть тоник транспонирования и знаки альтерации проходят проверку', () => {
+    const spec = createExerciseSpec('form-transpose', { structureId: 'major-pentatonic', roots: ['C♯', 'E♭', 'F♯', 'A♭', 'B♭', 'G'] });
+    const key = `builtin:${materialId(spec)}`;
+    expect(key).toBe('builtin:form-transpose.major-pentatonic.penta-a.Cs-Eb-Fs-Ab-Bb-G');
+    const entry = makeManualHistory(createManualPracticeResult({ context: null, comfortableBpm: 80, durationMs: 60000, note: '', assessment: 'clean',
+      material: material({ key, spec }) }), { ...metadata, id: 'long-key' });
+    expect(validateHistoryEntry(clone(entry))).toEqual(entry);
+  });
+
   it('сохраняет самооценку прохода и null у прочих материалов', () => {
     const entry = pass('exercise-pass', 'errors');
     expect(entry.result).toMatchObject({ kind: 'manual', source: 'self-report', assessment: 'errors', context: null, material: { kind: 'exercise', view: 'both' } });

@@ -59,7 +59,7 @@ export const formatPosition = (id: string) => id.replace(':', '/');
  * Ноты доски из плана: каждая позиция один раз. Подпись, тоника и палец берутся из ноты сегмента,
  * который сейчас играют (`segment`); если позиции в нём нет — из первого появления в плане.
  */
-export function boardNotesFromPlan(plan: Pick<ExercisePlan, 'notes'>, options: { labels?: BoardLabelMode; segment?: number } = {}): BoardNote[] {
+export function boardNotesFromPlan(plan: Pick<ExercisePlan, 'notes'> & Partial<Pick<ExercisePlan, 'overlap'>>, options: { labels?: BoardLabelMode; segment?: number } = {}): BoardNote[] {
   const labels = options.labels ?? 'name';
   const segment = options.segment ?? 0;
   const order: string[] = [];
@@ -75,7 +75,8 @@ export function boardNotesFromPlan(plan: Pick<ExercisePlan, 'notes'>, options: {
     const note = own ?? first;
     const root = note.degree === '1';
     const sorted = [...segments].sort((a, b) => a - b);
-    const kind: BoardNoteKind = sorted.length > 1 ? 'shared' : root ? 'root' : sorted[0] % 2 === 0 ? 'a' : 'b';
+    // У паука и последовательности сегменты идут по одним и тем же ладам: «общих» позиций нет (ExercisePlan.overlap).
+    const kind: BoardNoteKind = plan.overlap !== 'none' && sorted.length > 1 ? 'shared' : root ? 'root' : sorted[0] % 2 === 0 ? 'a' : 'b';
     const label = labels === 'degree' ? formatDegree(note.degree)
       : labels === 'finger' ? (note.finger === null ? '' : String(note.finger))
         : labels === 'none' ? '' : pitchLetter(note.name);

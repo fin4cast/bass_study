@@ -123,7 +123,7 @@ check('project-steps-and-full-chain-survive-reload-and-export', 'ui', async ({ p
   await action(page, 'stop').click();
   assert.equal(await output(page, 'chain').locator('[aria-current="true"]').count(), 0);
   const copy = await exported(page);
-  assert.equal(copy.schemaVersion, 11);
+  assert.equal(copy.schemaVersion, 12);
   assert.equal(copy.rhythmProjects.length, 1);
   const [project] = copy.rhythmProjects;
   assert.equal(copy.activeRhythmProjectId, project.id);
@@ -310,7 +310,7 @@ check('product-step-accents-use-project-owned-channel-defaults', 'ui', async ({ 
   await state(page, 'stopped');
 
   const copy = await exported(page);
-  assert.equal(copy.schemaVersion, 11);
+  assert.equal(copy.schemaVersion, 12);
   const project = copy.rhythmProjects.find(item => item.id === copy.activeRhythmProjectId);
   const exportedDefaults = (source, channel) => source.channels.find(item => item.id === channel).velocityDefaults;
   assert.deepEqual(exportedDefaults(project, 'kick'), { hit: 61, accent: 82 });

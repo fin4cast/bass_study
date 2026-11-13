@@ -6,7 +6,13 @@ export type StructureId =
   | 'major-pentatonic'
   | 'minor-pentatonic'
   | 'major-triad'
-  | 'minor-triad';
+  | 'minor-triad'
+  | 'diminished-triad'
+  | 'major-seventh'
+  | 'dominant-seventh'
+  | 'minor-seventh'
+  | 'half-diminished-seventh'
+  | 'blues';
 export type LabelMode = 'notes' | 'degrees' | 'hidden';
 export type NoteLetter = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B';
 
@@ -83,6 +89,12 @@ const definitions: StructureDefinition[] = [
   { id: 'minor-pentatonic', name: 'Минорная пентатоника', intervals: [0, 3, 5, 7, 10], degrees: ['1', 'b3', '4', '5', 'b7'] },
   { id: 'major-triad', name: 'Мажорное трезвучие', intervals: [0, 4, 7], degrees: ['1', '3', '5'] },
   { id: 'minor-triad', name: 'Минорное трезвучие', intervals: [0, 3, 7], degrees: ['1', 'b3', '5'] },
+  { id: 'diminished-triad', name: 'Уменьшённое трезвучие', intervals: [0, 3, 6], degrees: ['1', 'b3', 'b5'] },
+  { id: 'major-seventh', name: 'Большой мажорный септаккорд (maj7)', intervals: [0, 4, 7, 11], degrees: ['1', '3', '5', '7'] },
+  { id: 'dominant-seventh', name: 'Доминантсептаккорд (7)', intervals: [0, 4, 7, 10], degrees: ['1', '3', '5', 'b7'] },
+  { id: 'minor-seventh', name: 'Малый минорный септаккорд (m7)', intervals: [0, 3, 7, 10], degrees: ['1', 'b3', '5', 'b7'] },
+  { id: 'half-diminished-seventh', name: 'Полууменьшённый септаккорд (m7♭5)', intervals: [0, 3, 6, 10], degrees: ['1', 'b3', 'b5', 'b7'] },
+  { id: 'blues', name: 'Блюзовая гамма', intervals: [0, 3, 5, 6, 7, 10], degrees: ['1', 'b3', '4', 'b5', '5', 'b7'] },
 ];
 
 export const STRUCTURES: readonly StructureDefinition[] = Object.freeze(definitions.map(definition => Object.freeze({
@@ -231,3 +243,6 @@ export function annotatePositions(positions: readonly Position[], structure: Mus
     });
   }));
 }
+
+/** Подпись ступени: «b3» → «♭3», «#4» → «♯4» (все знаки, включая двойные). */
+export const formatDegree = (degree: string | null | undefined): string => (degree ?? '').replaceAll('b', '♭').replaceAll('#', '♯');

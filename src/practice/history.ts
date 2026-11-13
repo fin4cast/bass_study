@@ -36,7 +36,7 @@ export function practiceRecords(history: readonly HistoryEntry[]): readonly Prac
       const play: PlayRecord = {
         kind: 'play', id: entry.id, exerciseKey: result.material.key, title: result.material.title, spec: result.material.spec,
         assessment: result.assessment, bpm: result.comfortableBpm, activeMs: result.durationMs,
-        localDate: entry.localDate, occurredAt: entry.occurredAt,
+        localDate: entry.localDate, occurredAt: entry.occurredAt, view: result.material.view, wholePass: result.material.wholePass,
       };
       records.push(Object.freeze(play));
     } else if (result.kind === 'manual' && result.material.kind !== 'exercise') {
@@ -47,7 +47,8 @@ export function practiceRecords(history: readonly HistoryEntry[]): readonly Prac
       records.push(Object.freeze(manual));
     } else if (result.kind === 'check') {
       const check: CheckRecord = {
-        kind: 'check', id: entry.id, exerciseKey: result.exerciseKey, title: result.title, activeMs: result.activeMs,
+        kind: 'check', id: entry.id, exerciseKey: result.exerciseKey, title: result.title, spec: result.spec.exercise,
+        checkKind: result.spec.kind, ear: result.spec.ear, activeMs: result.activeMs,
         localDate: entry.localDate, occurredAt: entry.occurredAt, answers: result.answers,
       };
       records.push(Object.freeze(check));

@@ -30,7 +30,8 @@ export const ATLAS_CHECK_COUNT = 6;
 
 const PENTATONIC: readonly StructureId[] = ['minor-pentatonic', 'major-pentatonic'];
 const SCALES: readonly StructureId[] = ['major', 'natural-minor'];
-const TRIADS: readonly StructureId[] = ['major-triad', 'minor-triad'];
+const TRIADS: readonly StructureId[] = ['major-triad', 'minor-triad', 'diminished-triad'];
+const SEVENTHS: readonly StructureId[] = ['major-seventh', 'dominant-seventh', 'minor-seventh', 'half-diminished-seventh'];
 
 function exerciseFor(study: AtlasStudy, box: BoxSelection): ExerciseSpec | null {
   const shape = box.shapeId;
@@ -39,7 +40,9 @@ function exerciseFor(study: AtlasStudy, box: BoxSelection): ExerciseSpec | null 
   }
   if (shape !== 'compact-e' && shape !== 'compact-a') return null;
   if (SCALES.includes(study.structureId)) return createExerciseSpec('scale-compact', { root: study.root, structureId: study.structureId as 'major' | 'natural-minor', shapeId: shape });
-  if (TRIADS.includes(study.structureId)) return createExerciseSpec('arpeggio-1358', { root: study.root, structureId: study.structureId as 'major-triad' | 'minor-triad', shapeId: shape });
+  if (TRIADS.includes(study.structureId)) return createExerciseSpec('arpeggio-1358', { root: study.root, structureId: study.structureId as 'major-triad', shapeId: shape });
+  if (SEVENTHS.includes(study.structureId)) return createExerciseSpec('arpeggio-seventh', { root: study.root, structureId: study.structureId as 'dominant-seventh', shapeId: shape });
+  if (study.structureId === 'blues') return createExerciseSpec('blues-scale', { root: study.root, shapeId: shape });
   return null;
 }
 

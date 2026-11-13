@@ -14,7 +14,7 @@ import type { QuestionContext, QuizSession } from '../training';
 import { reviewMaterial } from '../ui/check/session';
 import { mountCheck } from '../ui/check/view';
 import { mountLesson } from '../ui/lesson/view';
-import { stepTitle } from '../ui/lesson/model';
+import { stepTitle, storedGoal } from '../ui/lesson/model';
 import { createEnginePort, type PlaybackPort } from '../ui/play/port';
 import { mountPlay, type PlayHandle, type RateEvent } from '../ui/play/view';
 import { mountReference } from '../ui/reference/view';
@@ -103,6 +103,11 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     },
     onOpenConcept(id) { openConcept(id); },
     onSaveExercise(spec, name) { options.saveExercise(spec, name); },
+    onGoalChange(goal) {
+      if (!options.savePreferences({ lesson: { ...lessonPreferences(), goal } })) throw new Error('Цель не сохранена: эта вкладка сейчас не может записывать.');
+      renderHome();
+    },
+    onBasicsViewChange(basicsView) { options.savePreferences({ lesson: { ...lessonPreferences(), basicsView } }); },
   });
 
   const checkView = mountCheck(host('check'), {
@@ -144,7 +149,8 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
 
   function homeState() {
     const prefs = options.preferences();
-    return { plan: ensurePlan(), records: records(), userExercises: user(), firstRun: records().length === 0, playFrom: prefs.lesson.playFrom, tab: prefs.lesson.tab };
+    return { plan: ensurePlan(), records: records(), userExercises: user(), firstRun: records().length === 0, playFrom: prefs.lesson.playFrom, tab: prefs.lesson.tab,
+      goal: storedGoal(prefs.lesson.goal), basicsView: prefs.lesson.basicsView };
   }
   function renderHome() {
     if (disposed) return;
@@ -239,7 +245,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     const current = play;
     if (!current) return;
     try {
-      options.saveHistory(playRatingEntry({ spec: current.spec, userExercises: user(), view: current.handle.getView(), assessment: event.assessment, bpm: event.bpm, activeMs: event.activeMs }, metadata('exercise')));
+      options.saveHistory(playRatingEntry({ spec: current.spec, userExercises: user(), view: event.passView, wholePass: event.wholePass, assessment: event.assessment, bpm: event.bpm, activeMs: event.activeMs }, metadata('exercise')));
     } catch (failure) { options.onFailure(`Самооценка не сохранена: ${message(failure)}`); return; }
     if (current.stepId) {
       const plan = currentPlan();

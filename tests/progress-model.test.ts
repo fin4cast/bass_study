@@ -3,17 +3,17 @@ import { createExerciseSpec } from '../src/exercises';
 import type { CheckRecord, PlayRecord, PracticeRecord } from '../src/practice/results';
 import {
   addDays, calendarWeeks, checkTally, datePeriod, dayRecords, defaultDay, describeDifficulty, difficultyViews, formatActive, formatLongDate,
-  formatShortDate, intensityLevel, joinDates, missedDegrees, mondayOf, plural, progressRows, tallyText, weekRangeLabel, weekSummary,
+  formatShortDate, intensityLevel, joinDates, missedDegrees, mondayOf, plural, progressGroups, progressRows, tallyText, weekRangeLabel, weekSummary,
 } from '../src/ui/progress/model';
 import { dateTicks, markerSvg, placeByDate, sparkSvg, sparkText, tempoChartSvg, tempoScale } from '../src/ui/progress/charts';
 
 const spec = createExerciseSpec('connect-forms');
 let clock = 0;
 const play = (localDate: string, exerciseKey: string, bpm: number, assessment: PlayRecord['assessment'], minutes = 5, title = exerciseKey): PlayRecord => ({
-  kind: 'play', id: `p${clock}`, exerciseKey, title, spec, assessment, bpm, activeMs: minutes * 60_000, localDate, occurredAt: `${localDate}T10:00:${String(clock++ % 60).padStart(2, '0')}.000Z`,
+  kind: 'play', id: `p${clock}`, exerciseKey, title, spec, assessment, bpm, activeMs: minutes * 60_000, localDate, occurredAt: `${localDate}T10:00:${String(clock++ % 60).padStart(2, '0')}.000Z`, view: 'both', wholePass: true,
 });
 const check = (localDate: string, exerciseKey: string, answers: CheckRecord['answers'], minutes = 4, title = exerciseKey): CheckRecord => ({
-  kind: 'check', id: `c${clock}`, exerciseKey, title, answers, activeMs: minutes * 60_000, localDate, occurredAt: `${localDate}T12:00:${String(clock++ % 60).padStart(2, '0')}.000Z`,
+  kind: 'check', id: `c${clock}`, exerciseKey, title, spec, checkKind: 'name-degree', ear: false, answers, activeMs: minutes * 60_000, localDate, occurredAt: `${localDate}T12:00:${String(clock++ % 60).padStart(2, '0')}.000Z`,
 });
 const TODAY = '2026-11-12';
 const records: PracticeRecord[] = [
@@ -50,6 +50,23 @@ describe('даты «Прогресса»', () => {
 });
 
 describe('строки упражнений', () => {
+  it('группирует строки по упражнению с раскрытием по материалу; свои упражнения и проверки — отдельно (D-049)', () => {
+    const rows = progressRows([
+      play('2026-11-10', 'builtin:pentatonic-form.A.minor-pentatonic.penta-a', 80, 'clean'),
+      play('2026-11-11', 'builtin:pentatonic-form.A.minor-pentatonic.penta-b', 92, 'clean'),
+      play('2026-11-11', 'user:mine', 70, 'clean', 5, 'Моя форма'),
+      play('2026-11-09', 'builtin:octaves.G', 60, 'errors'),
+      check('2026-11-11', 'builtin:pentatonic-form.A.minor-pentatonic.penta-a', [{ degree: '1', outcome: 'correct', errors: 0 }]),
+    ], 'all');
+    // Порядок групп — по самой недавней записи группы.
+    const groups = progressGroups(rows);
+    expect(groups.map(group => [group.key, group.title, group.rows.length, group.bestCleanBpm])).toEqual([
+      ['check:tpl:pentatonic-form', 'Форма пентатоники вверх-вниз', 1, null],
+      ['play:user:mine', 'Моя форма', 1, 70],
+      ['play:tpl:pentatonic-form', 'Форма пентатоники вверх-вниз', 2, 92],
+      ['play:tpl:octaves', 'Октавы: +2 струны, +2 лада', 1, null],
+    ]);
+  });
   it('не смешивает источники и берёт лучший темп только из «Чисто»', () => {
     const all = progressRows(records, 'all');
     expect(all.map(row => row.key)).toEqual(['builtin:connect-forms', 'check:penta-b', 'builtin:chromatic-position']);

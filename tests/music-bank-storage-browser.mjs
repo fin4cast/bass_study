@@ -52,7 +52,7 @@ async function raw(page) {
     } finally { db.close(); }
   });
 }
-function rawSnapshot(snapshot, version = 11) {
+function rawSnapshot(snapshot, version = 12) {
   const records = version >= 11 ? { exercises: snapshot.exercises } : { presets: snapshot.presets };
   return { version, stores: version >= 11 ? V11_STORES : V10_STORES, preferences: snapshot.preferences, ...records, history: snapshot.history, profile: snapshot.profile,
     practiceDrafts: snapshot.practiceDrafts, rhythmProjects: snapshot.rhythmProjects, activeRhythmProjectId: snapshot.activeRhythmProjectId };
@@ -104,7 +104,7 @@ check('native-real-v10-database-upgrades-to-empty-v11-and-product-persists', asy
   assert.deepEqual(before, rawSnapshot(oldV10, 10));
   await readyProduct(page, origin);
   const upgraded = await raw(page);
-  assert.equal(upgraded.version, 11); assert.deepEqual(upgraded.stores, rawSnapshot(current).stores);
+  assert.equal(upgraded.version, 12); assert.deepEqual(upgraded.stores, rawSnapshot(current).stores);
   assert.deepEqual([upgraded.exercises, upgraded.history, upgraded.practiceDrafts, upgraded.rhythmProjects, upgraded.activeRhythmProjectId], [[], [], [], [], null]);
   assert.equal(Object.hasOwn(upgraded, 'presets'), false, 'Хранилище пресетов не переживает апгрейд');
   assert.notEqual(upgraded.profile?.theme, 'dark', 'Старый профиль не переносится');
@@ -123,7 +123,7 @@ check('native-v10-upgrade-abort-after-recreating-stores-keeps-old-database-and-m
   await context.addInitScript(() => {
     const observation = window.__musicBankUpgradeAbort = { deletedStores: [], createdStores: [], abortIssued: false, databaseVersion: null };
     const { createObjectStore, deleteObjectStore } = IDBDatabase.prototype;
-    const upgrading = db => db.name === 'bass-study' && db.version === 11;
+    const upgrading = db => db.name === 'bass-study' && db.version === 12;
     IDBDatabase.prototype.deleteObjectStore = function (name) {
       deleteObjectStore.call(this, name); if (upgrading(this)) observation.deletedStores.push(name);
     };

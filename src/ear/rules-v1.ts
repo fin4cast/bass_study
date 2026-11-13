@@ -1,4 +1,4 @@
-import { createStructure } from '../music';
+import { createStructure, formatDegree } from '../music';
 import type { RouteRef } from '../route';
 
 /** Трезвучия — исходный слух R-016; пентатоники — ступени «Проверь себя» (R-016, расширение P13). */
@@ -75,7 +75,7 @@ export function createEarQuestionV1(config: Omit<EarConfig, 'count'>): EarQuesti
   return immutable({ id: `ear-${config.seed.toString(16)}-${config.quality}-${structure.root}`, seed: config.seed,
     root: structure.root, quality: config.quality, referenceMidi, targetMidi: referenceMidi + selected.semitones,
     targetDegree: selected.degree as EarDegree, targetName: selected.name,
-    choices: structure.notes.map(note => ({ id: note.degree as EarDegree, label: note.degree.replace('b', '♭') })) });
+    choices: structure.notes.map(note => ({ id: note.degree as EarDegree, label: formatDegree(note.degree) })) });
 }
 
 /** Labelled study/review cues have no answer state and never contribute to a score. */
@@ -156,7 +156,7 @@ export function submitEarAnswer(session: EarSession, degree: EarDegree, atMs: nu
     firstAnswer: previous.firstAnswer ?? degree, firstResponseMs: previous.firstResponseMs ?? atMs - previous.firstListenCompletedAtMs,
     firstAttemptCorrect: previous.firstAttemptCorrect ?? correct, lastEventMs: atMs,
     answerEvents: [...previous.answerEvents, { degree, atMs, correct, order: previous.listenEvents.length + previous.answerEvents.length + 1 }], outcome: correct ? previous.errors === 0 ? 'correct' : 'corrected' : null,
-    closedAtMs: correct ? atMs : null, feedback: correct ? `Верно: ${degree.replace('b', '♭')} — ${session.currentQuestion.targetName}.` : 'Ступень не совпала. Сравни тонику и цель; можно послушать ещё раз.' } });
+    closedAtMs: correct ? atMs : null, feedback: correct ? `Верно: ${formatDegree(degree)} — ${session.currentQuestion.targetName}.` : 'Ступень не совпала. Сравни тонику и цель; можно послушать ещё раз.' } });
 }
 
 function closeQuestion(session: EarSession, atMs: number, outcome: 'revealed' | 'skipped'): EarSession {

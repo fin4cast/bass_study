@@ -23,6 +23,7 @@ export const CONCEPT_LABELS: Readonly<Record<ConceptId, string>> = Object.freeze
   degrees: 'Ступени', pentatonic: 'Пентатоника', 'relative-keys': 'Параллельные тональности', 'scale-formula': 'Формула гаммы',
   'shared-notes': 'Общие ноты', 'form-system': 'Система форм', triad: 'Трезвучие', fifth: 'Квинта', sequence: 'Секвенция',
   third: 'Терция', transposition: 'Транспонирование', 'circle-of-fifths': 'Квинтовый круг',
+  'seventh-chord': 'Септаккорд', inversion: 'Обращение', progression: 'Последовательность', blues: 'Блюз',
 });
 
 export const BPM_MIN = 40;
@@ -89,7 +90,16 @@ export function junctionText(junction: Junction): string {
 }
 
 /** Фрагмент для петли вокруг стыка: по `radius` нот с каждой стороны. */
-export function loopAround(plan: Pick<ExercisePlan, 'notes'>, junction: Junction, radius = 4): { from: number; toExclusive: number } {
+export function loopAround(plan: Pick<ExercisePlan, 'notes'> & Partial<Pick<ExercisePlan, 'overlap'>>, junction: Junction, radius = 4): { from: number; toExclusive: number } {
+  // Паук и последовательность (overlap: none): петля — два целых сегмента вокруг перехода (такт до и такт после), а не середина такта.
+  if (plan.overlap === 'none') {
+    const before = plan.notes[junction.index - 1]?.segment ?? 0;
+    const after = plan.notes[junction.index]?.segment ?? before;
+    const from = plan.notes.findIndex(note => note.segment === before);
+    let toExclusive = plan.notes.length;
+    for (let index = junction.index; index < plan.notes.length; index++) if (plan.notes[index].segment !== after) { toExclusive = index; break; }
+    return { from: Math.max(0, from), toExclusive };
+  }
   return { from: Math.max(0, junction.index - radius), toExclusive: Math.min(plan.notes.length, junction.index + radius) };
 }
 

@@ -134,7 +134,7 @@ check('product-directory-search-pages-read-only-selected-file-and-no-full-catalo
   await field(page, 'file-list').locator('button').first().click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount')?.dataset.musicBankReady === 'true');
   assert.equal(await page.evaluate(() => window.__bankReads), 1);
-  const copy = await exported(page); assert.equal(copy.schemaVersion, 11); assert.ok(copy.preferences.musicBank.file.relativePath);
+  const copy = await exported(page); assert.equal(copy.schemaVersion, 12); assert.ok(copy.preferences.musicBank.file.relativePath);
   const serialized = JSON.stringify(copy); assert.ok(!serialized.includes('music-bank-file-') && serialized.length < 100000);
   return { count, matching: matches, sourceReads: 1, backupBytes: Buffer.byteLength(serialized), onlySelectedDescriptor: true };
 });

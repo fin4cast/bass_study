@@ -10,8 +10,8 @@ import { checkIcon, markIcon, outcomeIcon, sparkSvg, sparkText, tallyStack, temp
 import {
   MANUAL_LABELS, MARK_LABELS, OUTCOME_LABELS, OUTCOME_ORDER, SOURCE_FILTER_LABELS, SOURCE_LABELS, WEEK_HEADER,
   addDays, calendarWeeks, countWord, datePeriod, dayRecords, defaultDay, difficultyViews, formatActive, formatDraftTime, formatLongDate,
-  formatShortDate, isDateKey, localDateKey, matchesSource, mondayOf, parseTempo, progressRows, showsFretboardReview, tallyText, weekSummary, checkTally, missedDegrees,
-  type Assessment, type CheckRow, type Difficulty, type DraftView, type FretboardReviewView, type PlayRow, type PracticeRecord, type ProgressRow, type SourceFilter,
+  formatShortDate, isDateKey, localDateKey, matchesSource, mondayOf, parseTempo, progressGroups, progressRows, showsFretboardReview, tallyText, weekSummary, checkTally, missedDegrees,
+  type Assessment, type CheckRow, type Difficulty, type DraftView, type FretboardReviewView, type PlayRow, type PracticeRecord, type ProgressGroup, type ProgressRow, type SourceFilter,
 } from './model';
 
 export type ProgressTab = 'exercises' | 'calendar';
@@ -73,6 +73,8 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
     tab: options.initialTab ?? 'exercises' as ProgressTab,
     source: options.initialSource ?? 'all' as SourceFilter,
     open: null as string | null,
+    /** Раскрытые группы упражнения с несколькими материалами. */
+    groups: new Set<string>(),
     day: '',
     highlight: null as string | null,
     visible: !container.hidden,
@@ -363,12 +365,35 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
     host.innerHTML = `<section class="pg-card pg-list" aria-labelledby="${uid}-list">
       <div class="pg-list-head"><h2 class="pg-h2" id="${uid}-list">Упражнения <small>${list.length} · сначала недавние · нажми строку, чтобы открыть историю</small></h2>${state.source === 'check' ? outcomesLegend() : marksLegend()}</div>
       ${list.length ? `<div class="pg-cols" aria-hidden="true"><span>Упражнение</span><span>${state.source === 'check' ? 'Ответы' : 'Темп'} по датам · ${escapeHtml(formatShortDate(range.start))} — ${escapeHtml(formatShortDate(range.end))}</span><span>Лучший</span><span>Последняя отметка</span><span></span></div>
-      <ul class="pg-items">${list.map(row => rowHtml(row, range)).join('')}</ul>` : '<p class="pg-quiet">Для этого источника записей нет — переключи на «Всё».</p>'}
+      <ul class="pg-items">${progressGroups(list).map(group => groupHtml(group, range)).join('')}</ul>` : '<p class="pg-quiet">Для этого источника записей нет — переключи на «Всё».</p>'}
     </section>`;
     if (state.open) fillDetail(state.open);
   }
 
-  function rowHtml(row: ProgressRow, range: ReturnType<typeof period>) {
+  /** Упражнение с одним материалом — обычная строка; с несколькими — строка группы, раскрывающая материалы. */
+  function groupHtml(group: ProgressGroup, range: ReturnType<typeof period>) {
+    if (group.rows.length === 1) return rowHtml(group.rows[0], range);
+    const expanded = state.groups.has(group.key) || group.rows.some(row => row.key === state.open);
+    const subId = `${uid}-g-${list_index(`group|${group.key}`)}`;
+    const last = group.rows[0];
+    const passes = group.rows.reduce((sum, row) => sum + row.passes.length, 0);
+    const count = `${countWord(group.rows.length, 'вариант', 'варианта', 'вариантов')} · ${group.kind === 'check' ? countWord(passes, 'проверка', 'проверки', 'проверок') : countWord(passes, 'проход', 'прохода', 'проходов')}`;
+    const best = group.kind === 'play' ? (group.bestCleanBpm !== null ? `<b>${group.bestCleanBpm}</b><small>лучший из вариантов</small>` : '<b aria-hidden="true">—</b><small>ещё нет «Чисто»</small>') : '<b aria-hidden="true">—</b>';
+    const lastMark = last.kind === 'play' ? `${markChip(last.last.assessment)}<small>${escapeHtml(formatShortDate(last.last.localDate))} · ${last.last.bpm} BPM</small>`
+      : `${checkChip(last.last.tally.self, last.last.tally.total)}<small>${escapeHtml(formatShortDate(last.last.localDate))}</small>`;
+    return `<li class="pg-item pg-group is-${group.kind}${expanded ? ' is-open' : ''}">
+      <button type="button" class="pg-row" data-group="${escapeHtml(group.key)}" aria-expanded="${expanded}" aria-controls="${subId}">
+        <span class="pg-name"><b>${escapeHtml(group.title)}</b><span>${group.kind === 'check' ? `${sourceTag('check')} · ` : ''}${escapeHtml(count)}</span></span>
+        <span class="pg-sparkcell"></span>
+        <span class="pg-best">${best}</span>
+        <span class="pg-last">${lastMark}</span>
+        <span class="pg-chev" aria-hidden="true">▸</span>
+      </button>
+      <ul class="pg-items pg-sub" id="${subId}"${expanded ? '' : ' hidden'}>${group.rows.map(row => rowHtml(row, range, true)).join('')}</ul>
+    </li>`;
+  }
+
+  function rowHtml(row: ProgressRow, range: ReturnType<typeof period>, nested = false) {
     const open = state.open === row.key;
     const detailId = `${uid}-d-${list_index(row.key)}`;
     let best: string, last: string;
@@ -381,7 +406,8 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
     }
     return `<li class="pg-item is-${row.kind}${open ? ' is-open' : ''}">
       <button type="button" class="pg-row" data-open="${escapeHtml(row.key)}" aria-expanded="${open}" aria-controls="${detailId}">
-        <span class="pg-name"><b>${escapeHtml(row.title)}</b><span>${row.kind === 'check' ? `${sourceTag('check')} · ` : ''}${escapeHtml(describe(row))}</span></span>
+        <span class="pg-name">${nested ? `<b>${escapeHtml(options.describe?.(row) || row.title)}</b><span>${escapeHtml(row.kind === 'check' ? countWord(row.passes.length, 'проверка', 'проверки', 'проверок') : countWord(row.passes.length, 'проход', 'прохода', 'проходов'))}</span>`
+          : `<b>${escapeHtml(row.title)}</b><span>${row.kind === 'check' ? `${sourceTag('check')} · ` : ''}${escapeHtml(describe(row))}</span>`}</span>
         <span class="pg-sparkcell">${sparkSvg(row, range)}<span class="pg-sr">${escapeHtml(sparkText(row))}</span></span>
         <span class="pg-best">${best}</span>
         <span class="pg-last">${last}</span>
@@ -528,6 +554,18 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
       focusSame(`[data-source="${state.source}"]`);
       return;
     }
+    if (target.dataset.group !== undefined) {
+      const key = target.dataset.group;
+      const expanded = target.getAttribute('aria-expanded') === 'true';
+      if (expanded) {
+        state.groups.delete(key);
+        // Свернуть группу — закрыть и раскрытую в ней историю материала.
+        if (state.open && progressGroups(rows()).find(group => group.key === key)?.rows.some(row => row.key === state.open)) state.open = null;
+      } else state.groups.add(key);
+      renderExercises();
+      $<HTMLElement>(`[data-group="${css(key)}"]`)?.focus();
+      return;
+    }
     if (target.dataset.open !== undefined) {
       const key = target.dataset.open;
       state.open = state.open === key ? null : key;
@@ -614,7 +652,7 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
       else if (!state.fixedToday) state.today = localDateKey();
       if (!state.records.some(record => record.localDate === state.day)) state.day = defaultDay(state.records, state.today);
       const active = document.activeElement instanceof HTMLElement && container.contains(document.activeElement) ? document.activeElement : null;
-      const restore = active && !active.closest('[data-drafts]') ? ['data-open', 'data-day', 'data-source', 'data-tab', 'data-highlight', 'data-repeat', 'data-play', 'data-delete'].find(name => active.hasAttribute(name)) : undefined;
+      const restore = active && !active.closest('[data-drafts]') ? ['data-open', 'data-group', 'data-day', 'data-source', 'data-tab', 'data-highlight', 'data-repeat', 'data-play', 'data-delete'].find(name => active.hasAttribute(name)) : undefined;
       const restoreValue = restore ? active!.getAttribute(restore)! : '';
       renderAll();
       if (restore) $<HTMLElement>(`[${restore}="${css(restoreValue)}"]`)?.focus();

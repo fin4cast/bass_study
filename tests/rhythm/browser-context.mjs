@@ -140,7 +140,7 @@ export async function seedDatabase(page, origin, snapshot) {
       request.onupgradeneeded = () => {
         const db = request.result;
         // Порядок создания хранилищ схемы 11: preferences, profile, exercises, history, practiceDrafts, rhythmProjects.
-        if (snapshot.schemaVersion !== 11) throw new Error('Only the current schema 11 layout is seeded here');
+        if (snapshot.schemaVersion !== 12) throw new Error('Only the current schema 12 layout is seeded here');
         const preferences = db.createObjectStore('preferences');
         preferences.put(snapshot.preferences, 'current');
         if (snapshot.activeRhythmProjectId) preferences.put(snapshot.activeRhythmProjectId, 'rhythm-selection');

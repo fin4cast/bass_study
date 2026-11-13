@@ -41,12 +41,12 @@ function textsOf(concept: ReferenceConcept): string[] {
 }
 
 describe('справочник R-027: состав', () => {
-  it('21 понятие по уровням макета, 8 полных карточек, у каждого одна карточка', () => {
+  it('25 понятий по уровням макета (D-049 добавил блюзовую гамму, септаккорды, обращения и последовательность), 8 полных карточек, у каждого одна карточка', () => {
     expect(REFERENCE_CONCEPTS.map(concept => concept.id)).toEqual([
       'semitone', 'accidentals', 'enharmonic', 'octave', 'unison', 'octave-numbers',
       'fourth', 'fifth', 'thirds',
-      'degree', 'major-formula', 'natural-minor', 'relative-keys', 'pentatonic', 'shared-notes',
-      'triad', 'slash-chord',
+      'degree', 'major-formula', 'natural-minor', 'relative-keys', 'pentatonic', 'shared-notes', 'blues-scale',
+      'triad', 'seventh-chords', 'inversions', 'chord-progression', 'slash-chord',
       'beat-bar', 'counting', 'tab', 'bass-clef',
     ]);
     expect(REFERENCE_CONCEPTS.filter(concept => concept.full).map(concept => concept.title)).toEqual([
@@ -200,7 +200,7 @@ describe('справочник R-027: упражнения и проверка',
 
   it('каждое понятие каталога упражнений ведёт к одной карточке справочника', () => {
     const catalogue = [...new Set(EXERCISE_TEMPLATES.flatMap(template => template.concepts))].sort();
-    expect(catalogue).toHaveLength(17);
+    expect(catalogue).toHaveLength(21);
     const owners = new Map<ConceptId, string[]>();
     for (const concept of REFERENCE_CONCEPTS) {
       for (const id of concept.exerciseConcepts ?? []) owners.set(id, [...(owners.get(id) ?? []), concept.id]);
@@ -241,7 +241,7 @@ describe('справочник R-027: поиск', () => {
 
   it('пустой запрос возвращает все понятия по порядку', () => {
     expect(findConcepts('')).toBe(REFERENCE_CONCEPTS);
-    expect(ids('   ')).toHaveLength(21);
+    expect(ids('   ')).toHaveLength(25);
   });
 
   it('находит по названию, ключевым словам и ступеням; регистр и ё/е не мешают', () => {

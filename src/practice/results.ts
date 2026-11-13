@@ -4,6 +4,8 @@
  * Чистый модуль: записи приходят из истории, хранение — забота приложения.
  */
 import type { ExerciseSpec } from '../exercises';
+import type { ExerciseView } from '../training/results';
+import type { CheckKind } from './plan';
 
 export type Assessment = 'clean' | 'errors' | 'slow';
 export const ASSESSMENT_LABELS: Readonly<Record<Assessment, string>> = Object.freeze({ clean: 'Чисто', errors: 'С ошибками', slow: 'Не успевал' });
@@ -21,6 +23,10 @@ export interface PlayRecord {
   readonly activeMs: number;
   readonly localDate: string;
   readonly occurredAt: string;
+  /** Самый подсказывающий вид за проход (D-049); «По памяти» — только если весь проход прошёл в нём. */
+  readonly view: ExerciseView;
+  /** Проход целиком, без петли-фрагмента. */
+  readonly wholePass: boolean;
 }
 export type CheckOutcome = 'correct' | 'corrected' | 'revealed' | 'skipped' | 'unanswered';
 export interface CheckRecord {
@@ -28,6 +34,10 @@ export interface CheckRecord {
   readonly id: string;
   readonly exerciseKey: string;
   readonly title: string;
+  /** Материал проверки и её вид: освоение шага-проверки считается по виду и материалу. */
+  readonly spec: ExerciseSpec;
+  readonly checkKind: CheckKind;
+  readonly ear: boolean;
   readonly activeMs: number;
   readonly localDate: string;
   readonly occurredAt: string;

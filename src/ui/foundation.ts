@@ -168,7 +168,7 @@ export function mountFoundation(host: HTMLElement, options: FoundationOptions) {
     const options = boardOptions();
     container.innerHTML = renderStudyFretboard(options);
     byId('octave-legend').innerHTML = renderOctaveLegend(options);
-    byId('material-legend').textContent = state.box ? 'Ноты формы' : state.structureId.endsWith('triad') ? 'Звуки трезвучия' : 'Ноты гаммы';
+    byId('material-legend').textContent = state.box ? 'Ноты формы' : state.structureId.endsWith('triad') ? 'Звуки трезвучия' : state.structureId.endsWith('seventh') ? 'Тоны аккорда' : 'Ноты гаммы';
     byId('interval-legend').hidden = !showInterval;
     if (focusedId) focusPosition(focusedId);
   }

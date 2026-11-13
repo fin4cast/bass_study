@@ -7,12 +7,12 @@ import { exerciseStructure, formatDegree, formatPosition, materialLabel } from '
 import {
   appendTemplate, basicsBadge, basicsCourse, checkContent, conceptsOfLevel, currentBasicsStep, DEFAULT_LIBRARY, exerciseBoard, exerciseKey,
   heroModel, isPentatonic, libraryModel, nextStepId, planRows, planStrip, recommendationCards, searchBasics, setStepMinutes, stepTitle,
-  togglePlanContent, toggleStepEar, libraryItems,
+  togglePlanContent, toggleStepEar, libraryItems, configuredItems, materialId, searchMatches,
 } from '../src/ui/lesson/model';
 
 const today = '2026-11-12';
 const play = (templateId: Parameters<typeof createExerciseSpec>[0], assessment: 'clean' | 'errors' | 'slow', bpm: number, localDate: string, time: string, params = {}): PracticeRecord => ({
-  kind: 'play', id: `play-${localDate}-${time}`, exerciseKey: `builtin:${templateId}`, title: templateId, spec: createExerciseSpec(templateId, params), assessment, bpm, activeMs: 60000, localDate, occurredAt: `${localDate}T${time}:00.000Z`,
+  kind: 'play', id: `play-${localDate}-${time}`, exerciseKey: exerciseKey(createExerciseSpec(templateId, params)), title: templateId, spec: createExerciseSpec(templateId, params), assessment, bpm, activeMs: 60000, localDate, occurredAt: `${localDate}T${time}:00.000Z`, view: 'both', wholePass: true,
 });
 const records: PracticeRecord[] = [
   play('chromatic-position', 'clean', 84, '2026-11-10', '18:00'),
@@ -75,6 +75,14 @@ describe('план на сегодня', () => {
     const removed = togglePlanContent(added.plan, content);
     expect(removed.action).toBe('removed');
     expect(removed.plan.steps.map(step => step.id)).toEqual(plan.steps.map(step => step.id));
+  });
+  it('другой материал того же шаблона — отдельный шаг: форма B не вытесняет форму A (D-049)', () => {
+    const formA = { kind: 'exercise' as const, spec: createExerciseSpec('pentatonic-form') };
+    const formB = { kind: 'exercise' as const, spec: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }) };
+    const withA = togglePlanContent(createPlan('2026-11-12'), formA);
+    const both = togglePlanContent(withA.plan, formB);
+    expect(both.action).toBe('added');
+    expect(both.plan.steps.map(step => step.content.kind === 'exercise' && (step.content.spec.params as { shapeId: string }).shapeId)).toEqual(['penta-a', 'penta-b']);
   });
   it('снятие не трогает выполненный шаг того же шаблона', () => {
     const plan = continuePlan();
@@ -148,24 +156,24 @@ describe('«Сегодня»', () => {
 
 describe('библиотека', () => {
   const state = { plan: continuePlan(), records, userExercises: [] as UserExercise[], playFrom: null };
-  it('17 шаблонов в 8 категориях; рекомендуемое — первым', () => {
+  it('22 шаблона в 9 категориях; рекомендуемое — первым', () => {
     const model = libraryModel(state, DEFAULT_LIBRARY);
-    expect(model.cards).toHaveLength(17);
-    expect(model.categories[0]).toMatchObject({ id: 'all', count: 17 });
-    expect(model.categories.slice(1).reduce((sum, category) => sum + category.count, 0)).toBe(17);
-    expect(model.categories).toHaveLength(9);
-    expect(model.cards[0]).toMatchObject({ key: 'builtin:pentatonic-relative', featured: true });
-    expect(model.cards.find(card => card.key === 'builtin:connect-forms')).toMatchObject({ inPlan: true, played: true, minutes: 5 });
-    expect(model.cards.find(card => card.key === 'builtin:chromatic-position')).toMatchObject({ inPlan: false, playedToday: true, bestBpm: 84 });
+    expect(model.cards).toHaveLength(22);
+    expect(model.categories[0]).toMatchObject({ id: 'all', count: 22 });
+    expect(model.categories.slice(1).reduce((sum, category) => sum + category.count, 0)).toBe(22);
+    expect(model.categories).toHaveLength(10);
+    expect(model.cards[0]).toMatchObject({ id: 'tpl:pentatonic-relative', featured: true });
+    expect(model.cards.find(card => card.id === 'tpl:connect-forms')).toMatchObject({ inPlan: true, played: true, minutes: 5 });
+    expect(model.cards.find(card => card.id === 'tpl:chromatic-position')).toMatchObject({ inPlan: false, playedToday: true, bestBpm: 84 });
   });
   it('фильтры статуса, структуры и понятия; «Играть от» не фильтрует', () => {
-    expect(libraryModel(state, { ...DEFAULT_LIBRARY, status: 'played' }).cards.map(card => card.key).sort()).toEqual(['builtin:arpeggio-1358', 'builtin:chromatic-position', 'builtin:connect-forms']);
+    expect(libraryModel(state, { ...DEFAULT_LIBRARY, status: 'played' }).cards.map(card => card.id).sort()).toEqual(['tpl:arpeggio-1358', 'tpl:chromatic-position', 'tpl:connect-forms']);
     expect(libraryModel(state, { ...DEFAULT_LIBRARY, structureId: 'major-pentatonic' }).cards).toHaveLength(0);
-    expect(libraryModel(state, { ...DEFAULT_LIBRARY, structureId: 'minor-pentatonic' }).cards.map(card => card.key)).toContain('builtin:pentatonic-relative');
-    expect(libraryModel(state, { ...DEFAULT_LIBRARY, concept: 'shared-notes' }).cards.map(card => card.key).sort()).toEqual(['builtin:connect-forms', 'builtin:pentatonic-neck']);
+    expect(libraryModel(state, { ...DEFAULT_LIBRARY, structureId: 'minor-pentatonic' }).cards.map(card => card.id)).toContain('tpl:pentatonic-relative');
+    expect(libraryModel(state, { ...DEFAULT_LIBRARY, concept: 'shared-notes' }).cards.map(card => card.id).sort()).toEqual(['tpl:connect-forms', 'tpl:pentatonic-neck']);
     const fromD = libraryModel({ ...state, playFrom: 'D' }, DEFAULT_LIBRARY);
-    expect(fromD.cards).toHaveLength(17);
-    expect(fromD.cards.find(card => card.key === 'builtin:pentatonic-form')!.material).toBe('Dm · минорная пентатоника · форма A');
+    expect(fromD.cards).toHaveLength(22);
+    expect(fromD.cards.find(card => card.id === 'tpl:pentatonic-form')!.material).toBe('Dm · минорная пентатоника · форма A');
   });
   it('свои упражнения — отдельная категория с ключом user:', () => {
     const own: UserExercise = { version: 'user-exercise-v1', id: 'mine', name: 'Моя форма <B>', spec: createExerciseSpec('pentatonic-form', { root: 'E' }), createdAt: '2026-11-12T10:00:00.000Z' };
@@ -173,11 +181,36 @@ describe('библиотека', () => {
     expect(model.cards).toEqual([expect.objectContaining({ key: 'user:mine', title: 'Моя форма <B>', builtin: false })]);
     expect(exerciseKey(own.spec, [own])).toBe('user:mine');
     expect(stepTitle({ kind: 'exercise', spec: own.spec }, [own])).toBe('Моя форма <B>');
-    expect(libraryItems(null, [own])).toHaveLength(18);
+    expect(libraryItems(null, [own])).toHaveLength(23);
+  });
+  it('настроенный материал карточки важнее «Играть от»: ключ, «в плане», лучший темп и то, что сохраняет ☆ (D-049)', () => {
+    const formB = createExerciseSpec('pentatonic-form', { root: 'E', shapeId: 'penta-b' });
+    const cardSpecs = new Map([['tpl:pentatonic-form', formB]]);
+    const plan = togglePlanContent(createPlan(today), { kind: 'exercise', spec: createExerciseSpec('pentatonic-form') }).plan;
+    const withB = { ...state, plan, playFrom: 'D', records: [...records, play('pentatonic-form', 'clean', 92, '2026-11-11', '19:00', { root: 'E', shapeId: 'penta-b' })] };
+    const card = libraryModel(withB, DEFAULT_LIBRARY, cardSpecs).cards.find(item => item.id === 'tpl:pentatonic-form')!;
+    expect(card).toMatchObject({ key: 'builtin:pentatonic-form.E.minor-pentatonic.penta-b', configured: true, inPlan: false, bestBpm: 92, material: 'Em · минорная пентатоника · форма B' });
+    expect(card.content).toEqual({ kind: 'exercise', spec: formB });
+    // Форма A в плане отмечена только на ненастроенной карточке, форма B — другой материал.
+    expect(libraryModel({ ...withB, playFrom: null }, DEFAULT_LIBRARY).cards.find(item => item.id === 'tpl:pentatonic-form')).toMatchObject({ inPlan: true, configured: false, bestBpm: null });
+    // ☆ ищет материал по id карточки, а не по ключу, — сохраняется настроенная форма B.
+    expect(configuredItems('D', [], cardSpecs).find(item => item.id === 'tpl:pentatonic-form')!.spec).toEqual(formB);
+    // Настройка чужого шаблона под id карточки не применяется.
+    expect(configuredItems(null, [], new Map([['tpl:octaves', formB]])).find(item => item.id === 'tpl:octaves')!.spec.templateId).toBe('octaves');
   });
 });
 
 describe('«Основы»', () => {
+  it('во всём курсе у каждого понятия свой материал упражнения (D-049)', () => {
+    const owner = new Map<string, string>();
+    for (const step of basicsCourse([]).flatMap(level => level.steps)) {
+      if (step.kind !== 'exercise' || step.content?.kind !== 'exercise') continue;
+      const id = materialId(step.content.spec);
+      expect(owner.get(id) ?? step.conceptId, `${id}: ${owner.get(id)} и ${step.conceptId}`).toBe(step.conceptId);
+      owner.set(id, step.conceptId);
+    }
+    expect(owner.size).toBeGreaterThan(20);
+  });
   it('уровни R-027 и шаги «понятие → упражнение → проверка»', () => {
     const levels = basicsCourse([]);
     expect(levels.map(level => level.key)).toEqual(['0', '1', '2', '3', 'rhythm', 'reading']);
@@ -199,7 +232,7 @@ describe('«Основы»', () => {
     expect(basicsBadge(levels)).toBe('ур. 0');
   });
   it('пентатоника и общие ноты идут на уровне 2 раньше гамм', () => {
-    expect(conceptsOfLevel(2).map(concept => concept.id)).toEqual(['degree', 'pentatonic', 'shared-notes', 'relative-keys', 'major-formula', 'natural-minor']);
+    expect(conceptsOfLevel(2).map(concept => concept.id)).toEqual(['degree', 'pentatonic', 'shared-notes', 'relative-keys', 'major-formula', 'natural-minor', 'blues-scale']);
   });
   it('сыгранное упражнение отмечает шаг и его понятие', () => {
     const levels = basicsCourse(records);
@@ -221,5 +254,22 @@ describe('«Основы»', () => {
     expect(hits.some(hit => hit.kind === 'concept' && hit.title === 'Пентатоника')).toBe(true);
     expect(hits.some(hit => hit.kind === 'exercise' && hit.title === 'Пентатоника по всему грифу')).toBe(true);
     expect(searchBasics('   ', basicsCourse([]), [])).toEqual([]);
+  });
+  it('поиск по началу слова находит цели, понятия и упражнения: «минорная гамма», «минорную гамму», «паук», «блюз»', () => {
+    const find = (query: string) => searchBasics(query, basicsCourse([]), libraryItems(null, []));
+    for (const query of ['минорная гамма', 'минорную гамму']) {
+      const hits = find(query);
+      expect(hits.filter(hit => hit.kind === 'goal').map(hit => hit.title), query).toContain('Натуральный минор');
+      expect(hits.some(hit => hit.kind === 'concept'), query).toBe(true);
+    }
+    expect(find('гамма').filter(hit => hit.kind === 'goal').map(hit => hit.title)).toEqual(expect.arrayContaining(['Мажорная гамма', 'Натуральный минор']));
+    expect(find('паук').map(hit => hit.title)).toEqual(expect.arrayContaining(['Четыре пальца', 'Паук: четыре пальца по грифу']));
+    expect(find('блюз').map(hit => hit.title)).toEqual(expect.arrayContaining(['Блюз', 'Блюзовая гамма']));
+    expect(find('септаккорд').some(hit => hit.kind === 'exercise' && hit.title === 'Арпеджио септаккорда 1–3–5–7')).toBe(true);
+    // Короткое слово ищется только как подстрока; длинное — по основе.
+    expect(searchMatches('гам', 'гамма')).toBe(true);
+    expect(searchMatches('мин', 'минорная')).toBe(true);
+    expect(searchMatches('минорную', 'минорная')).toBe(true);
+    expect(searchMatches('мажорную', 'минорная')).toBe(false);
   });
 });

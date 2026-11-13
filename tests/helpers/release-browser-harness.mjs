@@ -20,7 +20,7 @@ export async function runReleaseBrowserChecks(allChecks) {
   const report = {
     generatedAt: new Date().toISOString(), platform: process.platform, architecture: process.arch,
     node: process.version, browserChannel: 'msedge', browserVersion: null, origin, fixtureOrigin,
-    scope: 'P6 actual v1/v10 IndexedDB upgrade to empty schema 11, refusal of old JSON copies, exact-pitch/interval UI, keyboard-only practice, partial history, whole browser/server restart and writer lease.',
+    scope: 'P6 actual v1/v10 IndexedDB upgrade to empty schema 12, refusal of old JSON copies, exact-pitch/interval UI, keyboard-only practice, partial history, whole browser/server restart and writer lease.',
     networkIsolation: 'Clean Edge contexts/profiles, cache disabled, non-loopback page HTTP requests blocked. No user profile, physical disk filling or Windows NIC changes.',
     staticServer: { reuseRequested, owned: false, mode: 'not-started' },
     checks: [], externalRequests: [], pageErrors: [], cleanupErrors: [],

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createExerciseSpec } from '../src/exercises';
 import { builtinLibrary, type UserExercise } from '../src/practice/library';
+import { materialId } from '../src/practice/material';
 import { createPlan, completeStep, planFromTemplate, type CheckSpec } from '../src/practice/plan';
 import { practiceRecords } from '../src/practice/history';
 import { difficulties, type PracticeRecord } from '../src/practice/results';
@@ -18,7 +19,7 @@ const arpeggio = createExerciseSpec('arpeggio-1358');
 const own: UserExercise = { version: 'user-exercise-v1', id: 'own-1', name: 'Моя пентатоника', spec: penta, createdAt: '2026-11-10T10:00:00.000Z' };
 const meta = (id: string, occurredAt = '2026-11-12T10:00:00.000Z') => ({ id, occurredAt, timeZone: 'Europe/Moscow' });
 const playRecord = (key: string, bpm: number, occurredAt: string, assessment: 'clean' | 'errors' | 'slow' = 'clean', spec = arpeggio): PracticeRecord =>
-  ({ kind: 'play', id: `play-${key}-${occurredAt}`, exerciseKey: key, title: 'Арпеджио', spec, assessment, bpm, activeMs: 60000, localDate: occurredAt.slice(0, 10), occurredAt });
+  ({ kind: 'play', id: `play-${key}-${occurredAt}`, exerciseKey: key, title: 'Арпеджио', spec, assessment, bpm, activeMs: 60000, localDate: occurredAt.slice(0, 10), occurredAt, view: 'both', wholePass: true });
 const checkSpec = (exercise = penta): CheckSpec => ({ version: 'check-v1', exercise, kind: 'name-degree', count: 6, ear: false });
 
 describe('план на сегодня', () => {
@@ -49,11 +50,12 @@ describe('план на сегодня', () => {
 });
 
 describe('ключ и вид упражнения', () => {
-  it('встроенное упражнение — builtin:<шаблон> и при «Играть от», своё — user:<id>', () => {
+  it('встроенное упражнение — builtin:<материал> (D-049), своё — user:<id>', () => {
     const fromC = builtinLibrary('C').find(item => item.spec.templateId === 'pentatonic-form')!.spec;
     expect(fromC).not.toEqual(createExerciseSpec('pentatonic-form'));
-    expect(exerciseKey(fromC)).toBe('builtin:pentatonic-form');
-    expect(exerciseKey(arpeggio, [own])).toBe('builtin:arpeggio-1358');
+    expect(exerciseKey(fromC)).toBe('builtin:pentatonic-form.C.minor-pentatonic.penta-a');
+    expect(exerciseKey(createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }))).not.toBe(exerciseKey(createExerciseSpec('pentatonic-form')));
+    expect(exerciseKey(arpeggio, [own])).toBe('builtin:arpeggio-1358.C.major-triad.compact-e');
     expect(exerciseKey(penta, [own])).toBe('user:own-1');
   });
 
@@ -82,6 +84,9 @@ describe('ключ и вид упражнения', () => {
     const records = [playRecord('builtin:arpeggio-1358', 70, '2026-11-11T10:00:00.000Z'), playRecord('builtin:arpeggio-1358', 64, '2026-11-12T09:00:00.000Z', 'slow'), playRecord('builtin:octaves', 90, '2026-11-12T11:00:00.000Z')];
     expect(bpmForExercise('builtin:arpeggio-1358', records, 72)).toBe(64);
     expect(bpmForExercise('builtin:chromatic-position', records, 72)).toBe(72);
+    // Новый материал того же шаблона (другая форма) начинается с последнего темпа шаблона, а не с запасного.
+    expect(bpmForExercise('builtin:arpeggio-1358.G.major-triad.compact-a', records, 72)).toBe(64);
+    expect(bpmForExercise('user:other', records, 72)).toBe(72);
     expect(hasPlayed('builtin:octaves', records)).toBe(true);
     expect(hasPlayed('builtin:chromatic-position', records)).toBe(false);
   });
@@ -142,14 +147,14 @@ describe('«Повторить» и «В план» из «Прогресса»'
 
   it('уже запланированные строки и трудные места отмечаются по ключу упражнения и виду шага', () => {
     const records = [
-      playRecord('builtin:arpeggio-1358', 70, '2026-11-11T10:00:00.000Z', 'errors'),
-      playRecord('builtin:arpeggio-1358', 70, '2026-11-12T10:00:00.000Z', 'errors'),
-      { kind: 'check', id: 'check-1', exerciseKey: 'builtin:pentatonic-form', title: 'Проверь себя', activeMs: 1000, localDate: TODAY, occurredAt: '2026-11-12T11:00:00.000Z',
+      playRecord(exerciseKey(arpeggio), 70, '2026-11-11T10:00:00.000Z', 'errors'),
+      playRecord(exerciseKey(arpeggio), 70, '2026-11-12T10:00:00.000Z', 'errors'),
+      { kind: 'check', id: 'check-1', exerciseKey: exerciseKey(penta), title: 'Проверь себя', spec: penta, checkKind: 'name-degree', ear: false, activeMs: 1000, localDate: TODAY, occurredAt: '2026-11-12T11:00:00.000Z',
         answers: [{ degree: 'b7', outcome: 'revealed', errors: 0 }, { degree: 'b7', outcome: 'skipped', errors: 0 }] },
     ] satisfies PracticeRecord[];
     const [errors, degree] = difficulties(records);
     const plan = addToPlan(createPlan(TODAY), { kind: 'exercise', spec: arpeggio });
-    expect([...plannedProgressIds(plan, records)].sort()).toEqual(['builtin:arpeggio-1358', difficultyId(errors)].sort());
+    expect([...plannedProgressIds(plan, records)].sort()).toEqual([exerciseKey(arpeggio), difficultyId(errors)].sort());
     const both = addToPlan(plan, { kind: 'check', spec: checkSpec() });
     expect(plannedProgressIds(both, records)).toContain(difficultyId(degree));
     expect(plannedProgressIds(completeStep(plan, plan.steps[0].id), records).size).toBe(0);
@@ -160,14 +165,16 @@ describe('«Повторить» и «В план» из «Прогресса»'
     const sources = { records, history: [], userExercises: [own], playFrom: null };
     expect(specForKey('builtin:pentatonic-form', sources)).toEqual(penta);
     expect(specForKey('user:own-1', sources)).toEqual(penta);
-    expect(specForKey('builtin:octaves', sources)).toEqual(createExerciseSpec('octaves'));
+    expect(specForKey(`builtin:${materialId(createExerciseSpec('octaves'))}`, sources)).toEqual(createExerciseSpec('octaves'));
+    // Материала нет ни в записях, ни в библиотеке: честное «не найдено», а не подмена другим материалом шаблона.
+    expect(specForKey('builtin:octaves.D', sources)).toBeNull();
     expect(specForKey('user:missing', sources)).toBeNull();
   });
 });
 
 describe('записи истории занятия', () => {
   it('самооценка — ручная отметка упражнения с видом, темпом в пределах и активным временем', () => {
-    const entry = playRatingEntry({ spec: penta, userExercises: [own], view: 'tab', assessment: 'clean', bpm: 300.4, activeMs: 61234.6 }, meta('exercise-1'));
+    const entry = playRatingEntry({ spec: penta, userExercises: [own], view: 'tab', wholePass: true, assessment: 'clean', bpm: 300.4, activeMs: 61234.6 }, meta('exercise-1'));
     expect(entry.result).toMatchObject({ kind: 'manual', source: 'self-report', assessment: 'clean', comfortableBpm: 220, durationMs: 61235, context: null,
       material: { kind: 'exercise', key: 'user:own-1', title: 'Моя пентатоника', spec: penta, view: 'tab' } });
     expect(practiceRecords([entry])).toEqual([expect.objectContaining({ kind: 'play', exerciseKey: 'user:own-1', bpm: 220, assessment: 'clean', localDate: '2026-11-12' })]);
@@ -176,10 +183,10 @@ describe('записи истории занятия', () => {
   it('итог «Проверь себя» без ответов не пишется; активное время ограничено', () => {
     expect(checkEntry({ spec: checkSpec(), userExercises: [], activeMs: 1000, answers: [] }, meta('check-0'))).toBeNull();
     const entry = checkEntry({ spec: checkSpec(), userExercises: [], activeMs: 10 * 60 * 60 * 1000, answers: [{ degree: '1', outcome: 'correct', errors: 0 }] }, meta('check-1'))!;
-    expect(entry.result).toMatchObject({ kind: 'check', source: 'screen-check', exerciseKey: 'builtin:pentatonic-form', activeMs: 6 * 60 * 60 * 1000 });
+    expect(entry.result).toMatchObject({ kind: 'check', source: 'screen-check', exerciseKey: exerciseKey(penta), activeMs: 6 * 60 * 60 * 1000 });
     expect(entry.result.kind === 'check' && entry.result.title).toMatch(/^Проверь себя: /);
     const records = practiceRecords([entry]);
-    expect(records).toEqual([expect.objectContaining({ kind: 'check', exerciseKey: 'builtin:pentatonic-form' })]);
+    expect(records).toEqual([expect.objectContaining({ kind: 'check', exerciseKey: exerciseKey(penta), checkKind: 'name-degree', ear: false })]);
     const [row] = progressRows(records, 'check');
     expect(describeProgressRow(row, [entry])).toMatch(/6 вопросов$/);
   });

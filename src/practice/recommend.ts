@@ -4,6 +4,7 @@
  */
 import { createExerciseSpec, EXERCISE_TEMPLATES, type ConceptId, type ExerciseSpec } from '../exercises';
 import { difficulties, type PlayRecord, type PracticeRecord } from './results';
+import { formatDegree } from '../music';
 
 export interface Recommendation {
   readonly kind: 'next' | 'repeat' | 'concept';
@@ -37,7 +38,7 @@ export function recommend(records: readonly PracticeRecord[]): readonly Recommen
   if (hard) {
     const reason = hard.kind === 'errors' ? `В прошлые разы ты отметил «С ошибками» (${hard.count}).`
       : hard.kind === 'slow' ? `На ${hard.bpm} BPM ты отметил «Не успевал»${hard.bestCleanBpm ? `, чисто — ${hard.bestCleanBpm}` : ''}.`
-      : `Ступень ${hard.degree.replace('b', '♭')}: ошибок или показов — ${hard.count}.`;
+      : `Ступень ${formatDegree(hard.degree)}: ошибок или показов — ${hard.count}.`;
     const source = plays.find(record => record.exerciseKey === hard.exerciseKey);
     result.push({ kind: 'repeat', title: `Повтори: ${hard.title}`, reason, spec: source?.spec ?? null, exerciseKey: hard.exerciseKey, concept: null });
   }

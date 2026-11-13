@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildExercise, createExerciseSpec, EXERCISE_TEMPLATES, validateExerciseSpec, type ExerciseTemplateId } from '../src/exercises';
+import { buildExercise, configureSpec, createExerciseSpec, EXERCISE_TEMPLATES, templateOptions, validateExerciseSpec, type ExerciseTemplateId } from '../src/exercises';
 import { createNotationPlan } from '../src/notation';
 
 /**
@@ -54,6 +54,28 @@ const CONTROL: Record<ExerciseTemplateId, { ids: string; names?: string; degrees
     degrees: '1 b3 4 5 b7 1 b3 4 b3 1 b7 5 4 b3 1 b3 4 5 b7 1 b3 4 b3 1 b7 5 4 b3 1 b3 4 5 b7 1 b3 4 b3 1 b7 5 4 b3',
     fingers: '1 4 1 3 1 3 1 3 1 3 1 3 1 4 1 4 1 3 1 3 1 3 1 3 1 3 1 4 1 4 1 3 1 3 1 3 1 3 1 3 1 4', segments: '14 14 14',
   },
+  // Паук 1-2-3-4 от 5-го лада, 5 позиций: чётные — E→G, нечётные — G→E, позиция сдвигается на лад.
+  spider: {
+    ids: 'E:5 E:6 E:7 E:8 A:5 A:6 A:7 A:8 D:5 D:6 D:7 D:8 G:5 G:6 G:7 G:8 G:6 G:7 G:8 G:9 D:6 D:7 D:8 D:9 A:6 A:7 A:8 A:9 E:6 E:7 E:8 E:9 E:7 E:8 E:9 E:10 A:7 A:8 A:9 A:10 D:7 D:8 D:9 D:10 G:7 G:8 G:9 G:10 G:8 G:9 G:10 G:11 D:8 D:9 D:10 D:11 A:8 A:9 A:10 A:11 E:8 E:9 E:10 E:11 E:9 E:10 E:11 E:12 A:9 A:10 A:11 A:12 D:9 D:10 D:11 D:12 G:9 G:10 G:11 G:12',
+    fingers: '1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4',
+    segments: '16 16 16 16 16',
+  },
+  // Блюзовая гамма A от E/5: форма A пентатоники в одну октаву и ♭5 (E♭) на струне A.
+  'blues-scale': {
+    ids: 'E:5 E:8 A:5 A:6 A:7 D:5 D:7 D:5 A:7 A:6 A:5 E:8', names: 'A1 C2 D2 E♭2 E2 G2 A2 G2 E2 E♭2 D2 C2',
+    degrees: '1 b3 4 b5 5 b7 1 b7 5 b5 4 b3', fingers: '1 4 1 2 3 1 3 1 3 2 1 4', segments: '12',
+  },
+  // C7 от E/8: 1 (E8) 3 (A7) 5 (A10) ♭7 (D8) 8 (D10) — восемь нот туда и обратно, ровно такт.
+  'arpeggio-seventh': { ids: 'E:8 A:7 A:10 D:8 D:10 D:8 A:10 A:7', names: 'C2 E2 G2 B♭2 C3 B♭2 G2 E2', degrees: '1 3 5 b7 1 b7 5 3', fingers: '2 1 4 2 4 2 4 1', segments: '8' },
+  // C мажор, 1-е обращение: E2 (A7) G2 (A10) C3 (D10) E3 (G9) в окне 7–10 и обратно.
+  'arpeggio-inversion': { ids: 'A:7 A:10 D:10 G:9 D:10 A:10 A:7', names: 'E2 G2 C3 E3 C3 G2 E2', degrees: '3 5 1 3 1 5 3', fingers: '1 4 4 3 4 4 1', segments: '7' },
+  // I–IV–V–I в C тониками: C (A3, лад ≥ 3, самый низкий), F (A8 — ближе к 3, чем E13), G (A10), C (E8 — ближе к 10, чем A15).
+  progression: {
+    ids: 'A:3 A:3 A:3 A:3 A:3 A:3 A:3 A:3 A:8 A:8 A:8 A:8 A:8 A:8 A:8 A:8 A:10 A:10 A:10 A:10 A:10 A:10 A:10 A:10 E:8 E:8 E:8 E:8 E:8 E:8 E:8 E:8',
+    names: 'C2 C2 C2 C2 C2 C2 C2 C2 F2 F2 F2 F2 F2 F2 F2 F2 G2 G2 G2 G2 G2 G2 G2 G2 C2 C2 C2 C2 C2 C2 C2 C2',
+    degrees: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1',
+    fingers: '2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2', segments: '8 8 8 8',
+  },
   'cycle-fourths': {
     ids: 'E:8 A:10 D:10 A:10 E:1 A:3 D:3 A:3 E:6 A:8 D:8 A:8 E:11 A:13 D:13 A:13', names: 'C2 G2 C3 G2 F1 C2 F2 C2 B♭1 F2 B♭2 F2 E♭2 B♭2 E♭3 B♭2',
     degrees: '1 5 1 5 1 5 1 5 1 5 1 5 1 5 1 5', fingers: '- - - - - - - - - - - - - - - -', segments: '4 4 4 4',
@@ -67,7 +89,7 @@ const segmentSizes = (segments: readonly number[]) => {
 };
 
 describe('каталог exercise-v1: независимые контрольные примеры', () => {
-  it('каталог содержит 17 шаблонов с уникальными ID, по одному эталону на каждый', () => {
+  it('каталог содержит 22 шаблона с уникальными ID, по одному эталону на каждый', () => {
     expect(EXERCISE_TEMPLATES.map(template => template.id).sort()).toEqual(Object.keys(CONTROL).sort());
   });
   it.each(Object.entries(CONTROL))('%s по умолчанию', (templateId, expected) => {
@@ -144,6 +166,76 @@ describe('план упражнения как единый источник', (
   });
 });
 
+describe('новые шаблоны D-049: аккорды, обращения, последовательности, паук', () => {
+  const ROOTS = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+  const ids = (spec: Parameters<typeof buildExercise>[0]) => buildExercise(spec).notes.map(note => note.id).join(' ');
+
+  it('2-е обращение C мажора — ручной пример: G1 (E3) C2 (A3) E2 (D2) G2 (D5), пальцы 2-2-1-4', () => {
+    const plan = buildExercise(createExerciseSpec('arpeggio-inversion', { inversion: 2 }));
+    expect(plan.notes.map(note => note.id).join(' ')).toBe('E:3 A:3 D:2 D:5 D:2 A:3 E:3');
+    expect(plan.notes.map(note => note.name).join(' ')).toBe('G1 C2 E2 G2 E2 C2 G1');
+    expect(plan.notes.map(note => note.finger).join(' ')).toBe('2 2 1 4 1 2 2');
+  });
+
+  it('все 12 тоник: септаккорды, уменьшённое, обращения, блюзовая гамма и последовательности строятся', () => {
+    for (const root of ROOTS) {
+      for (const structureId of ['major-seventh', 'dominant-seventh', 'minor-seventh', 'half-diminished-seventh'] as const) {
+        for (const shapeId of ['compact-e', 'compact-a'] as const) expect(buildExercise(createExerciseSpec('arpeggio-seventh', { root, structureId, shapeId })).notes).toHaveLength(8);
+      }
+      expect(buildExercise(createExerciseSpec('arpeggio-1358', { root, structureId: 'diminished-triad' })).notes.map(note => note.degree)).toEqual(['1', 'b3', 'b5', '1', 'b5', 'b3']);
+      for (const structureId of ['major-triad', 'minor-triad', 'diminished-triad'] as const) for (const inversion of [1, 2]) {
+        const plan = buildExercise(createExerciseSpec('arpeggio-inversion', { root, structureId, inversion }));
+        const up = plan.notes.slice(0, 4);
+        expect(up[3].midi - up[0].midi).toBe(12);
+        expect(up.every((note, index) => index === 0 || note.midi > up[index - 1].midi)).toBe(true);
+        expect(Math.max(...up.map(note => note.fret)) - Math.min(...up.map(note => note.fret))).toBeLessThanOrEqual(3);
+      }
+      for (const shapeId of ['compact-e', 'compact-a'] as const) expect(buildExercise(createExerciseSpec('blues-scale', { root, shapeId })).notes).toHaveLength(12);
+      for (const progression of ['I-IV-V', 'ii-V-I', 'blues-12'] as const) for (const pattern of ['roots', 'arpeggio', 'approach'] as const) {
+        const plan = buildExercise(createExerciseSpec('progression', { root, progression, pattern }));
+        expect(plan.notes).toHaveLength(plan.segments.length * 8);
+        expect(Math.min(...plan.notes.map(note => note.fret))).toBeGreaterThanOrEqual(1);
+      }
+      expect(buildExercise(createExerciseSpec('progression', { root, progression: 'blues-12', pattern: 'boogie' })).notes).toHaveLength(96);
+    }
+  });
+
+  it('последовательность: аккорд на такт, тоника каждого такта — «1», подпись «аккорд · ступень», такты нотации совпадают с аккордами', () => {
+    const plan = buildExercise(createExerciseSpec('progression', { progression: 'ii-V-I', pattern: 'arpeggio' }));
+    expect(plan.segments.map(segment => segment.label)).toEqual(['Dm7 · ii7', 'G7 · V7', 'Cmaj7 · Imaj7', 'Cmaj7 · Imaj7']);
+    expect(plan.overlap).toBe('none');
+    for (let bar = 0; bar < 4; bar++) expect(plan.notes.slice(bar * 8, bar * 8 + 8).map(note => note.degree).join(' ')).toMatch(/^1 b?3 b?5 b?7 1 b?7 b?5 b?3$/);
+    const notation = createNotationPlan({ positions: plan.positions, duration: 'eighth' });
+    expect(notation.events.map(event => event.bar)).toEqual(plan.notes.map(note => note.segment));
+    const blues = buildExercise(createExerciseSpec('progression', { root: 'A', progression: 'blues-12', pattern: 'roots' }));
+    expect(blues.segments.map(segment => segment.label.split(' · ')[0]).join(' ')).toBe('A7 A7 A7 A7 D7 D7 A7 A7 E7 D7 A7 E7');
+  });
+
+  it('подход: восьмая нота такта — на полутон от тоники следующего аккорда, без пальца и ступени; последний такт ведёт к первому', () => {
+    const plan = buildExercise(createExerciseSpec('progression', { pattern: 'approach' }));
+    const bars = plan.segments.length;
+    for (let bar = 0; bar < bars; bar++) {
+      const approach = plan.notes[bar * 8 + 7];
+      const nextRoot = plan.notes[((bar + 1) % bars) * 8];
+      expect(Math.abs(approach.midi - nextRoot.midi)).toBe(1);
+      expect(approach.string).toBe(nextRoot.string);
+      expect([approach.finger, approach.degree]).toEqual([null, null]);
+    }
+  });
+
+  it('буги 1-3-5-6-♭7-6-5-3 только по блюзу; паук — до 16-го лада и без «общих» позиций', () => {
+    const boogie = buildExercise(createExerciseSpec('progression', { root: 'A', progression: 'blues-12', pattern: 'boogie' }));
+    expect(boogie.notes.slice(0, 8).map(note => note.degree).join(' ')).toBe('1 3 5 6 b7 6 5 3');
+    expect(boogie.notes.slice(0, 8).map(note => note.name).join(' ')).toBe('A1 C♯2 E2 F♯2 G2 F♯2 E2 C♯2');
+    expect(() => createExerciseSpec('progression', { pattern: 'boogie' })).toThrow(RangeError);
+    expect(buildExercise(createExerciseSpec('spider')).overlap).toBe('none');
+    expect(ids(createExerciseSpec('spider', { startFret: 1, positions: 2, pattern: '1324' })))
+      .toBe('E:1 E:3 E:2 E:4 A:1 A:3 A:2 A:4 D:1 D:3 D:2 D:4 G:1 G:3 G:2 G:4 G:2 G:4 G:3 G:5 D:2 D:4 D:3 D:5 A:2 A:4 A:3 A:5 E:2 E:4 E:3 E:5');
+    expect(() => createExerciseSpec('spider', { startFret: 12, positions: 3 })).toThrow(RangeError);
+    expect(createExerciseSpec('spider', { startFret: 1, positions: 12 }).params).toMatchObject({ positions: 12 });
+  });
+});
+
 describe('строгое описание exercise-v1', () => {
   const good = createExerciseSpec('connect-forms');
   it.each([
@@ -165,5 +257,35 @@ describe('строгое описание exercise-v1', () => {
     expect(spec.params).toEqual({ root: 'B♭', string: 'A' });
     expect(Object.isFrozen(spec) && Object.isFrozen(spec.params)).toBe(true);
     expect(validateExerciseSpec(JSON.parse(JSON.stringify(spec)))).toEqual(spec);
+  });
+});
+
+describe('настройка упражнения на карточке (D-049)', () => {
+  it('у каждого шаблона списки содержат материал по умолчанию, и каждый вариант даёт допустимый материал или понятную ошибку', () => {
+    for (const template of EXERCISE_TEMPLATES) {
+      const spec = createExerciseSpec(template.id);
+      const options = templateOptions(template.id);
+      expect(options.length, template.id).toBeGreaterThan(0);
+      for (const option of options) {
+        expect(option.values.map(item => item.value), `${template.id}.${option.param}`).toContain((spec.params as Record<string, unknown>)[option.param]);
+        for (const { value } of option.values) {
+          let configured;
+          try { configured = configureSpec(spec, option.param, value); } catch (failure) {
+            expect((failure as Error).message.length, `${template.id}.${option.param}=${value}`).toBeGreaterThan(5);
+            continue;
+          }
+          expect((configured.params as Record<string, unknown>)[option.param]).toBe(value);
+          expect(() => buildExercise(configured)).not.toThrow();
+        }
+      }
+    }
+  });
+  it('несовместимое сочетание подстраивает зависимый параметр, а не меняет выбранный', () => {
+    const spider = configureSpec(createExerciseSpec('spider'), 'startFret', 12);
+    expect(spider.params).toMatchObject({ startFret: 12, positions: 2 });
+    const boogie = configureSpec(createExerciseSpec('progression'), 'pattern', 'boogie');
+    expect(boogie.params).toMatchObject({ progression: 'blues-12', pattern: 'boogie' });
+    expect(configureSpec(boogie, 'progression', 'ii-V-I').params).toMatchObject({ progression: 'ii-V-I', pattern: 'roots' });
+    expect(configureSpec(createExerciseSpec('spider'), 'positions', 12).params).toMatchObject({ startFret: 2, positions: 12 });
   });
 });
