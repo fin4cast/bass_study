@@ -32,11 +32,19 @@ describe('тема оформления', () => {
   });
 
   it('кегли, радиусы и гарнитуры из шкалы берутся из токенов theme.css (D-047)', () => {
+    // Значения шкалы читаются из theme.css: при смене токена страж не устаревает.
+    const theme = read('theme.css').split(/^@media/m)[0];
+    const scale = prefix => [...theme.matchAll(new RegExp(`--${prefix}-[a-z0-9-]+:\\s*(\\d+)px`, 'g'))].map(match => match[1]);
+    // --text-page — роль заголовка страницы, не ступень шкалы текста: крупные цифры и вопрос могут совпасть с ним по размеру.
+    const pageTitle = theme.match(/--text-page:\s*(\d+)px/)[1];
+    const sizes = new RegExp(`font-size:\\s*(?:${scale('text').filter(size => size !== pageTitle).join('|')})px\\b`);
+    const radii = new RegExp(`border-radius:\\s*(?:${scale('radius').join('|')})px\\s*[;}!]`);
+    expect(scale('text').length).toBeGreaterThan(5);
     const styles = files.filter(file => file.endsWith('.css') && file !== 'theme.css');
     const offenders = styles.flatMap(file => read(file).split(/\r?\n/).flatMap((line, index) => {
       const problems = [];
-      if (/font-size:\s*(?:11|12|13|14|16|20|26)px\b/.test(line)) problems.push('кегль из шкалы числом');
-      if (/border-radius:\s*(?:6|8|12|999)px\s*[;}!]/.test(line)) problems.push('радиус из шкалы числом');
+      if (sizes.test(line)) problems.push('кегль из шкалы числом');
+      if (radii.test(line)) problems.push('радиус из шкалы числом');
       if (/Segoe UI|Consolas|Cascadia/.test(line)) problems.push('гарнитура вне --font-ui/--font-mono');
       return problems.map(problem => `${file}:${index + 1} ${problem}`);
     }));
