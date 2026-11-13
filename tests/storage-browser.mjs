@@ -761,7 +761,15 @@ check('ui-draft-abort-still-downloads-confirmed-bytes-and-offers-retry', async (
     await banner.waitFor(); assert.match(await banner.innerText(), /Не сохранилось/);
     assert.equal((await rawSnapshot(page)).practiceDrafts[0].note, 'Подтверждённая заметка', 'The aborted put left the confirmed draft');
   } finally { await page.evaluate(() => window.storageProbe.restore()); }
-  await settingsPage(page).locator('[data-retry]').click();
+  // Диагностика редкого сбоя: кнопка повтора отсоединялась 7 с подряд. Считаем перерисовки баннеров до нажатия.
+  await page.evaluate(() => {
+    const box = document.querySelector('[data-page-frame="settings"] [data-banners]');
+    window.bannerRenders = []; new MutationObserver(() => window.bannerRenders.push(`${Math.round(performance.now())}: ${box.textContent.slice(0, 80)}`)).observe(box, { childList: true });
+  });
+  await settingsPage(page).locator('[data-retry]').click().catch(async failure => {
+    const renders = await page.evaluate(() => ({ count: window.bannerRenders.length, last: window.bannerRenders.slice(-4), status: document.getElementById('local-save-status')?.textContent }));
+    throw new Error(`DIAG ${JSON.stringify(renders)} ${failure.message}`);
+  });
   await settingsPage(page).locator('[data-banners] [role="alert"]').waitFor({ state: 'detached' });
   const recovered = await exportDownload(page, { stay: true });
   assert.equal(recovered.copy.practiceDrafts[0].note, 'Изменение после отказа');

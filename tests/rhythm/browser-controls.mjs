@@ -326,7 +326,11 @@ check('leaving-section-cancels-audition-waiting-for-audio-context', 'ui', async 
     };
   });
   await action(page, 'preview').click();
-  await page.waitForFunction(() => window.__rhythmPreviewWaiting);
+  // Диагностика редкого сбоя: приложение не вызвало resume(). Причину показывает состояние раздела в сообщении.
+  await page.waitForFunction(() => window.__rhythmPreviewWaiting).catch(async failure => {
+    const diag = await page.evaluate(() => ({ disabled: document.querySelector('[data-rhythm-action="preview"]')?.disabled, hidden: document.hidden, state: document.querySelector('.rhythm-view')?.dataset.rhythmState, inert: document.querySelector('main').inert, errors: [...document.querySelectorAll('.rhythm-view [role="alert"], .rhythm-view .status-error')].map(e => e.hidden ? '' : e.textContent).filter(Boolean), banner: document.getElementById('persistence-message')?.textContent, focus: document.activeElement?.outerHTML.slice(0, 120) }));
+    throw new Error(`DIAG ${JSON.stringify(diag)} ${failure.message}`);
+  });
   await go(page, 'foundation');
   await page.evaluate(() => window.__releaseRhythmPreview());
   await delay(100);
