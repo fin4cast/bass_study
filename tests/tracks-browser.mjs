@@ -363,7 +363,8 @@ check('ui-mix-is-saved-while-fragment-field-has-unapplied-draft', 'ui', async ({
 check('native-hidden-tab-pauses-real-tracks-and-needs-explicit-resume', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
   await setupUi(page); await page.getByLabel('Повторять аудиофрагмент', { exact: true }).check(); await tracksAction(page, 'play').click(); await stateIs(page, 'playing'); await delay(250);
   const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront();
-  await page.waitForFunction(() => document.hidden && document.querySelector('#legacy-tracks-mount')?.dataset.tracksState === 'paused');
+  // Скрытая вкладка не рисует кадры: ожидание по умолчанию (raf) там не перепроверяется, нужен интервал.
+  await page.waitForFunction(() => document.hidden && document.querySelector('#legacy-tracks-mount')?.dataset.tracksState === 'paused', undefined, { polling: 100 });
   await page.bringToFront(); await page.waitForFunction(() => !document.hidden); await delay(100); const paused = Number(await page.getByLabel('Позиция аудиофрагмента', { exact: true }).inputValue());
   await delay(200); assert.equal(await page.locator('#legacy-tracks-mount').getAttribute('data-tracks-state'), 'paused'); near(Number(await page.getByLabel('Позиция аудиофрагмента', { exact: true }).inputValue()), paused, .000001); assert.match(await page.getByTestId('tracks-play-status').innerText(), /скрывалась.*явно/);
   await tracksAction(page, 'play').click(); await stateIs(page, 'playing'); await page.waitForFunction(paused => Number(document.querySelector('[data-tracks-setting="seek"]').value) > paused + .1, paused);

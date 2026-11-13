@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { audioClockScript } from './data-ui.mjs';
 
 export async function runReleaseBrowserChecks(allChecks) {
   const { checks, skipped: skippedChecks } = browserTier(allChecks);
@@ -44,6 +45,7 @@ export async function runReleaseBrowserChecks(allChecks) {
       ? await chromium.launchPersistentContext(join(temporary, persistentName), { ...options, channel: 'msedge', headless: true, args: ['--mute-audio'] })
       : await browser.newContext(options);
     await prepare(context);
+    await context.addInitScript(audioClockScript);
     if (memory) await context.addInitScript(() => Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: undefined }));
     const page = persistentName ? context.pages()[0] : await context.newPage();
     if (persistentName) page.on('pageerror', error => report.pageErrors.push(error.message));

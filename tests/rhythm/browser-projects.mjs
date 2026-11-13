@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
-import { root, settingsAside, action, setting, output, choice, near, assertSettings, setSettings, openGroup, ready, enter, go, edit, state, start, exported, previewCopy, cancelCopy, confirmCopy, restoreCopy, openDrafts, raw } from './browser-context.mjs';
+import { root, settingsAside, action, setting, output, choice, near, assertSettings, setSettings, openGroup, ready, enter, go, edit, state, start, exported, previewCopy, cancelCopy, confirmCopy, restoreCopy, openDrafts, raw, observe, audioTime, untilAudio } from './browser-context.mjs';
 
 export const projectsChecks = [];
 const check = (name, scope, run) => projectsChecks.push({ name, scope, run });
@@ -175,13 +175,16 @@ check('project-steps-and-full-chain-survive-reload-and-export', 'ui', async ({ p
   return { project: project.id, patterns: project.patterns.length, clips: project.chain.length, emptyBarsAddedWithSettingsClosed: [2, 3, 4], copiedVelocity: Number(customVelocity), barClampedAfterResize: true, copiedAndClearedBar: true, persistedPatternBars: 3, keyboardChoices: true, singleClipEditor: true, exactReload: true, previewOnlyReadOnly: true, exactUiRestore: true, lowerLibraryPreset: 'funk' };
 });
 
-check('manual-note-keeps-rhythm-material-and-time-after-changing-project', 'ui', async ({ page }) => {
+check('manual-note-keeps-rhythm-material-and-time-after-changing-project', 'ui', async ({ page, context }) => {
+  await observe(context);
+  await page.reload();
   await enter(page);
   await root(page).locator('[data-rhythm-mode="rhythm"]').click();
   await root(page).locator('[data-rhythm-step]').first().click();
   await edit(page, 'bpm', 240);
   await start(page);
-  await delay(450);
+  // Практика считается по аудиочасам; Edge без окна запускает вывод позже состояния running.
+  await untilAudio(page, await audioTime(page) + .45);
   await action(page, 'stop').click();
   // Черновик ручной практики «Ритма» теперь в «Прогрессе → Не сохранено»; последнее занятие — первым.
   const before = await raw(page);

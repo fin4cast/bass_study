@@ -63,10 +63,16 @@ async function observe(page) {
     AudioNode.prototype.connect = function(...args) { const result = connect.apply(this, args);
       if (args[0] === this.context.destination && this.constructor.name === 'AudioWorkletNode') { const analyser = this.context.createAnalyser(); analyser.fftSize = 2048; connect.call(this, analyser); taps.push({ node: this, analyser, active: true }); } return result; };
     AudioNode.prototype.disconnect = function(...args) { const result = disconnect.apply(this, args); if (!args.length) for (const tap of taps) if (tap.node === this) tap.active = false; return result; };
+    window.__bankAudioTime = () => Math.max(0, ...window.__bankContexts.filter(ctx => ctx.state === 'running').map(ctx => ctx.currentTime));
     window.__bankLive = async (duration = 450) => { let peak = 0, windows = 0; const end = performance.now() + duration;
       while (performance.now() < end) { for (const tap of taps.filter(t => t.active && t.node.context.state === 'running')) { const data = new Float32Array(2048); tap.analyser.getFloatTimeDomainData(data); windows++; for (const value of data) peak = Math.max(peak, Math.abs(value)); } await new Promise(ok => setTimeout(ok, 20)); } return { peak, windows }; };
   });
   await page.reload(); await ready(page);
+}
+/** Состояние «playing» не значит, что вывод уже звучит: Edge запускает устройство с задержкой. Ждём хода аудиочасов. */
+async function untilBankAudioMoves(page) {
+  const from = await page.evaluate(() => window.__bankAudioTime());
+  await page.waitForFunction(from => window.__bankAudioTime() > from + .05, from, { timeout: 6000 });
 }
 
 check('product-files-render-independent-track-controls-and-reject-unsupported-input', 'ui', async ({ page }) => {
@@ -319,13 +325,15 @@ check('product-studio-scroll-and-both-themes-remain-visible-at-other-real-viewpo
 check('product-native-tab-hide-pauses-and-return-waits-for-explicit-start', 'native', async ({ withNativeBrowser, origin }) => withNativeBrowser(async ({ page, context }) => {
   await observe(page); await enter(page); await load(page, 'sample-05'); await row(page, 1).locator('[data-control=solo]').check(); await field(page, 'play').click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState === 'playing');
+  await untilBankAudioMoves(page);
   const signal = await page.evaluate(() => window.__bankLive(600)); assert.ok(signal.peak > 1e-5);
   const other = await context.newPage(); await other.goto(`${origin}/vendor/music-bank/patch-manifest.json`); await other.bringToFront();
-  await page.waitForFunction(() => document.hidden); await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState !== 'playing');
+  await page.waitForFunction(() => document.hidden, undefined, { polling: 100 }); await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState !== 'playing', undefined, { polling: 100 });
   const position = await field(page, 'seek').inputValue(); await delay(250); assert.equal(await field(page, 'seek').inputValue(), position);
   await page.bringToFront(); await page.waitForFunction(() => !document.hidden); assert.equal(await field(page, 'play').isEnabled(), true);
   assert.notEqual(await bank(page).getAttribute('data-music-bank-state'), 'playing'); await field(page, 'play').click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState === 'playing');
+  await untilBankAudioMoves(page);
   assert.ok((await page.evaluate(() => window.__bankLive(600))).peak > 1e-5);
   return { nativeHidden: true, signal, noAutomaticResume: true };
 }));

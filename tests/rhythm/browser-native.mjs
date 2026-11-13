@@ -168,8 +168,8 @@ check('native-real-hidden-tab-pauses-until-explicit-resume', 'native', async ({ 
   const other = await context.newPage();
   await other.goto('about:blank');
   await other.bringToFront();
-  await page.waitForFunction(() => document.hidden);
-  await state(page, 'paused');
+  await page.waitForFunction(() => document.hidden, undefined, { polling: 100 });
+  await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState === 'paused', undefined, { polling: 100 });
   await page.bringToFront();
   await page.waitForFunction(() => !document.hidden);
   await state(page, 'paused');

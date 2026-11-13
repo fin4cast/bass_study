@@ -180,17 +180,27 @@ check('live-fractional-count-in-pause-resumes-tail-and-remaining-interval', 'api
     });
     const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     const player = createRhythmPlayer();
+    // Интервалы — по аудиочасам проигрывателя: Edge без окна запускает вывод позже, чем возвращается start().
+    const until = async (ready, label) => {
+      const deadline = performance.now() + 6000;
+      for (;;) {
+        const snapshot = player.getSnapshot();
+        if (ready(snapshot)) return snapshot;
+        if (performance.now() > deadline) throw new Error(`${label}: аудиочасы стоят на ${snapshot.audioTime}`);
+        await wait(5);
+      }
+    };
+    const firstFrame = snapshot => snapshot.trace.find(event => event.type === 'frame' && event.frameIndex === 0 && !event.cancelled);
     try {
       await player.start({ preferences });
-      await wait(105);
+      await until(snapshot => firstFrame(snapshot) && snapshot.audioTime >= firstFrame(snapshot).time + .105, 'пауза внутри первой доли отсчёта');
       player.pause();
       const paused = player.getSnapshot();
-      const first = paused.trace.find(event => event.type === 'frame' && event.frameIndex === 0 && !event.cancelled);
+      const first = firstFrame(paused);
       await wait(160);
       const silence = player.getSnapshot().output.peak;
       const resumed = await player.resume();
-      await wait(500);
-      const live = player.getSnapshot();
+      const live = await until(snapshot => snapshot.audioTime >= resumed.startAt + .5, 'вторая доля после продолжения');
       const actual = live.trace.filter(event => !event.cancelled && event.time <= live.audioTime);
       const second = actual.find(event => event.type === 'frame' && event.frameIndex === 1);
       return {

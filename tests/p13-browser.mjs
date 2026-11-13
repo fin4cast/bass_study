@@ -752,7 +752,7 @@ check('native-real-hidden-tab-pauses-play-and-resumes-only-by-action', 'native',
   const other = await context.newPage();
   await other.goto('about:blank');
   await other.bringToFront();
-  await page.waitForFunction(() => document.hidden, null, { timeout: 10000 });
+  await page.waitForFunction(() => document.hidden, null, { timeout: 10000, polling: 100 });
   const hidden = await waitPlay(page, state => state.status === 'paused', null, 5000);
   assert.match(hidden.text, /пауза: вкладка скрыта$/);
   await page.bringToFront();
