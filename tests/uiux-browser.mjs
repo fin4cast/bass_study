@@ -424,25 +424,30 @@ check('settings-dialog-reopened-before-late-close-event-keeps-its-content', asyn
 
 check('settings-dialogs-and-progress-deletion-keep-keyboard-focus', async ({ page }) => {
   await ready(page);
+  // Ожидание фокуса с диагностикой: в CI сбой был только тайм-аутом, без состояния диалога.
+  const focusOn = (attribute, value) => page.waitForFunction(([name, expected]) => document.activeElement?.dataset[name] === expected, [attribute, value]).catch(async failure => {
+    const state = await page.evaluate(() => { const dialog = document.querySelector('[data-page-frame="settings"] [data-dialog]'); return { active: document.activeElement?.outerHTML.slice(0, 100), dialogOpen: dialog?.open, dialogText: dialog?.textContent.trim().slice(0, 80), hasFocus: document.hasFocus() }; });
+    throw new Error(`DIAG фокус ${attribute}=${value}: ${JSON.stringify(state)} ${failure.message}`);
+  });
   // «Настройки → Данные»: диалоги открываются клавиатурой, Esc и «Закрыть» возвращают фокус на кнопку открытия.
   await settingsSection(page, 'data');
   const opener = page.locator('[data-page-frame="settings"] [data-dialog-open="restore"]');
   await opener.focus(); await page.keyboard.press('Enter');
-  await page.waitForFunction(() => document.activeElement?.dataset.dlg === 'choose');
+  await focusOn('dlg', 'choose');
   await page.keyboard.press('Escape');
-  await page.waitForFunction(() => document.activeElement?.dataset.dialogOpen === 'restore');
+  await focusOn('dialogOpen', 'restore');
   await page.keyboard.press('Enter');
   await chooseFile(page, 'broken.json', '{broken');
   await page.locator('[data-dialog] [data-dlg="close"]', { hasText: 'Закрыть' }).waitFor();
   const rejection = await page.locator('[data-dialog]').innerText();
   assert.match(rejection, /Ничего не изменилось/);
   await page.locator('[data-dialog] [data-dlg="close"]').focus(); await page.keyboard.press('Enter');
-  await page.waitForFunction(() => document.activeElement?.dataset.dialogOpen === 'restore');
+  await focusOn('dialogOpen', 'restore');
   const download = page.locator('[data-page-frame="settings"] [data-dialog-open="download"]');
   await download.focus(); await page.keyboard.press('Enter');
-  await page.waitForFunction(() => document.activeElement?.dataset.dlg === 'export');
+  await focusOn('dlg', 'export');
   await page.keyboard.press('Escape');
-  await page.waitForFunction(() => document.activeElement?.dataset.dialogOpen === 'download');
+  await focusOn('dialogOpen', 'download');
   // «Прогресс»: отмена удаления возвращает фокус на кнопку, удаление переводит его на соседнюю запись.
   await restoreUi(page, JSON.parse(await readFile(new URL('./fixtures/backup.json', import.meta.url), 'utf8')));
   const before = (await raw(page, 'history')).length;
