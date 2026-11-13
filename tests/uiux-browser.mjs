@@ -100,7 +100,11 @@ async function openPlay(page, title = 'Хроматика 1-2-3-4 в позиц�
 }
 async function startPlaying(page) {
   await playScene(page).locator('[data-play]').click();
-  await page.waitForFunction(() => document.querySelector('[data-lesson-screen="play"] .pl-scene')?.dataset.status === 'playing', null, { timeout: 20000 });
+  // Диагностика редкого сбоя: за 20 с экран не перешёл в «playing»; сообщение покажет, где он остановился.
+  await page.waitForFunction(() => document.querySelector('[data-lesson-screen="play"] .pl-scene')?.dataset.status === 'playing', null, { timeout: 20000 }).catch(async failure => {
+    const state = await page.evaluate(() => { const scene = document.querySelector('[data-lesson-screen="play"] .pl-scene'); return { status: scene?.dataset.status, hidden: document.hidden, contexts: (window.__notationAudioContexts ?? []).map(context => `${context.state}@${context.currentTime.toFixed(2)}`), text: scene?.querySelector('[data-status-text], [role="status"]')?.textContent?.slice(0, 80), play: scene?.querySelector('[data-play]')?.outerHTML.slice(0, 120) }; });
+    throw new Error(`DIAG экран игры: ${JSON.stringify(state)} ${failure.message}`);
+  });
 }
 async function stopPlaying(page) {
   await playScene(page).locator('[data-title]').focus(); await page.keyboard.press('Escape');
