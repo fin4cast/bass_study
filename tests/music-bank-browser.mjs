@@ -326,7 +326,8 @@ check('product-native-tab-hide-pauses-and-return-waits-for-explicit-start', 'nat
   await observe(page); await enter(page); await load(page, 'sample-05'); await row(page, 1).locator('[data-control=solo]').check(); await field(page, 'play').click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState === 'playing');
   await untilBankAudioMoves(page);
-  const signal = await page.evaluate(() => window.__bankLive(600)); assert.ok(signal.peak > 1e-5);
+  // Синтезатор партитуры начинает звучать позже хода аудиочасов: окно замера с запасом на старт.
+  const signal = await page.evaluate(() => window.__bankLive(1500)); assert.ok(signal.peak > 1e-5);
   const other = await context.newPage(); await other.goto(`${origin}/vendor/music-bank/patch-manifest.json`); await other.bringToFront();
   await page.waitForFunction(() => document.hidden, undefined, { polling: 100 }); await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState !== 'playing', undefined, { polling: 100 });
   const position = await field(page, 'seek').inputValue(); await delay(250); assert.equal(await field(page, 'seek').inputValue(), position);
@@ -334,7 +335,7 @@ check('product-native-tab-hide-pauses-and-return-waits-for-explicit-start', 'nat
   assert.notEqual(await bank(page).getAttribute('data-music-bank-state'), 'playing'); await field(page, 'play').click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount').dataset.musicBankState === 'playing');
   await untilBankAudioMoves(page);
-  assert.ok((await page.evaluate(() => window.__bankLive(600))).peak > 1e-5);
+  assert.ok((await page.evaluate(() => window.__bankLive(1500))).peak > 1e-5);
   return { nativeHidden: true, signal, noAutomaticResume: true };
 }));
 

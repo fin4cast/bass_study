@@ -110,7 +110,24 @@ check('native-noise-WAV-is-not-invented-as-a-bass-note', 'api', async ({ page, c
 }, { signal: 'noise' });
 
 check('native-500Hz-WAV-is-refused-outside-diagnostic-range', 'api', async ({ page, context, fixtureOrigin }) => {
-  await startFixture(page, context, fixtureOrigin); await delay(250); const state = await snap(page); assert.equal(state.pitch.voiced, false); assert.equal(state.pitch.reason, 'out-of-range'); await fixtureAction(page, 'stop'); return state.pitch;
+  await startFixture(page, context, fixtureOrigin);
+  // Кадр с провалом потока (нагрузка) определитель честно отклоняет как «uncertain». Требование: 500 Гц ни разу не принят
+  // за ноту, а на чистом кадре причина — «вне диапазона». Наблюдаем кадры до первого такого ответа, а не один снимок.
+  const observed = await page.evaluate(async () => {
+    const reasons = {}; let voiced = 0; let state = null;
+    const end = performance.now() + 4000;
+    while (performance.now() < end) {
+      const snapshot = window.p7input.monitor.getSnapshot();
+      if (snapshot.pitch.voiced) voiced++;
+      reasons[snapshot.pitch.reason] = (reasons[snapshot.pitch.reason] ?? 0) + 1;
+      if (snapshot.pitch.reason === 'out-of-range') { state = snapshot; break; }
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    return { state, voiced, reasons };
+  });
+  assert.equal(observed.voiced, 0, `500 Гц не принят за ноту: ${JSON.stringify(observed.reasons)}`);
+  assert.ok(observed.state, `На чистом кадре причина «вне диапазона»: ${JSON.stringify(observed.reasons)}`);
+  const state = observed.state; assert.equal(state.pitch.voiced, false); assert.equal(state.pitch.reason, 'out-of-range'); await fixtureAction(page, 'stop'); return state.pitch;
 }, { signal: 'out-of-range' });
 
 check('native-clipped-WAV-has-real-peak-and-clipping-flag', 'api', async ({ page, context, fixtureOrigin }) => {
