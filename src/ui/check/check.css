@@ -12,7 +12,7 @@
 .check-view button { cursor: pointer; }
 .check-view button:disabled { cursor: default; }
 .check-view :focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
-.check-view kbd { font: 600 11px/1 'Segoe UI', Arial, sans-serif; border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; color: var(--text-secondary); }
+.check-view kbd { font: 600 11px/1 var(--font-ui); border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; color: var(--text-secondary); }
 .check-view .ck-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .check-view .ck-scene { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .check-view .ck-eyebrow { font-size: var(--text-2xs); font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-secondary); }
@@ -74,7 +74,7 @@
 .check-view .ck-wrap { position: relative; }
 .check-view .ck-hit { position: absolute; inset: 0; }
 .check-view .ck-cell { position: absolute; border: 0; background: none; padding: 0; border-radius: var(--radius-l); outline: none; }
-.check-view .ck-dot { position: absolute; left: 50%; top: 50%; width: var(--ck-dot); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 700 17px/1 'Segoe UI', Arial, sans-serif; color: var(--board-text); border: 2px solid transparent; }
+.check-view .ck-dot { position: absolute; left: 50%; top: 50%; width: var(--ck-dot); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 700 17px/1 var(--font-ui); color: var(--board-text); border: 2px solid transparent; }
 .check-view .ck-cell:hover:not([aria-disabled="true"]) .ck-dot { border-color: var(--board-muted); border-style: dashed; }
 .check-view .ck-cell:focus-visible .ck-dot { border: 3px solid var(--board-text); box-shadow: 0 0 0 3px var(--board-top), 0 0 0 6px var(--board-focus); }
 .check-view .ck-cell[aria-disabled="true"] { cursor: default; }

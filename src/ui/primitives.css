@@ -109,6 +109,6 @@ details[open] > .section-disclosure::after { content: '−'; }
   border-radius: var(--radius-m);
   background: var(--surface-raised);
 }
-.lesson-result-metrics strong { color: var(--accent-text); font: 30px/1.25 Consolas, monospace; }
+.lesson-result-metrics strong { color: var(--accent-text); font: 30px/1.25 var(--font-mono); }
 .lesson-result-metrics span { color: var(--text-secondary); font-size: var(--text-xs); overflow-wrap: anywhere; }
 @media (max-width: 900px) { .lesson-result-metrics > div { padding: 11px; } }

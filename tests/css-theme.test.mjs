@@ -31,6 +31,18 @@ describe('тема оформления', () => {
     expect(literal).toEqual([]);
   });
 
+  it('кегли, радиусы и гарнитуры из шкалы берутся из токенов theme.css (D-047)', () => {
+    const styles = files.filter(file => file.endsWith('.css') && file !== 'theme.css');
+    const offenders = styles.flatMap(file => read(file).split(/\r?\n/).flatMap((line, index) => {
+      const problems = [];
+      if (/font-size:\s*(?:11|12|13|14|16|20|26)px\b/.test(line)) problems.push('кегль из шкалы числом');
+      if (/border-radius:\s*(?:6|8|12|999)px\s*[;}!]/.test(line)) problems.push('радиус из шкалы числом');
+      if (/Segoe UI|Consolas|Cascadia/.test(line)) problems.push('гарнитура вне --font-ui/--font-mono');
+      return problems.map(problem => `${file}:${index + 1} ${problem}`);
+    }));
+    expect(offenders).toEqual([]);
+  });
+
   it('скрытый текст использует общий .sr-only', () => {
     expect(files.filter(file => read(file).includes('mb-sr-only'))).toEqual([]);
   });

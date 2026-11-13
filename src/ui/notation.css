@@ -1,25 +1,25 @@
 @import "../theme.css";
 
-.notation-section { min-width:0; margin:20px 25px; padding:20px 22px; background:var(--surface); border:1px solid var(--border); border-radius:10px; }
+.notation-section { min-width:0; margin:20px 25px; padding:20px 22px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-l); }
 .notation-section[hidden] { display:none !important; }
 .notation-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
 .notation-heading h2 { margin:0; color:var(--accent-text); font-size:19px; font-weight:550; }
-.notation-heading .eyebrow { margin:0 0 5px; font-size:12px; }
-.notation-count { color:var(--accent-text); font:12px Consolas,monospace; white-space:nowrap; }
-.notation-help,.notation-keyboard-help { margin:12px 0; color:var(--accent-text); font-size:13px; }
-.notation-status { margin:12px 0 8px; color:var(--accent-text); font-size:13px; min-height:1.5em; }
-.notation-scroll { max-width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-gutter:stable; border:1px solid var(--border); border-radius:8px; background:var(--surface); }
+.notation-heading .eyebrow { margin:0 0 5px; font-size:var(--text-xs); }
+.notation-count { color:var(--accent-text); font:12px var(--font-mono); white-space:nowrap; }
+.notation-help,.notation-keyboard-help { margin:12px 0; color:var(--accent-text); font-size:var(--text-s); }
+.notation-status { margin:12px 0 8px; color:var(--accent-text); font-size:var(--text-s); min-height:1.5em; }
+.notation-scroll { max-width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-gutter:stable; border:1px solid var(--border); border-radius:var(--radius-m); background:var(--surface); }
 .notation-scroll:focus-visible { outline:3px solid var(--focus-ring); outline-offset:3px; }
 .notation-surface { width:max-content; min-width:100%; }
 .notation-svg { display:block; max-width:none; overflow:visible; }
-.notation-string-label { fill:var(--text-secondary); font:12px Consolas,monospace; }
+.notation-string-label { fill:var(--text-secondary); font:12px var(--font-mono); }
 .notation-note { cursor:pointer; outline:none; }
 .notation-note.is-selected { filter:drop-shadow(0 0 3px var(--selection)); }
 .notation-note:focus-visible { outline:none; filter:drop-shadow(0 0 2px var(--focus-ring)) drop-shadow(0 0 2px var(--focus-ring)); }
 .notation-note.is-playing text,.notation-note.is-playing path { fill:var(--text-secondary) !important; stroke:var(--border-strong) !important; }
 .notation-cursor { fill:var(--text-secondary); stroke:none; opacity:.7; pointer-events:none; }
-.notation-selected { margin:12px 0 0; min-height:1.5em; color:var(--accent-text); font-size:13px; }
-@media(max-width:640px) { .notation-section { margin:16px 0; padding:16px 12px; } .notation-heading { align-items:flex-start; flex-direction:column; gap:8px; } .notation-help,.notation-keyboard-help,.notation-selected { font-size:12px; } }
+.notation-selected { margin:12px 0 0; min-height:1.5em; color:var(--accent-text); font-size:var(--text-s); }
+@media(max-width:640px) { .notation-section { margin:16px 0; padding:16px 12px; } .notation-heading { align-items:flex-start; flex-direction:column; gap:8px; } .notation-help,.notation-keyboard-help,.notation-selected { font-size:var(--text-xs); } }
 @media(prefers-reduced-motion:reduce) { .notation-scroll { scroll-behavior:auto; } }
 
 .notation-scroll, .notation-section { background: var(--notation-paper); }
@@ -32,7 +32,7 @@
 .notation-note.fragment-end { filter: drop-shadow(3px 0 1px var(--selection)); }
 .notation-note.is-selected { filter: drop-shadow(0 0 3px var(--selection)); }
 .notation-note:focus-visible { filter: drop-shadow(0 0 2px var(--focus-ring)) drop-shadow(0 0 2px var(--focus-ring)); }
-.notation-fragment, .notation-playback { color: var(--text-secondary); font-size: 13px; margin: 9px 0; line-height: 1.65; }
+.notation-fragment, .notation-playback { color: var(--text-secondary); font-size: var(--text-s); margin: 9px 0; line-height: 1.65; }
 .notation-playback:empty, .notation-fragment:empty { display: none; }
 
 .notation-cursor { stroke: var(--notation-playing); stroke-width: 1.5; opacity: 1; }

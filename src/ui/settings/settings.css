@@ -67,7 +67,7 @@
 .p13-settings .st-switch[aria-checked="true"] .st-track { background: var(--accent); border-color: var(--accent); }
 .p13-settings .st-switch[aria-checked="true"] .st-track::after { left: 18px; background: var(--text-inverse); box-shadow: none; }
 .p13-settings .st-stepper { display: inline-flex; align-items: center; gap: 6px; }
-.p13-settings .st-stepper output { min-width: 44px; text-align: center; font: 700 20px/1 "Segoe UI", Arial, sans-serif; font-variant-numeric: tabular-nums; }
+.p13-settings .st-stepper output { min-width: 44px; text-align: center; font: 700 20px/1 var(--font-ui); font-variant-numeric: tabular-nums; }
 .p13-settings .st-stepper small { font-size: var(--text-xs); color: var(--text-secondary); }
 .p13-settings .st-icon-btn { width: 32px; height: 32px; border: 1px solid var(--border-strong); border-radius: var(--radius-m); background: var(--surface-input); color: var(--text-primary); font-weight: 700; }
 .p13-settings .st-icon-btn:hover:not(:disabled) { background: var(--surface-hover); }
@@ -105,7 +105,7 @@
 .p13-settings .st-where { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--surface); font-size: var(--text-s); }
 .p13-settings .st-where svg { width: 22px; height: 22px; flex: none; margin-top: 1px; stroke: var(--accent-text); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .p13-settings .st-where > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.p13-settings .st-code { font: 600 12px/1.4 Consolas, monospace; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; overflow-wrap: anywhere; }
+.p13-settings .st-code { font: 600 12px/1.4 var(--font-mono); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; overflow-wrap: anywhere; }
 .p13-settings .st-state { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: var(--text-s); }
 .p13-settings .st-state > span { display: inline-flex; gap: 7px; align-items: center; }
 .p13-settings .st-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 20px; }

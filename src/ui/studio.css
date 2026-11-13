@@ -11,7 +11,7 @@
   min-width: 0;
   margin: 0;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 
@@ -43,9 +43,9 @@
   cursor: ew-resize;
 }
 .studio-timeline input:disabled { cursor: default; }
-.studio-timeline output { color: var(--text-secondary); font: 12px/1.5 Consolas, monospace; white-space: nowrap; }
+.studio-timeline output { color: var(--text-secondary); font: 12px/1.5 var(--font-mono); white-space: nowrap; }
 
-.studio-status { color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+.studio-status { color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; }
 
 .studio-empty {
   min-height: 130px;
@@ -56,11 +56,11 @@
   gap: 8px;
   padding: 20px;
   border: 1px dashed var(--border-strong);
-  border-radius: 7px;
+  border-radius: var(--radius-m);
   background: var(--surface-raised);
   color: var(--text-secondary);
   text-align: center;
 }
 .studio-empty > span { font-size: 32px; color: var(--accent-text); }
 .studio-empty h3 { margin: 0; font-size: 17px; font-weight: 600; color: var(--text-primary); }
-.studio-empty p { max-width: 400px; margin: 0; font-size: 12px; line-height: 1.5; }
+.studio-empty p { max-width: 400px; margin: 0; font-size: var(--text-xs); line-height: 1.5; }

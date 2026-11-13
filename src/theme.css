@@ -1,6 +1,7 @@
 /* Размеры, общие для всех разделов и обеих тем: шрифт, радиусы, колонка панели справа. */
 :root {
   --font-ui: "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
+  --font-mono: Consolas, "Courier New", monospace;
   --text-2xs: 11px;
   --text-xs: 12px;
   --text-s: 13px;

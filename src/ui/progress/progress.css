@@ -43,8 +43,8 @@
 /* SVG: классы вместо цветов в атрибутах */
 .p13-progress .pg-g-grid { stroke: var(--border); stroke-width: 1; }
 .p13-progress .pg-g-axis { stroke: var(--border-strong); stroke-width: 1; }
-.p13-progress .pg-g-text { fill: var(--text-secondary); font: 12px "Segoe UI", Arial, sans-serif; }
-.p13-progress .pg-g-ink { fill: var(--text-primary); font: 600 12px "Segoe UI", Arial, sans-serif; }
+.p13-progress .pg-g-text { fill: var(--text-secondary); font: 12px var(--font-ui); }
+.p13-progress .pg-g-ink { fill: var(--text-primary); font: 600 12px var(--font-ui); }
 .p13-progress .pg-g-path { stroke: var(--border-strong); stroke-width: 1.5; fill: none; }
 .p13-progress .pg-m-clean { fill: var(--accent); }
 .p13-progress .pg-m-errors { fill: var(--selection); }

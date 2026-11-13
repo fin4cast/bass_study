@@ -18,14 +18,14 @@
   position: absolute; left: 0; right: 0; top: calc(100% + 7px); z-index: 30;
   display: grid; gap: 3px; padding: 6px; max-height: min(380px, 60vh); overflow-y: auto;
   overscroll-behavior: contain; background: var(--surface-input, var(--surface));
-  border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: 0 8px 24px var(--shadow);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-m); box-shadow: 0 8px 24px var(--shadow);
   scrollbar-color: var(--border-strong) var(--surface-raised); scrollbar-width: thin;
 }
 .select-picker-options.is-grid { grid-template-columns: repeat(var(--picker-columns), minmax(0, 1fr)); }
 .select-picker-option {
-  min-width: 0; min-height: 40px; border: 1px solid transparent; border-radius: 5px;
+  min-width: 0; min-height: 40px; border: 1px solid transparent; border-radius: var(--radius-s);
   background: transparent; color: var(--text-primary); padding: 9px 10px; text-align: left;
-  font-size: 13px; line-height: 1.4; overflow-wrap: anywhere;
+  font-size: var(--text-s); line-height: 1.4; overflow-wrap: anywhere;
 }
 .select-picker-options.is-grid .select-picker-option { text-align: center; font-size: 17px; padding-inline: 3px; }
 .select-picker-option[aria-selected="true"] { background: var(--accent-soft); color: var(--accent-text); font-weight: 650; }

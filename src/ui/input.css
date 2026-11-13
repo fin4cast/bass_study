@@ -1,42 +1,42 @@
 @import "../theme.css";
 
 .input-section { padding: 18px; }
-.input-intro { max-width: 830px; margin: 8px 0 12px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+.input-intro { max-width: 830px; margin: 8px 0 12px; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; }
 .input-connect { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .input-device-field { display: flex; flex: 1 1 290px; max-width: 480px; flex-direction: column; gap: 7px; min-width: 0; }
 .input-device-field select { width: 100%; min-width: 0; text-overflow: ellipsis; }
-.input-device-help, .input-silent-help, .input-diagnostics-help, .input-window-help { color: var(--accent-text); font-size: 12px; line-height: 1.8; }
+.input-device-help, .input-silent-help, .input-diagnostics-help, .input-window-help { color: var(--accent-text); font-size: var(--text-xs); line-height: 1.8; }
 .input-device-help { margin: 8px 0 12px; line-height: 1.5; }
 .input-notice { margin: 14px 0; }
-.input-status { color: var(--accent-text); background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: 6px; padding: 9px 12px; font-size: 12px; line-height: 1.5; }
+.input-status { color: var(--accent-text); background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: var(--radius-s); padding: 9px 12px; font-size: var(--text-xs); line-height: 1.5; }
 .input-readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 10px 0; }
 .input-level-card, .input-pitch-card { min-width: 0; padding: 16px; }
-.input-readouts h3 { margin: 0 0 12px; color: var(--accent-text); font-size: 16px; font-weight: 550; }
-.input-meter-label { display: flex; flex-direction: column; gap: 8px; color: var(--accent-text); font-size: 12px; }
+.input-readouts h3 { margin: 0 0 12px; color: var(--accent-text); font-size: var(--text-l); font-weight: 550; }
+.input-meter-label { display: flex; flex-direction: column; gap: 8px; color: var(--accent-text); font-size: var(--text-xs); }
 .input-meter-label meter { width: 100%; height: 24px; accent-color: var(--accent); }
-.input-level-values { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 9px; margin-top: 12px; font-size: 12px; color: var(--accent-text); }
-.input-level-values output { color: var(--accent-text); font-family: Consolas, monospace; }
-.input-clipping { min-height: 36px; padding: 8px 10px; background: var(--surface-muted); color: var(--accent-text); font-size: 12px; line-height: 1.6; border-radius: 5px; }
+.input-level-values { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 9px; margin-top: 12px; font-size: var(--text-xs); color: var(--accent-text); }
+.input-level-values output { color: var(--accent-text); font-family: var(--font-mono); }
+.input-clipping { min-height: 36px; padding: 8px 10px; background: var(--surface-muted); color: var(--accent-text); font-size: var(--text-xs); line-height: 1.6; border-radius: var(--radius-s); }
 .input-clipping.is-clipping { border: 1px solid var(--danger-border); color: var(--danger-text); background: var(--danger-surface); }
 .input-pitch-main { display: flex; align-items: baseline; gap: 20px; flex-wrap: wrap; color: var(--accent-text); }
-.input-pitch-main > output { color: var(--accent-text); font: 43px Consolas, monospace; line-height: 1.2; }
-.input-pitch-main > span { font: 19px Consolas, monospace; }
-.input-cents, .input-confidence { font-size: 12px; line-height: 1.7; color: var(--accent-text); }
-.input-uncertainty { min-height: 38px; font-size: 12px; line-height: 1.7; color: var(--accent-text); }
+.input-pitch-main > output { color: var(--accent-text); font: 43px var(--font-mono); line-height: 1.2; }
+.input-pitch-main > span { font: 19px var(--font-mono); }
+.input-cents, .input-confidence { font-size: var(--text-xs); line-height: 1.7; color: var(--accent-text); }
+.input-uncertainty { min-height: 38px; font-size: var(--text-xs); line-height: 1.7; color: var(--accent-text); }
 .input-card-explainer { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
-.input-card-help { margin: 8px 0 0; color: var(--accent-text); font-size: 12px; line-height: 1.5; }
+.input-card-help { margin: 8px 0 0; color: var(--accent-text); font-size: var(--text-xs); line-height: 1.5; }
 .input-silent-help { max-width: none; margin: 10px 0 12px; line-height: 1.5; }
 .input-diagnostics { border-top: 1px solid var(--border); padding-top: 10px; }
 .input-settings-scroll { overflow-x: auto; margin: 18px 0; }
-.input-settings-scroll table { width: 100%; min-width: 590px; border-collapse: collapse; text-align: left; font-size: 12px; color: var(--accent-text); }
-.input-settings-scroll caption { text-align: left; font-size: 12px; color: var(--accent-text); margin-bottom: 12px; }
+.input-settings-scroll table { width: 100%; min-width: 590px; border-collapse: collapse; text-align: left; font-size: var(--text-xs); color: var(--accent-text); }
+.input-settings-scroll caption { text-align: left; font-size: var(--text-xs); color: var(--accent-text); margin-bottom: 12px; }
 .input-settings-scroll th, .input-settings-scroll td { padding: 11px 13px; border-bottom: 1px solid var(--border); line-height: 1.6; }
 .input-settings-scroll thead th { color: var(--accent-text); background: var(--surface-raised); font-weight: 550; }
 .input-settings-scroll tbody th { color: var(--accent-text); font-weight: 400; }
 .input-context { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 22px 0; }
 .input-context > div { min-width: 0; }
-.input-context dt { color: var(--accent-text); font-size: 12px; line-height: 1.7; }
-.input-context dd { margin: 7px 0 0; color: var(--accent-text); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.input-context dt { color: var(--accent-text); font-size: var(--text-xs); line-height: 1.7; }
+.input-context dd { margin: 7px 0 0; color: var(--accent-text); font-size: var(--text-xs); line-height: 1.7; overflow-wrap: anywhere; }
 .input-section :focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
 @media (max-width: 850px) { .input-readouts { gap: 12px; } .input-level-card, .input-pitch-card { padding: 17px; } .input-context { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) { .input-readouts { grid-template-columns: 1fr; } .input-connect { gap: 10px; } .input-device-field { flex-basis: 100%; max-width: none; } .input-context { grid-template-columns: 1fr; gap: 15px; } .input-pitch-main { gap: 17px; } }

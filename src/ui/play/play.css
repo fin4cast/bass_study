@@ -18,7 +18,7 @@
   border: 1px solid currentColor;
   border-bottom-width: 2px;
   border-radius: 4px;
-  font: 600 11px/1 "Segoe UI", Arial, sans-serif;
+  font: 600 11px/1 var(--font-ui);
   opacity: .75;
 }
 .pl-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
@@ -69,14 +69,14 @@
 .pl-fit > svg { display: block; width: 100%; height: 100%; }
 .pl-board { flex-shrink: 1; min-height: 90px; }
 .pl-board-svg .pl-neck { fill: var(--board-top); }
-.pl-board-svg .pl-fret-number { fill: var(--board-muted); font: 12px Consolas, monospace; }
+.pl-board-svg .pl-fret-number { fill: var(--board-muted); font: 12px var(--font-mono); }
 .pl-board-svg .pl-fret-line { stroke: var(--board-line); stroke-opacity: .45; stroke-width: 1.2; }
 .pl-board-svg .pl-nut { stroke: var(--board-line); stroke-width: 4; }
 .pl-board-svg .pl-inlay { fill: var(--board-muted); opacity: .45; }
-.pl-board-svg .pl-string-name { fill: var(--board-text); font: 600 14px "Segoe UI", Arial, sans-serif; }
+.pl-board-svg .pl-string-name { fill: var(--board-text); font: 600 14px var(--font-ui); }
 .pl-board-svg .pl-string { stroke: #d7e2d2; opacity: .8; }
 .pl-board-svg .pl-dot { fill: var(--board-dot); }
-.pl-board-svg .pl-note-label { fill: var(--board-dot-text); font-weight: 700; font-family: "Segoe UI", Arial, sans-serif; }
+.pl-board-svg .pl-note-label { fill: var(--board-dot-text); font-weight: 700; font-family: var(--font-ui); }
 .pl-board-svg .is-root .pl-dot { fill: var(--board-root); }
 .pl-board-svg .is-root .pl-note-label { fill: var(--board-root-text); }
 .pl-board-svg .is-b .pl-dot { fill: var(--board-same); }
@@ -88,7 +88,7 @@
 .pl-board-svg .is-current .pl-note-label { fill: var(--board-root-text); }
 .pl-board-svg .pl-current-ring { fill: none; stroke: #ffffff; stroke-width: 4; }
 .pl-board-svg .pl-next-ring { fill: none; stroke: var(--board-playing); stroke-width: 2.5; stroke-dasharray: 5 4; }
-.pl-board-svg .pl-stretch-mark { fill: var(--board-playing); font-weight: 700; font-family: "Segoe UI", Arial, sans-serif; }
+.pl-board-svg .pl-stretch-mark { fill: var(--board-playing); font-weight: 700; font-family: var(--font-ui); }
 
 .pl-tabcard {
   display: flex;
@@ -107,10 +107,10 @@
 .pl-tab-svg .pl-tab-line { stroke: currentColor; stroke-opacity: .35; }
 .pl-tab-svg .pl-tab-edge { stroke: currentColor; stroke-opacity: .6; stroke-width: 2; }
 .pl-tab-svg .pl-tab-bar { stroke: currentColor; stroke-opacity: .55; }
-.pl-tab-svg .pl-tab-string { fill: currentColor; opacity: .7; font: 11px Consolas, monospace; }
-.pl-tab-svg .pl-tab-count { fill: currentColor; opacity: .62; font: 10px "Segoe UI", Arial, sans-serif; }
+.pl-tab-svg .pl-tab-string { fill: currentColor; opacity: .7; font: 11px var(--font-mono); }
+.pl-tab-svg .pl-tab-count { fill: currentColor; opacity: .62; font: 10px var(--font-ui); }
 .pl-tab-svg .pl-tab-gap { fill: var(--pl-tab-bg); }
-.pl-tab-svg .pl-tab-fret { fill: currentColor; font-weight: 700; font-family: Consolas, monospace; }
+.pl-tab-svg .pl-tab-fret { fill: currentColor; font-weight: 700; font-family: var(--font-mono); }
 .pl-tab-svg .pl-tab-fret.is-played { opacity: .4; }
 .pl-tab-svg .pl-tab-cursor { fill: var(--selection-soft); fill-opacity: .85; stroke: var(--selection); stroke-width: 2.5; }
 
@@ -175,7 +175,7 @@
 .pl-transport { position: relative; display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--surface-raised); }
 .pl-play { min-width: 128px; }
 .pl-bpm { display: flex; align-items: center; gap: 4px; }
-.pl-bpm output { min-width: 46px; font: 700 22px/1 "Segoe UI", Arial, sans-serif; font-variant-numeric: tabular-nums; text-align: center; }
+.pl-bpm output { min-width: 46px; font: 700 22px/1 var(--font-ui); font-variant-numeric: tabular-nums; text-align: center; }
 .pl-bpm small { margin-left: 4px; color: var(--text-secondary); font-size: var(--text-2xs); line-height: 1.3; }
 .pl-icon-btn { width: 30px; height: 30px; border: 1px solid var(--border-strong); border-radius: var(--radius-m); background: var(--surface-input); color: var(--text-primary); font-weight: 700; cursor: pointer; }
 .pl-icon-btn:hover:not(:disabled) { background: var(--surface-hover); }
@@ -205,7 +205,7 @@
   background: var(--selection-soft);
   box-shadow: 0 8px 24px var(--shadow);
   color: var(--text-primary);
-  font: 800 44px/1 "Segoe UI", Arial, sans-serif;
+  font: 800 44px/1 var(--font-ui);
 }
 .pl-countin small { color: var(--text-secondary); font-size: var(--text-m); font-weight: 600; }
 
