@@ -25,7 +25,7 @@
 :is(.p13-reference, .p13-reference-panel) .rf-card-head h2 { font-size: 23px; font-weight: 650; letter-spacing: -.5px; line-height: 1.2; }
 :is(.p13-reference, .p13-reference-panel) .rf-card-head h2:focus { outline: none; }
 :is(.p13-reference, .p13-reference-panel) .rf-card-head h2:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; border-radius: 4px; }
-:is(.p13-reference, .p13-reference-panel) .rf-eyebrow { font-size: var(--text-2xs); font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-secondary); }
+:is(.p13-reference, .p13-reference-panel) .rf-eyebrow { font-size: var(--text-2xs); font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--accent-text); }
 :is(.p13-reference, .p13-reference-panel) .rf-kind { color: var(--info-text); }
 :is(.p13-reference, .p13-reference-panel) .rf-master { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-strong); border-radius: var(--radius-pill); background: var(--surface-input); padding: 5px 12px; color: var(--text-secondary); font-size: var(--text-xs); font-weight: 600; }
 :is(.p13-reference, .p13-reference-panel) .rf-master:hover { background: var(--surface-hover); color: var(--text-primary); }

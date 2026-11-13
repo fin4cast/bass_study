@@ -345,7 +345,7 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
   function renderExercises() {
     const host = $('[data-exercises]')!;
     if (!hasHistory()) {
-      host.innerHTML = `<section class="pg-card pg-empty" aria-labelledby="${uid}-empty">
+      host.innerHTML = `<section class="pg-card pg-empty feature-panel" aria-labelledby="${uid}-empty">
         <p class="pg-eyebrow">Пока пусто — так и должно быть</p>
         <h2 id="${uid}-empty">Здесь появится то, что у тебя получается</h2>
         <ul>

@@ -210,7 +210,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     }).join('');
 
     regions.today.innerHTML = `<div class="ls-today-grid">
-        <div class="ls-col"><section class="ls-card ls-hero" aria-label="Главное действие">${heroMarkup}</section>
+        <div class="ls-col"><section class="ls-card ls-hero feature-panel" aria-label="Главное действие">${heroMarkup}</section>
           <section class="ls-recs" aria-label="Рекомендации">${recsMarkup}</section></div>
         <section class="ls-card ls-plan${editing ? ' is-editing' : ''}" aria-label="План на сегодня">${planMarkup}</section>
       </div>
@@ -316,7 +316,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         <div class="ls-basics-right">
           <section class="ls-card ls-level" aria-label="Шаги уровня"><div class="ls-level-head"><h2>${level.lane === 'main' ? `Уровень ${e(level.mark)} · ` : 'Параллельно · '}${e(level.title)}</h2><span class="ls-sub">${level.status === 'done' ? 'освоено' : firstRun ? `${e(level.total)} ${plural(level.total, 'шаг', 'шага', 'шагов')}` : `${e(level.doneCount)} из ${e(level.total)} шагов`}</span></div>
             <ol class="ls-strip">${strip}</ol></section>
-          <section class="ls-card ls-focus" aria-label="Текущий шаг">${focusMarkup(level, step, firstRun)}</section>
+          <section class="ls-card ls-focus feature-panel" aria-label="Текущий шаг">${focusMarkup(level, step, firstRun)}</section>
         </div>
       </div>`;
   }

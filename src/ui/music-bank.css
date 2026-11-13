@@ -79,7 +79,7 @@
 .music-bank .mb-eyebrow {
   font-size: var(--text-2xs);
   letter-spacing: .1em;
-  color: var(--text-secondary);
+  color: var(--accent-text);
   font-weight: 500;
 }
 

@@ -49,7 +49,7 @@ label:is(.primary-button, .secondary-button, .text-button):focus-within { outlin
 .content-panel-raised { background: var(--surface-raised); }
 
 .panel-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
-.panel-heading h2 { margin: 0; color: var(--text-primary); font-size: var(--text-xl); line-height: 1.25; font-weight: 600; letter-spacing: -.25px; }
+.panel-heading h2 { margin: 0; color: var(--text-primary); font-size: var(--text-xl); line-height: 1.25; font-weight: var(--weight-heading); letter-spacing: -.25px; }
 .panel-heading > p { margin: 0; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; }
 
 .status-error { padding: 8px 10px; border: 1px solid var(--danger-border); border-radius: var(--radius-m); background: var(--danger-surface); color: var(--danger-text); font-size: var(--text-xs); line-height: 1.5; }
@@ -112,3 +112,15 @@ details[open] > .section-disclosure::after { content: '−'; }
 .lesson-result-metrics strong { color: var(--accent-text); font: 30px/1.25 var(--font-mono); }
 .lesson-result-metrics span { color: var(--text-secondary); font-size: var(--text-xs); overflow-wrap: anywhere; }
 @media (max-width: 900px) { .lesson-result-metrics > div { padding: 11px; } }
+
+/* Главный блок экрана (стиль «Акцент», D-048): поверхность грифа. Токены темы переопределены внутри,
+   поэтому текст, кнопки и вложенные карточки перекрашиваются сами. Фон задаёт раздел — после своих карточек. */
+.feature-panel {
+  --text-primary: var(--board-text); --text-secondary: var(--board-muted); --accent-text: var(--board-root);
+  --accent: var(--board-root); --accent-hover: color-mix(in srgb, var(--board-root) 85%, white); --text-inverse: var(--board-root-text);
+  --surface: rgb(255 255 255 / .06); --surface-raised: rgb(255 255 255 / .06); --surface-input: transparent; --surface-hover: rgb(255 255 255 / .1);
+  --border: rgb(255 255 255 / .16); --border-strong: var(--board-muted); --accent-soft: rgb(255 255 255 / .12);
+  color: var(--text-primary);
+}
+:root[data-theme="dark"] .feature-panel { border-color: rgb(255 255 255 / .14); }
+.feature-panel .secondary-button { color: var(--text-primary); }

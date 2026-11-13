@@ -8,10 +8,11 @@
   --text-m: 14px;
   --text-l: 16px;
   --text-xl: 20px;
-  --text-page: 26px;
+  --text-page: 30px;
+  --weight-heading: 800;
   --radius-s: 6px;
   --radius-m: 8px;
-  --radius-l: 12px;
+  --radius-l: 14px;
   --radius-pill: 999px;
   --control-height: 36px;
   --control-height-compact: 30px;

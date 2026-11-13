@@ -794,7 +794,7 @@
   padding: 10px 22px;
   transform: translateX(-50%);
   border: 2px solid var(--selection);
-  border-radius: 14px;
+  border-radius: var(--radius-l);
   background: var(--selection-soft);
   box-shadow: 0 8px 24px var(--shadow);
   color: var(--text-primary);

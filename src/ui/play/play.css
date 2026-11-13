@@ -31,15 +31,16 @@
 .pl-back { align-self: flex-start; border: 0; padding: 0; background: none; color: var(--text-secondary); font-size: var(--text-xs); cursor: pointer; }
 .pl-back:hover { color: var(--accent-text); text-decoration: underline; }
 .pl-title-row { display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; min-width: 0; }
-.pl-title { font-size: var(--text-page); font-weight: 650; letter-spacing: -.6px; line-height: 1.2; }
+.pl-title { font-size: var(--text-page); font-weight: var(--weight-heading); letter-spacing: -1px; line-height: 1.2; }
 .pl-sub { color: var(--text-secondary); font-size: var(--text-s); }
 .pl-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; align-self: center; }
 .pl-chip {
-  border: 1px solid var(--info-text);
+  border: 1px solid transparent;
   border-radius: var(--radius-pill);
   padding: 1px 9px;
-  background: var(--info-surface);
-  color: var(--info-text);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+  font-weight: 600;
   font-size: var(--text-xs);
   cursor: pointer;
 }
@@ -201,7 +202,7 @@
   padding: 10px 22px;
   transform: translateX(-50%);
   border: 2px solid var(--selection);
-  border-radius: 14px;
+  border-radius: var(--radius-l);
   background: var(--selection-soft);
   box-shadow: 0 8px 24px var(--shadow);
   color: var(--text-primary);

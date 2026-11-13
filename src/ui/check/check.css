@@ -15,11 +15,11 @@
 .check-view kbd { font: 600 11px/1 var(--font-ui); border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; color: var(--text-secondary); }
 .check-view .ck-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .check-view .ck-scene { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.check-view .ck-eyebrow { font-size: var(--text-2xs); font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-secondary); }
+.check-view .ck-eyebrow { font-size: var(--text-2xs); font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--accent-text); }
 .check-view .ck-sub { color: var(--text-secondary); font-size: var(--text-s); }
 .check-view .ck-card { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-l); padding: var(--card-padding); min-width: 0; }
 .check-view .primary-button kbd { color: inherit; border-color: currentColor; opacity: .8; }
-.check-view .ck-chip { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 2px 9px; font-size: var(--text-xs); color: var(--text-secondary); background: var(--surface); }
+.check-view .ck-chip { display: inline-flex; align-items: center; border: 1px solid transparent; border-radius: var(--radius-pill); padding: 2px 9px; font-size: var(--text-xs); color: var(--text-primary); background: var(--accent-soft); font-weight: 600; }
 .check-view .ck-chips .ck-chip { border-color: var(--ck-info); color: var(--ck-info); background: var(--ck-info-soft); }
 .check-view .ck-error { padding: 8px 10px; border: 1px solid var(--danger-border); border-radius: var(--radius-m); background: var(--danger-surface); color: var(--danger-text); font-size: var(--text-s); }
 
@@ -28,7 +28,7 @@
 .check-view .ck-back { border: 0; background: none; padding: 0; color: var(--text-secondary); font-size: var(--text-xs); text-align: left; align-self: flex-start; }
 .check-view .ck-back:hover { color: var(--text-primary); text-decoration: underline; }
 .check-view .ck-title-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.check-view .ck-h1 { font-size: var(--text-page); font-weight: 650; letter-spacing: -.6px; }
+.check-view .ck-h1 { font-size: var(--text-page); font-weight: var(--weight-heading); letter-spacing: -1px; }
 .check-view .ck-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; align-self: center; }
 .check-view .ck-note { font-size: var(--text-xs); color: var(--text-secondary); }
 
@@ -88,7 +88,7 @@
 
 /* B: кнопки ступеней */
 .check-view .ck-pad { display: grid; grid-template-columns: repeat(var(--ck-cols, 5), minmax(0, 1fr)); gap: 12px; }
-.check-view .ck-deg { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 96px; border: 2px solid var(--border-strong); border-radius: 14px; background: var(--surface-input); }
+.check-view .ck-deg { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 96px; border: 2px solid var(--border-strong); border-radius: var(--radius-l); background: var(--surface-input); }
 .check-view .ck-deg strong { font-size: 38px; line-height: 1; font-weight: 700; }
 .check-view .ck-deg small { font-size: var(--text-xs); color: var(--text-secondary); }
 .check-view .ck-pad-notes { gap: 8px; }

@@ -1,0 +1,42 @@
+/* C «Акцент» r1: правила для всех разделов. Палитра прежняя. */
+:root { --text-page: 30px; --radius-l: 14px; --weight-heading: 800; }
+
+/* 1. Заголовки: страница и экраны «Проверь себя» / игры — 800; заголовки карточек и панелей — 800. */
+:is(.page-header h1, .check-view .ck-h1, .pl-title) { font-weight: var(--weight-heading); letter-spacing: -1px; }
+:is(.check-view .ck-h1, .pl-title) { font-size: var(--text-page); }
+:is(.lesson-view .ls-plan h2, .lesson-view .ls-rec h3, .lesson-view .ls-level-head h2, .lesson-view .ls-lib-card h3,
+    .lesson-view .ls-hero h2, .lesson-view .ls-focus h2, .p13-progress .pg-h2, .p13-progress .pg-empty h2,
+    .p13-settings .st-pane-head h2, .panel-heading h2, .settings-panel h2) { font-weight: var(--weight-heading); }
+
+/* 2. Надзаголовки — цветом акцента. */
+:is(.lesson-view .ls-eyebrow, .lesson-view .ls-lane-title, .p13-progress .pg-eyebrow, .check-view .ck-eyebrow,
+    .rf-eyebrow, .st-eyebrow, .mb-eyebrow, .summary-eyebrow) { color: var(--accent-text); letter-spacing: 1.6px; }
+
+/* 3. Главный блок экрана — поверхность грифа. Токены темы переопределены внутри, содержимое перекрашивается само. */
+:is(.lesson-view .ls-hero, .lesson-view .ls-focus, .p13-progress .pg-empty) {
+  --text-primary: var(--board-text); --text-secondary: var(--board-muted); --accent-text: var(--board-root);
+  --accent: var(--board-root); --accent-hover: color-mix(in srgb, var(--board-root) 85%, white); --text-inverse: var(--board-root-text);
+  --surface: rgb(255 255 255 / .06); --surface-raised: rgb(255 255 255 / .06); --surface-input: transparent; --surface-hover: rgb(255 255 255 / .1);
+  --border: rgb(255 255 255 / .16); --border-strong: var(--board-muted); --accent-soft: rgb(255 255 255 / .12);
+  --ls-info: var(--board-same); --ls-info-soft: rgb(164 204 226 / .12);
+  background: var(--board-top); border-color: var(--board-top); color: var(--text-primary);
+}
+:root[data-theme="dark"] :is(.lesson-view .ls-hero, .lesson-view .ls-focus, .p13-progress .pg-empty) { border-color: rgb(255 255 255 / .14); }
+:is(.lesson-view .ls-hero, .lesson-view .ls-focus, .p13-progress .pg-empty) .secondary-button { color: var(--board-text); }
+
+/* 4. «Где я сейчас» — заливка акцентом. */
+.site-header .nav-item[aria-current="page"] { background: var(--accent); color: var(--text-inverse); }
+.site-header .nav-item[aria-current="page"]::before { display: none; }
+.lesson-view .ls-step.is-current { background: var(--accent); border-color: var(--accent); color: var(--text-inverse); box-shadow: none; }
+.lesson-view .ls-step.is-current :is(.ls-step-meta, .ls-min, .ls-step-title) { color: var(--text-inverse); }
+.lesson-view .ls-step.is-current .ls-dot { border-color: var(--text-inverse); color: var(--text-inverse); background: transparent; }
+.lesson-view .ls-cat[aria-pressed="true"] { background: var(--accent); color: var(--text-inverse); box-shadow: none; }
+.lesson-view .ls-cat[aria-pressed="true"] small { color: var(--text-inverse); }
+.lesson-view .ls-lvl-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); }
+.lesson-view .ls-lvl-btn[aria-pressed="true"] :is(b, span) { color: var(--text-inverse); }
+.p13-settings .st-tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--text-inverse); }
+.p13-settings .st-tab[aria-selected="true"] :is(b, small, svg) { color: var(--text-inverse); }
+
+/* 5. Метки и вкладки. */
+:is(.lesson-view .ls-chip, .check-view .ck-chip, .pl-chip) { background: var(--accent-soft); border-color: transparent; color: var(--text-primary); font-weight: 600; }
+.workspace-tabs > button:is([aria-pressed="true"], [aria-selected="true"]) { color: var(--text-primary); border-bottom-width: 4px; font-weight: var(--weight-heading); }
