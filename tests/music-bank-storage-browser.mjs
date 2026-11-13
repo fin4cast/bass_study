@@ -139,7 +139,7 @@ check('native-v10-upgrade-abort-after-recreating-stores-keeps-old-database-and-m
   });
   await readyProduct(page, origin);
   const observation = await page.evaluate(() => window.__musicBankUpgradeAbort);
-  assert.equal(observation.abortIssued, true); assert.equal(observation.databaseVersion, 11);
+  assert.equal(observation.abortIssued, true); assert.equal(observation.databaseVersion, 12);
   assert.deepEqual([...observation.deletedStores].sort(), before.stores); assert.deepEqual(observation.createdStores, V11_CREATION_ORDER);
   const after = await raw(page);
   assert.deepEqual(after, before); assert.deepEqual(after, rawSnapshot(oldV10, 10));
