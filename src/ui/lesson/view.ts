@@ -8,6 +8,7 @@ import './lesson.css';
 import type { ExerciseSpec } from '../../exercises';
 import { getConcept, conceptBoard, parseConceptText, type ConceptBoard, type ConceptRole } from '../../practice/concepts';
 import { PLAN_TEMPLATES, moveStep, plannedMinutes, removeStep, type DayPlan, type PlanStepContent } from '../../practice/plan';
+import { renderPageHeader } from '../../app/page-frame';
 import { bindPageTabs } from '../page-tabs';
 import { escapeHtml as e } from '../html';
 import { CONCEPT_LABELS, exercisePlan, materialLabel, STRUCTURE_LABELS } from './material';
@@ -71,10 +72,10 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
 
   container.classList.add('lesson-view');
   container.innerHTML = `
-    <header class="ls-top">
-      <h1>Занятие</h1>
-      <div class="ls-tabs" role="tablist" aria-label="Занятие">${TABS.map(item => `<button type="button" role="tab" class="ls-tab" id="${id}-tab-${item.key}" aria-controls="${id}-panel-${item.key}" aria-selected="false" tabindex="-1">${e(item.label)}<small data-badge="${item.key}"></small></button>`).join('')}</div>
-    </header>
+    ${renderPageHeader('lesson', {
+      id: `${id}-heading`,
+      navigation: `<div class="workspace-tabs" role="tablist" aria-label="Занятие">${TABS.map(item => `<button type="button" role="tab" id="${id}-tab-${item.key}" aria-controls="${id}-panel-${item.key}" aria-selected="false" tabindex="-1">${e(item.label)}<small class="tab-badge" data-badge="${item.key}"></small></button>`).join('')}</div>`,
+    })}
     ${TABS.map(item => `<div class="ls-panel" id="${id}-panel-${item.key}" role="tabpanel" aria-labelledby="${id}-tab-${item.key}" tabindex="-1" hidden>
       <div class="ls-ctx"><p class="ls-sub">${e(item.hint)}</p>${item.key === 'basics' ? `<div class="ls-search" data-search><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4.5 4.5"/></svg><input type="search" placeholder="Найти упражнение или понятие" aria-label="Найти упражнение или понятие" autocomplete="off" data-search-input aria-controls="${id}-search-results" aria-expanded="false"><div class="ls-search-results" id="${id}-search-results" data-search-results hidden></div></div>` : ''}</div>
       <div class="ls-region" data-region="${item.key}"></div>
@@ -150,7 +151,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
   const addButton = (content: PlanStepContent, small = true, label?: string) => {
     const on = inPlan(content);
     const title = state ? stepTitle(content, state.userExercises) : '';
-    return `<button type="button" class="ls-btn${small ? ' ls-btn-s' : ''} ls-add" data-act="toggle-plan" data-ref="${ref(content)}" data-key="add:${e(keyOf(content))}" aria-pressed="${on}" aria-label="${e(`${on ? 'Убрать из плана' : 'Добавить в план'}: ${title}`)}">${on ? '✓ в плане' : e(label ?? `+ в план · ${contentMinutes(content)} мин`)}</button>`;
+    return `<button type="button" class="secondary-button${small ? ' button-compact' : ''} ls-add" data-act="toggle-plan" data-ref="${ref(content)}" data-key="add:${e(keyOf(content))}" aria-pressed="${on}" aria-label="${e(`${on ? 'Убрать из плана' : 'Добавить в план'}: ${title}`)}">${on ? '✓ в плане' : e(label ?? `+ в план · ${contentMinutes(content)} мин`)}</button>`;
   };
   function keyOf(content: PlanStepContent) { return JSON.stringify(content).slice(0, 400); }
 
@@ -168,17 +169,17 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     if (hero.mode === 'first-run') {
       const spec = hero.content?.kind === 'exercise' ? hero.content.spec : hero.content?.spec.exercise ?? null;
       heroMarkup = `<div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
-        <div class="ls-actions"><button type="button" class="ls-btn ls-btn-primary ls-btn-big" data-act="basics-start" data-key="hero-basics">Начни с «Основ» →</button>${hero.content ? `<button type="button" class="ls-btn" data-act="play" data-ref="${ref(hero.content)}" data-step="${e(hero.stepId ?? '')}" data-key="hero-play">▶ Играть план</button>` : ''}</div>
+        <div class="ls-actions"><button type="button" class="primary-button button-large" data-act="basics-start" data-key="hero-basics">Начни с «Основ» →</button>${hero.content ? `<button type="button" class="secondary-button" data-act="play" data-ref="${ref(hero.content)}" data-step="${e(hero.stepId ?? '')}" data-key="hero-play">▶ Играть план</button>` : ''}</div>
         ${spec ? exerciseBoardMarkup(spec, 700, 28, spec.templateId === 'chromatic-position' ? 'finger' : 'name') : ''}`;
     } else if (hero.mode === 'empty') {
       heroMarkup = `<div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
-        <div class="ls-actions">${Object.entries(PLAN_TEMPLATES).map(([key, template]) => `<button type="button" class="ls-btn${key === 'standard' ? ' ls-btn-primary' : ''}" data-act="template" data-template="${e(key)}" data-key="template-${e(key)}">${e(template.title)}</button>`).join('')}<button type="button" class="ls-btn" data-act="go-library" data-key="hero-library">Открыть библиотеку →</button></div>`;
+        <div class="ls-actions">${Object.entries(PLAN_TEMPLATES).map(([key, template]) => `<button type="button" class="${key === 'standard' ? 'primary-button' : 'secondary-button'}" data-act="template" data-template="${e(key)}" data-key="template-${e(key)}">${e(template.title)}</button>`).join('')}<button type="button" class="secondary-button" data-act="go-library" data-key="hero-library">Открыть библиотеку →</button></div>`;
     } else {
       const content = hero.content!;
       const spec = content.kind === 'exercise' ? content.spec : content.spec.exercise;
       heroMarkup = `<div class="ls-hero-top"><div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
           <div class="ls-chips">${hero.concepts.map(concept => `<span class="ls-chip ls-chip-concept">${e(concept)}</span>`).join('')}</div></div>
-        <div class="ls-actions"><button type="button" class="ls-btn ls-btn-primary ls-btn-big" data-act="play" data-ref="${ref(content)}" data-step="${e(hero.stepId ?? '')}" data-key="hero-play">▶ ${content.kind === 'check' ? 'Проверь себя' : 'Играть'}</button>
+        <div class="ls-actions"><button type="button" class="primary-button button-large" data-act="play" data-ref="${ref(content)}" data-step="${e(hero.stepId ?? '')}" data-key="hero-play">▶ ${content.kind === 'check' ? 'Проверь себя' : 'Играть'}</button>
           ${hero.stats.length ? `<div class="ls-stats">${hero.stats.map(stat => `<span><b>${e(stat.value)}</b>${e(stat.label)}</span>`).join('')}</div>` : '<div class="ls-stats"><span class="ls-sub">Отметку «Чисто / С ошибками / Не успевал» поставишь после прохода.</span></div>'}</div>
         ${exerciseBoardMarkup(spec, 700, 28)}`;
     }
@@ -197,14 +198,14 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
             <button type="button" class="ls-mini" data-act="move" data-step="${e(row.id)}" data-delta="-1" data-key="up:${e(row.id)}" aria-label="${e(`Выше: ${row.title}`)}"${row.status === 'done' || row.first ? ' disabled' : ''}>↑</button>
             <button type="button" class="ls-mini" data-act="move" data-step="${e(row.id)}" data-delta="1" data-key="down:${e(row.id)}" aria-label="${e(`Ниже: ${row.title}`)}"${row.status === 'done' || row.last ? ' disabled' : ''}>↓</button>
             <button type="button" class="ls-mini" data-act="remove" data-step="${e(row.id)}" data-key="del:${e(row.id)}" aria-label="${e(`Убрать из плана: ${row.title}`)}">✕</button></span>` : ''}
-        </div></li>`).join('')}</ol>` : `<p class="ls-empty">План пуст — добавь упражнение из библиотеки или «Основ».</p><div class="ls-plan-tools">${Object.entries(PLAN_TEMPLATES).map(([key, template]) => `<button type="button" class="ls-btn ls-btn-s" data-act="template" data-template="${e(key)}" data-key="tpl-${e(key)}">Шаблон: ${e(template.title)}</button>`).join('')}</div>`}
-      <div class="ls-plan-tools">${rows.length ? `<button type="button" class="ls-btn ls-btn-s" data-act="edit" data-key="edit" aria-pressed="${editing}">${editing ? 'Готово' : 'Изменить план'}</button>` : ''}<button type="button" class="ls-btn ls-btn-s" data-act="go-library" data-key="plan-library">+ из библиотеки</button></div>`;
+        </div></li>`).join('')}</ol>` : `<p class="ls-empty">План пуст — добавь упражнение из библиотеки или «Основ».</p><div class="ls-plan-tools">${Object.entries(PLAN_TEMPLATES).map(([key, template]) => `<button type="button" class="secondary-button button-compact" data-act="template" data-template="${e(key)}" data-key="tpl-${e(key)}">Шаблон: ${e(template.title)}</button>`).join('')}</div>`}
+      <div class="ls-plan-tools">${rows.length ? `<button type="button" class="secondary-button button-compact" data-act="edit" data-key="edit" aria-pressed="${editing}">${editing ? 'Готово' : 'Изменить план'}</button>` : ''}<button type="button" class="secondary-button button-compact" data-act="go-library" data-key="plan-library">+ из библиотеки</button></div>`;
 
     const recsMarkup = recs.map(card => {
       let action = '';
       if (card.content) action = addButton(card.content);
-      else if (card.openBasics) action = `<button type="button" class="ls-btn ls-btn-s" data-act="basics-start" data-key="rec-basics">Открыть «Основы»</button>`;
-      else if (card.conceptId) action = `<button type="button" class="ls-btn ls-btn-s" data-act="concept" data-concept="${e(card.conceptId)}" data-key="rec-concept:${e(card.id)}">Открыть понятие</button>`;
+      else if (card.openBasics) action = `<button type="button" class="secondary-button button-compact" data-act="basics-start" data-key="rec-basics">Открыть «Основы»</button>`;
+      else if (card.conceptId) action = `<button type="button" class="secondary-button button-compact" data-act="concept" data-concept="${e(card.conceptId)}" data-key="rec-concept:${e(card.id)}">Открыть понятие</button>`;
       return `<article class="ls-card ls-rec${card.concept ? ' is-concept' : ''}"><span class="ls-eyebrow">${e(card.eyebrow)}</span><h3>${e(card.title)}</h3><p>${e(card.reason)}</p>${action}</article>`;
     }).join('');
 
@@ -215,7 +216,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
       </div>
       <section class="ls-card ls-libstrip" aria-label="Библиотека"><strong>Библиотека</strong><span class="ls-sub">${e(items.length)} ${plural(items.length, 'упражнение', 'упражнения', 'упражнений')} · ${CATEGORY_ORDER.length} категорий</span>
         <div class="ls-chips">${CATEGORY_ORDER.map(category => `<button type="button" class="ls-chip ls-chip-link" data-act="go-category" data-category="${e(category)}" data-key="cat-strip:${e(category)}">${e(CATEGORY_TITLES[category])}</button>`).join('')}</div>
-        <button type="button" class="ls-btn" data-act="go-library" data-key="strip-library">Открыть библиотеку →</button></section>`;
+        <button type="button" class="secondary-button" data-act="go-library" data-key="strip-library">Открыть библиотеку →</button></section>`;
   }
 
   /* ---------- Библиотека ---------- */
@@ -237,7 +238,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
       const data = exerciseBoard(card.content.kind === 'exercise' ? card.content.spec : card.content.spec.exercise, 'none');
       const saving = saveDraft?.key === card.key;
       const save = options.onSaveExercise && card.builtin ? (saving
-        ? `<form class="ls-save" data-save="${e(card.key)}"><label class="ls-field">Название <input type="text" maxlength="80" required value="${e(saveDraft!.name)}" data-save-name data-key="save-name:${e(card.key)}"></label><button type="submit" class="ls-btn ls-btn-s ls-btn-primary">Сохранить</button><button type="button" class="ls-btn ls-btn-s" data-act="save-cancel" data-key="save-cancel">Отмена</button></form>`
+        ? `<form class="ls-save" data-save="${e(card.key)}"><label class="ls-field">Название <input type="text" maxlength="80" required value="${e(saveDraft!.name)}" data-save-name data-key="save-name:${e(card.key)}"></label><button type="submit" class="primary-button button-compact">Сохранить</button><button type="button" class="secondary-button button-compact" data-act="save-cancel" data-key="save-cancel">Отмена</button></form>`
         : '') : '';
       const saveButton = options.onSaveExercise && card.builtin && !saving ? `<button type="button" class="ls-mini ls-save-btn" data-act="save-start" data-card="${e(card.key)}" data-ref="${ref(card.content)}" data-key="save:${e(card.key)}" aria-label="${e(`Сохранить как своё: ${card.title}`)}" title="Сохранить как своё упражнение">☆</button>` : '';
       return `<article class="ls-card ls-lib-card${card.inPlan ? ' in-plan' : ''}${card.featured ? ' is-featured' : ''}">
@@ -245,13 +246,13 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         ${board(data.notes, data.frets, { width: 300, marker: 17, labels: false, decorative: true })}
         <div class="ls-chips">${card.concepts.map(concept => `<span class="ls-chip ls-chip-concept">${e(concept)}</span>`).join('')}<span class="ls-chip">${e(card.minutes)} мин</span></div>
         <div class="ls-card-foot"><span class="ls-best">${card.bestBpm ? `лучший темп <b>${e(card.bestBpm)}</b>` : card.played ? 'в работе' : 'ещё не играл'}${card.playedToday ? ' · сегодня ✓' : ''}</span>
-          <span class="ls-card-btns"><button type="button" class="ls-btn ls-btn-primary ls-btn-s" data-act="play" data-ref="${ref(card.content)}" data-key="lib-play:${e(card.key)}" aria-label="${e(`Играть: ${card.title}`)}">▶ Играть</button>${addButton(card.content, true, '+ в план')}${saveButton}</span></div>
+          <span class="ls-card-btns"><button type="button" class="primary-button button-compact" data-act="play" data-ref="${ref(card.content)}" data-key="lib-play:${e(card.key)}" aria-label="${e(`Играть: ${card.title}`)}">▶ Играть</button>${addButton(card.content, true, '+ в план')}${saveButton}</span></div>
         ${save}
       </article>`;
     }).join('') || '<div class="ls-none">Под эти фильтры ничего нет. Сбрось фильтры или выбери другую категорию.</div>';
     const bar = strip.count
-      ? `<strong>План на сегодня · ${e(strip.count)} ${plural(strip.count, 'шаг', 'шага', 'шагов')} · ${e(strip.minutes)} мин</strong><span class="ls-bar-list">${strip.items.map(item => item.current ? `<b>▶ ${e(item.title)}</b>` : `${item.done ? '✓ ' : ''}${e(item.title)}`).join(' → ')}</span><span class="ls-bar-btns"><button type="button" class="ls-btn ls-btn-s" data-act="edit-today" data-key="bar-edit">Изменить в «Сегодня»</button><button type="button" class="ls-btn ls-btn-primary" data-act="play"${strip.current ? ` data-ref="${ref(strip.current.content)}" data-step="${e(strip.current.id)}"` : ' disabled'} data-key="bar-start">Начать →</button></span>`
-      : `<strong>План пуст</strong><span class="ls-bar-list">Добавь упражнения кнопкой «+ в план» или сразу нажми «Играть».</span><span class="ls-bar-btns"><button type="button" class="ls-btn ls-btn-primary" disabled>Начать →</button></span>`;
+      ? `<strong>План на сегодня · ${e(strip.count)} ${plural(strip.count, 'шаг', 'шага', 'шагов')} · ${e(strip.minutes)} мин</strong><span class="ls-bar-list">${strip.items.map(item => item.current ? `<b>▶ ${e(item.title)}</b>` : `${item.done ? '✓ ' : ''}${e(item.title)}`).join(' → ')}</span><span class="ls-bar-btns"><button type="button" class="secondary-button button-compact" data-act="edit-today" data-key="bar-edit">Изменить в «Сегодня»</button><button type="button" class="primary-button" data-act="play"${strip.current ? ` data-ref="${ref(strip.current.content)}" data-step="${e(strip.current.id)}"` : ' disabled'} data-key="bar-start">Начать →</button></span>`
+      : `<strong>План пуст</strong><span class="ls-bar-list">Добавь упражнения кнопкой «+ в план» или сразу нажми «Играть».</span><span class="ls-bar-btns"><button type="button" class="primary-button" disabled>Начать →</button></span>`;
     regions.library.innerHTML = `<div class="ls-lib-body">
         <nav class="ls-cats" aria-label="Категории">${model.categories.map(category => `<button type="button" class="ls-cat" data-act="category" data-value="${e(category.id)}" data-key="cat:${e(category.id)}" aria-pressed="${library.category === category.id}"><span>${e(category.title)}</span><small>${e(category.count)}</small></button>`).join('')}</nav>
         <div class="ls-lib-right">${filters}<div class="ls-grid">${cards}</div></div>
@@ -330,13 +331,13 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const index = level.steps.indexOf(step);
     const isCurrent = step === currentBasicsStep(level) && level.status === 'current';
     let primary = '';
-    if (step.kind === 'check' && step.content) primary = `<button type="button" class="ls-btn ls-btn-primary ls-btn-big" data-act="play" data-ref="${ref(step.content)}" data-key="focus-primary">▶ Проверь себя <small>${e(stepMaterial(step.content))}</small></button>`;
-    else if (step.kind === 'check') primary = `<button type="button" class="ls-btn ls-btn-primary ls-btn-big" data-act="concept" data-concept="${e(concept.id)}" data-key="focus-primary">Вопрос карточки «${e(concept.title)}» →</button>`;
-    else if (exercise?.content) primary = `<button type="button" class="ls-btn ls-btn-primary ls-btn-big" data-act="play" data-ref="${ref(exercise.content)}" data-key="focus-primary">▶ ${step.kind === 'concept' ? 'Дальше: сыграть упражнение' : 'Играть упражнение'} <small>${e(exercise.title)} · ${e(stepMaterial(exercise.content))}</small></button>`;
+    if (step.kind === 'check' && step.content) primary = `<button type="button" class="primary-button button-large" data-act="play" data-ref="${ref(step.content)}" data-key="focus-primary">▶ Проверь себя <small>${e(stepMaterial(step.content))}</small></button>`;
+    else if (step.kind === 'check') primary = `<button type="button" class="primary-button button-large" data-act="concept" data-concept="${e(concept.id)}" data-key="focus-primary">Вопрос карточки «${e(concept.title)}» →</button>`;
+    else if (exercise?.content) primary = `<button type="button" class="primary-button button-large" data-act="play" data-ref="${ref(exercise.content)}" data-key="focus-primary">▶ ${step.kind === 'concept' ? 'Дальше: сыграть упражнение' : 'Играть упражнение'} <small>${e(exercise.title)} · ${e(stepMaterial(exercise.content))}</small></button>`;
     const secondary = [
       ownExercise?.content ? addButton(ownExercise.content) : '',
-      step.kind !== 'check' && ownCheck?.content ? `<button type="button" class="ls-btn ls-btn-s" data-act="play" data-ref="${ref(ownCheck.content)}" data-key="focus-check">Проверь себя · ${contentMinutes(ownCheck.content)} мин</button>` : '',
-      `<button type="button" class="ls-btn ls-btn-s" data-act="concept" data-concept="${e(concept.id)}" data-key="focus-concept">Открыть карточку</button>`,
+      step.kind !== 'check' && ownCheck?.content ? `<button type="button" class="secondary-button button-compact" data-act="play" data-ref="${ref(ownCheck.content)}" data-key="focus-check">Проверь себя · ${contentMinutes(ownCheck.content)} мин</button>` : '',
+      `<button type="button" class="secondary-button button-compact" data-act="concept" data-concept="${e(concept.id)}" data-key="focus-concept">Открыть карточку</button>`,
     ].join('');
     const source = conceptBoard(concept);
     return `<div class="ls-focus-top"><span class="ls-eyebrow">${isCurrent ? (firstRun ? 'Первый шаг' : 'Твой текущий шаг') : 'Выбранный шаг'} · ${level.lane === 'main' ? `уровень ${e(level.mark)}` : e(level.title.toLowerCase())} · шаг ${e(index + 1)} из ${e(level.steps.length)}</span><span class="ls-chip ls-chip-concept">${e(KIND_LABEL[step.kind])} · ${e(concept.title)}</span></div>

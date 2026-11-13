@@ -5,6 +5,7 @@
  * данных честно отклоняются (D-042). Диагностика входа монтируется приложением в `inputMount`.
  */
 import './settings.css';
+import { renderPageHeader } from '../../app/page-frame';
 import { escapeHtml } from '../html';
 import {
   BPM_MAX, BPM_MIN, BPM_STEP, LABEL_LABELS, SAVE_DETAIL, SAVE_TEXT, SECTIONS, THEME_LABELS, VIEW_LABELS,
@@ -108,10 +109,11 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
 
   container.classList.add('p13-settings');
   container.innerHTML = `
-    <header class="st-top">
-      <div><h1 class="st-title" tabindex="-1" data-title>Настройки</h1><p class="st-sub">Оформление, умолчания занятия, резервная копия и проверка аудиовхода.</p></div>
-      <span class="st-save" role="status" data-save-head><span class="st-dot"></span><span data-save-text></span></span>
-    </header>
+    ${renderPageHeader('settings', {
+      id: `${uid}-heading`, className: 'st-top',
+      descriptionText: 'Оформление, умолчания занятия, резервная копия и проверка аудиовхода.',
+      actions: '<span class="st-save" role="status" data-save-head><span class="st-dot"></span><span data-save-text></span></span>',
+    })}
     <div class="st-banners" data-banners></div>
     <div class="st-layout">
       <div class="st-tabs" role="tablist" aria-orientation="vertical" aria-label="Разделы настроек">${SECTIONS.map(item => `<button type="button" role="tab" class="st-tab" id="${uid}-tab-${item.id}" aria-controls="${uid}-pane-${item.id}" aria-selected="false" tabindex="-1" data-section="${item.id}">${ICONS[item.id]}<b>${escapeHtml(item.short)}</b><small data-summary="${item.id}"></small></button>`).join('')}</div>
@@ -122,6 +124,10 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
 
   const $ = <T extends HTMLElement = HTMLElement>(selector: string, scope: ParentNode = container) => scope.querySelector<T>(selector);
   const $$ = <T extends HTMLElement = HTMLElement>(selector: string, scope: ParentNode = container) => [...scope.querySelectorAll<T>(selector)];
+  // Заголовок принимает фокус после действий без собственной цели (восстановление, закрытие баннера).
+  const heading = $('h1')!;
+  heading.tabIndex = -1;
+  heading.dataset.title = '';
   const dialog = $<HTMLDialogElement>('[data-dialog]')!;
   const inputMount = $('[data-input-mount]')!;
   const locked = () => state.writer === 'other-tab';

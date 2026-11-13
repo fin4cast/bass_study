@@ -335,7 +335,7 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
       <div class="ck-tools">${kindSelect}${intervalSelect}${scopeToggle}
         ${summary ? '' : `${degreeKind ? `<button type="button" class="ck-toggle" data-act="toggle-ear" data-key="toggle-ear" aria-pressed="${earOn}"${canToggleEar ? '' : ' disabled'} title="${e(!material.earQuality ? 'Слух пока только для пентатоник и трезвучий' : canToggleEar ? 'Слух — опция вопроса: сначала тоника, потом нота' : 'Слух меняется до первого ответа серии')}">♪ <b>+ слух</b></button>` : ''}
         ${run.mode === 'board' ? `<button type="button" class="ck-toggle" data-act="toggle-contour" data-key="toggle-contour" aria-pressed="${contour}" title="Подсказка: контуры позиций материала без подписей">◌ Контуры формы</button>` : ''}
-        <button type="button" class="ck-btn ck-btn-ghost" data-act="finish" data-key="finish" title="Незаданные вопросы попадут в итог как «без ответа»">Завершить серию</button>`}</div>`;
+        <button type="button" class="text-button" data-act="finish" data-key="finish" title="Незаданные вопросы попадут в итог как «без ответа»">Завершить серию</button>`}</div>`;
   }
 
   function boardAnswerMarkup(current: CheckRun & { mode: 'board' }, mat: CheckMaterial) {
@@ -407,8 +407,8 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     const playing = !!state.activeListen;
     const review = current.ear.status === 'review';
     return `<div class="ck-cue">
-      <div class="ck-cue-row"><button type="button" class="ck-btn${state.listensCompleted ? '' : ' ck-btn-primary'}" data-act="listen" data-key="listen"${playing || review ? ' disabled' : ''}>${playing ? '♪ Звучит…' : state.listensCompleted ? '↻ Ещё раз <kbd>Пробел</kbd>' : '▶ Прослушать <kbd>Пробел</kbd>'}</button>
-        <button type="button" class="ck-btn" data-act="stop-signal" data-key="stop-signal"${playing ? '' : ' disabled'}>Остановить</button></div>
+      <div class="ck-cue-row"><button type="button" class="${state.listensCompleted ? 'secondary-button' : 'primary-button'}" data-act="listen" data-key="listen"${playing || review ? ' disabled' : ''}>${playing ? '♪ Звучит…' : state.listensCompleted ? '↻ Ещё раз <kbd>Пробел</kbd>' : '▶ Прослушать <kbd>Пробел</kbd>'}</button>
+        <button type="button" class="secondary-button" data-act="stop-signal" data-key="stop-signal"${playing ? '' : ' disabled'}>Остановить</button></div>
       <ol class="ck-steps" aria-label="Сигнал"><li data-cue-step="0">Тоника ${e(mat.root)}</li><li data-cue-step="1">пауза</li><li data-cue-step="2">Нота ?</li></ol>
       <small>${playing ? 'Слушаем… Ответы откроются после конца сигнала.' : state.listensCompleted ? `Прослушано полностью: ${e(state.listensCompleted)} · повторов: ${e(Math.max(0, state.listensCompleted - 1))}${state.listensCancelled ? ` · остановлено: ${e(state.listensCancelled)}` : ''}` : 'Ответы откроются после конца сигнала.'}</small></div>`;
   }
@@ -423,7 +423,7 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
   function buttonsMarkup(current: CheckRun) {
     const review = runStatus(current) === 'review';
     const last = questionIndex(current) + 1 >= questionCount(current);
-    return `<button type="button" class="ck-btn" data-act="reveal" data-key="reveal"${review ? ' disabled' : ''}>Показать ответ</button><button type="button" class="ck-btn" data-act="skip" data-key="skip"${review ? ' disabled' : ''}>Пропустить</button>${review ? `<button type="button" class="ck-btn ck-btn-primary" data-act="next" data-key="next">${last ? 'К итогу →' : 'Дальше →'} <kbd>Enter</kbd></button>` : ''}`;
+    return `<button type="button" class="secondary-button" data-act="reveal" data-key="reveal"${review ? ' disabled' : ''}>Показать ответ</button><button type="button" class="secondary-button" data-act="skip" data-key="skip"${review ? ' disabled' : ''}>Пропустить</button>${review ? `<button type="button" class="primary-button" data-act="next" data-key="next">${last ? 'К итогу →' : 'Дальше →'} <kbd>Enter</kbd></button>` : ''}`;
   }
 
   function summaryMarkup(result: CheckFinishSummary, list: readonly CheckEntry[], source: CheckRun, mat: CheckMaterial) {
@@ -450,9 +450,9 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
         <p class="ck-sub">Самостоятельно — только верный ответ с первой попытки без показа. Исправление, показ и пропуск считаются отдельно; повтор прослушивания — не ошибка.</p></div>
       <div class="ck-tiles">${tiles.map(([kind, value, label, hint]) => `<div class="ck-tile ck-st-${kind}"><strong>${e(value)}</strong><b>${e(label)}</b><span>${e(hint)}</span></div>`).join('')}</div>
       <ol class="ck-list">${rows}</ol>
-      <div class="ck-sum-actions"><button type="button" class="ck-btn ck-btn-primary" data-act="next-step" data-key="next-step">${e(context.nextText ?? 'К следующему шагу плана →')}</button>
-        <button type="button" class="ck-btn" data-act="retry" data-key="retry"${hard.length ? '' : ' disabled'}>${hard.length ? `Повторить трудные (${e(hard.length)})` : 'Трудных нет'}</button>
-        <button type="button" class="ck-btn ck-btn-ghost" data-act="again" data-key="again">Вся серия заново</button>${context.nextLabel ? `<span class="ck-sub">${e(context.nextLabel)}</span>` : ''}</div>`;
+      <div class="ck-sum-actions"><button type="button" class="primary-button" data-act="next-step" data-key="next-step">${e(context.nextText ?? 'К следующему шагу плана →')}</button>
+        <button type="button" class="secondary-button" data-act="retry" data-key="retry"${hard.length ? '' : ' disabled'}>${hard.length ? `Повторить трудные (${e(hard.length)})` : 'Трудных нет'}</button>
+        <button type="button" class="text-button" data-act="again" data-key="again">Вся серия заново</button>${context.nextLabel ? `<span class="ck-sub">${e(context.nextLabel)}</span>` : ''}</div>`;
   }
 
   function render() {

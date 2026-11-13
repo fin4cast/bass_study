@@ -502,7 +502,8 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     if (bound) message('Пауза: вкладка скрыта. Для продолжения нажми «Старт».');
   }, () => { if (!disposed) controls(); });
   const heightObservation = options.observeHeight(container, available => {
-    const height = `${Math.max(360, available)}px`;
+    // Нижний отступ как у остальных разделов: подпись внизу не прижата к краю окна.
+    const height = `${Math.max(360, available - 14)}px`;
     if (container.style.getPropertyValue('--mb-height') !== height) container.style.setProperty('--mb-height', height);
   });
   const observer = new MutationObserver(resources); observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });

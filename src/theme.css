@@ -1,3 +1,25 @@
+/* Размеры, общие для всех разделов и обеих тем: шрифт, радиусы, колонка панели справа. */
+:root {
+  --font-ui: "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-s: 13px;
+  --text-m: 14px;
+  --text-l: 16px;
+  --text-xl: 20px;
+  --text-page: 26px;
+  --radius-s: 6px;
+  --radius-m: 8px;
+  --radius-l: 12px;
+  --radius-pill: 999px;
+  --control-height: 36px;
+  --control-height-compact: 30px;
+  --control-height-large: 44px;
+  --card-padding: 16px 18px;
+  --aside-width: 300px;
+}
+@media (max-width: 1120px) { :root { --aside-width: 270px; } }
+
 /* Semantic roles shared by HTML, native controls, the fretboard and VexFlow SVG. */
 :root {
   color-scheme: light;
@@ -121,6 +143,8 @@
 }
 
 html { background: var(--surface-canvas); color: var(--text-primary); }
+/* Место под полосу прокрутки занято всегда: раздел выше окна («Занятие») не сужает страницу относительно разделов, умещающихся в окно. */
+html { overflow-y: auto; scrollbar-gutter: stable; }
 [hidden] { display: none !important; }
 input, select, textarea { accent-color: var(--accent); }
 input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 1; }

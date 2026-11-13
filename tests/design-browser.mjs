@@ -413,6 +413,48 @@ check('shared-visual-roles-across-atlas-rhythm-and-songs', async ({ page }) => {
   return { layouts, sharedSettingsActions: true };
 });
 
+// Единая сетка страниц: заголовок раздела в одной точке и одного размера, правая колонка одной ширины, место под полосу прокрутки —
+// при переходе между разделами рабочая область не «прыгает».
+check('six-sections-share-page-title-position-and-side-column-width', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await ready(page);
+  const main = page.getByRole('main');
+  const heading = () => main.locator('h1:visible').evaluate(element => {
+    const style = getComputedStyle(element);
+    const box = element.getBoundingClientRect();
+    return { x: box.x, top: box.top - element.closest('main').getBoundingClientRect().top, fontSize: style.fontSize, fontWeight: style.fontWeight };
+  });
+  const width = locator => locator.evaluate(element => element.getBoundingClientRect().width);
+  const titles = {};
+  const sides = {};
+  for (const id of ['lesson', 'foundation', 'harmony', 'tracks', 'progress', 'settings']) {
+    await navigate(page, id);
+    await main.locator('h1:visible').waitFor();
+    titles[id] = await heading();
+  }
+  await navigate(page, 'lesson');
+  sides.lesson = await width(main.locator('.ls-plan'));
+  await navigate(page, 'foundation');
+  await settings(page);
+  sides.foundation = await width(page.locator('#study-settings'));
+  await navigate(page, 'harmony');
+  const rhythmSettings = main.locator('[data-rhythm-settings-panel="metronome"]');
+  if (!await rhythmSettings.isVisible()) await main.locator('.rhythm-header [data-page-settings-toggle]').click();
+  sides.harmony = await width(rhythmSettings);
+  await navigate(page, 'tracks');
+  sides.tracks = await width(main.locator('.mb-mixer'));
+  await navigate(page, 'progress');
+  sides.progress = await width(main.locator('.pg-side').first());
+  // «Занятие» выше окна и прокручивается, остальные разделы умещаются: без резерва под полосу прокрутки страница
+  // сужается на её ширину. Edge без окна полосы скрывает, поэтому проверяется само правило, а не геометрия.
+  const root = await page.evaluate(() => { const style = getComputedStyle(document.documentElement); return { gutter: style.scrollbarGutter, overflowY: style.overflowY }; });
+  assert.deepEqual(root, { gutter: 'stable', overflowY: 'auto' }, 'место под полосу прокрутки зарезервировано во всех разделах');
+  const [first, ...rest] = Object.values(titles);
+  for (const [id, title] of Object.entries(titles)) assert.deepEqual(title, first, `${id}: заголовок как у остальных разделов ${JSON.stringify(titles)}`);
+  for (const [id, value] of Object.entries(sides)) assert.ok(Math.abs(value - sides.lesson) <= 1, `${id}: правая колонка ${value}px, у «Занятия» ${sides.lesson}px ${JSON.stringify(sides)}`);
+  return { titles, sides, compared: rest.length + 1 };
+});
+
 check('shared-form-and-disclosure-states-in-atlas-and-audio-input-settings', async ({ page }) => {
   await ready(page);
   const look = locator => locator.evaluate(element => {

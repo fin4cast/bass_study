@@ -1219,7 +1219,7 @@
 
 @media (min-width: 1440px) and (min-height: 700px) {
   .rhythm-view { --rhythm-side-panel: 1; }
-  .rhythm-view .rhythm-workspace:has(.rhythm-side-scroll:not([hidden])) { grid-template-columns: minmax(0, 1fr) 280px; }
+  .rhythm-view .rhythm-workspace:has(.rhythm-side-scroll:not([hidden])) { grid-template-columns: minmax(0, 1fr) var(--aside-width); }
   .rhythm-view .rhythm-constructor { grid-column: 1; }
   .rhythm-view .rhythm-groove-detail-scroll { display: contents; }
   .rhythm-view .rhythm-groove-tools { grid-column: 1; grid-row: 2; min-height: 0; overflow-y: auto; }

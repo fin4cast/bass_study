@@ -3,6 +3,7 @@
  * Данные приходят в опциях и через `update`; действия уходят колбэками. Хранилище и звук модуль не трогает.
  */
 import './progress.css';
+import { renderPageHeader } from '../../app/page-frame';
 import { confirmAction } from '../confirm';
 import { escapeHtml } from '../html';
 import { checkIcon, markIcon, outcomeIcon, sparkSvg, sparkText, tallyStack, tempoChartSvg } from './charts';
@@ -81,17 +82,17 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
 
   container.classList.add('p13-progress');
   container.innerHTML = `
-    <header class="pg-top">
-      <h1 class="pg-title">Прогресс</h1>
-      <p class="pg-sub">Что получается и что стоит повторить.</p>
-      <div class="pg-tabs" role="tablist" aria-label="Вид прогресса">
+    ${renderPageHeader('progress', {
+      id: `${uid}-heading`, className: 'pg-top',
+      descriptionText: 'Что получается и что стоит повторить.',
+      actions: `<div class="pg-ctl" data-source-ctl><span id="${uid}-src">Источник:</span>
+        <div class="pg-seg" role="group" aria-labelledby="${uid}-src">${(['play', 'check', 'all'] as const).map(id => `<button type="button" data-source="${id}" aria-pressed="false">${escapeHtml(SOURCE_FILTER_LABELS[id])}</button>`).join('')}</div>
+      </div>`,
+      navigation: `<div class="workspace-tabs" role="tablist" aria-label="Вид прогресса">
         <button type="button" role="tab" id="${uid}-tab-exercises" aria-controls="${uid}-panel-exercises" data-tab="exercises">Упражнения</button>
         <button type="button" role="tab" id="${uid}-tab-calendar" aria-controls="${uid}-panel-calendar" data-tab="calendar">Календарь</button>
-      </div>
-      <div class="pg-ctl" data-source-ctl><span id="${uid}-src">Источник:</span>
-        <div class="pg-seg" role="group" aria-labelledby="${uid}-src">${(['play', 'check', 'all'] as const).map(id => `<button type="button" data-source="${id}" aria-pressed="false">${escapeHtml(SOURCE_FILTER_LABELS[id])}</button>`).join('')}</div>
-      </div>
-    </header>
+      </div>`,
+    })}
     <p class="pg-note" data-note></p>
     <div class="pg-panel" role="tabpanel" id="${uid}-panel-exercises" aria-labelledby="${uid}-tab-exercises" data-panel="exercises">
       <div class="pg-grid-a">

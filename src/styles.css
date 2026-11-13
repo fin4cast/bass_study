@@ -1526,7 +1526,7 @@ body { background: var(--surface-canvas); }
 .page-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px 12px; min-height: 34px; }
 .page-header-row > :not(.page-header-copy) { flex-shrink: 0; }
 .page-header-copy { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 12px; min-width: 0; }
-.page-header h1 { margin: 0; font-size: 26px; line-height: 1.2; letter-spacing: -.6px; font-weight: 650; }
+.page-header h1 { margin: 0; font-size: var(--text-page); line-height: 1.2; letter-spacing: -.6px; font-weight: 650; }
 .page-header-context { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
 .page-header-navigation { margin-top: 10px; }
 .page-settings-button { gap: 7px; }
@@ -1540,6 +1540,8 @@ body { background: var(--surface-canvas); }
 .app-content main > :is(.page-frame-inset, .page-frame-pad, [data-page-frame="harmony"], [data-page-frame="tracks"]) { margin-inline: var(--study-inline-inset); }
 /* «Занятие», «Прогресс», «Настройки» (P13): отступы рабочей области; экран игры занимает высоту окна. */
 .app-content main > .page-frame-pad { box-sizing: border-box; padding-block: var(--study-block-inset, 18px) 22px; min-width: 0; }
+/* Отступ сверху уже дала секция: шапка внутри неё начинается с края, как у остальных разделов. */
+.app-content main > .page-frame-pad .page-header { padding-block-start: 0; }
 .app-content main > .page-frame-pad[hidden] { display: none; }
 [data-page-frame="lesson"] > .lesson-screen[hidden] { display: none; }
 [data-page-frame="lesson"] > .lesson-screen[data-lesson-screen="play"] { height: 100%; min-height: 0; }
@@ -1565,7 +1567,7 @@ body { background: var(--surface-canvas); }
   .app-shell[data-workspace-layout="bounded"] main > [data-page-frame]:not([hidden]) { block-size: 100%; }
 }
 .workspace {
-  --study-settings-width: 280px;
+  --study-settings-width: var(--aside-width);
   display: grid; grid-template-columns: minmax(0, 1fr) calc(var(--study-settings-width) + var(--study-inline-inset)); grid-template-rows: auto 1fr; align-items: stretch;
   min-height: var(--study-content-height); border: 0; border-radius: 0; background: transparent; overflow: visible; box-shadow: none;
 }
@@ -1582,6 +1584,10 @@ body { background: var(--surface-canvas); }
 }
 .workspace-tabs > button:hover:not(:disabled) { color: var(--text-primary); }
 .workspace-tabs > button:is([aria-pressed="true"], [aria-selected="true"]) { color: var(--accent-text); border-bottom-color: var(--accent); font-weight: 650; }
+.workspace-tabs > button { gap: 7px; }
+.workspace-tabs .tab-badge { padding: 0 7px; border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--surface-raised); color: var(--text-secondary); font-size: var(--text-2xs); font-weight: 600; font-variant-numeric: tabular-nums; }
+.workspace-tabs .tab-badge:empty { display: none; }
+.workspace-tabs > [aria-selected="true"] .tab-badge { border-color: var(--accent); background: var(--accent-soft); color: var(--text-primary); }
 .board-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 9px 0 8px; }
 .board-caption { color: var(--text-secondary); font-size: 12px; }
 .board-toolbar .label-field { width: auto; margin-left: auto; }
@@ -1641,7 +1647,7 @@ body { background: var(--surface-canvas); }
   display: block; min-width: 0; padding: 20px 18px; border-left: 1px solid var(--border);
   border-radius: 0 0 12px 0; background: var(--surface-raised);
 }
-.settings-panel.settings-panel-framed { border: 1px solid var(--border-strong); border-radius: 7px; }
+.settings-panel.settings-panel-framed { border: 1px solid var(--border-strong); border-radius: var(--radius-l); }
 .settings-panel > .section-title { justify-content: space-between; align-items: center; padding: 0; gap: 10px; margin-bottom: 14px; }
 .settings-panel h2 { font-size: 15px; line-height: 1.5; font-weight: 600; letter-spacing: 0; }
 .settings-panel .musical-controls { display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin: 0; }
@@ -1699,7 +1705,6 @@ body { background: var(--surface-canvas); }
   .site-header { padding-inline: 11px; }
   .site-header .brand { font-size: 22px; gap: 8px; }
   .site-header .brand-dot { margin-inline: -7px; }
-  .workspace { --study-settings-width: 254px; }
   .settings-panel { padding: 20px 18px; }
   .page-header h1 { font-size: 24px; }
 }
