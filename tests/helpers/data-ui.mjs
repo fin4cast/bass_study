@@ -161,6 +161,12 @@ export const rhythmState = page => page.evaluate(() => document.querySelector('.
 export async function rhythmWait(page, state) {
   await page.waitForFunction(value => document.querySelector('.rhythm-view')?.dataset.rhythmState === value, state);
 }
+/** Ждёт, пока аудиочасы страницы пройдут `milliseconds` с момента, когда они реально пошли (фикстура audioClockScript). */
+export async function untilAudioPlayed(page, milliseconds) {
+  assert.equal(await page.evaluate(() => typeof window.__audioClock), 'function', 'Фикстура подключает audioClockScript');
+  const started = await (await page.waitForFunction(() => window.__audioClock() || false, null, { timeout: 6000 })).jsonValue();
+  await page.waitForFunction(target => window.__audioClock() >= target, started + milliseconds / 1000, { timeout: 6000 + milliseconds });
+}
 /**
  * Метроном «Ритма» звучит заданное время по аудиочасам; черновик ручной практики создаёт приложение.
  * Состояние «running» не значит, что currentTime уже идёт: Edge без окна запускает вывод с задержкой,
@@ -170,9 +176,7 @@ export async function playRhythm(page, milliseconds) {
   if (await currentSection(page) !== 'harmony') await go(page, 'harmony');
   await rhythmRoot(page).locator('[data-rhythm-action="start"]').click();
   await rhythmWait(page, 'running');
-  assert.equal(await page.evaluate(() => typeof window.__audioClock), 'function', 'Фикстура подключает audioClockScript');
-  const started = await (await page.waitForFunction(() => window.__audioClock() || false, null, { timeout: 6000 })).jsonValue();
-  await page.waitForFunction(target => window.__audioClock() >= target, started + milliseconds / 1000, { timeout: 6000 + milliseconds });
+  await untilAudioPlayed(page, milliseconds);
   await rhythmRoot(page).locator('[data-rhythm-action="stop"]').click();
   await rhythmWait(page, 'stopped');
 }

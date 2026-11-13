@@ -6,7 +6,7 @@ import { runReleaseBrowserChecks } from './helpers/release-browser-harness.mjs';
 import { browserCases, markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 import {
   answerChoice, answerNameNoteCorrectly, checkHost, checkProgress, currentSection, exportDownload, exportUi, go, nameNoteQuestion, openDrafts,
-  openFormCheck, openSettingsPane, playRhythm, previewCopy, progressPage, rawSnapshot, ready, rhythmBpm, settingsDialog, settingsPage, waitRaw, withoutSection,
+  openFormCheck, openSettingsPane, playRhythm, previewCopy, progressPage, rawSnapshot, ready, rhythmBpm, settingsDialog, settingsPage, untilAudioPlayed, waitRaw, withoutSection,
 } from './helpers/data-ui.mjs';
 
 // Сценарии выпуска в оболочке P13: «Проверь себя» по форме атласа вместо вкладки «Задания», «Ритм» как источник часов
@@ -405,7 +405,7 @@ check('keyboard-only-full-practice-survives-browser-reopen-at-stable-origin', as
     await keyboardSection(page, 'harmony');
     await keyboardActivate(page, page.locator('[data-rhythm-action="start"]'));
     await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState === 'running');
-    await delay(900);
+    await untilAudioPlayed(page, 900);
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => document.querySelector('.rhythm-view')?.dataset.rhythmState === 'stopped');
     await keyboardSection(page, 'progress');
