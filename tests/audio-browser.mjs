@@ -328,7 +328,7 @@ check('ui-play-board-current-note-follows-shown-note-and-pause-stop-keep-screen-
   return { samples: samples.length, distinctNotes: new Set(samples.map(row => row.note)).size, paused: { note: paused.note, current: paused.current }, stopped: stopped.text, screenshot: 'test-results/p4-play-desktop.png' };
 });
 
-check('ui-play-tempo-step-during-playback-keeps-playing-without-rating-not-remembered', 'ui', async ({ page }) => {
+check('ui-play-tempo-step-during-playback-keeps-playing-and-is-remembered-for-the-exercise', 'ui', async ({ page }) => {
   const initial = await openPlay(page);
   await playScene(page).locator('[data-play]').click();
   const playing = await waitPlay(page, state => state.status === 'playing' && state.note >= 1, null, 20000);
@@ -337,10 +337,10 @@ check('ui-play-tempo-step-during-playback-keeps-playing-without-rating-not-remem
   const later = await waitPlay(page, (state, note) => state.status === 'playing' && state.note > note, changed.note, 5000);
   assert.equal(later.bpm, changed.bpm, 'Темп держится, игра не остановлена');
   await focusTitle(page); await page.keyboard.press('Escape'); await waitPlay(page, state => state.status === 'stopped', null, 3000);
-  // Без отметки прохода темп не записывается: упражнение без истории снова открывается с темпом занятия (D-046).
+  // Темп упражнения запоминается при остановке (D-050): упражнение снова открывается с ним.
   await playScene(page).locator('[data-back]').first().click();
   const reopened = await openPlay(page);
-  assert.equal(reopened.bpm, initial.bpm, 'Темп без отметки прохода не становится темпом упражнения');
+  assert.equal(reopened.bpm, changed.bpm, 'Темп упражнения сохранён при остановке');
   return { initialBpm: initial.bpm, playingNote: playing.note, changedBpm: changed.bpm, keptPlayingAtNote: later.note, reopenedBpm: reopened.bpm };
 });
 
@@ -388,6 +388,28 @@ check('ui-play-smallest-design-window-has-no-page-scroll-while-paused', 'ui', as
   return { size, screenshot: 'test-results/p4-play-1024.png', fullMobileSupportClaimed: false };
 });
 
+check('ui-play-four-views-fit-1280x720-after-a-pass-with-rating-and-open-sound-panel', 'ui', async ({ page }) => {
+  // R-026: TAB, гриф и транспорт помещаются без прокрутки в окне 1280×720, в том числе после прохода (с оценкой подхода).
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openPlay(page);
+  await playScene(page).locator('[data-flag="loop"]').click();
+  await playScene(page).locator('[data-bpm]').fill('200'); await playScene(page).locator('[data-bpm]').press('Enter');
+  await focusTitle(page); await page.keyboard.press('Space');
+  await playScene(page).getByRole('group', { name: 'Самооценка подхода' }).waitFor({ timeout: 20000 });
+  const sizes = {};
+  for (const view of ['board', 'both', 'tab', 'memory']) {
+    await playScene(page).locator(`button[data-view="${view}"]`).click();
+    for (const panel of [false, true]) {
+      if (panel !== (await playScene(page).locator('[data-panel-toggle]').getAttribute('aria-expanded') === 'true')) await playScene(page).locator('[data-panel-toggle]').click();
+      const size = await page.evaluate(() => ({ clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth,
+        clientHeight: document.documentElement.clientHeight, scrollHeight: document.documentElement.scrollHeight }));
+      assert.ok(size.scrollWidth <= size.clientWidth + 1 && size.scrollHeight <= size.clientHeight + 1, `${view}${panel ? ' + панель' : ''}: прокрутка ${JSON.stringify(size)}`);
+      sizes[`${view}${panel ? '+panel' : ''}`] = size;
+    }
+  }
+  return sizes;
+});
+
 markFullOnly(checks, [
   'live-user-gesture-creates-real-nonzero-audio-output',
   'live-cursor-does-not-jump-to-lookahead-note-before-audio-clock',
@@ -404,7 +426,7 @@ markFullOnly(checks, [
   'offline-two-and-four-ignores-sixteenth-subdivision',
   'offline-eighth-and-sixteenth-metronome-subdivisions',
   'offline-tempo-ladder-six-passes-reaches-target-and-finishes',
-  'ui-play-tempo-step-during-playback-keeps-playing-without-rating-not-remembered',
+  'ui-play-tempo-step-during-playback-keeps-playing-and-is-remembered-for-the-exercise',
   'ui-play-smallest-design-window-has-no-page-scroll-while-paused',
 ], FULL_ONLY.smoke);
 await runAudioBrowserChecks(checks);

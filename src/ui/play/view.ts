@@ -643,7 +643,8 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     const timer = at('[data-timer]');
     timer.hidden = !planStep;
     if (planStep) {
-      const done = planStep.doneMs + (approach?.activeMs ?? 0) + passMs;
+      // Сыгранное сегодня (история) + идущий подход + ещё не оценённый подход.
+      const done = planStep.doneMs + (approach?.activeMs ?? 0) + passMs + (pendingRate && !rated ? pendingRate.activeMs : 0);
       setText(timer, `шаг: ${formatTime(done)} из ${Math.round(planStep.plannedMs / 60000)} мин${done >= planStep.plannedMs ? ' — время шага вышло, оцени подход' : ''}`);
       timer.classList.toggle('is-over', done >= planStep.plannedMs);
     }

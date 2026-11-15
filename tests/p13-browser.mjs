@@ -551,6 +551,130 @@ check('play-self-assessment-clean-is-saved-and-visible-in-progress-after-reload'
     planStep: planned.preferences.lesson.plan.steps[0].status };
 });
 
+/* ---------- Экран игры D-050: звук и ритм, подход, петля, план ---------- */
+
+check('play-sound-panel-chromatic-reference-metronome-count-in-rhythm-applied-and-remembered', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await openPlanStep(page, 'Хроматика 1-2-3-4 в позиции');
+  // «Гриф» — без TAB; у хроматики нет тоники — «Ступени» недоступны с пояснением.
+  await playScene(page).locator('button[data-view="board"]').click();
+  assert.equal(await playScene(page).locator('[data-area="board"] [data-tab]').count(), 0, 'В виде «Гриф» TAB нет');
+  const degree = playScene(page).locator('button[data-label="degree"]');
+  assert.equal(await degree.isDisabled(), true);
+  assert.match(await degree.getAttribute('title'), /нет тоники/);
+  await focusPlayTitle(page);
+  await page.keyboard.press('KeyM');
+  const panel = playScene(page).getByRole('group', { name: 'Звук и ритм' });
+  await panel.waitFor();
+  await panel.locator('[data-reference="off"]').click();
+  await panel.locator('[data-metronome="two-four"]').click();
+  await panel.locator('[data-countin-bars="2"]').click();
+  await panel.locator('[data-rhythm-select]').selectOption('quarters');
+  assert.match(await playScene(page).locator('[data-sound-summary]').innerText(), /эталон выкл · 2 и 4 · отсчёт 2/);
+  assert.match(await playScene(page).locator('[data-sub]').innerText(), /четверти · 4 такта/);
+  const saved = await waitDb(page, db => db.preferences?.play?.reference === 'off' && db.preferences.play.metronome === 'two-four' && db.preferences.play.countInBars === 2
+    && Object.values(db.preferences.lesson.exerciseSettings ?? {}).some(item => item.rhythm === 'quarters'), 'звук и ритм запомнены');
+  // Отсчёт идёт два такта.
+  await focusPlayTitle(page); await page.keyboard.press('Space');
+  await waitPlay(page, state => state.status === 'counting', null, 5000);
+  const counted = await page.evaluate(() => new Promise(resolve => {
+    const scene = document.querySelector('[data-lesson-screen="play"] .pl-scene');
+    let fours = 0, last = '';
+    const timer = setInterval(() => {
+      const value = scene.querySelector('[data-countin-value]').textContent;
+      if (value !== last && value === '4') fours++;
+      last = value;
+      if (scene.dataset.status === 'playing') { clearInterval(timer); resolve(fours); }
+    }, 10);
+  }));
+  assert.equal(counted, 2, 'Два такта отсчёта');
+  await page.keyboard.press('Escape');
+  // Повторное открытие — с тем же ритмом и звуком.
+  await playScene(page).locator('[data-back]').click();
+  await openPlanStep(page, 'Хроматика 1-2-3-4 в позиции');
+  assert.match(await playScene(page).locator('[data-sound-summary]').innerText(), /эталон выкл · 2 и 4 · отсчёт 2/);
+  assert.match(await playScene(page).locator('[data-sub]').innerText(), /четверти/);
+  return { play: saved.preferences.play, settings: saved.preferences.lesson.exerciseSettings };
+});
+
+check('play-loop-approach-rated-once-after-stop-with-keys-and-loop-on-current-bar', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await lessonTab(page, 'Библиотека');
+  const card = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: 'Форма пентатоники вверх-вниз', exact: true }) });
+  await card.getByRole('button', { name: /^Играть/ }).click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  assert.equal(await playScene(page).locator('[data-flag="loop"]').getAttribute('aria-pressed'), 'true');
+  await playScene(page).locator('[data-bpm]').fill('200'); await playScene(page).locator('[data-bpm]').press('Enter');
+  await focusPlayTitle(page); await page.keyboard.press('Space');
+  // Два прохода по кругу — панель оценки не всплывает на каждом круге.
+  await waitPlay(page, state => state.status === 'playing' && /проход 3/.test(state.text), null, 30000);
+  const rate = playScene(page).getByRole('group', { name: 'Самооценка подхода' });
+  assert.equal(await rate.isVisible(), false, 'Во время петли оценка не мешает');
+  // L — петля на текущий такт; игра перезапускается с петлёй.
+  await page.keyboard.press('KeyL');
+  await assertAttribute(playScene(page).locator('[data-clear-range]'), 'hidden', null);
+  assert.match(await playScene(page).locator('[data-clear-range]').innerText(), /^Петля: такт \d ✕$/);
+  await waitPlay(page, state => state.status === 'playing' && /проход 2/.test(state.text), null, 30000);
+  // Esc — к началу и оценка подхода; X — «С ошибками».
+  await page.keyboard.press('Escape');
+  await rate.waitFor();
+  assert.match(await rate.innerText(), /Подход: \d+ прохода? · 200 BPM/);
+  await page.keyboard.press('KeyX');
+  const db = await waitDb(page, db => db.history.some(entry => entry.result?.assessment === 'errors'), '«С ошибками» в истории');
+  const entry = db.history.find(item => item.result?.assessment === 'errors');
+  assert.equal(entry.result.material.wholePass, false, 'Подход на петле — не целый проход');
+  return { material: entry.result.material };
+});
+
+check('plan-step-timer-and-next-step-after-rating', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await openPlanStep(page, FIRST_RUN_PLAN[0]);
+  assert.match(await playScene(page).locator('[data-timer]').innerText(), /^шаг: 0:00 из 3 мин$/);
+  await playScene(page).locator('[data-flag="loop"]').click();
+  await playScene(page).locator('[data-bpm]').fill('200'); await playScene(page).locator('[data-bpm]').press('Enter');
+  await focusPlayTitle(page); await page.keyboard.press('Space');
+  const rate = playScene(page).getByRole('group', { name: 'Самооценка подхода' });
+  await rate.waitFor({ timeout: 20000 });
+  assert.match(await playScene(page).locator('[data-timer]').innerText(), /^шаг: 0:0[1-9] из 3 мин$/);
+  await page.keyboard.press('KeyZ');
+  const next = rate.getByRole('button', { name: 'Следующий шаг плана →' });
+  await next.waitFor();
+  await page.keyboard.press('Enter');
+  await waitPlay(page, () => true, null, 5000);
+  await page.waitForFunction(title => document.querySelector('[data-lesson-screen="play"] [data-title]')?.textContent === title, FIRST_RUN_PLAN[1]);
+  const db = await waitDb(page, db => db.preferences.lesson.plan.steps[0].status === 'done', 'первый шаг выполнен');
+  return { steps: db.preferences.lesson.plan.steps.map(step => step.status) };
+});
+
+check('play-right-hand-echo-and-shuffle-groove-on-string-crossing-and-memory-pulse', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await lessonTab(page, 'Библиотека');
+  const card = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: 'Переход между струнами (правая рука)', exact: true }) });
+  await card.locator('[data-act="configure"]').click();
+  await card.locator('[data-param="pattern"]').selectOption('raking');
+  await card.getByRole('button', { name: /^Играть/ }).click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  await playScene(page).locator('button[data-view="board"]').click();
+  const pluck = playScene(page).locator('button[data-label="pluck"]');
+  assert.equal(await pluck.isDisabled(), false);
+  await pluck.click();
+  const labels = await playScene(page).locator('[data-board="board"] .pl-note-label').allTextContents();
+  assert.ok(labels.length && labels.every(label => label === 'i' || label === 'm'), `Подписи правой руки: ${labels}`);
+  await playScene(page).locator('[data-panel-toggle]').click();
+  const panel = playScene(page).getByRole('group', { name: 'Звук и ритм' });
+  await panel.locator('[data-groove]').selectOption('shuffle');
+  await panel.locator('[data-flag="echo"]').click();
+  assert.match(await playScene(page).locator('[data-sub]').innerText(), /эхо/);
+  assert.match(await playScene(page).locator('[data-sound-summary]').innerText(), /эхо · .* · шаффл/);
+  await playScene(page).locator('button[data-view="memory"]').click();
+  await focusPlayTitle(page); await page.keyboard.press('Space');
+  await waitPlay(page, state => state.status === 'playing', null, 10000);
+  await page.waitForFunction(() => document.querySelector('[data-lesson-screen="play"] [data-pulse].is-on') !== null, null, { timeout: 5000 });
+  assert.match(await playScene(page).locator('[data-mem-bar]').innerText(), /^такт \d+ из \d+$/);
+  await page.keyboard.press('Escape');
+  return { labels: [...new Set(labels)] };
+});
+
 /* ---------- «Проверь себя» ---------- */
 
 async function basicsLevels(page) {
@@ -894,6 +1018,7 @@ check('second-window-waits-for-writer-and-takes-over-after-first-closes', 'ui', 
 
 markFullOnly(checks, ['native-real-hidden-tab-pauses-play-and-resumes-only-by-action'], FULL_ONLY.hiddenTab);
 markFullOnly(checks, ['live-play-sounds-reached-notes-on-audio-clock-and-pause-cancels-scheduled-voices'], FULL_ONLY.liveAudio);
+markFullOnly(checks, ['play-right-hand-echo-and-shuffle-groove-on-string-crossing-and-memory-pulse'], FULL_ONLY.smoke);
 markFullOnly(checks, ['second-window-waits-for-writer-and-takes-over-after-first-closes'], 'несколько окон одного профиля: передача права записи после закрытия первого окна');
 
 const selection = browserCases(checks);
