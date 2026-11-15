@@ -18,7 +18,9 @@ function onsets(actual, expected) {
   actual.forEach((value, index) => near(value, expected[index], 0.02, `PCM onset ${index}`));
 }
 function pcm(report, bass, click = []) {
-  assert.equal(report.channels, 2); assert.equal(report.sampleRate, 44100);
+  // Каналы PCM: бас, клик, подложка (D-050); без подложки третий канал молчит.
+  assert.equal(report.channels, 3); assert.equal(report.sampleRate, 44100);
+  assert.equal(report.groove.onsets.length, 0);
   onsets(report.bass.onsets, bass); onsets(report.click.onsets, click);
   assert.ok(report.bass.peak > 0.01); assert.ok(report.bass.tailRms < 0.000001);
   if (click.length) assert.ok(report.click.peak > 0.01);
@@ -46,7 +48,7 @@ const READ_PLAY = `(() => {
   const text = scene.querySelector('[data-progress-text]').textContent;
   const match = /Нота (\\d+) из (\\d+)/.exec(text);
   return { status: scene.dataset.status, view: scene.dataset.view, text, note: match ? Number(match[1]) : null,
-    now: scene.querySelector('[data-now-detail]')?.textContent ?? '', bpm: Number(scene.querySelector('[data-bpm]').textContent),
+    now: scene.querySelector('[data-now-detail]')?.textContent ?? '', bpm: Number(scene.querySelector('[data-bpm]').value),
     current: [...scene.querySelectorAll('.pl-note.is-current')].map(node => node.dataset.position) };
 })()`;
 const playState = page => page.evaluate(READ_PLAY);
@@ -122,6 +124,49 @@ check('offline-eighth-and-sixteenth-metronome-subdivisions', 'api', async ({ pag
   pcm(eighth, [0, 0.5, 1, 1.5], [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75]);
   pcm(sixteenth, [0, 0.5, 1, 1.5], Array.from({ length: 16 }, (_, i) => i / 8));
   return { eighth, sixteenth };
+});
+
+/* ---------- Шкала шагов, эталон, подложка, свинг (D-050) ---------- */
+
+check('offline-steps-of-different-length-and-rest-sound-on-their-onsets', 'api', async ({ page }) => {
+  // 120 BPM: шестнадцатая — 0,125 с. Восьмая, четверть, пауза-восьмая, половинная → ноты на 0; 0,25; 1,0.
+  const result = await offline(page, { steps: [{ note: 0, grids: 2 }, { note: 1, grids: 4 }, { note: null, grids: 2 }, { note: 2, grids: 8 }] });
+  pcm(result, [0, 0.25, 1]); near(result.finishAt, 2, 0.0001);
+  assert.deepEqual(result.trace.filter(event => event.type === 'note').map(event => event.positionId), ['E:0', 'E:1', 'E:3']);
+  return result;
+});
+
+check('offline-echo-step-and-muted-reference-keep-timing-without-bass-sound', 'api', async ({ page }) => {
+  // Шаг «эха» (audible: false) не звучит, но время и запись ноты остаются.
+  const echo = await offline(page, { steps: [{ note: 0, grids: 4 }, { note: 1, grids: 4, audible: false }] });
+  onsets(echo.bass.onsets, [0]);
+  assert.deepEqual(echo.trace.filter(event => event.type === 'note').map(event => event.audible), [true, false]);
+  // Эталон выключен громкостью: басовый канал молчит, клик метронома слышен на долях.
+  const muted = await page.evaluate(async config => {
+    window.p4.player.setVolumes({ bass: 0 });
+    try { return await window.p4.player.renderOffline(window.p4.makeConfig(config)); }
+    finally { window.p4.player.setVolumes({ bass: 0.65 }); }
+  }, { metronome: { enabled: true, mode: 'all', subdivision: 'quarter' } });
+  assert.ok(muted.bass.peak < 0.0001, `Басовый канал молчит: ${muted.bass.peak}`);
+  onsets(muted.click.onsets, [0, 0.5, 1, 1.5]);
+  return { echo: echo.bass, muted: { bass: muted.bass, click: muted.click } };
+});
+
+check('offline-groove-hits-sound-on-bar-steps-in-the-same-clock', 'api', async ({ page }) => {
+  const groove = Array.from({ length: 16 }, (_, step) => step === 0 ? [{ sound: 'kick', velocity: 1 }] : step === 8 ? [{ sound: 'snare', velocity: 1 }] : []);
+  const result = await offline(page, { steps: [{ note: 0, grids: 16 }], groove, repeat: 'once' });
+  // Бочка на «раз» (0 с) и малый на «3» (1 с) — на шине подложки, в одном времени с басом.
+  onsets(result.groove.onsets, [0, 1]);
+  onsets(result.bass.onsets, [0]);
+  assert.ok(result.groove.peak > 0.01);
+  return result.groove;
+});
+
+check('offline-swing-delays-only-the-weak-eighth', 'api', async ({ page }) => {
+  // Свинг 66: слабая восьмая сдвигается на 0,64 шестнадцатой = 0,08 с при 120 BPM; сильные доли на месте.
+  const result = await offline(page, { steps: [0, 1, 2, 3].map(note => ({ note, grids: 2 })), swing: 66 });
+  onsets(result.bass.onsets, [0, 0.33, 0.5, 0.83]);
+  return result.bass;
 });
 
 check('offline-tempo-ladder-six-passes-reaches-target-and-finishes', 'api', async ({ page }) => {
@@ -260,7 +305,7 @@ check('ui-play-board-current-note-follows-shown-note-and-pause-stop-keep-screen-
   assert.equal(initial.status, 'stopped'); assert.equal(initial.view, 'board');
   await playScene(page).locator('[data-play]').click();
   await waitPlay(page, state => state.status === 'playing' && state.note >= 1, null, 20000);
-  // Опрос по таймеру: на виде «Гриф крупно» подсвечена ровно одна нота — та, что названа в «Сейчас».
+  // Опрос по таймеру: на виде «Гриф» подсвечена ровно одна нота — та, что названа в «Сейчас».
   const samples = await page.evaluate(async source => {
     const read = () => (0, eval)(source); const rows = []; const started = performance.now();
     while (performance.now() - started < 1500) { const state = read(); if (state.status === 'playing') rows.push(state); await new Promise(resolve => setTimeout(resolve, 15)); }

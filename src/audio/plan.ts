@@ -1,4 +1,5 @@
 import type { AnnotatedPosition } from '../music';
+import type { RhythmSound } from '../rhythm/model';
 
 export type NoteDuration = 'quarter' | 'eighth' | 'sixteenth';
 export type MetronomeMode = 'all' | 'two-four' | 'gap-2-2';
@@ -10,12 +11,31 @@ export type RepeatMode = 'once' | 'infinite' | {
   readonly repeatsPerTempo: number;
 };
 
+/**
+ * Шаг шкалы прохода (D-050): нота плана (`note` — индекс в `notes`) или пауза (`null`) длиной `grids` шестнадцатых.
+ * `audible: false` — нота ведёт подсветку и время, но эталон молчит (такт «эха»).
+ */
+export interface PlaybackStep { readonly note: number | null; readonly grids: number; readonly audible?: boolean }
+/** Удар подложки-грува на шестнадцатой такта. */
+export interface GrooveHit { readonly sound: RhythmSound; readonly velocity: number }
+
 export interface PlaybackConfig {
   readonly notes: readonly AnnotatedPosition[];
+  /**
+   * Шкала прохода. Без неё — каждая нота длительностью `duration`. С ней `range` задаёт фрагмент в шагах,
+   * а не в нотах.
+   */
+  readonly steps?: readonly PlaybackStep[];
   readonly range?: { readonly from: number; readonly toExclusive: number };
   readonly duration?: NoteDuration;
   readonly bpm?: number;
   readonly countIn?: boolean;
+  /** Отсчёт в тактах 4/4 (0–2); главнее `countIn`. */
+  readonly countInBars?: number;
+  /** Свинг слабой восьмой, % доли у первой восьмой (50 — ровно, 66 — шаффл). Сдвигает время звука, не сетку. */
+  readonly swing?: number;
+  /** Подложка: удары на 16 шестнадцатых такта, повторяются каждый такт практики. */
+  readonly groove?: readonly (readonly GrooveHit[])[] | null;
   readonly repeat?: RepeatMode;
   readonly metronome?: {
     readonly enabled?: boolean;
@@ -26,6 +46,10 @@ export interface PlaybackConfig {
 
 export interface PlaybackPlan {
   readonly notes: readonly AnnotatedPosition[];
+  /** Шаги всей шкалы; без `steps` в конфигурации — по ноте на шаг. */
+  readonly steps: readonly PlaybackStep[];
+  /** Начало каждого шага фрагмента от начала прохода, в шестнадцатых (по шагам `range`). */
+  readonly starts: readonly number[];
   readonly range: { readonly from: number; readonly toExclusive: number };
   readonly duration: NoteDuration;
   readonly noteGrids: number;
@@ -36,6 +60,8 @@ export interface PlaybackPlan {
   readonly passBpms: readonly number[] | null;
   readonly totalPasses: number | null;
   readonly finishGrid: number | null;
+  readonly swing: number;
+  readonly groove: readonly (readonly GrooveHit[])[] | null;
   readonly metronome: {
     readonly enabled: boolean;
     readonly subdivision: NoteDuration;
@@ -49,12 +75,24 @@ export interface GridEvent {
   readonly finish: boolean;
   readonly passIndex: number;
   readonly loopBoundary: boolean;
+  /** Шаг шкалы (индекс в `steps`); во время отсчёта и после конца — null. */
+  readonly stepIndex: number | null;
+  /** Нота шага; у паузы — последняя прозвучавшая нота прохода (подсветка держится). */
   readonly noteIndex: number | null;
+  /** Нота звучит на этой шестнадцатой (начало шага). */
   readonly note: AnnotatedPosition | null;
+  /** Длина звучащей ноты в шестнадцатых и слышен ли эталон. */
+  readonly noteGrids: number;
+  readonly audible: boolean;
   readonly beat: number;
   readonly bar: number;
+  /** Такт от начала прохода. */
+  readonly barInPass: number;
   readonly bpm: number;
+  /** Сдвиг звука свингом, в шестнадцатых (только слабая восьмая). */
+  readonly swingGrids: number;
   readonly click: { readonly audible: boolean; readonly accent: boolean; readonly countIn: boolean } | null;
+  readonly groove: readonly GrooveHit[];
 }
 
 export const DURATION_GRIDS: Readonly<Record<NoteDuration, number>> = Object.freeze({ quarter: 4, eighth: 2, sixteenth: 1 });
@@ -92,11 +130,20 @@ export function createPlaybackPlan(config: PlaybackConfig): PlaybackPlan {
   if (config.notes.some(note => !Number.isInteger(note.midi) || note.midi < 0 || note.midi > 127 || !Number.isFinite(note.frequency) || note.frequency <= 0)) {
     throw new RangeError('Последовательность содержит некорректную звучащую высоту.');
   }
-  const range = config.range ?? { from: 0, toExclusive: config.notes.length };
-  if (!Number.isInteger(range.from) || !Number.isInteger(range.toExclusive) || range.from < 0 || range.toExclusive > config.notes.length || range.from >= range.toExclusive) {
+  const noteDuration = duration(config.duration, 'eighth');
+  const steps = config.steps
+    ? config.steps.map(step => Object.freeze({ note: step.note, grids: step.grids, audible: step.audible !== false }))
+    : config.notes.map((_, index) => Object.freeze({ note: index, grids: DURATION_GRIDS[noteDuration], audible: true }));
+  if (!steps.length) throw new RangeError('Шкала прохода пуста.');
+  for (const step of steps) {
+    if (!Number.isInteger(step.grids) || step.grids < 1 || step.grids > 64) throw new RangeError('Длительность шага — целое число шестнадцатых от 1 до 64.');
+    if (step.note !== null && (!Number.isInteger(step.note) || step.note < 0 || step.note >= config.notes.length)) throw new RangeError('Шаг ссылается на несуществующую ноту.');
+  }
+  const range = config.range ?? { from: 0, toExclusive: steps.length };
+  if (!Number.isInteger(range.from) || !Number.isInteger(range.toExclusive) || range.from < 0 || range.toExclusive > steps.length || range.from >= range.toExclusive) {
     throw new RangeError('Фрагмент A–B должен содержать ноты: A включается, B задаётся следующей за последней нотой границей.');
   }
-  const noteDuration = duration(config.duration, 'eighth');
+  if (!steps.slice(range.from, range.toExclusive).some(step => step.note !== null)) throw new RangeError('Во фрагменте нет ни одной ноты.');
   const subdivision = duration(config.metronome?.subdivision, 'quarter');
   const bpm = config.bpm ?? 80;
   validateBpm(bpm);
@@ -111,11 +158,22 @@ export function createPlaybackPlan(config: PlaybackConfig): PlaybackPlan {
   if (mode !== 'all' && mode !== 'two-four' && mode !== 'gap-2-2') throw new RangeError('Неизвестный режим метронома.');
   if (config.countIn !== undefined && typeof config.countIn !== 'boolean') throw new TypeError('Отсчёт должен быть включён или выключен.');
   if (config.metronome?.enabled !== undefined && typeof config.metronome.enabled !== 'boolean') throw new TypeError('Метроном должен быть включён или выключен.');
-  const countInGrids = config.countIn === false ? 0 : 16;
-  const passGrids = (range.toExclusive - range.from) * DURATION_GRIDS[noteDuration];
+  const countInBars = config.countInBars ?? (config.countIn === false ? 0 : 1);
+  if (!Number.isInteger(countInBars) || countInBars < 0 || countInBars > 2) throw new RangeError('Отсчёт — от 0 до 2 тактов.');
+  const swing = config.swing ?? 50;
+  if (!Number.isFinite(swing) || swing < 50 || swing > 75) throw new RangeError('Свинг — от 50 до 75 %.');
+  const groove = config.groove ?? null;
+  if (groove && (groove.length !== 16 || groove.some(hits => !Array.isArray(hits) || hits.some(hit => !(hit.velocity > 0 && hit.velocity <= 1))))) {
+    throw new RangeError('Подложка задаётся 16 шестнадцатыми такта с силой удара от 0 до 1.');
+  }
+  const countInGrids = countInBars * 16;
+  const starts: number[] = [];
+  let passGrids = 0;
+  for (const step of steps.slice(range.from, range.toExclusive)) { starts.push(passGrids); passGrids += step.grids; }
   const totalPasses = passBpms?.length ?? null;
   return Object.freeze({
     notes: Object.freeze(config.notes.map(note => Object.freeze({ ...note }))),
+    steps: Object.freeze(steps), starts: Object.freeze(starts),
     range: Object.freeze({ ...range }),
     duration: noteDuration,
     noteGrids: DURATION_GRIDS[noteDuration],
@@ -124,30 +182,51 @@ export function createPlaybackPlan(config: PlaybackConfig): PlaybackPlan {
     repeat: typeof repeat === 'object' ? Object.freeze({ ...repeat }) : repeat,
     passBpms, totalPasses,
     finishGrid: totalPasses === null ? null : countInGrids + passGrids * totalPasses,
+    swing, groove: groove ? Object.freeze(groove.map(hits => Object.freeze(hits.map(hit => Object.freeze({ ...hit }))))) : null,
     metronome: Object.freeze({ enabled: config.metronome?.enabled ?? true, subdivision, mode }),
   });
 }
 
-/** Maps a monotonic sixteenth-note grid to music without resetting global 4/4. */
+/** Шаг фрагмента, в который попадает шестнадцатая прохода: двоичный поиск по началам. */
+function stepAt(plan: PlaybackPlan, inPass: number): number {
+  let low = 0, high = plan.starts.length - 1;
+  while (low < high) {
+    const middle = (low + high + 1) >> 1;
+    if (plan.starts[middle] <= inPass) low = middle; else high = middle - 1;
+  }
+  return low;
+}
+const NO_HITS: readonly GrooveHit[] = Object.freeze([]);
+
+/**
+ * Монотонная сетка шестнадцатых → музыка. Доля и такт считаются глобально (4/4 не сбрасывается);
+ * шкалы экрана игры кратны такту, поэтому каждый проход начинается с «раз».
+ */
 export function eventAtGrid(plan: PlaybackPlan, grid: number): GridEvent {
   if (!Number.isInteger(grid) || grid < 0) throw new RangeError('Индекс музыкальной сетки должен быть неотрицательным целым.');
+  const base = { stepIndex: null, noteIndex: null, note: null, noteGrids: 0, audible: false, swingGrids: 0, groove: NO_HITS, barInPass: 0 } as const;
   if (grid < plan.countInGrids) {
-    return { grid, phase: 'count-in', finish: false, passIndex: 0, loopBoundary: false,
-      noteIndex: null, note: null, beat: Math.floor(grid / 4) + 1, bar: 0, bpm: plan.bpm,
-      click: grid % 4 === 0 ? { audible: true, accent: grid === 0, countIn: true } : null };
+    return { ...base, grid, phase: 'count-in', finish: false, passIndex: 0, loopBoundary: false,
+      beat: Math.floor(grid / 4) % 4 + 1, bar: Math.floor(grid / 16), bpm: plan.bpm,
+      click: grid % 4 === 0 ? { audible: true, accent: grid % 16 === 0, countIn: true } : null };
   }
   const practiceGrid = grid - plan.countInGrids;
   const passIndex = Math.floor(practiceGrid / plan.passGrids);
   const inPass = practiceGrid % plan.passGrids;
   const beat = Math.floor(practiceGrid / 4) % 4 + 1;
   const bar = Math.floor(practiceGrid / 16);
+  const barInPass = Math.floor(inPass / 16);
   const bpm = plan.passBpms?.[Math.min(passIndex, plan.passBpms.length - 1)] ?? plan.bpm;
   if (plan.finishGrid !== null && grid >= plan.finishGrid) {
-    return { grid, phase: 'practice', finish: true, passIndex, loopBoundary: false,
-      noteIndex: null, note: null, beat, bar, bpm, click: null };
+    return { ...base, grid, phase: 'practice', finish: true, passIndex, loopBoundary: false, beat, bar, barInPass, bpm, click: null };
   }
-  const noteIndex = plan.range.from + Math.floor(inPass / plan.noteGrids);
-  const note = inPass % plan.noteGrids === 0 ? plan.notes[noteIndex] : null;
+  const local = stepAt(plan, inPass);
+  const stepIndex = plan.range.from + local;
+  const step = plan.steps[stepIndex];
+  let noteIndex = step.note;
+  for (let index = stepIndex - 1; noteIndex === null && index >= plan.range.from; index--) noteIndex = plan.steps[index].note;
+  const onset = plan.starts[local] === inPass;
+  const note = onset && step.note !== null ? plan.notes[step.note] : null;
   let click: GridEvent['click'] = null;
   if (plan.metronome.enabled) {
     const twoFour = plan.metronome.mode === 'two-four';
@@ -161,7 +240,10 @@ export function eventAtGrid(plan: PlaybackPlan, grid: number): GridEvent {
     }
   }
   return { grid, phase: 'practice', finish: false, passIndex, loopBoundary: practiceGrid > 0 && inPass === 0,
-    noteIndex, note, beat, bar, bpm, click };
+    stepIndex, noteIndex, note, noteGrids: note ? step.grids : 0, audible: note !== null && step.audible !== false,
+    beat, bar, barInPass, bpm, click,
+    swingGrids: practiceGrid % 4 === 2 ? ((plan.swing - 50) / 50) * 2 : 0,
+    groove: plan.groove ? plan.groove[practiceGrid % 16] : NO_HITS };
 }
 
 /** Exact duration for an unchanged finite plan; live manual tempo uses audio callbacks instead. */

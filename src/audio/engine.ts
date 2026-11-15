@@ -1,12 +1,14 @@
 import { BASS_TIMBRE, bassLowpassHz } from './bass-timbre';
 import { audioContext, resumeAudio } from './context';
-import { createPlaybackPlan, eventAtGrid, finiteDurationSeconds, validateBpm, type GridEvent, type PlaybackConfig, type PlaybackPlan } from './plan';
+import { createPlaybackPlan, eventAtGrid, finiteDurationSeconds, validateBpm, type GridEvent, type GrooveHit, type PlaybackConfig, type PlaybackPlan } from './plan';
 import { checkSchedule, createTicker, scheduleHorizon } from './scheduler';
+import { createRhythmNoise, describeRhythmHit, scheduleRhythmVoice, type RhythmVoice } from './rhythm-synth';
 
-export type { PlaybackConfig, NoteDuration, RepeatMode, MetronomeMode } from './plan';
+export type { PlaybackConfig, PlaybackStep, GrooveHit, NoteDuration, RepeatMode, MetronomeMode } from './plan';
 export { buildTempoLadder, createPlaybackPlan, eventAtGrid, finiteDurationSeconds } from './plan';
 
-export interface PlayerVolumes { readonly bass: number; readonly click: number }
+/** Громкости шин: эталонный бас, клик метронома, подложка-грув (0–1). */
+export interface PlayerVolumes { readonly bass: number; readonly click: number; readonly groove: number }
 export type PlayerState = 'stopped' | 'starting' | 'running' | 'paused' | 'finishing' | 'finished';
 export interface AudioTraceEvent {
   readonly runId: number;
@@ -30,8 +32,11 @@ export interface PlayerSnapshot {
   readonly bpm: number;
   readonly positionId: string | null;
   readonly noteIndex: number | null;
+  /** Шаг шкалы прохода; null — отсчёт, стоп или конец. */
+  readonly stepIndex: number | null;
   readonly beat: number;
   readonly bar: number;
+  readonly barInPass: number;
   readonly passIndex: number;
   readonly totalPasses: number | null;
   readonly finishAt: number | null;
@@ -74,11 +79,15 @@ function createGraph(context: BaseAudioContext, separateChannels: boolean) {
   const analyser = context.createAnalyser(); analyser.fftSize = 1024; master.connect(analyser);
   const bassBus = context.createGain(); bassBus.gain.value = 0.65;
   const clickBus = context.createGain(); clickBus.gain.value = 0.45;
-  const merger = separateChannels ? context.createChannelMerger(2) : null;
-  if (merger) { bassBus.connect(merger, 0, 0); clickBus.connect(merger, 0, 1); merger.connect(master); }
-  else { bassBus.connect(master); clickBus.connect(master); }
+  const grooveBus = context.createGain(); grooveBus.gain.value = 0.6;
+  const merger = separateChannels ? context.createChannelMerger(3) : null;
+  if (merger) { bassBus.connect(merger, 0, 0); clickBus.connect(merger, 0, 1); grooveBus.connect(merger, 0, 2); merger.connect(master); }
+  else { bassBus.connect(master); clickBus.connect(master); grooveBus.connect(master); }
   const samples = new Float32Array(analyser.fftSize);
   let voices: Voice[] = [];
+  /** Удары подложки — голоса «Ритма» (`rhythm-synth.ts`) на своей шине; шум создаётся по первому удару. */
+  let drums: RhythmVoice[] = [];
+  let noise: AudioBuffer | null = null;
 
   /** Нота с огибающей ADSR: атака линейно, спад к sustain экспоненциально, короткое линейное затухание. */
   function voice(destination: AudioNode, waveform: OscillatorType, frequency: number, level: number, envelope: Envelope, time: number, duration: number, lowpassHz?: number) {
@@ -114,6 +123,7 @@ function createGraph(context: BaseAudioContext, separateChannels: boolean) {
       release(voice);
       return false;
     });
+    drums = drums.filter(voice => voice.end > now);
   }
   function release(voice: Voice, at?: number) {
     if (at !== undefined) { try { voice.oscillator.stop(at); } catch { /* already stopped */ } }
@@ -130,17 +140,29 @@ function createGraph(context: BaseAudioContext, separateChannels: boolean) {
     click(accent: boolean, time: number) {
       voice(clickBus, CLICK_VOICE.waveform, accent ? 2093.004522 : 1046.502261, CLICK_VOICE.level * (accent ? 1 : 0.7), CLICK_VOICE.envelope, time, 0.018);
     },
+    groove(hits: readonly GrooveHit[], time: number) {
+      if (!hits.length) return;
+      noise ??= createRhythmNoise(context);
+      for (const hit of hits) {
+        for (const part of describeRhythmHit(hit.sound, 'classic')) {
+          const scheduled = scheduleRhythmVoice(context, grooveBus, noise, { part, sourceId: `lane:${hit.sound}`, sound: hit.sound, velocity: hit.velocity, age: 0 }, time + part.offset);
+          if (scheduled) drums.push(scheduled);
+        }
+      }
+    },
     gateAt(time: number) { master.gain.setValueAtTime(0, time); },
     silence() {
       const now = context.currentTime;
       master.gain.cancelScheduledValues(now);
       master.gain.setValueAtTime(0, now);
       voices.forEach(voice => release(voice, now)); voices = [];
+      drums.forEach(voice => voice.cancel(now)); drums = [];
     },
     setVolumes(volumes: PlayerVolumes) {
       const now = context.currentTime;
-      bassBus.gain.cancelScheduledValues(now); clickBus.gain.cancelScheduledValues(now);
-      bassBus.gain.setValueAtTime(volumes.bass, now); clickBus.gain.setValueAtTime(volumes.click, now);
+      for (const [bus, value] of [[bassBus, volumes.bass], [clickBus, volumes.click], [grooveBus, volumes.groove]] as const) {
+        bus.gain.cancelScheduledValues(now); bus.gain.setValueAtTime(value, now);
+      }
     },
     level() {
       analyser.getFloatTimeDomainData(samples);
@@ -149,10 +171,11 @@ function createGraph(context: BaseAudioContext, separateChannels: boolean) {
       return { peak, rms: Math.sqrt(squares / samples.length) };
     },
     /** Голоса, которые ещё звучат или уже отправлены в Web Audio на будущее. */
-    voices() { prune(); return voices.length; },
+    voices() { prune(); return voices.length + drums.length; },
     dispose() {
       voices.forEach(voice => release(voice, context.currentTime)); voices = [];
-      bassBus.disconnect(); clickBus.disconnect(); merger?.disconnect(); master.disconnect(); analyser.disconnect();
+      drums.forEach(voice => voice.cancel(context.currentTime)); drums = [];
+      bassBus.disconnect(); clickBus.disconnect(); grooveBus.disconnect(); merger?.disconnect(); master.disconnect(); analyser.disconnect();
     },
   };
 }
@@ -207,7 +230,7 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
   let disposed = false; let offlineRendering = false;
   let manualBpm = 80;
   let pendingTempo: { bpm: number; requestedAt: number } | null = null;
-  let volumes: PlayerVolumes = { bass: 0.65, click: 0.45 };
+  let volumes: PlayerVolumes = { bass: 0.65, click: 0.45, groove: 0.6 };
   let frames: Frame[] = [];
   const trace: AudioTraceEvent[] = [];
 
@@ -287,16 +310,20 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
       record('tempo', time, event, { bpm: change.bpm, requestedAt: change.requestedAt });
     }
     const bpm = bpmAt(time);
+    // Свинг сдвигает звук слабой восьмой, а не сетку: пауза и продолжение остаются на линейных шестнадцатых.
+    const sound = time + event.swingGrids * gridSeconds(bpm);
     if (event.loopBoundary) record('loop', time, event, { bpm });
     if (event.note) {
-      const duration = (current.noteGrids / 4) * (60 / bpm) * 0.72;
-      graph.bass(event.note.frequency, duration, time);
-      record('note', time, event, { bpm, audible: volumes.bass > 0 });
+      // Сдвинутая свингом нота короче на величину сдвига, иначе она наползает на следующую долю.
+      const duration = ((event.noteGrids - event.swingGrids) / 4) * (60 / bpm) * 0.72;
+      if (event.audible) graph.bass(event.note.frequency, duration, sound);
+      record('note', sound, event, { bpm, audible: event.audible && volumes.bass > 0 });
     }
     if (event.click) {
-      if (event.click.audible) graph.click(event.click.accent, time);
-      record(event.click.countIn ? 'count-in' : 'click', time, event, { bpm, audible: event.click.audible && volumes.click > 0 });
+      if (event.click.audible) graph.click(event.click.accent, sound);
+      record(event.click.countIn ? 'count-in' : 'click', sound, event, { bpm, audible: event.click.audible && volumes.click > 0 });
     }
+    if (event.groove.length) graph.groove(event.groove, sound);
     nextGrid = grid + 1;
     nextAt = time + gridSeconds(bpm);
   }
@@ -402,7 +429,7 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
   function setVolumes(change: Partial<PlayerVolumes>) {
     ensureUsable();
     const next = { ...volumes, ...change };
-    if (![next.bass, next.click].every(value => Number.isFinite(value) && value >= 0 && value <= 1)) throw new RangeError('Громкость должна быть от 0 до 1.');
+    if (![next.bass, next.click, next.groove].every(value => Number.isFinite(value) && value >= 0 && value <= 1)) throw new RangeError('Громкость должна быть от 0 до 1.');
     volumes = next; graph.setVolumes(volumes); return getSnapshot();
   }
   function playbackState() {
@@ -422,7 +449,7 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
     return {
       state, phase: frame?.phase ?? (plan?.countInGrids ? 'count-in' : 'practice'), audioTime: time,
       bpm: bpmAt(time), positionId: noteIndex !== null ? plan?.notes[noteIndex]?.id ?? null : null,
-      noteIndex, beat: frame?.beat ?? 1, bar: frame?.bar ?? 0,
+      noteIndex, stepIndex: inactive ? null : frame?.stepIndex ?? null, beat: frame?.beat ?? 1, bar: frame?.bar ?? 0, barInPass: frame?.barInPass ?? 0,
       passIndex: Math.min(frame?.passIndex ?? 0, Math.max(0, (plan?.totalPasses ?? Infinity) - 1)),
       totalPasses: plan?.totalPasses ?? null, finishAt, pauseReason,
       pendingTempo: pendingTempo ? { ...pendingTempo } : null, runId, epoch, lastNoteAt, interruptionAt,
@@ -462,6 +489,7 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
         passBpms: offlinePlan.passBpms ? [...offlinePlan.passBpms] : null,
         bass: analysePcm(buffer.getChannelData(0), buffer.sampleRate),
         click: analysePcm(buffer.getChannelData(1), buffer.sampleRate),
+        groove: analysePcm(buffer.getChannelData(2), buffer.sampleRate),
         trace: offlineTrace,
       };
     } finally { offlineRendering = false; }
@@ -470,13 +498,13 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
 }
 
 /**
- * Настоящий PCM продуктового проигрывателя: канал 0 — бас, канал 1 — клик. Тот же план, голоса
+ * Настоящий PCM продуктового проигрывателя: канал 0 — бас, канал 1 — клик, канал 2 — подложка. Тот же план, голоса
  * и сетка, что у живого проигрывания, но все события сразу ставятся на часы OfflineAudioContext.
  */
 export async function renderSequenceOffline(config: PlaybackConfig, options: { durationSeconds: number; volumes?: Partial<PlayerVolumes> }) {
   const duration = options.durationSeconds;
   validateOfflineDuration(duration);
-  const context = new OfflineAudioContext(2, Math.ceil(duration * OFFLINE_SAMPLE_RATE), OFFLINE_SAMPLE_RATE);
+  const context = new OfflineAudioContext(3, Math.ceil(duration * OFFLINE_SAMPLE_RATE), OFFLINE_SAMPLE_RATE);
   const player = createInternalPlayer(context, true, duration);
   try {
     if (options.volumes) player.setVolumes(options.volumes);

@@ -105,3 +105,39 @@ describe('музыкальный план проигрывания', () => {
     expect(() => buildTempoLadder(60, 66, 0.0001, 1)).toThrow(/Слишком много/);
   });
 });
+
+describe('шкала шагов (D-050)', () => {
+  const steps = [{ note: 0, grids: 2 }, { note: 1, grids: 4 }, { note: null, grids: 2 }, { note: 2, grids: 8, audible: false }];
+  it('ноты на началах шагов, длина ноты из шага, пауза держит прозвучавшую ноту; эхо-нота без звука', () => {
+    const plan = createPlaybackPlan({ ...base, steps, repeat: 'infinite' });
+    expect(plan.passGrids).toBe(16);
+    const events = Array.from({ length: 16 }, (_, grid) => eventAtGrid(plan, grid));
+    expect(events.filter(event => event.note).map(event => [event.grid, event.note!.id, event.noteGrids, event.audible])).toEqual([
+      [0, 'E:5', 2, true], [2, 'A:3', 4, true], [8, 'A:5', 8, false],
+    ]);
+    expect(events[6]).toMatchObject({ stepIndex: 2, noteIndex: 1, note: null });
+    expect(eventAtGrid(plan, 16)).toMatchObject({ stepIndex: 0, passIndex: 1, beat: 1, barInPass: 0, loopBoundary: true });
+  });
+  it('фрагмент задаётся в шагах; без нот фрагмент отклоняется', () => {
+    const plan = createPlaybackPlan({ ...base, steps, range: { from: 1, toExclusive: 3 } });
+    expect(plan.passGrids).toBe(6);
+    expect(eventAtGrid(plan, 0).note?.id).toBe('A:3');
+    expect(() => createPlaybackPlan({ ...base, steps, range: { from: 2, toExclusive: 3 } })).toThrow(/нет ни одной ноты/);
+    expect(() => createPlaybackPlan({ ...base, steps: [{ note: 9, grids: 2 }] })).toThrow();
+    expect(() => createPlaybackPlan({ ...base, steps: [{ note: 0, grids: 0 }] })).toThrow();
+  });
+  it('отсчёт 0, 1 или 2 такта; акцент на первой доле каждого такта отсчёта', () => {
+    const two = createPlaybackPlan({ ...base, steps, countInBars: 2 });
+    expect(two.countInGrids).toBe(32);
+    expect(Array.from({ length: 32 }, (_, grid) => eventAtGrid(two, grid)).filter(event => event.click?.accent).map(event => event.grid)).toEqual([0, 16]);
+    expect(createPlaybackPlan({ ...base, steps, countInBars: 0 }).countInGrids).toBe(0);
+    expect(() => createPlaybackPlan({ ...base, steps, countInBars: 3 })).toThrow(/0 до 2/);
+  });
+  it('свинг сдвигает только слабую восьмую; подложка повторяется каждый такт', () => {
+    const groove = Array.from({ length: 16 }, (_, step) => step % 4 === 0 ? [{ sound: 'kick' as const, velocity: 0.8 }] : []);
+    const plan = createPlaybackPlan({ ...base, steps, swing: 66, groove, repeat: 'infinite' });
+    expect([0, 1, 2, 3].map(grid => eventAtGrid(plan, grid).swingGrids)).toEqual([0, 0, expect.closeTo(0.64, 5), 0]);
+    expect([0, 4, 16, 18].map(grid => eventAtGrid(plan, grid).groove.length)).toEqual([1, 1, 1, 0]);
+    expect(() => createPlaybackPlan({ ...base, steps, swing: 80 })).toThrow(/Свинг/);
+  });
+});

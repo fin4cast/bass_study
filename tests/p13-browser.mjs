@@ -114,7 +114,7 @@ check('goal-pentatonic-step-memory-whole-pass-masters-step-and-today-adds-goal-s
   await assertAttribute(playScene(page).locator('button[data-view="memory"]'), 'aria-pressed', 'true');
   for (let index = 0; index < 12; index++) await playScene(page).getByRole('button', { name: /^Быстрее на/ }).click();
   await playScene(page).locator('[data-play]').click();
-  const rate = playScene(page).getByRole('group', { name: 'Самооценка прохода' });
+  const rate = playScene(page).getByRole('group', { name: 'Самооценка подхода' });
   await rate.waitFor({ timeout: 30000 });
   await rate.getByRole('button', { name: 'Чисто', exact: true }).click();
   const db = await waitDb(page, db => db.history.some(entry => entry.result?.assessment === 'clean'), '«Чисто» в истории');
@@ -445,7 +445,7 @@ check('play-count-in-note-progress-space-pause-resume-view-and-escape', 'ui', as
   await openPlanStep(page, 'Хроматика 1-2-3-4 в позиции');
   const initial = await playState(page);
   assert.equal(initial.status, 'stopped');
-  assert.equal(initial.view, 'board', 'Новое упражнение открывается видом «Гриф крупно»');
+  assert.equal(initial.view, 'board', 'Новое упражнение открывается видом «Гриф»');
   assert.match(initial.text, /^Нота 0 из \d+$/);
   await startPlayLog(page);
   await playScene(page).locator('[data-play]').click();
@@ -513,14 +513,14 @@ check('play-self-assessment-clean-is-saved-and-visible-in-progress-after-reload'
   await loop.click();
   assert.equal(await loop.getAttribute('aria-pressed'), 'false');
   for (let index = 0; index < 12; index++) await playScene(page).getByRole('button', { name: /^Быстрее на/ }).click();
-  assert.equal(await playScene(page).locator('[data-bpm]').innerText(), '120');
+  assert.equal(await playScene(page).locator('[data-bpm]').inputValue(), '120');
   await playScene(page).locator('[data-play]').click();
-  const rate = playScene(page).getByRole('group', { name: 'Самооценка прохода' });
+  const rate = playScene(page).getByRole('group', { name: 'Самооценка подхода' });
   await rate.waitFor({ timeout: 20000 });
   const finished = await playState(page);
   assert.equal(finished.status, 'finished');
   assert.match(finished.text, /проход завершён/);
-  assert.match(await rate.innerText(), /Проход 1 завершён\.[\s\S]*Как прошло\?/);
+  assert.match(await rate.innerText(), /Подход: 1 проход · 120 BPM\.[\s\S]*Как прошло\?/);
   await rate.getByRole('button', { name: 'Чисто', exact: true }).click();
   assert.equal(await rate.getByRole('button', { name: 'Чисто', exact: true }).getAttribute('aria-pressed'), 'true');
   assert.ok(await rate.getByRole('button', { name: 'С ошибками', exact: true }).isDisabled(), 'Одна отметка на проход');
@@ -783,7 +783,7 @@ check('live-play-sounds-reached-notes-on-audio-clock-and-pause-cancels-scheduled
   await openApp(page, origin);
   await openPlanStep(page, 'Хроматика 1-2-3-4 в позиции');
   await startPlayLog(page);
-  const bpm = Number(await playScene(page).locator('[data-bpm]').innerText());
+  const bpm = Number(await playScene(page).locator('[data-bpm]').inputValue());
   await startPlayback(page);
   await page.waitForFunction(() => window.__p13Audio.levels().some(level => level.rms > 0.005), null, { timeout: 5000 });
   const playing = await waitPlay(page, state => state.status === 'playing' && state.note >= 4, null, 10000);
@@ -800,7 +800,7 @@ check('live-play-sounds-reached-notes-on-audio-clock-and-pause-cancels-scheduled
   await page.waitForFunction(() => window.__p13Audio.levels().every(level => level.rms < 0.0001), null, { timeout: 3000 });
   const atPause = await page.evaluate(() => ({ voices: window.__p13Audio.voices(), levels: window.__p13Audio.levels() }));
 
-  // Позиции нот — из того, что показал экран («Сейчас» на виде «Гриф крупно»); частота — из строя E–A–D–G.
+  // Позиции нот — из того, что показал экран («Сейчас» на виде «Гриф»); частота — из строя E–A–D–G.
   const shownPositions = new Map();
   for (const entry of await playLog(page)) {
     const note = /Нота (\d+)/.exec(entry.text)?.[1]; const position = /([EADG])\/(\d+)/.exec(entry.now);

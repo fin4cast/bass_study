@@ -19,7 +19,7 @@ import { createEnginePort, type PlaybackPort } from '../ui/play/port';
 import { mountPlay, type PlayHandle, type RateEvent } from '../ui/play/view';
 import { mountReference } from '../ui/reference/view';
 import {
-  addToPlan, bpmForExercise, checkEntry, exerciseKey, hasPlayed, nextPlanStep, planAfterCheck, planAfterRating, planForToday,
+  addToPlan, bpmForExercise, checkEntry, exerciseKey, hasPlayed, nextPlanStep, planAfterCheck, planAfterNext, planAfterRating, planForToday, planStepInfo,
   playRatingEntry, plannedProgressIds, rememberView, repeatContent, specForKey, stepPosition, todayKey, viewForExercise,
 } from './lesson-flow';
 
@@ -233,9 +233,17 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
         options.savePreferences({ lesson: { ...lesson, viewByExercise: rememberView(lesson.viewByExercise, key, next) } });
       },
       onConcept: id => openConceptPanel(id),
+      onNextStep: () => nextFromPlay(),
+      onCompleteStep: () => {
+        const current = play;
+        if (!current?.stepId) return;
+        savePlan(planAfterNext(currentPlan(), current.stepId));
+        refreshPlanStep();
+      },
     });
     handle.setExercise(exercise, spec);
     play = { handle, port, spec, key, stepId };
+    refreshPlanStep();
     if (!visible) handle.setVisible(false);
     const heading = playHost.querySelector<HTMLElement>('h1');
     if (heading && visible) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
@@ -252,6 +260,24 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
       const next = planAfterRating(plan, current.stepId, event.assessment);
       if (next !== plan) savePlan(next);
     }
+    refreshPlanStep();
+  }
+
+  /** Таймер шага и кнопки «Следующий шаг» / «Отметить выполненным» на экране игры. */
+  function refreshPlanStep() {
+    if (!play) return;
+    play.handle.setPlanStep(planStepInfo(currentPlan(), play.stepId, play.key, records()));
+  }
+
+  /** «Следующий шаг плана →»: текущий шаг выполнен, открывается следующий невыполненный шаг. */
+  function nextFromPlay() {
+    const current = play;
+    if (!current?.stepId) return;
+    const plan = planAfterNext(currentPlan(), current.stepId);
+    if (plan !== currentPlan()) savePlan(plan);
+    const next = nextPlanStep(plan);
+    if (next) open(next.content, next.stepId);
+    else leave(null);
   }
 
   function openConceptPanel(id: ConceptId) {

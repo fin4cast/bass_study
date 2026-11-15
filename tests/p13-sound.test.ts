@@ -3,7 +3,7 @@ import { createPlaybackPlan, eventAtGrid, type PlaybackConfig } from '../src/aud
 import { validateCue } from '../src/audio/cue';
 import { buildExercise, createExerciseSpec } from '../src/exercises';
 import { REFERENCE_CONCEPTS, getConcept } from '../src/practice/concepts';
-import { listenConfig, listenProgressText, loopAround, junctions, playbackConfig } from '../src/ui/play/model';
+import { DEFAULT_PLAY_SETTINGS, listenConfig, listenProgressText, loopAround, junctions, playbackConfig, timelineFor } from '../src/ui/play/model';
 import { mapPlaybackState, type RawPlaybackState } from '../src/ui/play/port';
 import { LISTEN_BPM, conceptListenPlan } from '../src/ui/reference/listen';
 
@@ -33,39 +33,46 @@ function gridEvents(config: PlaybackConfig) {
 
 describe('«Сначала услышь»: эталон экрана игры', () => {
   const plan = buildExercise(createExerciseSpec('connect-forms'));
-  const settings = { bpm: 76, countIn: true, loop: true, ladder: false, range: null };
+  const settings = { ...DEFAULT_PLAY_SETTINGS, bpm: 76 };
 
-  it('один проход всего упражнения восьмыми, без отсчёта, клика и повтора', () => {
+  it('один проход всей шкалы в ритме упражнения, без отсчёта, клика и повтора; эталон слышен', () => {
     const { plan: playback, notes, clicks, countIn } = gridEvents(listenConfig(plan, settings));
+    const timeline = timelineFor(plan, settings);
     expect(countIn).toBe(0);
     expect(clicks).toBe(0);
     expect(playback.totalPasses).toBe(1);
     expect(playback.metronome.enabled).toBe(false);
     expect(playback.bpm).toBe(76);
-    // Те же позиции, что у игры (R-026: одна последовательность), каждая — на чётной шестнадцатой.
-    expect(notes.map(note => note.id)).toEqual(plan.positions.map(position => position.id));
-    expect(notes.map(note => note.grid)).toEqual(plan.positions.map((_, index) => index * 2));
-    expect(playback.finishGrid).toBe(plan.positions.length * 2);
+    expect(playback.steps.every(step => step.audible)).toBe(true);
+    // Те же позиции, что у игры (R-026: одна последовательность) и то же завершение тоникой.
+    expect(notes.map(note => note.id)).toEqual(timeline.steps.filter(step => step.note !== null).map(step => plan.notes[step.note!].id));
+    expect(notes.map(note => note.grid)).toEqual(timeline.steps.filter(step => step.note !== null).map(step => step.start));
+    expect(playback.finishGrid).toBe(timeline.passGrids);
   });
 
-  it('с петлёй звучит только выбранный фрагмент', () => {
-    const range = loopAround(plan, junctions(plan)[0]);
+  it('с петлёй звучат только такты петли; эхо в эталоне не звучит', () => {
+    const timeline = timelineFor(plan, settings);
+    const range = loopAround(timeline, junctions(plan)[0]);
     const { notes } = gridEvents(listenConfig(plan, { ...settings, range }));
-    expect(notes.map(note => note.noteIndex)).toEqual(Array.from({ length: range.toExclusive - range.from }, (_, index) => range.from + index));
     expect(notes[0].grid).toBe(0);
+    expect(notes.map(note => note.noteIndex)).toEqual(timeline.steps.filter(step => step.note !== null && step.bar >= range.fromBar && step.bar < range.toBar).map(step => step.note));
+    const echo = listenConfig(plan, { ...settings, echo: true });
+    expect(echo.steps!.every(step => step.audible !== false)).toBe(true);
+    expect(echo.steps!.length).toBe(timeline.steps.length);
   });
 
-  it('отличается от игры только отсчётом, повтором и кликом', () => {
-    const game = playbackConfig(plan, settings);
+  it('отличается от игры только отсчётом, повтором, кликом и подложкой', () => {
+    const timeline = timelineFor(plan, settings);
+    const game = playbackConfig(plan, timeline, settings);
     const reference = listenConfig(plan, settings);
-    expect({ ...reference, countIn: game.countIn, repeat: game.repeat, metronome: game.metronome }).toEqual(game);
-    expect(game.countIn).toBe(true);
+    expect({ ...reference, countInBars: game.countInBars, repeat: game.repeat, metronome: game.metronome, groove: game.groove }).toEqual(game);
+    expect(game.countInBars).toBe(1);
     expect(game.repeat).toBe('infinite');
   });
 
   it('подпись транспорта во время эталона', () => {
     expect(listenProgressText(null, 16)).toBe('Звучит эталон · нота 0 из 16');
-    expect(listenProgressText(4, 16, { from: 4, toExclusive: 12 })).toBe('Звучит эталон · нота 5 из 16 · петля 5–12');
+    expect(listenProgressText(4, 16, { fromBar: 1, toBar: 2 })).toBe('Звучит эталон · нота 5 из 16 · петля: такт 2');
   });
 
   it('последняя нота запланирована, но до finishAt эталон ещё звучит', () => {

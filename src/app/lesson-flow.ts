@@ -94,6 +94,22 @@ export function nextPlanStep(plan: DayPlan): { readonly stepId: string; readonly
   return step ? { stepId: step.id, content: step.content } : null;
 }
 
+/**
+ * Шаг плана для экрана игры (D-050): плановое время, уже сыгранное сегодня этим материалом (сумма активного
+ * времени проходов за дату плана), есть ли другой невыполненный шаг и выполнен ли этот.
+ */
+export function planStepInfo(plan: DayPlan, stepId: string | null, key: string, records: readonly PracticeRecord[]) {
+  const step = stepId ? plan.steps.find(candidate => candidate.id === stepId) : undefined;
+  if (!step) return null;
+  const doneMs = records.reduce((sum, record) => record.kind === 'play' && record.exerciseKey === key && record.localDate === plan.localDate ? sum + record.activeMs : sum, 0);
+  return { plannedMs: step.minutes * 60_000, doneMs, hasNext: plan.steps.some(candidate => candidate.id !== step.id && candidate.status !== 'done'), done: step.status === 'done' };
+}
+
+/** «Следующий шаг плана» с экрана игры: текущий шаг отмечается выполненным, дальше — следующий невыполненный. */
+export function planAfterNext(plan: DayPlan, stepId: string | null): DayPlan {
+  return completeIfOpen(plan, stepId);
+}
+
 /** Номер шага в плане для подписей «шаг 2 из 4». */
 export function stepPosition(plan: DayPlan, stepId: string | null): { readonly index: number; readonly total: number } | null {
   if (!stepId) return null;

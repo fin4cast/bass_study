@@ -71,9 +71,9 @@ check('atlas-bridges-open-exact-form-on-play-and-check-screens-and-return-to-atl
   assert.equal(await playScene(page).locator('[data-back]').innerText(), '← Гриф');
   const route = await tabRoute(page);
   const up = ascendingByPitch(A_MINOR_FORM_A);
-  // Вверх по высоте формы и обратно; верх и нижняя тоника не повторяются, чтобы проход по кругу шёл без двойных нот.
-  assert.deepEqual(route.map(item => item.id), [...up, ...up.slice(1, -1).reverse()], 'Вверх по форме и обратно — независимый порядок высот');
-  assert.match(await playScene(page).locator('[data-sub]').innerText(), new RegExp(`^${route.length} восьм`), 'На TAB весь проход упражнения');
+  // Вверх по высоте формы и обратно без повтора верха; проход завершается нижней тоникой (A1 на E/5) и тактом (D-050).
+  assert.deepEqual(route.map(item => item.id), [...up, ...up.slice(1, -1).reverse(), up[0]], 'Вверх по форме, обратно и тоника — независимый порядок высот');
+  assert.match(await playScene(page).locator('[data-sub]').innerText(), new RegExp(`^${route.length} нот`), 'На TAB весь проход упражнения');
   assert.deepEqual(route.map(item => item.index), route.map((_, index) => index));
   await playScene(page).locator('[data-back]').click();
   assert.equal(await section(page), 'foundation');

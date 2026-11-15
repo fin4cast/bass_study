@@ -77,6 +77,11 @@ export interface ExercisePlan {
    * по одним и тем же ладам (паук, такты последовательности), и «общих» позиций нет.
    */
   readonly overlap: 'shared' | 'none';
+  /**
+   * `tonic` — проход завершается тоникой (ближайшей нотой плана со ступенью 1) и паузой до конца такта (D-050);
+   * `none` — у материала нет тоники (хроматика, паук, ноты по грифу) или такт задан аккордом (последовательность).
+   */
+  readonly cadence: 'tonic' | 'none';
 }
 export interface ExerciseTemplate<Id extends ExerciseTemplateId = ExerciseTemplateId> {
   readonly id: Id; readonly category: ExerciseCategory; readonly title: string;
@@ -559,8 +564,15 @@ function buildPlan(spec: ExerciseSpec): ExercisePlan {
     spec, title: built.title ?? template.title, category: template.category, concepts: template.concepts,
     segments: built.segments.map(label => ({ label })), notes, positions: built.drafts.map(draft => draft.position),
     overlap: built.overlap ?? 'shared',
+    cadence: TONIC_CADENCE.has(spec.templateId) && notes.some(note => note.degree === '1') ? 'tonic' : 'none',
   });
 }
+/** Шаблоны, проход которых завершается тоникой: формы, гаммы, арпеджио, секвенции, транспонирование. */
+const TONIC_CADENCE: ReadonlySet<ExerciseTemplateId> = new Set<ExerciseTemplateId>([
+  'pentatonic-form', 'pentatonic-relative', 'scale-compact', 'blues-scale', 'connect-forms', 'pentatonic-neck', 'scale-one-string',
+  'scale-position', 'arpeggio-1358', 'arpeggio-seventh', 'arpeggio-inversion', 'root-five-eight', 'groups-of-three', 'thirds',
+  'form-transpose', 'cycle-fourths',
+]);
 
 /**
  * Структура, по которой у материала есть ступени для «Проверь себя».

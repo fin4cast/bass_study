@@ -52,6 +52,7 @@
 .pl-seg button { border: 0; border-radius: var(--radius-s); padding: 5px 10px; background: none; color: var(--text-secondary); font-size: var(--text-xs); cursor: pointer; white-space: nowrap; }
 .pl-seg button:hover { color: var(--text-primary); background: var(--surface-hover); }
 .pl-seg button[aria-pressed="true"] { background: var(--surface-raised); color: var(--text-primary); font-weight: 650; box-shadow: 0 0 0 1px var(--border); }
+.pl-seg button:disabled { color: var(--disabled-text); background: none; text-decoration: line-through; cursor: not-allowed; }
 .pl-views { display: flex; flex: none; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pl-views-caption { font-size: var(--text-xs); color: var(--text-secondary); }
 .pl-seg-views button { padding: 6px 12px; font-size: var(--text-s); }
@@ -114,10 +115,30 @@
 .pl-tab-svg .pl-tab-fret { fill: currentColor; font-weight: 700; font-family: var(--font-mono); }
 .pl-tab-svg .pl-tab-fret.is-played { opacity: .4; }
 .pl-tab-svg .pl-tab-cursor { fill: var(--selection-soft); fill-opacity: .85; stroke: var(--selection); stroke-width: 2.5; }
+.pl-tab-svg .pl-tab-fret.is-echo { opacity: .55; }
+.pl-tab-svg .pl-tab-rest { fill: currentColor; opacity: .7; font-family: var(--font-ui); }
+.pl-tab-svg .pl-tab-rest.is-played { opacity: .35; }
+.pl-tab-svg .pl-tab-dur { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; opacity: .7; }
+.pl-tab-svg .pl-tab-loop { fill: var(--accent-soft); opacity: .7; }
+.pl-tab-svg .pl-tab-echo { fill: var(--info-surface); opacity: .8; }
+.pl-tab-svg .pl-tab-echo-label { fill: var(--info-text); font: 600 10px var(--font-ui); }
+.pl-tab-svg .pl-tab-hit { fill: transparent; cursor: pointer; }
+.pl-tab-svg .pl-tab-hit:hover { fill: var(--surface-hover); fill-opacity: .35; }
+
+/* Строка ритма такта (виды «Гриф» и «По памяти») */
+.pl-rhythm { display: flex; flex: 0 1 auto; flex-direction: column; min-width: 0; padding: 4px 12px 6px; border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--pl-tab-bg); }
+.pl-rhythm header { display: flex; justify-content: space-between; gap: 12px; color: var(--text-secondary); font-size: var(--text-2xs); }
+.pl-rhythm .pl-fit { min-height: 26px; }
+.pl-rh-svg .pl-rh-count { fill: var(--text-secondary); font: 10px var(--font-ui); }
+.pl-rh-svg .pl-rh-beat { stroke: var(--border-strong); stroke-opacity: .6; }
+.pl-rh-svg .pl-rh-note { fill: var(--accent); fill-opacity: .55; }
+.pl-rh-svg .pl-rh-note.is-rest { fill: none; stroke: var(--border-strong); stroke-dasharray: 3 3; }
+.pl-rh-svg .pl-rh-note.is-echo { fill: var(--info-text); fill-opacity: .35; }
+.pl-rh-svg .pl-rh-note.is-current { fill: var(--selection); fill-opacity: .95; }
 
 /* Гриф крупно */
 .pl-strip { display: grid; flex: 0 1 auto; min-height: 0; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; }
-.pl-strip .pl-tabcard { max-height: 100%; }
+.pl-strip .pl-rhythm { max-height: 100%; }
 .pl-now { display: flex; flex-direction: column; align-items: center; min-width: 120px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--surface-raised); }
 .pl-now strong { font-size: 32px; font-weight: 700; line-height: 1.05; }
 .pl-now span { color: var(--text-secondary); font-size: var(--text-xs); white-space: nowrap; }
@@ -166,17 +187,42 @@
 .pl-cside { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
 .pl-cside-row { display: flex; flex-direction: column; gap: 12px; }
 .pl-board-mini { flex: none; min-height: 0; }
+.pl-cside-caption { color: var(--text-secondary); font-size: var(--text-2xs); }
 
 /* По памяти */
 .pl-mbox { display: grid; flex: 1 1 0; min-height: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .pl-mcell { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px; padding: 18px; border: 1px dashed var(--border-strong); border-radius: var(--radius-l); color: var(--text-secondary); font-size: var(--text-s); text-align: center; }
 .pl-mcell strong { color: var(--text-primary); font-size: 40px; font-weight: 700; line-height: 1.1; }
+.pl-pulse { display: flex; flex: none; justify-content: center; gap: 18px; }
+.pl-pulse i { display: grid; place-items: center; width: 44px; height: 44px; border: 2px solid var(--border-strong); border-radius: 50%; color: var(--text-secondary); font: 700 var(--text-m) var(--font-ui); font-style: normal; transition: background .06s, border-color .06s; }
+.pl-pulse i:first-child { border-width: 3px; }
+.pl-pulse i.is-on { border-color: var(--selection); background: var(--selection); color: var(--text-inverse); }
 
 /* Транспорт */
 .pl-transport { position: relative; display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--surface-raised); }
 .pl-play { min-width: 128px; }
 .pl-bpm { display: flex; align-items: center; gap: 4px; }
-.pl-bpm output { min-width: 46px; font: 700 22px/1 var(--font-ui); font-variant-numeric: tabular-nums; text-align: center; }
+.pl-bpm-input { width: 64px; height: 32px; padding: 0 4px; border: 1px solid var(--border-strong); border-radius: var(--radius-m); background: var(--surface-input); color: var(--text-primary); font: 700 20px/1 var(--font-ui); font-variant-numeric: tabular-nums; text-align: center; }
+.pl-target { display: inline-flex; align-items: center; gap: 4px; color: var(--text-secondary); font-size: var(--text-xs); }
+.pl-target input { width: 56px; height: 28px; padding: 0 4px; border: 1px solid var(--border-strong); border-radius: var(--radius-m); background: var(--surface-input); color: var(--text-primary); font: 600 var(--text-s) var(--font-ui); text-align: center; }
+.pl-sound { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+.pl-timer { color: var(--text-secondary); }
+.pl-timer.is-over { color: var(--warning-text); font-weight: 650; }
+.pl-next-actions { display: inline-flex; flex-wrap: wrap; gap: 6px 8px; }
+.pl-next-actions:empty { display: none; }
+.pl-rate kbd { font-size: 10px; }
+
+/* Панель «Звук и ритм» */
+.pl-panel { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 6; padding: 10px 14px; border: 1px solid var(--border-strong); border-radius: var(--radius-l); background: var(--surface-raised); box-shadow: 0 8px 24px var(--shadow); }
+.pl-panel[hidden] { display: none; }
+.pl-panel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 16px; }
+.pl-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: var(--text-xs); color: var(--text-secondary); }
+.pl-field > span:first-child { font-weight: 650; color: var(--text-primary); }
+.pl-field .pl-seg { flex-wrap: wrap; }
+.pl-field select { height: 30px; border: 1px solid var(--border-strong); border-radius: var(--radius-m); background: var(--surface-input); color: var(--text-primary); font: inherit; font-size: var(--text-s); }
+.pl-field small { color: var(--text-secondary); font-size: var(--text-2xs); }
+.pl-field input[type="range"] { width: 100%; accent-color: var(--accent); }
+.pl-panel-note { margin-top: 6px; color: var(--text-secondary); font-size: var(--text-2xs); }
 .pl-bpm small { margin-left: 4px; color: var(--text-secondary); font-size: var(--text-2xs); line-height: 1.3; }
 .pl-icon-btn { width: 30px; height: 30px; border: 1px solid var(--border-strong); border-radius: var(--radius-m); background: var(--surface-input); color: var(--text-primary); font-weight: 700; cursor: pointer; }
 .pl-icon-btn:hover:not(:disabled) { background: var(--surface-hover); }

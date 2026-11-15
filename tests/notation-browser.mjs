@@ -194,13 +194,13 @@ check('built-app-play-tab-frets-count-labels-and-bar-lines-follow-the-exercise',
   assert.deepEqual(tab.counts, Array.from({ length: 2 }, () => ['1', 'и', '2', 'и', '3', 'и', '4', 'и']).flat());
   assert.deepEqual(tab.bars, [1]); assert.deepEqual(tab.strings, ['G', 'D', 'A', 'E']);
   assert.equal(tab.cursors, 0, 'До старта курсора нет'); assert.equal(tab.label, 'Табулатура, такты 1–2');
-  assert.match(await playScene(page).locator('[data-sub]').innerText(), /^16 восьмых · 2 такта/);
+  assert.match(await playScene(page).locator('[data-sub]').innerText(), /^16 нот · восьмые · 2 такта/);
   return tab;
 });
 
 check('built-app-play-one-shared-cursor-for-tab-board-and-progress-with-repeated-positions', 'ui', async ({ page }) => {
   await openLibraryExercise(page, 'Группы по три', 'both');
-  assert.equal(await playScene(page).locator('[data-flag="countIn"]').getAttribute('aria-pressed'), 'true');
+  assert.match(await playScene(page).locator('[data-sound-summary]').innerText(), /отсчёт 1/);
   await playScene(page).locator('[data-play]').click();
   await playStatus(page, 'counting');
   const counting = await playSamples(page, 300);

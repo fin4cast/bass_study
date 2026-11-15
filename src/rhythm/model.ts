@@ -247,6 +247,20 @@ const presets = {
 };
 export type RhythmPresetId = keyof typeof presets;
 export const RHYTHM_PRESETS = freeze(Object.entries(presets).map(([id, { sounds, ...descriptor }]) => ({ id: id as RhythmPresetId, ...descriptor })));
+/** Грувы-подложки экрана игры (D-050): пресеты с барабанами, без пустого рисунка. */
+export const GROOVE_PRESETS: readonly RhythmPresetId[] = freeze(['rock', 'funk', 'shuffle', 'blues', 'latin', 'disco']);
+/**
+ * Удары пресета на 16 шестнадцатых такта для подложки экрана игры: звук и сила (громкость дорожки × удар).
+ * Свинг пресета — `presetSwing`.
+ */
+export function grooveHits(presetId: RhythmPresetId): readonly (readonly { sound: RhythmSound; velocity: number }[])[] {
+  const lanes = createLanes(presetId);
+  return freeze(Array.from({ length: 16 }, (_, step) => freeze(lanes.flatMap(lane => lane.velocities[step] > 0
+    ? [freeze({ sound: lane.sound, velocity: Math.min(1, lane.volume * lane.velocities[step]) })] : []))));
+}
+export const presetSwing = (presetId: RhythmPresetId): number => presets[presetId].swing;
+export const presetName = (presetId: RhythmPresetId): string => presets[presetId].name;
+
 export function createLanes(presetId: RhythmPresetId = 'rock', bars: RhythmPatternBars = 1) {
   if (!Object.hasOwn(presets, presetId)) invalid('Неизвестный ритмический рисунок.');
   choice(bars, RHYTHM_PATTERN_LENGTHS, 'Длина паттерна');

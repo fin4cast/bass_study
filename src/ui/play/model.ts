@@ -4,17 +4,38 @@
  */
 import type { PlaybackConfig } from '../../audio/plan';
 import type { ConceptId, ExerciseNote, ExercisePlan } from '../../exercises';
+import { barStepRange, buildTimeline, type RhythmPatternId, type Timeline } from '../../exercises/rhythm';
+import { grooveHits, presetSwing, type RhythmPresetId } from '../../rhythm/model';
 import { formatPosition } from './board';
 import type { PlayState } from './port';
+import type { TabEvent } from './tab';
 
 export type PlayView = 'board' | 'both' | 'tab' | 'memory';
 export type Assessment = 'clean' | 'errors' | 'slow';
 
-export const PLAY_VIEWS: readonly { readonly id: PlayView; readonly label: string }[] = Object.freeze([
-  { id: 'board', label: 'Гриф крупно' },
-  { id: 'both', label: 'Таб + гриф' },
-  { id: 'tab', label: 'Таб крупно' },
-  { id: 'memory', label: 'По памяти' },
+/** Лестница подсказок (D-050): у каждого вида своя опора — карта грифа, TAB с картой, только TAB, только пульс. */
+export const PLAY_VIEWS: readonly { readonly id: PlayView; readonly label: string; readonly hint: string }[] = Object.freeze([
+  { id: 'board', label: 'Гриф', hint: 'Крупный гриф с картой формы, без TAB' },
+  { id: 'both', label: 'Таб + гриф', hint: 'TAB двух тактов и гриф с картой' },
+  { id: 'tab', label: 'Таб', hint: 'Крупный TAB; на мини-грифе только тоники' },
+  { id: 'memory', label: 'По памяти', hint: 'Без нот: пульс, такт, старт и финиш' },
+]);
+
+/** Эталонный бас: «авто» — звучит в видах с подсказкой и молчит в «По памяти». */
+export type ReferenceMode = 'auto' | 'on' | 'quiet' | 'off';
+export const REFERENCE_MODES: readonly { readonly id: ReferenceMode; readonly label: string }[] = Object.freeze([
+  { id: 'auto', label: 'Авто' }, { id: 'on', label: 'Вкл' }, { id: 'quiet', label: 'Тихо' }, { id: 'off', label: 'Выкл' },
+]);
+export type MetronomeChoice = 'beats' | 'eighths' | 'two-four' | 'gap' | 'off';
+export const METRONOME_CHOICES: readonly { readonly id: MetronomeChoice; readonly label: string; readonly short: string }[] = Object.freeze([
+  { id: 'beats', label: 'Доли', short: 'доли' },
+  { id: 'eighths', label: 'Доли и «и»', short: 'восьмые' },
+  { id: 'two-four', label: 'На 2 и 4', short: '2 и 4' },
+  { id: 'gap', label: 'Такты тишины (2 + 2)', short: 'такты тишины' },
+  { id: 'off', label: 'Выкл', short: 'без клика' },
+]);
+export const COUNT_IN_CHOICES: readonly { readonly bars: 0 | 1 | 2; readonly label: string }[] = Object.freeze([
+  { bars: 0, label: 'Нет' }, { bars: 1, label: '1 такт' }, { bars: 2, label: '2 такта' },
 ]);
 
 /** Короткие подписи чипов понятий в шапке экрана игры. */
@@ -29,7 +50,10 @@ export const CONCEPT_LABELS: Readonly<Record<ConceptId, string>> = Object.freeze
 export const BPM_MIN = 40;
 export const BPM_MAX = 220;
 export const BPM_STEP = 4;
-export const LADDER_SPAN = 24;
+/** Лестница: +4 BPM каждые 2 прохода до цели. */
+export const LADDER_REPEATS = 2;
+export const REFERENCE_VOLUME = 0.65;
+export const QUIET_VOLUME = 0.25;
 
 export const isPlayView = (value: unknown): value is PlayView => PLAY_VIEWS.some(view => view.id === value);
 export const clampBpm = (bpm: number) => Math.min(BPM_MAX, Math.max(BPM_MIN, Math.round(bpm)));
@@ -89,72 +113,122 @@ export function junctionText(junction: Junction): string {
   return junction.from.string === junction.to.string ? `${from} → ${shiftText(junction.shift)} → ${to}` : `${from} → ${to}`;
 }
 
-/** Фрагмент для петли вокруг стыка: по `radius` нот с каждой стороны. */
-export function loopAround(plan: Pick<ExercisePlan, 'notes'> & Partial<Pick<ExercisePlan, 'overlap'>>, junction: Junction, radius = 4): { from: number; toExclusive: number } {
-  // Паук и последовательность (overlap: none): петля — два целых сегмента вокруг перехода (такт до и такт после), а не середина такта.
-  if (plan.overlap === 'none') {
-    const before = plan.notes[junction.index - 1]?.segment ?? 0;
-    const after = plan.notes[junction.index]?.segment ?? before;
-    const from = plan.notes.findIndex(note => note.segment === before);
-    let toExclusive = plan.notes.length;
-    for (let index = junction.index; index < plan.notes.length; index++) if (plan.notes[index].segment !== after) { toExclusive = index; break; }
-    return { from: Math.max(0, from), toExclusive };
-  }
-  return { from: Math.max(0, junction.index - radius), toExclusive: Math.min(plan.notes.length, junction.index + radius) };
+/** Петля в тактах вокруг стыка: такт, где кончается сегмент, и такт, где начинается следующий. */
+export function loopAround(timeline: Pick<Timeline, 'steps'>, junction: Pick<Junction, 'index'>): { fromBar: number; toBar: number } {
+  const barOf = (note: number) => timeline.steps.find(step => step.note === note && !step.echo)?.bar ?? 0;
+  const fromBar = barOf(junction.index - 1);
+  return { fromBar, toBar: Math.max(fromBar, barOf(junction.index)) + 1 };
 }
 
 export interface PlaySettings {
   readonly bpm: number;
-  readonly countIn: boolean;
+  /** Цель темпа: лестница идёт до неё; по умолчанию — цель освоения шага. */
+  readonly targetBpm: number;
+  readonly countInBars: 0 | 1 | 2;
   readonly loop: boolean;
   readonly ladder: boolean;
-  readonly range: { readonly from: number; readonly toExclusive: number } | null;
+  /** Петля в тактах [fromBar, toBar). */
+  readonly range: { readonly fromBar: number; readonly toBar: number } | null;
+  readonly rhythm: RhythmPatternId;
+  readonly echo: boolean;
+  readonly groove: RhythmPresetId | null;
+  readonly reference: ReferenceMode;
+  readonly metronome: MetronomeChoice;
+  /** Громкость клика и подложки, 0–1. */
+  readonly click: number;
+  readonly grooveVolume: number;
 }
 
-export const ladderEnd = (bpm: number) => Math.min(BPM_MAX, clampBpm(bpm) + LADDER_SPAN);
+export const DEFAULT_PLAY_SETTINGS: PlaySettings = Object.freeze({
+  bpm: 72, targetBpm: 96, countInBars: 1, loop: true, ladder: false, range: null, rhythm: 'eighths', echo: false, groove: null,
+  reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6,
+});
 
-/** Конфигурация звука по плану и настройкам транспорта: восьмые, клик четвертями. */
-export function playbackConfig(plan: Pick<ExercisePlan, 'positions'>, settings: PlaySettings): PlaybackConfig {
+/** Лестница возможна, если цель выше текущего темпа. */
+export const ladderAvailable = (settings: Pick<PlaySettings, 'bpm' | 'targetBpm'>) => clampBpm(settings.targetBpm) > clampBpm(settings.bpm);
+
+/** Шкала прохода по настройкам ритма; «эхо» и рисунок меняют шкалу. */
+export const timelineFor = (plan: ExercisePlan, settings: Pick<PlaySettings, 'rhythm' | 'echo'>) => buildTimeline(plan, { pattern: settings.rhythm, echo: settings.echo });
+
+/** События TAB и строки ритма по шагам шкалы. */
+export function tabEvents(plan: Pick<ExercisePlan, 'notes'>, timeline: Pick<Timeline, 'steps'>): TabEvent[] {
+  const ROWS = ['G', 'D', 'A', 'E'] as const;
+  return timeline.steps.map((step, index) => {
+    const note = step.note === null ? null : plan.notes[step.note];
+    return { index, bar: step.bar, beatInBar: step.beatInBar, durationBeats: step.grids / 4, echo: step.echo,
+      tab: note ? { row: ROWS.indexOf(note.string), string: note.string, fret: note.fret } : null };
+  });
+}
+
+/** Громкости шин по виду: эталон «авто» молчит в «По памяти»; «эхо» включает эталон, иначе повторять нечего. */
+export function volumesFor(settings: Pick<PlaySettings, 'reference' | 'echo' | 'click' | 'grooveVolume' | 'metronome'>, view: PlayView) {
+  const reference = settings.echo ? 'on' : settings.reference;
+  const bass = reference === 'on' ? REFERENCE_VOLUME : reference === 'quiet' ? QUIET_VOLUME : reference === 'off' ? 0 : view === 'memory' ? 0 : REFERENCE_VOLUME;
+  return { bass, click: settings.click, groove: settings.grooveVolume };
+}
+
+/** Эталон слышен при этих настройках и виде. */
+export const referenceAudible = (settings: Parameters<typeof volumesFor>[0], view: PlayView) => volumesFor(settings, view).bass > 0;
+
+const METRONOME_CONFIG: Readonly<Record<MetronomeChoice, NonNullable<PlaybackConfig['metronome']>>> = {
+  beats: { enabled: true, subdivision: 'quarter', mode: 'all' },
+  eighths: { enabled: true, subdivision: 'eighth', mode: 'all' },
+  'two-four': { enabled: true, subdivision: 'quarter', mode: 'two-four' },
+  gap: { enabled: true, subdivision: 'quarter', mode: 'gap-2-2' },
+  off: { enabled: false, subdivision: 'quarter', mode: 'all' },
+};
+
+/** Конфигурация звука: шкала шагов, петля по тактам, метроном, отсчёт, свинг и подложка. */
+export function playbackConfig(plan: Pick<ExercisePlan, 'positions'>, timeline: Timeline, settings: PlaySettings): PlaybackConfig {
   const bpm = clampBpm(settings.bpm);
+  const range = settings.range ? barStepRange(timeline, settings.range.fromBar, settings.range.toBar) : null;
   return {
     notes: plan.positions,
-    ...(settings.range ? { range: { ...settings.range } } : {}),
-    duration: 'eighth',
+    steps: timeline.steps.map(step => ({ note: step.note, grids: step.grids, audible: step.audible })),
+    ...(range ? { range } : {}),
     bpm,
-    countIn: settings.countIn,
-    repeat: settings.ladder ? { kind: 'ladder', start: bpm, end: ladderEnd(bpm), step: BPM_STEP, repeatsPerTempo: 1 }
+    countInBars: settings.countInBars,
+    repeat: settings.ladder && ladderAvailable(settings) ? { kind: 'ladder', start: bpm, end: clampBpm(settings.targetBpm), step: BPM_STEP, repeatsPerTempo: LADDER_REPEATS }
       : settings.loop ? 'infinite' : 'once',
-    metronome: { enabled: true, subdivision: 'quarter', mode: 'all' },
+    metronome: METRONOME_CONFIG[settings.metronome],
+    swing: settings.groove ? presetSwing(settings.groove) : timeline.swing,
+    groove: settings.groove ? grooveHits(settings.groove) : null,
   };
 }
 
 /**
- * «Сначала услышь» (R-026): один проход того, что сейчас будет играться, — всё упражнение или
- * выбранная петля, восьмыми в текущем темпе. Без отсчёта, без клика и без повтора: это эталон
- * партии, а не игра; отсчёт и метроном начинаются вместе с игрой.
+ * «Сначала услышь» (R-026): один проход того, что будет играться (вся шкала или петля), в текущем темпе
+ * и ритме, без отсчёта, клика, подложки и эха; громкость эталона хост включает на время прослушивания.
  */
-export function listenConfig(plan: Pick<ExercisePlan, 'positions'>, settings: Pick<PlaySettings, 'bpm' | 'range'>): PlaybackConfig {
+export function listenConfig(plan: ExercisePlan, settings: PlaySettings): PlaybackConfig {
+  const timeline = timelineFor(plan, { rhythm: settings.rhythm, echo: false });
+  // У «эха» такты удвоены: петля переводится в такты шкалы без эха.
+  const scale = settings.echo ? 2 : 1;
+  const range = settings.range ? barStepRange(timeline, Math.floor(settings.range.fromBar / scale), Math.ceil(settings.range.toBar / scale)) : null;
   return {
     notes: plan.positions,
-    ...(settings.range ? { range: { ...settings.range } } : {}),
-    duration: 'eighth',
+    steps: timeline.steps.map(step => ({ note: step.note, grids: step.grids, audible: true })),
+    ...(range ? { range } : {}),
     bpm: clampBpm(settings.bpm),
-    countIn: false,
+    countInBars: 0,
     repeat: 'once',
     metronome: { enabled: false, subdivision: 'quarter', mode: 'all' },
+    swing: settings.groove ? presetSwing(settings.groove) : timeline.swing,
   };
 }
 
+export const loopText = (range: PlaySettings['range']) => !range ? '' : range.toBar - range.fromBar === 1 ? `такт ${range.fromBar + 1}` : `такты ${range.fromBar + 1}–${range.toBar}`;
+
 /** Строка прогресса во время эталона: «Звучит эталон · нота N из M». */
 export function listenProgressText(noteIndex: number | null, total: number, range: PlaySettings['range'] = null): string {
-  const loop = range ? ` · петля ${range.from + 1}–${range.toExclusive}` : '';
+  const loop = range ? ` · петля: ${loopText(range)}` : '';
   return `Звучит эталон · нота ${noteIndex === null ? 0 : noteIndex + 1} из ${total}${loop}`;
 }
 
 /** Строка прогресса «Нота N из M · проход K». */
 export function progressText(state: Pick<PlayState, 'status' | 'passIndex' | 'totalPasses' | 'pauseReason'>, noteIndex: number | null, total: number,
   extra: { readonly fromStart?: boolean; readonly range?: PlaySettings['range'] } = {}): string {
-  const loop = extra.range ? ` · петля ${extra.range.from + 1}–${extra.range.toExclusive}` : '';
+  const loop = extra.range ? ` · петля: ${loopText(extra.range)}` : '';
   const passes = state.totalPasses !== null && state.totalPasses > 1 ? ` из ${state.totalPasses}` : '';
   const pass = ` · проход ${state.passIndex + 1}${passes}`;
   switch (state.status) {
@@ -177,7 +251,7 @@ export type SuggestionAction =
 export interface Suggestion { readonly text: string; readonly actions: readonly SuggestionAction[] }
 
 /** Предложение следующего шага после самооценки. Вид переключает только пользователь — кнопкой. */
-export function suggestion(assessment: Assessment, context: { bpm: number; view: PlayView; plan: Pick<ExercisePlan, 'notes'> }): Suggestion {
+export function suggestion(assessment: Assessment, context: { bpm: number; view: PlayView; plan: Pick<ExercisePlan, 'notes'>; timeline: Pick<Timeline, 'steps'> }): Suggestion {
   const bpm = clampBpm(context.bpm);
   if (assessment === 'clean') {
     const faster = Math.min(BPM_MAX, bpm + BPM_STEP);
@@ -191,13 +265,13 @@ export function suggestion(assessment: Assessment, context: { bpm: number; view:
   if (assessment === 'errors') {
     const first = junctions(context.plan)[0];
     if (first) {
-      const range = loopAround(context.plan, first);
+      const range = loopAround(context.timeline, first);
       return {
-        text: `Оставь ${bpm}; включи петлю на ноты ${range.from + 1}–${range.toExclusive} — переход ${formatPosition(first.from.id)} → ${formatPosition(first.to.id)}.`,
-        actions: [{ kind: 'loop', range, label: `Петля ${range.from + 1}–${range.toExclusive}` }],
+        text: `Оставь ${bpm}; включи петлю на ${loopText(range)} — переход ${formatPosition(first.from.id)} → ${formatPosition(first.to.id)}.`,
+        actions: [{ kind: 'loop', range, label: `Петля: ${loopText(range)}` }],
       };
     }
-    return { text: `Оставь ${bpm} и сыграй ещё раз по кругу.`, actions: [{ kind: 'loop', range: null, label: 'По кругу' }] };
+    return { text: `Оставь ${bpm}; выбери трудный такт кликом по TAB или клавишей L.`, actions: [] };
   }
   const slower = Math.max(BPM_MIN, bpm - BPM_STEP);
   return slower < bpm
