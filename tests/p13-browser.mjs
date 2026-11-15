@@ -816,6 +816,37 @@ check('goal-step-opens-with-its-own-practice-not-the-remembered-rhythm', 'ui', a
   return { settings: db.preferences.lesson.exerciseSettings };
 });
 
+check('play-memory-junction-without-positions-tab-anchors-without-tonic-and-right-hand-of-current-note', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await lessonTab(page, 'Библиотека');
+  const open = async title => {
+    await lessonTab(page, 'Библиотека');
+    const card = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+    await card.getByRole('button', { name: /^Играть/ }).click();
+    await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  };
+  // «По памяти»: переход — куда и как, без ладов.
+  await open('Связка соседних форм');
+  await playScene(page).locator('button[data-view="memory"]').click();
+  const junction = await playScene(page).locator('[data-mem-junction]').innerText();
+  assert.doesNotMatch(junction, /[EADG]\/\d+/, `В «По памяти» переход без позиций: ${junction}`);
+  // «Таб» у хроматики (без тоники): опоры — старт и финиш, а не пустая рамка.
+  await playScene(page).locator('[data-back]').click();
+  await open('Хроматика 1-2-3-4 в позиции');
+  await playScene(page).locator('button[data-view="tab"]').click();
+  assert.equal(await playScene(page).locator('[data-anchors-caption]').innerText(), 'Опоры: старт и финиш');
+  assert.equal(await playScene(page).locator('[data-board="tab"] [data-position]').count(), 2);
+  // Правая рука: до старта подписана только стартовая нота — её пальцем.
+  await playScene(page).locator('[data-back]').click();
+  await open('Переход между струнами (правая рука)');
+  await playScene(page).locator('button[data-view="board"]').click();
+  await playScene(page).locator('button[data-label="pluck"]').click();
+  const labels = await playScene(page).locator('[data-board="board"] .pl-note-label').allTextContents();
+  assert.deepEqual(labels, ['i'], `Подпись правой руки — только у стартовой ноты: ${labels}`);
+  assert.match(await playScene(page).locator('[data-now-detail]').innerText(), /пр\. рука i/);
+  return { junction, labels };
+});
+
 /* ---------- «Проверь себя» ---------- */
 
 async function basicsLevels(page) {

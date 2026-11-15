@@ -96,7 +96,7 @@ describe('предложения после самооценки', () => {
   });
   it('«С ошибками»: петля на такты вокруг перехода; без перехода — подсказка выбрать такт', () => {
     const errors = suggestion('errors', context('both'));
-    expect(errors.text).toBe('Оставь 76; включи петлю на такты 1–2 — переход G/7 → G/9.');
+    expect(errors.text).toBe('Оставь 76; включи петлю на такты 1–2 — переход G/7 → G/9 — или кликни трудный такт в TAB.');
     expect(errors.actions).toEqual([{ kind: 'loop', range: { fromBar: 0, toBar: 2 }, label: 'Петля: такты 1–2' }]);
     const single = suggestion('errors', context('both', buildExercise(createExerciseSpec('pentatonic-form'))));
     expect(single.actions).toEqual([]);

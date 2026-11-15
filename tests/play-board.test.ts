@@ -133,3 +133,17 @@ describe('SVG-гриф', () => {
     expect(svg.match(/class="pl-nut"/g)).toHaveLength(1);
   });
 });
+
+describe('правая рука на грифе (P17-fix)', () => {
+  it('подписаны только позиции текущей и следующей ноты — пальцем их шага, а не первого появления', () => {
+    const plan = buildExercise(createExerciseSpec('string-crossing', { pattern: 'raking' }));
+    const labelled = (map: Map<string, string>) => boardNotesFromPlan(plan, { labels: 'pluck', pluckOf: map }).filter(note => note.label).map(note => `${note.id}:${note.label}`);
+    expect(labelled(new Map())).toEqual([]);
+    // Рейкинг: после G (m) нижняя соседняя D играется тем же пальцем — на позиции D:0 палец m, хотя первое появление D — i.
+    const firstD = plan.notes.find(note => note.id === 'D:0')!;
+    const rakeD = plan.notes.find((note, index) => index > 0 && note.id === 'D:0' && plan.notes[index - 1].id === 'G:0')!;
+    expect(firstD.pluck).not.toBe(rakeD.pluck);
+    expect(labelled(new Map([['G:0', 'm'], ['D:0', rakeD.pluck!]]))).toEqual(expect.arrayContaining([`D:0:${rakeD.pluck}`, 'G:0:m']));
+    expect(labelled(new Map([['G:0', 'm'], ['D:0', rakeD.pluck!]]))).toHaveLength(2);
+  });
+});

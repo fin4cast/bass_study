@@ -58,8 +58,10 @@ export const formatPosition = (id: string) => id.replace(':', '/');
 /**
  * Ноты доски из плана: каждая позиция один раз. Подпись, тоника и палец берутся из ноты сегмента,
  * который сейчас играют (`segment`); если позиции в нём нет — из первого появления в плане.
+ * Палец правой руки на одной позиции меняется по ходу (рейкинг), поэтому в режиме `pluck` подписаны только
+ * позиции из `pluckOf` — текущая и следующая нота с пальцем их шага.
  */
-export function boardNotesFromPlan(plan: Pick<ExercisePlan, 'notes'> & Partial<Pick<ExercisePlan, 'overlap'>>, options: { labels?: BoardLabelMode; segment?: number } = {}): BoardNote[] {
+export function boardNotesFromPlan(plan: Pick<ExercisePlan, 'notes'> & Partial<Pick<ExercisePlan, 'overlap'>>, options: { labels?: BoardLabelMode; segment?: number; pluckOf?: ReadonlyMap<string, string> } = {}): BoardNote[] {
   const labels = options.labels ?? 'name';
   const segment = options.segment ?? 0;
   const order: string[] = [];
@@ -79,7 +81,7 @@ export function boardNotesFromPlan(plan: Pick<ExercisePlan, 'notes'> & Partial<P
     const kind: BoardNoteKind = plan.overlap !== 'none' && sorted.length > 1 ? 'shared' : root ? 'root' : sorted[0] % 2 === 0 ? 'a' : 'b';
     const label = labels === 'degree' ? formatDegree(note.degree)
       : labels === 'finger' ? (note.finger === null ? '' : String(note.finger))
-        : labels === 'pluck' ? (note.pluck ?? '')
+        : labels === 'pluck' ? (options.pluckOf?.get(id) ?? '')
         : labels === 'none' ? '' : pitchLetter(note.name);
     return { id, string: note.string, fret: note.fret, label, kind, root, finger: note.finger, stretch: note.stretch, segments: sorted };
   });

@@ -156,7 +156,7 @@ const TEMPLATE = `
           <div class="pl-tabcard pl-tab-next"><div class="pl-fit" data-tab="tab-next"></div></div>
           <div class="pl-row" data-slot="tab-main"></div>
         </div>
-        <aside class="pl-cside"><span class="pl-cside-caption">Опоры: тоники</span><div class="pl-fit pl-board pl-board-mini" data-board="tab"></div><div class="pl-cside-row" data-slot="tab-side"></div></aside>
+        <aside class="pl-cside"><span class="pl-cside-caption" data-anchors-caption>Опоры: тоники</span><div class="pl-fit pl-board pl-board-mini" data-board="tab"></div><div class="pl-cside-row" data-slot="tab-side"></div></aside>
       </div>
     </div>
     <div class="pl-area" data-area="memory">
@@ -493,11 +493,22 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     const bar = line.steps[focusStep]?.bar ?? 0;
     const segmentLabel = plan.segments[segment]?.label ?? '';
     const echoBar = line.steps[focusStep]?.echo ?? false;
-    const boardFor = (mode: BoardLabelMode, pad: number, width: number, marker: number, fretLabels = true, onlyRoots = false) => {
+    // Правая рука: палец текущей и следующей ноты по их шагу (на одной позиции он меняется).
+    const pluckOf = new Map<string, string>();
+    if (next !== null && plan.notes[next].pluck) pluckOf.set(plan.notes[next].id, plan.notes[next].pluck!);
+    if (current !== null && plan.notes[current].pluck) pluckOf.set(plan.notes[current].id, plan.notes[current].pluck!);
+    // Опоры мини-грифа «Таб»: тоники; у упражнения без тоники — старт и финиш.
+    const hasRoots = plan.notes.some(note => note.degree === '1');
+    const endIds = new Set<string>();
+    if (!hasRoots) {
+      const noteStepIds = line.steps.filter(item => item.note !== null && !item.echo).map(item => plan!.notes[item.note!].id);
+      if (noteStepIds.length) { endIds.add(noteStepIds[0]); endIds.add(noteStepIds[noteStepIds.length - 1]); }
+    }
+    const boardFor = (mode: BoardLabelMode, pad: number, width: number, marker: number, fretLabels = true, anchorsOnly = false) => {
       const window = planFretWindow(plan!, { pad, minSpan: 6 });
       const geometry = boardGeometry({ width, marker, fretLabels });
-      const notes = boardNotesFromPlan(plan!, { labels: mode, segment }).filter(note => !onlyRoots || note.root);
-      return { svg: renderBoard({ notes, ...window, current: onlyRoots ? null : currentId, next: onlyRoots ? null : nextId, width, marker, fretLabels }), width, height: geometry.height };
+      const notes = boardNotesFromPlan(plan!, { labels: mode, segment, pluckOf }).filter(note => !anchorsOnly || (hasRoots ? note.root : endIds.has(note.id)));
+      return { svg: renderBoard({ notes, ...window, current: anchorsOnly ? null : currentId, next: anchorsOnly ? null : nextId, width, marker, fretLabels }), width, height: geometry.height };
     };
     const tabFor = (fromBar: number, count: number, width: number, lineGap: number, fontSize: number, extra: { showCount?: boolean; dimPlayed?: boolean; cursor?: boolean; label?: string; selectable?: boolean } = {}) => {
       const geometry = tabGeometry({ width, lineGap, showCount: extra.showCount });
@@ -512,7 +523,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       at('[data-bar-label="board"]').textContent = barLabel;
       at('[data-now-caption]').textContent = current === null ? 'Старт' : 'Сейчас';
       at('[data-now]').textContent = pitchLetter(focusNote.name);
-      at('[data-now-detail]').textContent = [formatPosition(focusNote.id), focusNote.degree ? `ступень ${formatDegree(focusNote.degree)}` : ''].filter(Boolean).join(' · ');
+      at('[data-now-detail]').textContent = [formatPosition(focusNote.id), focusNote.degree ? `ступень ${formatDegree(focusNote.degree)}` : '', focusNote.pluck ? `пр. рука ${focusNote.pluck}` : ''].filter(Boolean).join(' · ');
       put('[data-board="board"]', boardFor(effectiveLabels(), 2, 1000, 46));
     } else if (view === 'both') {
       const page = pageOf(tabList, bar, BARS_PER_PAGE);
@@ -527,6 +538,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       const following = (bar + 1) % bars;
       put('[data-tab="tab-next"]', tabFor(following, 1, 760, 14, 13, { showCount: false, cursor: false, label: `Следующий такт ${following + 1}` }));
       at('[data-bar-label="tab"]').textContent = `Т${barLabel.slice(1)} · ниже — следующий`;
+      at('[data-anchors-caption]').textContent = hasRoots ? 'Опоры: тоники' : 'Опоры: старт и финиш';
       put('[data-board="tab"]', boardFor('name', 1, 280, 22, true, true));
     } else {
       putRhythm('[data-rhythm="memory"]');
@@ -556,9 +568,10 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       shiftEl.querySelector('[data-shift-text]')!.textContent = junctionText(junction);
       const tail = plan.segments[junction.to.segment]?.label;
       shiftEl.querySelector('[data-shift-tail]')!.textContent = tail ? `дальше: ${tail}` : '';
+      // «По памяти» — без позиций: куда переходим (сегмент) и как (сдвиг, палец), но не лады.
       at('[data-mem-junction-caption]').textContent = 'Переход';
-      at('[data-mem-junction]').textContent = `${formatPosition(junction.from.id)} → ${formatPosition(junction.to.id)}`;
-      at('[data-mem-junction-detail]').textContent = [shiftText(junction.shift), junction.to.finger === null ? '' : `палец ${junction.to.finger}`].filter(Boolean).join(' · ');
+      at('[data-mem-junction]').textContent = tail ? `дальше: ${tail}` : junction.from.string === junction.to.string ? shiftText(junction.shift) : 'на другую струну';
+      at('[data-mem-junction-detail]').textContent = [tail && junction.from.string === junction.to.string ? shiftText(junction.shift) : '', junction.to.finger === null ? '' : `палец ${junction.to.finger}`].filter(Boolean).join(' · ');
     } else {
       const line = shownTimeline();
       const lastNote = line ? [...line.steps].reverse().find(item => item.note !== null)?.note ?? 0 : 0;
@@ -585,7 +598,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     all<HTMLButtonElement>('[data-metronome]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.metronome === settings.metronome)));
     all<HTMLButtonElement>('[data-countin-bars]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.countinBars) === settings.countInBars)));
     at('[data-flag="echo"]').setAttribute('aria-pressed', String(settings.echo));
-    setText(at('[data-reference-note]'), settings.echo ? 'Эхо: эталон звучит в первом такте пары.' : settings.reference === 'auto' ? `Сейчас ${referenceAudible(settings, view) ? 'звучит' : 'молчит'}: в «По памяти» эталон выключен.` : '');
+    setText(at('[data-reference-note]'), settings.echo ? 'Эхо: эталон звучит в первом такте пары.' : settings.reference === 'auto' ? (referenceAudible(settings, view) ? 'Эталон звучит; в «По памяти» он выключится — без подсказки звуком.' : 'Эталон выключен: «По памяти» — без подсказки звуком.') : '');
     const click = at<HTMLInputElement>('[data-volume="click"]');
     if (document.activeElement !== click) click.value = String(Math.round(settings.click * 100));
     const groove = at<HTMLInputElement>('[data-volume="groove"]');

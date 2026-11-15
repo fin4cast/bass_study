@@ -300,7 +300,7 @@ export function suggestion(assessment: Assessment, context: { bpm: number; view:
     if (first) {
       const range = loopAround(context.timeline, first);
       return {
-        text: `Оставь ${bpm}; включи петлю на ${loopText(range)} — переход ${formatPosition(first.from.id)} → ${formatPosition(first.to.id)}.`,
+        text: `Оставь ${bpm}; включи петлю на ${loopText(range)} — переход ${formatPosition(first.from.id)} → ${formatPosition(first.to.id)} — или кликни трудный такт в TAB.`,
         actions: [{ kind: 'loop', range, label: `Петля: ${loopText(range)}` }],
       };
     }
