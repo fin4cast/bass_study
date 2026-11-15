@@ -83,11 +83,12 @@ const planTitles = page => home(page).locator('.ls-plan .ls-step-title').allInne
 
 /* ---------- Цели «Основ» и настройка карточки (D-049) ---------- */
 
-check('goal-pentatonic-step-memory-whole-pass-masters-step-and-today-adds-goal-steps', 'ui', async ({ page, origin }) => {
+check('goal-pentatonic-step-memory-whole-pass-counts-one-day-and-goal-builds-todays-plan', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
   await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'план первого запуска');
+  // «Сегодня» первого запуска — одно решение: выбрать цель.
+  assert.match(await home(page).locator('.ls-hero h2').innerText(), /Выбери цель/);
   await lessonTab(page, 'Основы');
-  // Первый запуск: открыт вид «Цели» с выбором цели.
   assert.equal(await home(page).locator('[data-act="basics-view"][data-value="goals"]').getAttribute('aria-pressed'), 'true');
   assert.match(await home(page).locator('.ls-goal-choose h2').innerText(), /Выбери цель/);
   await home(page).locator('[data-key="goal-card:pentatonic"]').click();
@@ -95,16 +96,18 @@ check('goal-pentatonic-step-memory-whole-pass-masters-step-and-today-adds-goal-s
   assert.equal(await head.innerText(), 'Пентатоника на всём грифе · Am');
   await home(page).locator('[data-control="goal-root"]').selectOption('E');
   assert.equal(await head.innerText(), 'Пентатоника на всём грифе · Em');
-  assert.equal(await home(page).locator('.ls-goal-strip .ls-st').count(), 14);
+  assert.equal(await home(page).locator('.ls-goal-strip .ls-st').count(), 15);
   await home(page).locator('[data-act="goal-step"][data-value="form-b"]').click();
   const card = home(page).locator('section[aria-label="Шаг цели"]');
-  assert.match(await card.innerText(), /Шаг 2 из 14[\s\S]*не начат[\s\S]*Em · минорная пентатоника · форма B[\s\S]*«По памяти»/i);
+  assert.match(await card.innerText(), /Шаг 2 из 15[\s\S]*не начат[\s\S]*Em · минорная пентатоника · форма B[\s\S]*«По памяти»[\s\S]*два разных дня[\s\S]*Цель темпа — 96 BPM/i);
+  // «Сделать целью» на нетронутом плане первого запуска собирает план из цели.
   await home(page).locator('[data-key="make-goal"]').click();
-  const saved = await waitDb(page, db => db.preferences?.lesson?.goal?.id === 'pentatonic', 'цель сохранена');
+  const saved = await waitDb(page, db => db.preferences?.lesson?.goal?.id === 'pentatonic' && db.preferences.lesson.plan.steps.some(step => step.content.spec?.params?.shapeId === 'penta-a'), 'цель и план из цели');
   assert.deepEqual(saved.preferences.lesson.goal, { id: 'pentatonic', root: 'E' });
-  assert.equal(await home(page).locator('[data-badge="basics"]').innerText(), '0/14');
+  assert.deepEqual(saved.preferences.lesson.plan.steps.map(step => step.content.spec.params.shapeId ?? step.content.spec.templateId), ['chromatic-position', 'penta-a', 'penta-b']);
+  assert.equal(await home(page).locator('[data-badge="basics"]').innerText(), '0/15');
 
-  // Проход целиком в виде «По памяти» с отметкой «Чисто» осваивает шаг.
+  // Проход целиком в виде «По памяти» с «Чисто» на цели темпа засчитывает первый день из двух.
   await card.locator('[data-key="goal-primary"]').click();
   await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
   assert.equal(await playScene(page).locator('[data-title]').innerText(), 'Форма пентатоники вверх-вниз');
@@ -112,34 +115,38 @@ check('goal-pentatonic-step-memory-whole-pass-masters-step-and-today-adds-goal-s
   if (await loop.getAttribute('aria-pressed') === 'true') await loop.click();
   await playScene(page).locator('button[data-view="memory"]').click();
   await assertAttribute(playScene(page).locator('button[data-view="memory"]'), 'aria-pressed', 'true');
-  for (let index = 0; index < 12; index++) await playScene(page).getByRole('button', { name: /^Быстрее на/ }).click();
-  await playScene(page).locator('[data-play]').click();
+  // Эталон «авто» молчит в «По памяти» — это видно в сводке звука.
+  assert.match(await playScene(page).locator('[data-sound-summary]').innerText(), /эталон выкл/);
+  await playScene(page).locator('[data-bpm]').fill('120');
+  await playScene(page).locator('[data-bpm]').press('Enter');
+  await playScene(page).locator('[data-title]').focus();
+  await page.keyboard.press('Space');
   const rate = playScene(page).getByRole('group', { name: 'Самооценка подхода' });
   await rate.waitFor({ timeout: 30000 });
-  await rate.getByRole('button', { name: 'Чисто', exact: true }).click();
+  // Оценка с клавиатуры: Z — «Чисто».
+  await page.keyboard.press('KeyZ');
   const db = await waitDb(page, db => db.history.some(entry => entry.result?.assessment === 'clean'), '«Чисто» в истории');
   const entry = db.history.find(item => item.result?.assessment === 'clean');
   assert.equal(entry.result.material.view, 'memory');
   assert.equal(entry.result.material.wholePass, true);
+  assert.deepEqual(entry.result.material.practice, { rhythm: 'eighths', echo: false, groove: null });
   assert.equal(entry.result.material.key, 'builtin:pentatonic-form.E.minor-pentatonic.penta-b');
+  assert.equal(entry.result.comfortableBpm, 120);
   await page.locator('[data-lesson-screen="play"] [data-back]').click();
   await page.locator('[data-lesson-screen="home"]:not([hidden])').waitFor();
   await lessonTab(page, 'Основы');
-  assert.match(await home(page).locator('[data-act="goal-step"][data-value="form-b"]').innerText(), /✓ по памяти · \d+/);
-  assert.equal(await home(page).locator('[data-badge="basics"]').innerText(), '1/14');
+  assert.match(await home(page).locator('[data-act="goal-step"][data-value="form-b"]').innerText(), /в работе · 1 из 2 дней · 120/i);
+  assert.equal(await home(page).locator('[data-badge="basics"]').innerText(), '0/15');
 
-  // «Сегодня»: строка цели и «Добавить шаги цели» без повторов материала.
+  // «Сегодня»: строка цели; шаги цели уже в плане — повторно не добавляются.
   await lessonTab(page, 'Сегодня');
-  assert.match(await home(page).locator('.ls-goal-line').innerText(), /Цель: Пентатоника на всём грифе · Em · освоено 1\/14/);
-  const before = (await readDb(page)).preferences.lesson.plan.steps.length;
+  assert.match(await home(page).locator('.ls-goal-line').innerText(), /Цель: Пентатоника на всём грифе · Em · освоено 0\/15/);
   await home(page).locator('[data-key="hero-goal-steps"]').click();
-  const grown = await waitDb(page, db => db.preferences.lesson.plan.steps.length > before, 'шаги цели в плане');
-  const keys = grown.preferences.lesson.plan.steps.map(step => JSON.stringify(step.content));
+  await assertAttribute(home(page).locator('[data-toast]'), 'class', 'ls-toast is-on');
+  assert.match(await home(page).locator('[data-toast]').innerText(), /Шаги цели уже в плане/);
+  const keys = (await readDb(page)).preferences.lesson.plan.steps.map(step => JSON.stringify(step.content));
   assert.equal(new Set(keys).size, keys.length, 'Без повторов материала');
-  const added = grown.preferences.lesson.plan.steps.slice(before).map(step => step.content.spec.params?.shapeId ?? step.content.spec.templateId);
-  assert.ok(added.includes('penta-a') && added.includes('penta-c'), `Добавлены следующие неосвоенные формы: ${added}`);
-  assert.ok(!added.includes('penta-b'), 'Освоенная форма B не добавляется');
-  return { goal: saved.preferences.lesson.goal, entry: entry.result.material, added };
+  return { goal: saved.preferences.lesson.goal, entry: entry.result.material };
 });
 
 check('library-card-configure-form-b-keeps-form-a-in-plan-and-star-saves-configured-material', 'ui', async ({ page, origin }) => {
@@ -397,7 +404,7 @@ check('today-first-run-plan-is-shown-and-saved', 'ui', async ({ page, origin }) 
   await openApp(page, origin);
   const tab = home(page).getByRole('tab', { name: /^Сегодня/ });
   assert.equal(await tab.getAttribute('aria-selected'), 'true');
-  assert.match(await home(page).locator('.ls-hero').innerText(), /Первый запуск[\s\S]*Начни с «Основ»/i);
+  assert.match(await home(page).locator('.ls-hero').innerText(), /Первый запуск[\s\S]*Выбери цель[\s\S]*Техника рук[\s\S]*или сразу сыграй план/i);
   assert.deepEqual(await planTitles(page), FIRST_RUN_PLAN);
   assert.match(await home(page).locator('.ls-plan h2').innerText(), /^План на сегодня · 10 мин$/);
   const statuses = await home(page).locator('.ls-plan .ls-step').evaluateAll(items => items.map(item => [...item.classList].find(token => token.startsWith('is-'))));

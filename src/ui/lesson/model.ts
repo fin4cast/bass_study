@@ -11,7 +11,7 @@ import {
 } from '../../practice/plan';
 import { ASSESSMENT_LABELS, exerciseProgress, playedKeys, type Assessment, type PracticeRecord } from '../../practice/results';
 import { recommend } from '../../practice/recommend';
-import { goalProgress, GOALS, isGoalId, nextGoalSteps, recordsByMaterial, type GoalId, type GoalProgress, type GoalStep, type MasteryRule } from '../../practice/goals';
+import { goalProgress, GOALS, isGoalId, mastered, nextGoalSteps, recordsByMaterial, reviewSteps, stepPractice, type GoalId, type GoalProgress, type GoalStep, type MasteryRule } from '../../practice/goals';
 import { conceptForExerciseConcept, REFERENCE_CONCEPTS, REFERENCE_LEVELS, type ReferenceConcept, type ReferenceLevel } from '../../practice/concepts';
 import { annotatePositions, getPosition, type StructureId } from '../../music';
 import type { BoardNote } from './mini-board';
@@ -200,7 +200,7 @@ export function heroModel(state: Pick<LessonState, 'plan' | 'records' | 'userExe
   if (!step && goal?.next) {
     const next = goal.next;
     return { mode: 'goal', goalLine: line, eyebrow: 'Следующий шаг цели', title: stepTitle(next.content, state.userExercises),
-      meta: `${stepMaterial(next.content)} · ${RULE_HINTS[next.rule]}`, content: next.content, stepId: null, concepts: [], stats: [] };
+      meta: `${stepMaterial(next.content)} · ${stepRuleHint(next)}`, content: next.content, stepId: null, concepts: [], stats: [] };
   }
   let content: PlanStepContent | null = step?.content ?? null;
   let eyebrow = step ? `Продолжить · шаг ${state.plan.steps.indexOf(step) + 1} из ${state.plan.steps.length} плана` : '';
@@ -290,7 +290,7 @@ const PENTATONIC_REC: RecommendationCard = Object.freeze({
 export function recommendationCards(records: readonly PracticeRecord[], firstRun: boolean, goalStep: { readonly progress: GoalProgress; readonly step: GoalStep } | null = null): readonly RecommendationCard[] {
   if (goalStep) {
     const { progress, step } = goalStep;
-    const card: RecommendationCard = { id: 'goal', eyebrow: 'Шаг цели', title: stepTitle(step.content), reason: `${progress.goal.title} · ${stepMaterial(step.content)}. ${RULE_HINTS[step.rule]}`,
+    const card: RecommendationCard = { id: 'goal', eyebrow: 'Шаг цели', title: stepTitle(step.content), reason: `${progress.goal.title} · ${stepMaterial(step.content)}. ${stepRuleHint(step)}`,
       concept: false, content: step.content, conceptId: null, openBasics: false };
     const rest = recommendationCards(records, firstRun).filter(item => !(item.content && JSON.stringify(item.content) === JSON.stringify(step.content)));
     return [card, ...rest].slice(0, 3);
@@ -298,7 +298,8 @@ export function recommendationCards(records: readonly PracticeRecord[], firstRun
   if (firstRun || !records.length) {
     return [
       { id: 'semitone', eyebrow: 'Понятие', title: 'Тон и полутон', reason: 'Соседний лад — полутон, через лад — тон. С этого читаются все формулы.', concept: true, content: null, conceptId: 'semitone', openBasics: false },
-      { id: 'basics', eyebrow: 'Основы', title: 'Уровень 0 · Ориентация', reason: 'Понятие → упражнение → проверка. Ничего не заблокировано.', concept: false, content: null, conceptId: null, openBasics: true },
+      { id: 'right-hand', eyebrow: 'Правая рука', title: 'Попеременное щипковое i–m', reason: 'Указательный и средний по очереди, переход между открытыми струнами без лишнего звона.', concept: false,
+        content: { kind: 'exercise', spec: createExerciseSpec('string-crossing') }, conceptId: null, openBasics: false },
       { id: 'pentatonic-form', eyebrow: 'Пентатоника', title: 'Первая форма — пентатоника', reason: 'Пять нот под рукой. С неё начинаются формы и связки.', concept: true,
         content: { kind: 'exercise', spec: createExerciseSpec('pentatonic-form') }, conceptId: 'pentatonic', openBasics: false },
     ];
@@ -465,6 +466,9 @@ const STEP_EXERCISE: Partial<Record<string, () => ExerciseSpec>> = {
   'natural-minor': () => createExerciseSpec('scale-compact', { root: 'A', structureId: 'natural-minor' }),
   'shared-notes': () => createExerciseSpec('connect-forms'),
   'beat-bar': () => createExerciseSpec('chromatic-position', { startFret: 3 }),
+  'alternate-plucking': () => createExerciseSpec('string-crossing', { pattern: 'adjacent' }),
+  raking: () => createExerciseSpec('string-crossing', { pattern: 'raking' }),
+  muting: () => createExerciseSpec('string-crossing', { pattern: 'skip' }),
   counting: () => createExerciseSpec('connect-forms', { shapeId: 'penta-b' }),
   tab: () => createExerciseSpec('scale-one-string', { root: 'G', structureId: 'major', string: 'E' }),
   'bass-clef': () => createExerciseSpec('note-all-positions', { note: 'G' }),
@@ -589,10 +593,19 @@ export const ASSESSMENT_SCALE: readonly Assessment[] = Object.freeze(['clean', '
 /* ---------- Цели «Основ» (D-049) ---------- */
 
 export const RULE_HINTS: Readonly<Record<MasteryRule, string>> = Object.freeze({
-  memory: 'Сыграй с подсказкой, потом целиком в виде «По памяти» и отметь «Чисто».',
-  clean: 'Сыграй целиком и отметь «Чисто».',
+  memory: 'Сыграй с подсказкой, потом целиком в виде «По памяти» и отметь «Чисто» — на цели темпа, в два разных дня.',
+  clean: 'Сыграй целиком и отметь «Чисто» — на цели темпа, в два разных дня.',
   check: 'Ответь верно с первой попытки на 5 вопросов из 6.',
 });
+
+/** Подсказка шага цели: правило, цель темпа и как играть (эхо, подложка). */
+export function stepRuleHint(step: GoalStep): string {
+  const practice = stepPractice(step);
+  const how = [practice.echo ? 'режим «Эхо»: такт звучит, следующий повторяешь сам' : '', practice.groove ? `под подложку «${GROOVE_NAMES[practice.groove] ?? practice.groove}»` : ''].filter(Boolean).join(', ');
+  const tempo = step.targetBpm ? ` Цель темпа — ${step.targetBpm} BPM.` : '';
+  return `${how ? `${how[0].toUpperCase()}${how.slice(1)}. ` : ''}${RULE_HINTS[step.rule]}${tempo}`;
+}
+const GROOVE_NAMES: Readonly<Record<string, string>> = { rock: 'Прямой рок', funk: 'Фанк', shuffle: 'Шаффл', blues: 'Блюзовый пульс', latin: 'Латинский пульс', disco: 'Диско' };
 
 /** Цель из настроек: неизвестный id (каталог целей меняется) — цели нет. */
 export function storedGoal(value: { readonly id: string; readonly root: string | null } | null): LessonState['goal'] {
@@ -600,13 +613,14 @@ export function storedGoal(value: { readonly id: string; readonly root: string |
 }
 
 /** Прогресс всех целей: для выбранной цели — её тоника, для остальных — тоника по умолчанию. */
-export function goalsOverview(records: readonly PracticeRecord[], roots: ReadonlyMap<GoalId, string | null> = new Map()): readonly GoalProgress[] {
+export function goalsOverview(records: readonly PracticeRecord[], roots: ReadonlyMap<GoalId, string | null> = new Map(), today: string | null = null): readonly GoalProgress[] {
   const index = recordsByMaterial(records);
-  return GOALS.map(goal => goalProgress(goal.id, roots.get(goal.id) ?? goal.defaultRoot, records, index));
+  return GOALS.map(goal => goalProgress(goal.id, roots.get(goal.id) ?? goal.defaultRoot, records, index, today));
 }
 
-export function currentGoalProgress(state: Pick<LessonState, 'goal' | 'records'>): GoalProgress | null {
-  return state.goal ? goalProgress(state.goal.id, state.goal.root, state.records) : null;
+/** Прогресс текущей цели; дата плана — «сегодня» для «пора повторить». */
+export function currentGoalProgress(state: Pick<LessonState, 'goal' | 'records'> & { readonly plan?: Pick<DayPlan, 'localDate'> }): GoalProgress | null {
+  return state.goal ? goalProgress(state.goal.id, state.goal.root, state.records, undefined, state.plan?.localDate ?? null) : null;
 }
 
 export const goalStepTitle = (step: GoalStep, userExercises: readonly UserExercise[] = []) => stepTitle(step.content, userExercises);
@@ -616,7 +630,9 @@ export const goalStepTitle = (step: GoalStep, userExercises: readonly UserExerci
  * (если цель не они). Без повторов по материалу среди незавершённых шагов, не больше предела плана.
  */
 export function addGoalSteps(plan: DayPlan, progress: GoalProgress, records: readonly PracticeRecord[], userExercises: readonly UserExercise[] = []) {
-  const warmup = progress.goal.id === 'four-fingers' ? [] : nextGoalSteps(goalProgress('four-fingers', null, records), 1);
+  // Разминка: повторение освоенного шага цели, если пора; иначе следующий шаг «Техники рук».
+  const review = reviewSteps(progress).slice(0, 1);
+  const warmup = review.length ? review : progress.goal.id === 'four-fingers' ? [] : nextGoalSteps(goalProgress('four-fingers', null, records), 1);
   let next = plan;
   const added: GoalStep[] = [];
   for (const step of [...warmup, ...nextGoalSteps(progress, 2)]) {
@@ -626,4 +642,17 @@ export function addGoalSteps(plan: DayPlan, progress: GoalProgress, records: rea
     added.push(step);
   }
   return { plan: next, added };
+}
+
+/**
+ * План первого запуска, который ещё не трогали: шаги стартового шаблона, ничего не сыграно и не отмечено.
+ * Только его «Сделать целью» пересобирает из цели — добавленное вручную не теряется (D-050).
+ */
+export function untouchedFirstRunPlan(plan: DayPlan): boolean {
+  return plan.steps.length > 0 && plan.steps.every(step => step.id.startsWith('firstRun-') && step.status !== 'done');
+}
+
+/** План из цели: разминка и два следующих шага цели вместо нетронутого плана первого запуска. */
+export function planFromGoal(plan: DayPlan, progress: GoalProgress, records: readonly PracticeRecord[], userExercises: readonly UserExercise[] = []): DayPlan {
+  return addGoalSteps(rebuild(plan, []), progress, records, userExercises).plan;
 }

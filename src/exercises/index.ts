@@ -14,7 +14,7 @@ export type ExerciseCategory = 'warmup' | 'notes' | 'forms' | 'connections' | 'p
 export type ConceptId =
   | 'finger-per-fret' | 'position-shift' | 'semitone' | 'octave' | 'unison' | 'degrees' | 'pentatonic' | 'relative-keys'
   | 'scale-formula' | 'shared-notes' | 'form-system' | 'triad' | 'fifth' | 'sequence' | 'third' | 'transposition' | 'circle-of-fifths'
-  | 'seventh-chord' | 'inversion' | 'progression' | 'blues';
+  | 'seventh-chord' | 'inversion' | 'progression' | 'blues' | 'right-hand';
 
 type Pentatonic = 'minor-pentatonic' | 'major-pentatonic';
 type Scale = 'major' | 'natural-minor';
@@ -22,7 +22,9 @@ type Triad = 'major-triad' | 'minor-triad' | 'diminished-triad';
 type Seventh = 'major-seventh' | 'dominant-seventh' | 'minor-seventh' | 'half-diminished-seventh';
 export type SpiderPattern = '1234' | '1324' | '1243' | '1432';
 export type ProgressionId = 'I-IV-V' | 'ii-V-I' | 'blues-12';
-export type ProgressionPattern = 'roots' | 'arpeggio' | 'approach' | 'boogie';
+export type ProgressionPattern = 'roots' | 'root-fifth' | 'octaves' | 'arpeggio' | 'approach' | 'boogie';
+/** Рисунок правой руки на открытых струнах: соседние струны, через струну, рейкинг. */
+export type CrossingPattern = 'adjacent' | 'skip' | 'raking';
 type PentaShape = Extract<BoxShapeId, `penta-${string}`>;
 type CompactShape = 'compact-e' | 'compact-a';
 
@@ -30,6 +32,7 @@ export interface ExerciseParams {
   readonly 'chromatic-position': { readonly startFret: number };
   readonly 'position-shift': { readonly string: StringId; readonly startFret: number; readonly shifts: number };
   readonly spider: { readonly startFret: number; readonly positions: number; readonly pattern: SpiderPattern };
+  readonly 'string-crossing': { readonly pattern: CrossingPattern };
   readonly 'note-all-positions': { readonly note: string };
   readonly octaves: { readonly note: string };
   readonly 'pentatonic-form': { readonly root: string; readonly structureId: Pentatonic; readonly shapeId: PentaShape };
@@ -62,6 +65,8 @@ export interface ExerciseNote {
   /** Нота берётся растяжкой за пределы окна позиции «палец на лад». */
   readonly stretch: boolean;
   readonly segment: number;
+  /** Палец правой руки: «i» — указательный, «m» — средний; `null` — не подписан (D-050). */
+  readonly pluck: 'i' | 'm' | null;
 }
 export interface ExercisePlan {
   readonly spec: ExerciseSpec;
@@ -91,7 +96,8 @@ export interface ExerciseTemplate<Id extends ExerciseTemplateId = ExerciseTempla
 const STRINGS: readonly StringId[] = ['E', 'A', 'D', 'G'];
 export const SPIDER_PATTERNS: readonly SpiderPattern[] = ['1234', '1324', '1243', '1432'];
 export const PROGRESSION_IDS: readonly ProgressionId[] = ['I-IV-V', 'ii-V-I', 'blues-12'];
-export const PROGRESSION_PATTERNS: readonly ProgressionPattern[] = ['roots', 'arpeggio', 'approach', 'boogie'];
+export const PROGRESSION_PATTERNS: readonly ProgressionPattern[] = ['roots', 'root-fifth', 'octaves', 'arpeggio', 'approach', 'boogie'];
+export const CROSSING_PATTERNS: readonly CrossingPattern[] = ['adjacent', 'skip', 'raking'];
 export const TRIADS: readonly Triad[] = ['major-triad', 'minor-triad', 'diminished-triad'];
 export const SEVENTHS: readonly Seventh[] = ['major-seventh', 'dominant-seventh', 'minor-seventh', 'half-diminished-seventh'];
 const PENTA_SHAPES: readonly PentaShape[] = ['penta-a', 'penta-b', 'penta-c', 'penta-d', 'penta-e'];
@@ -101,6 +107,7 @@ export const EXERCISE_TEMPLATES: readonly ExerciseTemplate[] = deepFreeze([
   { id: 'chromatic-position', category: 'warmup', title: 'Хроматика 1-2-3-4 в позиции', concepts: ['finger-per-fret', 'semitone'], defaults: { startFret: 5 } },
   { id: 'position-shift', category: 'warmup', title: 'Смена позиции по струне', concepts: ['position-shift', 'finger-per-fret'], defaults: { string: 'A', startFret: 3, shifts: 2 } },
   { id: 'spider', category: 'warmup', title: 'Паук: четыре пальца по грифу', concepts: ['finger-per-fret', 'position-shift'], defaults: { startFret: 5, positions: 5, pattern: '1234' } },
+  { id: 'string-crossing', category: 'warmup', title: 'Переход между струнами (правая рука)', concepts: ['right-hand'], defaults: { pattern: 'adjacent' } },
   { id: 'note-all-positions', category: 'notes', title: 'Одна нота по всему грифу', concepts: ['octave', 'unison'], defaults: { note: 'C' } },
   { id: 'octaves', category: 'notes', title: 'Октавы: +2 струны, +2 лада', concepts: ['octave'], defaults: { note: 'G' } },
   { id: 'pentatonic-form', category: 'forms', title: 'Форма пентатоники вверх-вниз', concepts: ['pentatonic', 'degrees'], defaults: { root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a' } },
@@ -166,6 +173,7 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
     if (startFret + shifts + 3 > 24) throw new RangeError('Последняя группа должна помещаться на ладах до 24.');
     return { string: oneOf(raw.string, STRINGS, 'Струна'), startFret, shifts };
   },
+  'string-crossing': raw => ({ pattern: oneOf(raw.pattern, CROSSING_PATTERNS, 'Рисунок правой руки') }),
   spider: raw => {
     const startFret = integer(raw.startFret, 1, 12, 'Первый лад'); const positions = integer(raw.positions, 2, 12, 'Число позиций');
     if (startFret + positions + 2 > 16) throw new RangeError('Паук должен заканчиваться не дальше 16-го лада.');
@@ -226,7 +234,7 @@ export function validateExerciseSpec(value: unknown): ExerciseSpec {
 
 /* ---------- Построение плана ---------- */
 
-interface Draft { readonly position: AnnotatedPosition; readonly finger: number | null; readonly segment: number; readonly degree?: string | null; readonly stretch?: boolean }
+interface Draft { readonly position: AnnotatedPosition; readonly finger: number | null; readonly segment: number; readonly degree?: string | null; readonly stretch?: boolean; readonly pluck?: 'i' | 'm' | null }
 
 const stringIndex = (string: StringId) => STRINGS.indexOf(string);
 const byPitch = (a: AnnotatedPosition, b: AnnotatedPosition) => a.midi - b.midi || stringIndex(a.string) - stringIndex(b.string) || a.fret - b.fret;
@@ -266,6 +274,30 @@ function rootFiveEight(root: string, string: 'E' | 'A', fret: number, segment: n
   return plain(notes, segment);
 }
 
+/** Открытые струны рисунков правой руки: два такта восьмыми. */
+const CROSSING_ORDER: Readonly<Record<CrossingPattern, readonly StringId[]>> = {
+  adjacent: ['E', 'A', 'E', 'A', 'A', 'D', 'A', 'D', 'D', 'G', 'D', 'G', 'G', 'D', 'G', 'D'],
+  skip: ['E', 'D', 'E', 'D', 'A', 'G', 'A', 'G', 'E', 'D', 'E', 'D', 'A', 'G', 'A', 'G'],
+  raking: ['E', 'A', 'D', 'G', 'D', 'A', 'E', 'A', 'D', 'G', 'D', 'A', 'E', 'A', 'D', 'G'],
+};
+/** Написание открытых струн: E, A, D, G без знаков. */
+const OPEN_STRINGS = createStructure('C', 'major');
+const CROSSING_TITLES: Readonly<Record<CrossingPattern, string>> = { adjacent: 'Соседние струны', skip: 'Через струну', raking: 'Рейкинг' };
+/**
+ * Пальцы правой руки: строгое чередование i–m. В рейкинге при переходе на соседнюю более низкую по звуку
+ * струну (G→D→A→E) палец не меняется — он «съезжает» на следующую струну.
+ */
+export function pluckOrder(strings: readonly StringId[], raking: boolean): ('i' | 'm')[] {
+  const result: ('i' | 'm')[] = [];
+  strings.forEach((string, index) => {
+    if (!index) { result.push('i'); return; }
+    const previous = result[index - 1];
+    const rake = raking && STRINGS.indexOf(string) === STRINGS.indexOf(strings[index - 1]) - 1;
+    result.push(rake ? previous : previous === 'i' ? 'm' : 'i');
+  });
+  return result;
+}
+
 type Built = { readonly drafts: readonly Draft[]; readonly segments: readonly string[]; readonly title?: string; readonly overlap?: 'shared' | 'none' };
 
 const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[Id]) => Built } = {
@@ -277,6 +309,14 @@ const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[I
     drafts: Array.from({ length: shifts + 1 }, (_, shift) => [0, 1, 2, 3].map(offset => ({ position: chromatic(string, startFret + shift + offset), finger: offset + 1, segment: shift, degree: null }))).flat(),
     segments: Array.from({ length: shifts + 1 }, (_, shift) => `Лады ${startFret + shift}–${startFret + shift + 3}`),
   }),
+  'string-crossing': ({ pattern }) => {
+    const order = CROSSING_ORDER[pattern];
+    const plucks = pluckOrder(order, pattern === 'raking');
+    return {
+      drafts: order.map((string, index) => ({ position: annotate([[string, 0]], OPEN_STRINGS)[0], finger: null, segment: Math.floor(index / 8), degree: null, pluck: plucks[index] })),
+      segments: [CROSSING_TITLES[pattern], CROSSING_TITLES[pattern]], overlap: 'none',
+    };
+  },
   spider: ({ startFret, positions, pattern }) => {
     const fingers = [...pattern].map(Number);
     const drafts: Draft[] = [];
@@ -486,6 +526,8 @@ function progressionPlan(root: string, progression: ProgressionId, pattern: Prog
     const note = (position: AnnotatedPosition): Draft => ({ position, finger: box.fingers[position.id] ?? null, segment: index, degree: position.degree });
     let bar: Draft[];
     if (pattern === 'roots') bar = Array.from({ length: 8 }, () => note(rootPosition));
+    else if (pattern === 'root-fifth') bar = [rootPosition, rootPosition, fifth, fifth, rootPosition, rootPosition, fifth, fifth].map(note);
+    else if (pattern === 'octaves') bar = Array.from({ length: 8 }, (_, step) => note(step % 2 && octave ? octave : rootPosition));
     else if (pattern === 'boogie') bar = boogieBar(box, index);
     else {
       const arpeggio = seventh && octave ? [rootPosition, third, fifth, seventh, octave, seventh, fifth, third] : [rootPosition, third, fifth, third, rootPosition, third, fifth, third];
@@ -556,9 +598,10 @@ function buildPlan(spec: ExerciseSpec): ExercisePlan {
   const template = getExerciseTemplate(spec.templateId);
   const built = (BUILDERS[spec.templateId] as (params: ExerciseSpec['params']) => Built)(spec.params);
   if (!built.drafts.length) throw new RangeError('Упражнение не содержит нот.');
-  const notes = built.drafts.map(({ position, finger, segment, degree, stretch }) => ({
+  const notes = built.drafts.map(({ position, finger, segment, degree, stretch, pluck }) => ({
     id: position.id, string: position.string, fret: position.fret, midi: position.midi,
     name: formatMidi(position.midi, position.noteName), degree: degree === undefined ? position.degree : degree, finger, stretch: stretch ?? false, segment,
+    pluck: pluck ?? null,
   }));
   return deepFreeze({
     spec, title: built.title ?? template.title, category: template.category, concepts: template.concepts,
@@ -572,7 +615,7 @@ function buildPlan(spec: ExerciseSpec): ExercisePlan {
  * засчитывается освоение шага цели. Ориентир уверенной игры, а не предел.
  */
 export const TEMPLATE_TARGET_BPM: Readonly<Record<ExerciseTemplateId, number>> = Object.freeze({
-  'chromatic-position': 100, 'position-shift': 100, spider: 96, 'note-all-positions': 80, octaves: 84,
+  'chromatic-position': 100, 'position-shift': 100, spider: 96, 'string-crossing': 100, 'note-all-positions': 80, octaves: 84,
   'pentatonic-form': 96, 'pentatonic-relative': 92, 'scale-compact': 96, 'blues-scale': 96, 'connect-forms': 92, 'pentatonic-neck': 88,
   'scale-one-string': 88, 'scale-position': 92, 'arpeggio-1358': 96, 'arpeggio-seventh': 92, 'arpeggio-inversion': 88, 'root-five-eight': 100,
   'groups-of-three': 88, thirds: 88, 'form-transpose': 88, 'cycle-fourths': 84, progression: 100,
@@ -625,7 +668,7 @@ const PENTA_STRUCTURES = ['minor-pentatonic', 'major-pentatonic'] as const;
 const SCALE_STRUCTURES = ['major', 'natural-minor'] as const;
 const COMPACT_SHAPES = ['compact-e', 'compact-a'] as const;
 const PROGRESSION_NAMES: Readonly<Record<ProgressionId, string>> = { 'I-IV-V': 'I–IV–V', 'ii-V-I': 'ii–V–I', 'blues-12': 'блюз 12 тактов' };
-const PATTERN_NAMES: Readonly<Record<ProgressionPattern, string>> = { roots: 'тоники', arpeggio: 'арпеджио', approach: 'арпеджио и подходы', boogie: 'буги' };
+const PATTERN_NAMES: Readonly<Record<ProgressionPattern, string>> = { roots: 'тоники', 'root-fifth': 'тоника и квинта', octaves: 'октавы', arpeggio: 'арпеджио', approach: 'арпеджио и подходы', boogie: 'буги' };
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, index) => from + index);
 const option = <T extends string | number>(param: string, label: string, values: readonly T[], name: (value: T) => string = String): TemplateOption =>
   ({ param, label, values: values.map(value => ({ value, label: name(value) })) });
@@ -638,6 +681,7 @@ const pentaForm = [notes('root'), structures(PENTA_STRUCTURES), pentaShape];
 const OPTIONS: { readonly [Id in ExerciseTemplateId]: readonly TemplateOption[] } = {
   'chromatic-position': [option('startFret', 'Лад', range(1, 12))],
   'position-shift': [option('string', 'Струна', STRINGS), option('startFret', 'С лада', range(1, 12)), option('shifts', 'Сдвигов', range(1, 4))],
+  'string-crossing': [option('pattern', 'Рисунок', CROSSING_PATTERNS, pattern => CROSSING_TITLES[pattern].toLowerCase())],
   spider: [option('startFret', 'С лада', range(1, 12)), option('positions', 'Позиций', range(2, 12)), option('pattern', 'Пальцы', SPIDER_PATTERNS, pattern => [...pattern].join('-'))],
   'note-all-positions': [notes('note', 'Нота')],
   octaves: [notes('note', 'Нота')],

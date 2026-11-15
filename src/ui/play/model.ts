@@ -31,7 +31,7 @@ export const CONCEPT_LABELS: Readonly<Record<ConceptId, string>> = Object.freeze
   degrees: 'Ступени', pentatonic: 'Пентатоника', 'relative-keys': 'Параллельные тональности', 'scale-formula': 'Формула гаммы',
   'shared-notes': 'Общие ноты', 'form-system': 'Система форм', triad: 'Трезвучие', fifth: 'Квинта', sequence: 'Секвенция',
   third: 'Терция', transposition: 'Транспонирование', 'circle-of-fifths': 'Квинтовый круг',
-  'seventh-chord': 'Септаккорд', inversion: 'Обращение', progression: 'Последовательность', blues: 'Блюз',
+  'seventh-chord': 'Септаккорд', inversion: 'Обращение', progression: 'Последовательность', blues: 'Блюз', 'right-hand': 'Правая рука',
 });
 
 export const BPM_MIN = 40;

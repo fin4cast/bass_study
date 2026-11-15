@@ -156,11 +156,11 @@ describe('«Сегодня»', () => {
 
 describe('библиотека', () => {
   const state = { plan: continuePlan(), records, userExercises: [] as UserExercise[], playFrom: null };
-  it('22 шаблона в 9 категориях; рекомендуемое — первым', () => {
+  it('23 шаблона в 9 категориях; рекомендуемое — первым', () => {
     const model = libraryModel(state, DEFAULT_LIBRARY);
-    expect(model.cards).toHaveLength(22);
-    expect(model.categories[0]).toMatchObject({ id: 'all', count: 22 });
-    expect(model.categories.slice(1).reduce((sum, category) => sum + category.count, 0)).toBe(22);
+    expect(model.cards).toHaveLength(23);
+    expect(model.categories[0]).toMatchObject({ id: 'all', count: 23 });
+    expect(model.categories.slice(1).reduce((sum, category) => sum + category.count, 0)).toBe(23);
     expect(model.categories).toHaveLength(10);
     expect(model.cards[0]).toMatchObject({ id: 'tpl:pentatonic-relative', featured: true });
     expect(model.cards.find(card => card.id === 'tpl:connect-forms')).toMatchObject({ inPlan: true, played: true, minutes: 5 });
@@ -172,7 +172,7 @@ describe('библиотека', () => {
     expect(libraryModel(state, { ...DEFAULT_LIBRARY, structureId: 'minor-pentatonic' }).cards.map(card => card.id)).toContain('tpl:pentatonic-relative');
     expect(libraryModel(state, { ...DEFAULT_LIBRARY, concept: 'shared-notes' }).cards.map(card => card.id).sort()).toEqual(['tpl:connect-forms', 'tpl:pentatonic-neck']);
     const fromD = libraryModel({ ...state, playFrom: 'D' }, DEFAULT_LIBRARY);
-    expect(fromD.cards).toHaveLength(22);
+    expect(fromD.cards).toHaveLength(23);
     expect(fromD.cards.find(card => card.id === 'tpl:pentatonic-form')!.material).toBe('Dm · минорная пентатоника · форма A');
   });
   it('свои упражнения — отдельная категория с ключом user:', () => {
@@ -181,7 +181,7 @@ describe('библиотека', () => {
     expect(model.cards).toEqual([expect.objectContaining({ key: 'user:mine', title: 'Моя форма <B>', builtin: false })]);
     expect(exerciseKey(own.spec, [own])).toBe('user:mine');
     expect(stepTitle({ kind: 'exercise', spec: own.spec }, [own])).toBe('Моя форма <B>');
-    expect(libraryItems(null, [own])).toHaveLength(23);
+    expect(libraryItems(null, [own])).toHaveLength(24);
   });
   it('настроенный материал карточки важнее «Играть от»: ключ, «в плане», лучший темп и то, что сохраняет ☆ (D-049)', () => {
     const formB = createExerciseSpec('pentatonic-form', { root: 'E', shapeId: 'penta-b' });
@@ -263,7 +263,7 @@ describe('«Основы»', () => {
       expect(hits.some(hit => hit.kind === 'concept'), query).toBe(true);
     }
     expect(find('гамма').filter(hit => hit.kind === 'goal').map(hit => hit.title)).toEqual(expect.arrayContaining(['Мажорная гамма', 'Натуральный минор']));
-    expect(find('паук').map(hit => hit.title)).toEqual(expect.arrayContaining(['Четыре пальца', 'Паук: четыре пальца по грифу']));
+    expect(find('паук').map(hit => hit.title)).toEqual(expect.arrayContaining(['Техника рук', 'Паук: четыре пальца по грифу']));
     expect(find('блюз').map(hit => hit.title)).toEqual(expect.arrayContaining(['Блюз', 'Блюзовая гамма']));
     expect(find('септаккорд').some(hit => hit.kind === 'exercise' && hit.title === 'Арпеджио септаккорда 1–3–5–7')).toBe(true);
     // Короткое слово ищется только как подстрока; длинное — по основе.

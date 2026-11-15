@@ -32,6 +32,7 @@ export const CONCEPT_LABELS: Readonly<Record<ConceptId, string>> = Object.freeze
   inversion: 'обращение',
   progression: 'последовательность',
   blues: 'блюз',
+  'right-hand': 'правая рука',
 });
 
 export const STRUCTURE_LABELS: Readonly<Record<StructureId, string>> = Object.freeze({
@@ -50,14 +51,15 @@ export const STRUCTURE_LABELS: Readonly<Record<StructureId, string>> = Object.fr
 });
 
 export const PROGRESSION_LABELS: Readonly<Record<string, string>> = { 'I-IV-V': 'I–IV–V', 'ii-V-I': 'ii–V–I', 'blues-12': 'блюз 12 тактов' };
-export const PATTERN_LABELS: Readonly<Record<string, string>> = { roots: 'тоники', arpeggio: 'арпеджио', approach: 'арпеджио и подходы', boogie: 'буги' };
+export const PATTERN_LABELS: Readonly<Record<string, string>> = { roots: 'тоники', 'root-fifth': 'тоника и квинта', octaves: 'октавы', arpeggio: 'арпеджио', approach: 'арпеджио и подходы', boogie: 'буги' };
+export const CROSSING_LABELS: Readonly<Record<string, string>> = { adjacent: 'соседние струны', skip: 'через струну', raking: 'рейкинг' };
 
 /** Плановое время шага по шаблону (VIS-10 r2), минуты. */
 export const TEMPLATE_MINUTES: Readonly<Record<ExerciseTemplateId, number>> = Object.freeze({
   'chromatic-position': 3, 'position-shift': 3, 'note-all-positions': 3, octaves: 3, 'pentatonic-form': 3,
   'pentatonic-relative': 4, 'scale-compact': 4, 'connect-forms': 5, 'pentatonic-neck': 5, 'scale-one-string': 3,
   'scale-position': 4, 'arpeggio-1358': 4, 'root-five-eight': 3, 'groups-of-three': 4, thirds: 4, 'form-transpose': 3, 'cycle-fourths': 4,
-  spider: 4, 'blues-scale': 3, 'arpeggio-seventh': 4, 'arpeggio-inversion': 3, progression: 4,
+  spider: 4, 'blues-scale': 3, 'arpeggio-seventh': 4, 'arpeggio-inversion': 3, progression: 4, 'string-crossing': 3,
 });
 export const CHECK_MINUTES = 3;
 export const CHECK_COUNT = 6;
@@ -122,6 +124,7 @@ export function materialLabel(spec: ExerciseSpec): string {
     case 'root-five-eight': return `${note(spec.params.root)} · тоника, квинта, октава · от ${formatPosition(first.id)}`;
     case 'form-transpose': return `форма ${SHAPE_LETTER[spec.params.shapeId]} · ${spec.params.roots.map(note).join(' → ')}`;
     case 'cycle-fourths': return `R–5–8 · ${plan.segments.map(segment => segment.label.split(' · ')[0]).join(', ')}`;
+    case 'string-crossing': return `открытые струны · ${CROSSING_LABELS[spec.params.pattern]} · пальцы i–m`;
     case 'spider': return `пальцы ${[...spec.params.pattern].join('-')} · лады ${spec.params.startFret}–${spec.params.startFret + spec.params.positions + 2}`;
     case 'blues-scale': return `${note(spec.params.root)} · блюзовая гамма · от ${formatPosition(first.id)}`;
     case 'arpeggio-seventh': return `${keyName(createStructure(spec.params.root, spec.params.structureId))} · от ${formatPosition(first.id)}`;

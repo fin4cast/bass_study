@@ -57,10 +57,10 @@ describe('план на сегодня', () => {
 });
 
 describe('библиотека', () => {
-  it('22 встроенных шаблона в 9 категориях; «Играть от» меняет тонику только у шаблонов с тоникой', () => {
+  it('23 встроенных шаблона в 9 категориях; «Играть от» меняет тонику только у шаблонов с тоникой', () => {
     const items = builtinLibrary('E');
-    expect(items).toHaveLength(22);
-    expect(Object.values(countByCategory(items)).reduce((a, b) => a + b, 0)).toBe(22);
+    expect(items).toHaveLength(23);
+    expect(Object.values(countByCategory(items)).reduce((a, b) => a + b, 0)).toBe(23);
     expect((items.find(item => item.id === 'tpl:connect-forms')!.spec.params as { root: string }).root).toBe('E');
     expect(items.find(item => item.id === 'tpl:chromatic-position')!.spec).toEqual(chromatic);
   });
@@ -71,7 +71,7 @@ describe('библиотека', () => {
     expect(filterLibrary(items, { concept: 'shared-notes' }).map(item => item.id)).toContain('tpl:connect-forms');
     const played = new Set(['builtin:connect-forms']);
     expect(filterLibrary(items, { status: 'played' }, played).map(item => item.id)).toEqual(['tpl:connect-forms']);
-    expect(filterLibrary(items, { status: 'new' }, played)).toHaveLength(21);
+    expect(filterLibrary(items, { status: 'new' }, played)).toHaveLength(22);
   });
   it('собственные упражнения проверяются строго и попадают в библиотеку по своему ключу', () => {
     const own = validateUserExercise({ version: 'user-exercise-v1', id: 'my-1', name: 'Связка в E', spec: createExerciseSpec('connect-forms', { root: 'E' }), createdAt: '2026-11-12T10:00:00.000Z' });

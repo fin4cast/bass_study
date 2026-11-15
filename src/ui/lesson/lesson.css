@@ -230,3 +230,6 @@
 .lesson-view .ls-goal-card b { font-size: var(--text-m); }
 .lesson-view .ls-goal-card span { font-size: var(--text-xs); color: var(--text-secondary); }
 .lesson-view .ls-goal-strip .ls-st small { text-transform: none; letter-spacing: 0; }
+.lesson-view .ls-st.is-review { border-style: dashed; border-color: var(--warning-text); }
+.lesson-view .ls-st.is-review small { color: var(--warning-text); }
+.lesson-view .ls-hero .ls-goal-card { background: var(--surface); }

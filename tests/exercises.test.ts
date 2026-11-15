@@ -55,6 +55,10 @@ const CONTROL: Record<ExerciseTemplateId, { ids: string; names?: string; degrees
     fingers: '1 4 1 3 1 3 1 3 1 3 1 3 1 4 1 4 1 3 1 3 1 3 1 3 1 3 1 4 1 4 1 3 1 3 1 3 1 3 1 3 1 4', segments: '14 14 14',
   },
   // Паук 1-2-3-4 от 5-го лада, 5 позиций: чётные — E→G, нечётные — G→E, позиция сдвигается на лад.
+  'string-crossing': {
+    ids: 'E:0 A:0 E:0 A:0 A:0 D:0 A:0 D:0 D:0 G:0 D:0 G:0 G:0 D:0 G:0 D:0', names: 'E1 A1 E1 A1 A1 D2 A1 D2 D2 G2 D2 G2 G2 D2 G2 D2',
+    fingers: '- - - - - - - - - - - - - - - -', segments: '8 8',
+  },
   spider: {
     ids: 'E:5 E:6 E:7 E:8 A:5 A:6 A:7 A:8 D:5 D:6 D:7 D:8 G:5 G:6 G:7 G:8 G:6 G:7 G:8 G:9 D:6 D:7 D:8 D:9 A:6 A:7 A:8 A:9 E:6 E:7 E:8 E:9 E:7 E:8 E:9 E:10 A:7 A:8 A:9 A:10 D:7 D:8 D:9 D:10 G:7 G:8 G:9 G:10 G:8 G:9 G:10 G:11 D:8 D:9 D:10 D:11 A:8 A:9 A:10 A:11 E:8 E:9 E:10 E:11 E:9 E:10 E:11 E:12 A:9 A:10 A:11 A:12 D:9 D:10 D:11 D:12 G:9 G:10 G:11 G:12',
     fingers: '1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4',
@@ -89,7 +93,7 @@ const segmentSizes = (segments: readonly number[]) => {
 };
 
 describe('каталог exercise-v1: независимые контрольные примеры', () => {
-  it('каталог содержит 22 шаблона с уникальными ID, по одному эталону на каждый', () => {
+  it('каталог содержит 23 шаблона с уникальными ID, по одному эталону на каждый', () => {
     expect(EXERCISE_TEMPLATES.map(template => template.id).sort()).toEqual(Object.keys(CONTROL).sort());
   });
   it.each(Object.entries(CONTROL))('%s по умолчанию', (templateId, expected) => {
@@ -223,6 +227,14 @@ describe('новые шаблоны D-049: аккорды, обращения, �
     }
   });
 
+  it('рисунки «тоника и квинта» и «октавы»: в такте аккорда 1 1 5 5 1 1 5 5 и 1 8 1 8…', () => {
+    const fifth = buildExercise(createExerciseSpec('progression', { root: 'C', progression: 'I-IV-V', pattern: 'root-fifth' }));
+    expect(fifth.notes.slice(0, 8).map(note => note.degree).join(' ')).toBe('1 1 5 5 1 1 5 5');
+    expect(fifth.notes.slice(0, 8).map(note => note.name).join(' ')).toBe('C2 C2 G2 G2 C2 C2 G2 G2');
+    const octaves = buildExercise(createExerciseSpec('progression', { root: 'C', progression: 'I-IV-V', pattern: 'octaves' }));
+    expect(octaves.notes.slice(0, 4).map(note => note.name).join(' ')).toBe('C2 C3 C2 C3');
+    expect(octaves.notes.slice(8, 10).map(note => note.name).join(' ')).toBe('F2 F3');
+  });
   it('буги 1-3-5-6-♭7-6-5-3 только по блюзу; паук — до 16-го лада и без «общих» позиций', () => {
     const boogie = buildExercise(createExerciseSpec('progression', { root: 'A', progression: 'blues-12', pattern: 'boogie' }));
     expect(boogie.notes.slice(0, 8).map(note => note.degree).join(' ')).toBe('1 3 5 6 b7 6 5 3');

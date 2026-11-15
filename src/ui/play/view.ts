@@ -105,7 +105,7 @@ export interface PlayHandle {
 }
 
 const LABEL_MODES: readonly { readonly id: Exclude<BoardLabelMode, 'none'>; readonly label: string }[] = [
-  { id: 'name', label: 'Ноты' }, { id: 'degree', label: 'Ступени' }, { id: 'finger', label: 'Пальцы' },
+  { id: 'name', label: 'Ноты' }, { id: 'degree', label: 'Ступени' }, { id: 'finger', label: 'Пальцы' }, { id: 'pluck', label: 'Пр. рука' },
 ];
 const ASSESSMENTS: readonly { readonly id: Assessment; readonly label: string; readonly key: string; readonly code: string }[] = [
   { id: 'clean', label: 'Чисто', key: 'Z', code: 'KeyZ' }, { id: 'errors', label: 'С ошибками', key: 'X', code: 'KeyX' }, { id: 'slow', label: 'Не успевал', key: 'C', code: 'KeyC' },
@@ -281,7 +281,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   const noteSteps = (line: Timeline | null) => line?.steps.filter(step => step.note !== null).length ?? 0;
   const practiceOf = (source: PlaySettings): PracticeOptions => ({ rhythm: timelineFor(plan!, source).pattern, echo: source.echo, groove: source.groove });
   const labelAvailable = (mode: Exclude<BoardLabelMode, 'none'>) => !plan || mode === 'name'
-    || (mode === 'degree' ? plan.notes.some(note => note.degree) : plan.notes.some(note => note.finger !== null));
+    || (mode === 'degree' ? plan.notes.some(note => note.degree) : mode === 'pluck' ? plan.notes.some(note => note.pluck) : plan.notes.some(note => note.finger !== null));
   const effectiveLabels = (): Exclude<BoardLabelMode, 'none'> => labelAvailable(labels) ? labels : 'name';
 
   /* ---------- Шапка и понятие ---------- */
@@ -390,7 +390,8 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       const mode = button.dataset.label as Exclude<BoardLabelMode, 'none'>;
       const available = labelAvailable(mode);
       button.disabled = !available;
-      button.title = available ? '' : mode === 'degree' ? 'У этого упражнения нет тоники — ступеней нет' : 'Аппликатура этого упражнения зависит от контекста — пальцы не подписаны';
+      button.title = available ? (mode === 'pluck' ? 'Пальцы правой руки: i — указательный, m — средний' : '') : mode === 'degree' ? 'У этого упражнения нет тоники — ступеней нет'
+        : mode === 'pluck' ? 'Правая рука подписана только в упражнениях на переход между струнами' : 'Аппликатура этого упражнения зависит от контекста — пальцы не подписаны';
       button.setAttribute('aria-pressed', String(mode === effectiveLabels()));
     });
   }

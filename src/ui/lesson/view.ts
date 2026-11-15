@@ -14,12 +14,12 @@ import { escapeHtml as e } from '../html';
 import { CONCEPT_LABELS, exercisePlan, materialLabel, STRUCTURE_LABELS } from './material';
 import { boardSvg, boardWindow, type BoardNote } from './mini-board';
 import {
-  addGoalSteps, appendTemplate, basicsBadge, basicsCourse, checkContent, contentMinutes, currentGoalProgress, goalRootLabel, goalsOverview, RULE_HINTS, currentBasicsStep, DEFAULT_LIBRARY, exerciseBoard, heroModel,
+  addGoalSteps, appendTemplate, basicsBadge, basicsCourse, checkContent, contentMinutes, currentGoalProgress, goalRootLabel, goalsOverview, planFromGoal, stepRuleHint, untouchedFirstRunPlan, currentBasicsStep, DEFAULT_LIBRARY, exerciseBoard, heroModel,
   configuredItems, LIBRARY_CONCEPTS, LIBRARY_STRUCTURES, libraryItems, libraryModel, nextExerciseStep, pendingMatches, planRows, planStrip,
   recommendationCards, searchBasics, setStepMinutes, stepMaterial, stepTitle, togglePlanContent, toggleStepEar,
   type BasicsLevel, type BasicsStep, type BasicsView, type LessonState, type LessonTab, type LibraryCategory, type LibraryControls,
 } from './model';
-import { goalInfo, GOALS, STARTER_GOALS, type GoalId, type GoalProgress } from '../../practice/goals';
+import { goalInfo, goalProgress, GOALS, mastered, STARTER_GOALS, type GoalId, type GoalProgress } from '../../practice/goals';
 import { CATEGORY_ORDER, CATEGORY_TITLES } from '../../practice/library';
 
 export type { LessonState, LessonTab } from './model';
@@ -178,7 +178,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const total = plannedMinutes(current.plan);
     const done = rows.filter(row => row.status === 'done').reduce((sum, row) => sum + row.minutes, 0);
     // Первая рекомендация — следующий шаг цели; если он уже в главном блоке, — шаг после него.
-    const goalRec = goal ? goal.steps.filter(item => item.mastery.state !== 'done').map(item => item.step)[hero.mode === 'goal' ? 1 : 0] : undefined;
+    const goalRec = goal ? goal.steps.filter(item => !mastered(item.mastery)).map(item => item.step)[hero.mode === 'goal' ? 1 : 0] : undefined;
     const recs = recommendationCards(current.records, current.firstRun, goal && goalRec ? { progress: goal, step: goalRec } : null);
     const goalLineMarkup = hero.goalLine ? `<p class="ls-goal-line"><span>${e(hero.goalLine)}</span><button type="button" class="ls-link" data-act="open-goal" data-key="hero-goal">Открыть цель</button></p>` : '';
     const addGoalButton = goal?.next ? `<button type="button" class="secondary-button" data-act="add-goal-steps" data-key="hero-goal-steps">Добавить шаги цели</button>` : '';
@@ -186,10 +186,10 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
 
     let heroMarkup: string;
     if (hero.mode === 'first-run') {
-      const spec = hero.content?.kind === 'exercise' ? hero.content.spec : hero.content?.spec.exercise ?? null;
-      heroMarkup = `<div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
-        <div class="ls-actions"><button type="button" class="primary-button button-large" data-act="basics-start" data-key="hero-basics">Начни с «Основ» →</button>${hero.content ? `<button type="button" class="secondary-button" data-act="play" data-ref="${ref(hero.content)}" data-step="${e(hero.stepId ?? '')}" data-key="hero-play">▶ Играть план</button>` : ''}<button type="button" class="secondary-button" data-act="choose-goal" data-key="hero-choose-goal">Выбрать цель</button></div>
-        ${spec ? exerciseBoardMarkup(spec, 700, 28, spec.templateId === 'chromatic-position' ? 'finger' : 'name') : ''}`;
+      // Первый запуск: одно решение — цель; план собирается из неё. Без цели можно сразу сыграть стартовый план.
+      heroMarkup = `<div><span class="ls-eyebrow">Первый запуск</span><h2>Выбери цель</h2><p class="ls-sub">Цель — шаги к навыку: что сыграть сегодня и когда шаг освоен. План на сегодня соберётся из неё.</p></div>
+        <div class="ls-goal-cards">${STARTER_GOALS.map(id => { const info = goalInfo(id); return `<button type="button" class="ls-card ls-goal-card" data-act="goal-start" data-value="${e(id)}" data-key="hero-goal:${e(id)}"><b>${e(info.title)}</b><span>${e(info.summary)}</span></button>`; }).join('')}</div>
+        <div class="ls-actions">${hero.content ? `<button type="button" class="secondary-button" data-act="play" data-ref="${ref(hero.content)}" data-step="${e(hero.stepId ?? '')}" data-key="hero-play">или сразу сыграй план ▶</button>` : ''}<button type="button" class="ls-link" data-act="choose-goal" data-key="hero-choose-goal">Все цели</button></div>`;
     } else if (hero.mode === 'goal') {
       const content = hero.content!;
       const spec = content.kind === 'exercise' ? content.spec : content.spec.exercise;
@@ -380,7 +380,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
 
   function renderGoals(current: LessonState) {
     const roots = new Map(GOALS.map(goal => [goal.id, goalRootOf(current, goal.id)]));
-    const overview = goalsOverview(current.records, roots);
+    const overview = goalsOverview(current.records, roots, current.plan.localDate);
     const shownId = goalShown ?? current.goal?.id ?? null;
     const shown = overview.find(item => item.goal.id === shownId) ?? null;
     const list = overview.map(item => {
@@ -402,14 +402,14 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
   function goalMarkup(current: LessonState, progress: GoalProgress) {
     const goal = progress.goal;
     const isCurrent = current.goal?.id === goal.id && current.goal.root === progress.root;
-    const selected = progress.steps.find(item => item.step.id === goalStep) ?? progress.steps.find(item => item.mastery.state !== 'done') ?? progress.steps[0];
+    const selected = progress.steps.find(item => item.step.id === goalStep) ?? progress.steps.find(item => !mastered(item.mastery)) ?? progress.steps[0];
     const tonic = progress.root === null ? '' : `<label class="ls-field">Тоника <select data-control="goal-root" data-goal="${e(goal.id)}" data-key="goal-root:${e(goal.id)}">${ROOTS.map(root => `<option value="${e(root)}"${root === progress.root ? ' selected' : ''}>${e(root)}</option>`).join('')}</select></label>`;
     const makeGoal = isCurrent ? '<span class="ls-chip ls-chip-concept">Текущая цель</span>'
       : `<button type="button" class="secondary-button button-compact" data-act="make-goal" data-value="${e(goal.id)}" data-key="make-goal">Сделать целью</button>`;
     const strip = progress.steps.map((item, index) => {
       const on = inPlan(item.step.content);
       const title = stepTitle(item.step.content, current.userExercises);
-      return `<li class="ls-st k-${item.step.content.kind}${item.mastery.state === 'done' ? ' is-done' : ''}${item === selected ? ' is-current' : ''} can-add">
+      return `<li class="ls-st k-${item.step.content.kind}${item.mastery.state === 'done' ? ' is-done' : item.mastery.state === 'review' ? ' is-review' : ''}${item === selected ? ' is-current' : ''} can-add">
         <button type="button" class="ls-st-btn" data-act="goal-step" data-value="${e(item.step.id)}" data-key="gst:${e(item.step.id)}" aria-current="${item === selected ? 'step' : 'false'}"><small>${e(index + 1)} · ${e(item.mastery.label)}</small><span>${e(title)}</span><em class="ls-st-mat">${e(stepMaterial(item.step.content))}</em></button>
         <button type="button" class="ls-mini ls-st-add" data-act="toggle-plan" data-ref="${ref(item.step.content)}" data-key="gst-add:${e(item.step.id)}" aria-pressed="${on}" aria-label="${e(`${on ? 'Убрать из плана' : 'Добавить в план'}: ${title}`)}" title="${on ? 'В плане «Сегодня» — нажми, чтобы убрать' : `В план «Сегодня» · ${contentMinutes(item.step.content)} мин`}">${on ? '✓' : '+'}</button></li>`;
     }).join('');
@@ -426,7 +426,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         <div class="ls-focus-top"><span class="ls-eyebrow">Шаг ${e(index + 1)} из ${e(progress.total)} · ${e(goal.title)}</span><span class="ls-chip${selected.mastery.state === 'done' ? ' ls-chip-done' : ''}">${e(selected.mastery.label)}</span></div>
         <h2>${e(stepTitle(content, current.userExercises))}</h2>
         <p class="ls-sub">${e(stepMaterial(content))}</p>
-        <p class="ls-goal-rule">${e(RULE_HINTS[selected.step.rule])}</p>
+        <p class="ls-goal-rule">${e(stepRuleHint(selected.step))}</p>
         <div class="ls-actions"><button type="button" class="primary-button button-large" data-act="play" data-ref="${ref(content)}" data-key="goal-primary">▶ ${content.kind === 'check' ? 'Проверь себя' : 'Играть'}</button>${addButton(content)}${check ? `<button type="button" class="secondary-button button-compact" data-act="play" data-ref="${ref(check)}" data-key="goal-check">Проверь себя · ${contentMinutes(check)} мин</button>` : ''}${concept ? `<button type="button" class="secondary-button button-compact" data-act="concept" data-concept="${e(concept.id)}" data-key="goal-concept">Открыть понятие</button>` : ''}</div>
         ${exerciseBoardMarkup(spec, 700, 28, spec.templateId === 'chromatic-position' || spec.templateId === 'spider' ? 'finger' : 'name')}
       </section>`;
@@ -558,10 +558,16 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         }
         case 'goal': goalShown = target.dataset.value as GoalId; goalStep = null; render(); if (target.dataset.key?.startsWith('goal-card:')) container.querySelector<HTMLElement>('[data-key="goal-primary"]')?.focus(); break;
         case 'goal-step': goalStep = target.dataset.value ?? null; render(); break;
-        case 'make-goal': {
+        case 'make-goal': case 'goal-start': {
           const goalId = target.dataset.value as GoalId;
-          options.onGoalChange?.({ id: goalId, root: goalRootOf(state, goalId) });
-          toast(`Цель: ${goalInfo(goalId).title}`); break;
+          const root = goalRootOf(state, goalId);
+          const rebuild = untouchedFirstRunPlan(state.plan);
+          options.onGoalChange?.({ id: goalId, root });
+          // Нетронутый план первого запуска собирается из цели; добавленное вручную не трогается.
+          if (rebuild) changePlan(planFromGoal(state.plan, goalProgress(goalId, root, state.records, undefined, state.plan.localDate), state.records, state.userExercises), `Цель: ${goalInfo(goalId).title} · план на сегодня собран из неё`);
+          else toast(`Цель: ${goalInfo(goalId).title}`);
+          if (target.dataset.act === 'goal-start') { selectTab('today'); container.querySelector<HTMLElement>('[data-key="hero-play"]')?.focus(); }
+          break;
         }
         case 'add-goal-steps': {
           const progress = currentGoalProgress(state);
