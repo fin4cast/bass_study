@@ -5,6 +5,7 @@
  */
 import '../ui/play/play.css';
 import { buildExercise, createExerciseSpec, type ConceptId, type ExerciseSpec, type ExerciseTemplateId } from '../exercises';
+import type { PracticeOptions } from '../exercises/rhythm';
 import { conceptForExerciseConcept } from '../practice/concepts';
 import { builtinLibrary, type UserExercise } from '../practice/library';
 import { selectStep, type CheckSpec, type DayPlan, type PlanStepContent } from '../practice/plan';
@@ -19,8 +20,8 @@ import { createEnginePort, type PlaybackPort } from '../ui/play/port';
 import { mountPlay, type PlayHandle, type RateEvent } from '../ui/play/view';
 import { mountReference } from '../ui/reference/view';
 import {
-  addToPlan, bpmForExercise, checkEntry, exerciseKey, hasPlayed, nextPlanStep, planAfterCheck, planAfterNext, planAfterRating, planForToday, planStepInfo,
-  playRatingEntry, plannedProgressIds, rememberView, repeatContent, specForKey, stepPosition, todayKey, viewForExercise,
+  addToPlan, checkEntry, exerciseKey, hasPlayed, nextPlanStep, planAfterCheck, planAfterNext, planAfterRating, planForToday, planStepInfo,
+  playRatingEntry, playSettingsFor, plannedProgressIds, rememberExerciseSettings, repeatContent, specForKey, stepPosition, todayKey, viewForExercise,
 } from './lesson-flow';
 
 export type LessonScreen = 'home' | 'play' | 'check' | 'reference';
@@ -200,7 +201,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
 
   function open(content: PlanStepContent, stepId: string | null, bpm?: number) {
     selectFromPlan(stepId);
-    if (content.kind === 'exercise') openPlay(content.spec, stepId, bpm);
+    if (content.kind === 'exercise') openPlay(content.spec, stepId, bpm, null, content.practice ?? null);
     else openCheck(content.spec, stepId);
   }
 
@@ -209,7 +210,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     return position ? `шаг ${position.index} из ${position.total}` : null;
   }
 
-  function openPlay(spec: ExerciseSpec, stepId: string | null, bpmOverride?: number, origin: LessonOrigin | null = null) {
+  function openPlay(spec: ExerciseSpec, stepId: string | null, bpmOverride?: number, origin: LessonOrigin | null = null, practice: PracticeOptions | null = null) {
     let exercise;
     try { exercise = buildExercise(spec); }
     catch (failure) { options.onFailure(`Упражнение не открылось: ${message(failure)}`); return; }
@@ -217,20 +218,28 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     const key = exerciseKey(spec, user());
     const played = hasPlayed(key, records());
     const view = viewForExercise(key, played, prefs.lesson, prefs.play);
-    const bpm = bpmOverride ?? bpmForExercise(key, records(), prefs.play.bpm);
+    const settings = playSettingsFor(spec, key, { lesson: prefs.lesson, play: prefs.play, records: records(), practice, bpm: bpmOverride });
     const label = stepLabel(stepId);
     if (screen !== 'play') setScreen('play');
     else disposePlay();
     const port = createEnginePort();
     const handle = mountPlay(playHost, {
-      port, initialView: view, bpm, countIn: prefs.play.countIn, labels: prefs.play.labels,
+      port, initialView: view, settings, labels: prefs.play.labels,
       backLabel: origin ? ORIGIN_LABELS[origin] : label ? `← Занятие · ${label}` : '← Занятие',
       onBack: () => leave(origin),
       onBeforeStart: () => options.claimAudio('play'),
       onRate: event => rate(event),
       onViewChange(next) {
         const lesson = lessonPreferences();
-        options.savePreferences({ lesson: { ...lesson, viewByExercise: rememberView(lesson.viewByExercise, key, next) } });
+        options.savePreferences({ lesson: { ...lesson, exerciseSettings: rememberExerciseSettings(lesson.exerciseSettings, key, { view: next }) } });
+      },
+      // Темп, цель, ритм и подложка — упражнения; эталон, метроном, громкости, отсчёт и подписи — общие умолчания.
+      onSettingsChange(next, labels) {
+        const prefs = options.preferences();
+        options.savePreferences({
+          lesson: { ...prefs.lesson, exerciseSettings: rememberExerciseSettings(prefs.lesson.exerciseSettings, key, { bpm: next.bpm, targetBpm: next.targetBpm, rhythm: next.rhythm, groove: next.groove }) },
+          play: { ...prefs.play, countInBars: next.countInBars, reference: next.reference, metronome: next.metronome, click: next.click, grooveVolume: next.grooveVolume, labels },
+        });
       },
       onConcept: id => openConceptPanel(id),
       onNextStep: () => nextFromPlay(),
@@ -253,7 +262,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     const current = play;
     if (!current) return;
     try {
-      options.saveHistory(playRatingEntry({ spec: current.spec, userExercises: user(), view: event.passView, wholePass: event.wholePass, assessment: event.assessment, bpm: event.bpm, activeMs: event.activeMs }, metadata('exercise')));
+      options.saveHistory(playRatingEntry({ spec: current.spec, userExercises: user(), view: event.passView, wholePass: event.wholePass, assessment: event.assessment, bpm: event.bpm, activeMs: event.activeMs, practice: event.practice }, metadata('exercise')));
     } catch (failure) { options.onFailure(`Самооценка не сохранена: ${message(failure)}`); return; }
     if (current.stepId) {
       const plan = currentPlan();

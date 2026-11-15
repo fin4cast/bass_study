@@ -404,7 +404,7 @@ check('today-first-run-plan-is-shown-and-saved', 'ui', async ({ page, origin }) 
   assert.deepEqual(statuses, ['is-current', 'is-pending', 'is-pending']);
   // План первого дня сохраняется, а не выводится заново при каждом показе.
   const db = await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'план первого запуска');
-  assert.equal(db.version, 12);
+  assert.equal(db.version, 13);
   const plan = db.preferences.lesson.plan;
   assert.deepEqual(plan.steps.map(step => step.content.spec.templateId), ['note-all-positions', 'octaves', 'chromatic-position']);
   return { plan: { localDate: plan.localDate, steps: plan.steps.map(({ id, minutes, status }) => ({ id, minutes, status })) } };
@@ -492,7 +492,7 @@ check('play-count-in-note-progress-space-pause-resume-view-and-escape', 'ui', as
   assert.equal(await playScene(page).locator('button[data-view="tab"]').getAttribute('aria-pressed'), 'true');
   const afterView = await waitPlay(page, (state, text) => state.status === 'playing' && state.text !== text, beforeView.text, 5000);
   assert.ok((await playLog(page, resumedAt)).every(entry => entry.status === 'playing'), 'Игра не прерывалась при смене вида');
-  const remembered = await waitDb(page, db => Object.values(db.preferences?.lesson?.viewByExercise ?? {}).includes('tab'), 'вид упражнения запомнен');
+  const remembered = await waitDb(page, db => Object.values(db.preferences?.lesson?.exerciseSettings ?? {}).some(item => item.view === 'tab'), 'вид упражнения запомнен');
 
   // Esc — к началу; следующий старт снова с отсчётом.
   await page.keyboard.press('Escape');
@@ -502,7 +502,7 @@ check('play-count-in-note-progress-space-pause-resume-view-and-escape', 'ui', as
   const again = await waitPlay(page, state => state.status === 'counting' && state.countIn !== null, null, 5000);
   await page.keyboard.press('Escape');
   await waitPlay(page, state => state.status === 'stopped', null, 3000);
-  return { initial, countIn, first, growing, paused, still, resumed, afterView, stopped, restartCountIn: again.countIn, viewByExercise: remembered.preferences.lesson.viewByExercise };
+  return { initial, countIn, first, growing, paused, still, resumed, afterView, stopped, restartCountIn: again.countIn, exerciseSettings: remembered.preferences.lesson.exerciseSettings };
 });
 
 check('play-self-assessment-clean-is-saved-and-visible-in-progress-after-reload', 'ui', async ({ page, origin }) => {

@@ -3,6 +3,7 @@
  * Чистый модуль: без DOM, звука и хранилища. Все значения заморожены; операции возвращают новый план.
  */
 import { createExerciseSpec, validateExerciseSpec, type ExerciseSpec } from '../exercises';
+import { validatePractice, type PracticeOptions } from '../exercises/rhythm';
 
 export type CheckKind = 'find-degree' | 'name-degree';
 export interface CheckSpec {
@@ -15,7 +16,8 @@ export interface CheckSpec {
   readonly ear: boolean;
 }
 export type PlanStepContent =
-  | { readonly kind: 'exercise'; readonly spec: ExerciseSpec }
+  /** `practice` — как играть шаг (эхо, подложка, ритм); без него — восьмые без эха и подложки (D-050). */
+  | { readonly kind: 'exercise'; readonly spec: ExerciseSpec; readonly practice?: PracticeOptions }
   | { readonly kind: 'check'; readonly spec: CheckSpec };
 export type PlanStepStatus = 'pending' | 'current' | 'done';
 export interface PlanStep {
@@ -57,8 +59,12 @@ export function validateCheckSpec(value: unknown): CheckSpec {
 }
 
 function validateContent(value: unknown): PlanStepContent {
-  const raw = record(value, ['kind', 'spec'], 'Шаг плана');
-  if (raw.kind === 'exercise') return deepFreeze({ kind: 'exercise', spec: validateExerciseSpec(raw.spec) });
+  const withPractice = !!value && typeof value === 'object' && Object.hasOwn(value, 'practice');
+  const raw = record(value, withPractice ? ['kind', 'spec', 'practice'] : ['kind', 'spec'], 'Шаг плана');
+  if (raw.kind === 'exercise') {
+    return deepFreeze(withPractice ? { kind: 'exercise', spec: validateExerciseSpec(raw.spec), practice: validatePractice(raw.practice) } : { kind: 'exercise', spec: validateExerciseSpec(raw.spec) });
+  }
+  if (withPractice) throw new RangeError('Шаг плана: «как играть» есть только у упражнения.');
   if (raw.kind === 'check') return deepFreeze({ kind: 'check', spec: validateCheckSpec(raw.spec) });
   throw new RangeError('Шаг плана: неизвестный вид.');
 }

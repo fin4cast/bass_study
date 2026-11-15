@@ -567,6 +567,17 @@ function buildPlan(spec: ExerciseSpec): ExercisePlan {
     cadence: TONIC_CADENCE.has(spec.templateId) && notes.some(note => note.degree === '1') ? 'tonic' : 'none',
   });
 }
+/**
+ * Цель темпа шаблона, четверти в минуту при восьмых (D-050): с неё начинается «Цель» экрана игры и по ней
+ * засчитывается освоение шага цели. Ориентир уверенной игры, а не предел.
+ */
+export const TEMPLATE_TARGET_BPM: Readonly<Record<ExerciseTemplateId, number>> = Object.freeze({
+  'chromatic-position': 100, 'position-shift': 100, spider: 96, 'note-all-positions': 80, octaves: 84,
+  'pentatonic-form': 96, 'pentatonic-relative': 92, 'scale-compact': 96, 'blues-scale': 96, 'connect-forms': 92, 'pentatonic-neck': 88,
+  'scale-one-string': 88, 'scale-position': 92, 'arpeggio-1358': 96, 'arpeggio-seventh': 92, 'arpeggio-inversion': 88, 'root-five-eight': 100,
+  'groups-of-three': 88, thirds: 88, 'form-transpose': 88, 'cycle-fourths': 84, progression: 100,
+});
+
 /** Шаблоны, проход которых завершается тоникой: формы, гаммы, арпеджио, секвенции, транспонирование. */
 const TONIC_CADENCE: ReadonlySet<ExerciseTemplateId> = new Set<ExerciseTemplateId>([
   'pentatonic-form', 'pentatonic-relative', 'scale-compact', 'blues-scale', 'connect-forms', 'pentatonic-neck', 'scale-one-string',

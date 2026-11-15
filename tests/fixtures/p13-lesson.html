@@ -43,7 +43,7 @@
 
     const today = '2026-11-12';
     const play = (templateId, params, assessment, bpm, localDate, time, title) => ({
-      kind: 'play', exerciseKey: exerciseKey(createExerciseSpec(templateId, params)), title, spec: createExerciseSpec(templateId, params), assessment, bpm, activeMs: 180000, localDate, occurredAt: `${localDate}T${time}:00.000Z`, view: 'both', wholePass: true,
+      kind: 'play', exerciseKey: exerciseKey(createExerciseSpec(templateId, params)), title, spec: createExerciseSpec(templateId, params), assessment, bpm, activeMs: 180000, localDate, occurredAt: `${localDate}T${time}:00.000Z`, view: 'both', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null },
     });
     const demoRecords = [
       play('chromatic-position', {}, 'clean', 84, '2026-11-10', '18:00', 'Хроматика 1-2-3-4 в позиции'),

@@ -9,9 +9,10 @@ import { MAX_EXERCISE_VIEWS, type ExerciseView, type PlayPreferences } from '../
 import { backupFileName, backupVersion } from '../src/app/backup';
 import {
   addToPlan, bpmForExercise, checkEntry, describeProgressRow, exerciseKey, fromPlayDefaults, hasPlayed, nextPlanStep, planAfterCheck, planAfterRating,
-  planForToday, playRatingEntry, plannedProgressIds, rememberView, repeatContent, specForKey, stepPosition, todayKey, toPlayDefaults, viewForExercise,
+  planForToday, playRatingEntry, plannedProgressIds, rememberExerciseSettings, EMPTY_EXERCISE_SETTINGS, playSettingsFor, repeatContent, specForKey, stepPosition, todayKey, toPlayDefaults, viewForExercise,
 } from '../src/app/lesson-flow';
 import { difficultyId, progressRows } from '../src/ui/progress/model';
+import { DEFAULT_PREFERENCES } from '../src/storage/model';
 
 const TODAY = '2026-11-12';
 const penta = createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' });
@@ -19,7 +20,7 @@ const arpeggio = createExerciseSpec('arpeggio-1358');
 const own: UserExercise = { version: 'user-exercise-v1', id: 'own-1', name: 'Моя пентатоника', spec: penta, createdAt: '2026-11-10T10:00:00.000Z' };
 const meta = (id: string, occurredAt = '2026-11-12T10:00:00.000Z') => ({ id, occurredAt, timeZone: 'Europe/Moscow' });
 const playRecord = (key: string, bpm: number, occurredAt: string, assessment: 'clean' | 'errors' | 'slow' = 'clean', spec = arpeggio): PracticeRecord =>
-  ({ kind: 'play', id: `play-${key}-${occurredAt}`, exerciseKey: key, title: 'Арпеджио', spec, assessment, bpm, activeMs: 60000, localDate: occurredAt.slice(0, 10), occurredAt, view: 'both', wholePass: true });
+  ({ kind: 'play', id: `play-${key}-${occurredAt}`, exerciseKey: key, title: 'Арпеджио', spec, assessment, bpm, activeMs: 60000, localDate: occurredAt.slice(0, 10), occurredAt, view: 'both', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null } });
 const checkSpec = (exercise = penta): CheckSpec => ({ version: 'check-v1', exercise, kind: 'name-degree', count: 6, ear: false });
 
 describe('план на сегодня', () => {
@@ -61,31 +62,43 @@ describe('ключ и вид упражнения', () => {
 
   it('запомненный вид важнее умолчаний; новое упражнение открывается видом нового упражнения', () => {
     const play: Pick<PlayPreferences, 'defaultView' | 'newExerciseView'> = { defaultView: 'both', newExerciseView: 'board' };
-    const lesson = { viewByExercise: { 'builtin:arpeggio-1358': 'memory' as ExerciseView } };
+    const lesson = { exerciseSettings: { 'builtin:arpeggio-1358': { view: 'memory' as ExerciseView, bpm: null, targetBpm: null, rhythm: 'eighths' as const, groove: null } } };
     expect(viewForExercise('builtin:arpeggio-1358', false, lesson, play)).toBe('memory');
     expect(viewForExercise('builtin:octaves', false, lesson, play)).toBe('board');
     expect(viewForExercise('builtin:octaves', true, lesson, play)).toBe('both');
     expect(viewForExercise('builtin:octaves', false, lesson, { defaultView: 'tab', newExerciseView: null })).toBe('tab');
-    expect(viewForExercise('constructor', false, { viewByExercise: {} }, play)).toBe('board');
+    expect(viewForExercise('constructor', false, { exerciseSettings: {} }, play)).toBe('board');
   });
 
-  it('вид запоминается по ключу, старейшие ключи сверх предела отбрасываются', () => {
-    const views = { 'builtin:a': 'board', 'builtin:b': 'tab' } as Record<string, ExerciseView>;
-    expect(rememberView(views, 'builtin:a', 'board')).toBe(views);
-    expect(Object.entries(rememberView(views, 'builtin:a', 'memory'))).toEqual([['builtin:b', 'tab'], ['builtin:a', 'memory']]);
-    let many: Readonly<Record<string, ExerciseView>> = {};
-    for (let index = 0; index <= MAX_EXERCISE_VIEWS; index++) many = rememberView(many, `builtin:k${index}`, 'both');
+  it('настройки упражнения запоминаются по ключу; последний — в конце, не больше предела', () => {
+    const all = { 'builtin:a': { ...EMPTY_EXERCISE_SETTINGS, view: 'board' as ExerciseView }, 'builtin:b': { ...EMPTY_EXERCISE_SETTINGS, view: 'tab' as ExerciseView } };
+    expect(rememberExerciseSettings(all, 'builtin:a', { view: 'board' })).toBe(all);
+    const next = rememberExerciseSettings(all, 'builtin:a', { bpm: 84, rhythm: 'quarters' });
+    expect(Object.keys(next)).toEqual(['builtin:b', 'builtin:a']);
+    expect(next['builtin:a']).toEqual({ view: 'board', bpm: 84, targetBpm: null, rhythm: 'quarters', groove: null });
+    let many: Readonly<Record<string, typeof EMPTY_EXERCISE_SETTINGS>> = {};
+    for (let index = 0; index <= MAX_EXERCISE_VIEWS; index++) many = rememberExerciseSettings(many, `builtin:k${index}`, { view: 'both' });
     expect(Object.keys(many)).toHaveLength(MAX_EXERCISE_VIEWS);
     expect(many['builtin:k0']).toBeUndefined();
-    expect(many[`builtin:k${MAX_EXERCISE_VIEWS}`]).toBe('both');
+    expect(many[`builtin:k${MAX_EXERCISE_VIEWS}`].view).toBe('both');
+  });
+
+  it('настройки экрана игры: темп и ритм упражнения, общий звук; «как играть» шага главнее', () => {
+    const prefs = DEFAULT_PREFERENCES;
+    const key = 'builtin:arpeggio-1358.C.major-triad.compact-e';
+    const lesson = { exerciseSettings: { [key]: { view: null, bpm: 84, targetBpm: 100, rhythm: 'quarters' as const, groove: 'rock' } } };
+    expect(playSettingsFor(arpeggio, key, { lesson, play: prefs.play, records: [] })).toMatchObject({ bpm: 84, targetBpm: 100, rhythm: 'quarters', groove: 'rock', echo: false, reference: 'auto', countInBars: 1 });
+    expect(playSettingsFor(arpeggio, key, { lesson, play: prefs.play, records: [], practice: { rhythm: 'eighths', echo: true, groove: null } })).toMatchObject({ rhythm: 'eighths', echo: true, groove: null });
+    expect(playSettingsFor(arpeggio, key, { lesson: { exerciseSettings: {} }, play: prefs.play, records: [] })).toMatchObject({ bpm: prefs.play.bpm, targetBpm: 96, rhythm: 'eighths' });
   });
 
   it('темп открытия — последний сыгранный темп упражнения, иначе умолчание', () => {
     const records = [playRecord('builtin:arpeggio-1358', 70, '2026-11-11T10:00:00.000Z'), playRecord('builtin:arpeggio-1358', 64, '2026-11-12T09:00:00.000Z', 'slow'), playRecord('builtin:octaves', 90, '2026-11-12T11:00:00.000Z')];
-    expect(bpmForExercise('builtin:arpeggio-1358', records, 72)).toBe(64);
+    // Последний проход — «Не успевал» на 64: темп не повышается, предлагается 60.
+    expect(bpmForExercise('builtin:arpeggio-1358', records, 72)).toBe(60);
     expect(bpmForExercise('builtin:chromatic-position', records, 72)).toBe(72);
     // Новый материал того же шаблона (другая форма) начинается с последнего темпа шаблона, а не с запасного.
-    expect(bpmForExercise('builtin:arpeggio-1358.G.major-triad.compact-a', records, 72)).toBe(64);
+    expect(bpmForExercise('builtin:arpeggio-1358.G.major-triad.compact-a', records, 72)).toBe(60);
     expect(bpmForExercise('user:other', records, 72)).toBe(72);
     expect(hasPlayed('builtin:octaves', records)).toBe(true);
     expect(hasPlayed('builtin:chromatic-position', records)).toBe(false);
@@ -174,7 +187,7 @@ describe('«Повторить» и «В план» из «Прогресса»'
 
 describe('записи истории занятия', () => {
   it('самооценка — ручная отметка упражнения с видом, темпом в пределах и активным временем', () => {
-    const entry = playRatingEntry({ spec: penta, userExercises: [own], view: 'tab', wholePass: true, assessment: 'clean', bpm: 300.4, activeMs: 61234.6 }, meta('exercise-1'));
+    const entry = playRatingEntry({ spec: penta, userExercises: [own], view: 'tab', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null }, assessment: 'clean', bpm: 300.4, activeMs: 61234.6 }, meta('exercise-1'));
     expect(entry.result).toMatchObject({ kind: 'manual', source: 'self-report', assessment: 'clean', comfortableBpm: 220, durationMs: 61235, context: null,
       material: { kind: 'exercise', key: 'user:own-1', title: 'Моя пентатоника', spec: penta, view: 'tab' } });
     expect(practiceRecords([entry])).toEqual([expect.objectContaining({ kind: 'play', exerciseKey: 'user:own-1', bpm: 220, assessment: 'clean', localDate: '2026-11-12' })]);
@@ -194,11 +207,11 @@ describe('записи истории занятия', () => {
 
 describe('умолчания экрана игры и копия', () => {
   it('умолчания «Настроек» и настройки хранения переводятся без потерь', () => {
-    const play: PlayPreferences = { defaultView: 'both', newExerciseView: 'board', countIn: false, labels: 'degree', bpm: 96 };
-    expect(toPlayDefaults(play)).toEqual({ view: 'tabBoard', newExerciseView: 'board', countIn: false, labels: 'degrees', bpm: 96 });
-    expect(fromPlayDefaults(toPlayDefaults(play))).toEqual(play);
-    const plain: PlayPreferences = { defaultView: 'memory', newExerciseView: null, countIn: true, labels: 'finger', bpm: 60 };
-    expect(fromPlayDefaults(toPlayDefaults(plain))).toEqual(plain);
+    const play: PlayPreferences = { defaultView: 'both', newExerciseView: 'board', countInBars: 0, labels: 'degree', bpm: 96, reference: 'quiet', metronome: 'two-four', click: 0.3, grooveVolume: 0.5 };
+    expect(toPlayDefaults(play)).toEqual({ view: 'tabBoard', newExerciseView: 'board', countInBars: 0, labels: 'degrees', bpm: 96, reference: 'quiet', metronome: 'two-four' });
+    expect(fromPlayDefaults(toPlayDefaults(play), play)).toEqual(play);
+    const plain: PlayPreferences = { defaultView: 'memory', newExerciseView: null, countInBars: 2, labels: 'finger', bpm: 60, reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6 };
+    expect(fromPlayDefaults(toPlayDefaults(plain), plain)).toEqual(plain);
   });
 
   it('версия копии распознаётся до полной проверки; чужой файл и не-JSON — без версии', () => {

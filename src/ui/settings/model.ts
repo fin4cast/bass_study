@@ -3,18 +3,26 @@
  * Состояние приходит от приложения; модуль только описывает его словами и готовит следующие значения.
  */
 
+import { COUNT_IN_CHOICES, METRONOME_CHOICES, REFERENCE_MODES } from '../sound-options';
+
 export type ThemeChoice = 'light' | 'dark';
 export type PlayView = 'board' | 'tabBoard' | 'tab' | 'memory';
 export type BoardLabels = 'notes' | 'degrees' | 'fingers';
+export type ReferenceChoice = 'auto' | 'on' | 'quiet' | 'off';
+export type MetronomeDefault = 'beats' | 'eighths' | 'two-four' | 'gap' | 'off';
 export interface PlayDefaults {
   /** С какого вида открываются упражнения. */
   readonly view: PlayView;
   /** Вид для нового упражнения; `null` — тот же, что `view`. */
   readonly newExerciseView: PlayView | null;
-  readonly countIn: boolean;
+  /** Отсчёт перед стартом, тактов. */
+  readonly countInBars: 0 | 1 | 2;
   readonly labels: BoardLabels;
   /** Темп нового упражнения, четверти в минуту. */
   readonly bpm: number;
+  /** Эталонный бас и метроном экрана игры (D-050). */
+  readonly reference: ReferenceChoice;
+  readonly metronome: MetronomeDefault;
 }
 export type SaveStatus = 'saved' | 'saving' | { readonly error: string };
 export type WriterState = 'owner' | 'other-tab';
@@ -77,11 +85,15 @@ export const SECTIONS: readonly SectionInfo[] = Object.freeze(([
   { id: 'about', title: 'О приложении', short: 'О приложении', lead: 'Версия, документация и лицензии.' },
 ] satisfies SectionInfo[]).map(section => Object.freeze(section)));
 
-export const VIEW_LABELS: Readonly<Record<PlayView, string>> = Object.freeze({ board: 'Гриф крупно', tabBoard: 'Таб + гриф', tab: 'Таб крупно', memory: 'По памяти' });
+export const VIEW_LABELS: Readonly<Record<PlayView, string>> = Object.freeze({ board: 'Гриф', tabBoard: 'Таб + гриф', tab: 'Таб', memory: 'По памяти' });
+/** Подписи эталона, метронома и отсчёта — те же, что в панели «Звук и ритм» экрана игры. */
+export const REFERENCE_LABELS: Readonly<Record<ReferenceChoice, string>> = Object.freeze(Object.fromEntries(REFERENCE_MODES.map(item => [item.id, item.label])) as Record<ReferenceChoice, string>);
+export const METRONOME_LABELS: Readonly<Record<MetronomeDefault, string>> = Object.freeze(Object.fromEntries(METRONOME_CHOICES.map(item => [item.id, item.label])) as Record<MetronomeDefault, string>);
+export const COUNT_IN_LABELS: Readonly<Record<'0' | '1' | '2', string>> = Object.freeze(Object.fromEntries(COUNT_IN_CHOICES.map(item => [String(item.bars), item.label])) as Record<'0' | '1' | '2', string>);
 export const LABEL_LABELS: Readonly<Record<BoardLabels, string>> = Object.freeze({ notes: 'Ноты', degrees: 'Ступени', fingers: 'Пальцы' });
 export const THEME_LABELS: Readonly<Record<ThemeChoice, string>> = Object.freeze({ light: 'Светлая', dark: 'Тёмная' });
 export const BPM_MIN = 40;
-export const BPM_MAX = 200;
+export const BPM_MAX = 220;
 export const BPM_STEP = 4;
 
 export type SaveKind = 'ok' | 'saving' | 'error' | 'other';
@@ -108,7 +120,10 @@ export function withDefaults(defaults: PlayDefaults, patch: Partial<PlayDefaults
   if (!(next.view in VIEW_LABELS)) throw new RangeError('Неизвестный вид экрана игры.');
   if (next.newExerciseView !== null && !(next.newExerciseView in VIEW_LABELS)) throw new RangeError('Неизвестный вид нового упражнения.');
   if (!(next.labels in LABEL_LABELS)) throw new RangeError('Неизвестные подписи на грифе.');
-  return Object.freeze({ ...next, countIn: Boolean(next.countIn), bpm: clampBpm(next.bpm) });
+  if (!(next.reference in REFERENCE_LABELS)) throw new RangeError('Неизвестный режим эталона.');
+  if (!(next.metronome in METRONOME_LABELS)) throw new RangeError('Неизвестный режим метронома.');
+  if (![0, 1, 2].includes(next.countInBars)) throw new RangeError('Отсчёт — 0, 1 или 2 такта.');
+  return Object.freeze({ ...next, bpm: clampBpm(next.bpm) });
 }
 
 /** Краткая сводка под названием каждого раздела в списке слева. */
@@ -116,7 +131,7 @@ export function sectionSummaries(state: SettingsState): Readonly<Record<SectionI
   const defaults = state.playDefaults;
   return Object.freeze({
     look: THEME_LABELS[state.theme],
-    lesson: `${VIEW_LABELS[defaults.view]} · отсчёт ${defaults.countIn ? '4' : 'выкл'}`,
+    lesson: `${VIEW_LABELS[defaults.view]} · ${defaults.countInBars ? `отсчёт ${COUNT_IN_LABELS[String(defaults.countInBars) as '1' | '2']}` : 'без отсчёта'}`,
     data: SAVE_TEXT[saveKind(state)],
     input: state.inputSummary?.trim() || 'Проверка сигнала',
     about: `Версия ${state.version}`,

@@ -1,4 +1,5 @@
 import type { QuestionContext, QuizResult } from './index';
+import type { PracticeOptions } from '../exercises/rhythm';
 import type { BoxSelection } from '../music/boxes';
 import type { RhythmPlaybackConfig } from '../rhythm/model';
 import type { ExerciseSpec } from '../exercises';
@@ -35,6 +36,8 @@ export interface ExercisePracticeMaterial {
   readonly view: ExerciseView;
   /** Проход целиком, без петли-фрагмента. */
   readonly wholePass: boolean;
+  /** Как играли: ритм, эхо, подложка (D-050). */
+  readonly practice: PracticeOptions;
 }
 
 export function manualTempoBounds(material?: PracticeMaterial): readonly [number, number] {

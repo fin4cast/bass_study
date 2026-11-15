@@ -25,7 +25,7 @@ function scientificMidi(text) {
 }
 const NATURAL_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
-// Схема 12 (D-049, ключи материала; хранилища как в 11, P13): «Упражнения» заменили пресеты. Списки хранилищ отсортированы, как их читает независимый raw-читатель.
+// Схема 13 (D-050, настройки упражнений и «как играли»; хранилища как в 11, P13): «Упражнения» заменили пресеты. Списки хранилищ отсортированы, как их читает независимый raw-читатель.
 const CURRENT_STORES = ['exercises', 'history', 'practiceDrafts', 'preferences', 'profile', 'rhythmProjects'];
 const literalCopy = async () => JSON.parse(await readFile(new URL('./fixtures/backup.json', import.meta.url), 'utf8'));
 
@@ -40,8 +40,8 @@ for (const version of [1, 10]) {
       return { snapshot, empty: window.p6.empty, skipped, raw: await window.p6.rawRead() };
     });
     const upgraded = await open();
-    assert.deepEqual(upgraded.snapshot, upgraded.empty); assert.equal(upgraded.snapshot.schemaVersion, 12); assert.deepEqual(upgraded.skipped, []);
-    assert.deepEqual(upgraded.raw, { version: 12, stores: Object.fromEntries(CURRENT_STORES.map(name => [name, []])) });
+    assert.deepEqual(upgraded.snapshot, upgraded.empty); assert.equal(upgraded.snapshot.schemaVersion, 13); assert.deepEqual(upgraded.skipped, []);
+    assert.deepEqual(upgraded.raw, { version: 13, stores: Object.fromEntries(CURRENT_STORES.map(name => [name, []])) });
     await page.reload(); await page.waitForFunction(() => window.p6?.ready);
     const reopened = await open(); assert.deepEqual(reopened, upgraded, 'A second open must not upgrade again or recreate data');
     return { seededVersion: version, seededStores: Object.fromEntries(Object.entries(seeded.raw.stores).map(([name, records]) => [name, records.length])), raw: upgraded.raw, snapshotIsEmptyDefault: true, reopenedWithoutSecondUpgrade: true };
@@ -54,7 +54,7 @@ check('old-version-copy-is-refused-before-preview-and-leaves-native-database-unc
     await store.restorePrepared(store.prepareImport(JSON.stringify(literal)));
     const before = await store.readSnapshot({ fresh: true }), rawBefore = await window.p6.rawRead();
     const attempts = [];
-    for (const schemaVersion of [1, 10, 11]) {
+    for (const schemaVersion of [1, 10, 11, 12]) {
       const json = JSON.stringify({ ...literal, schemaVersion }); let preview = null, restore = null;
       try { window.p6.previewImport(json); } catch (error) { preview = { code: error.code, message: error.message }; }
       try { await store.restorePrepared(store.prepareImport(json)); } catch (error) { restore = { code: error.code, message: error.message }; }
@@ -63,7 +63,7 @@ check('old-version-copy-is-refused-before-preview-and-leaves-native-database-unc
     const after = await store.readSnapshot({ fresh: true }), rawAfter = await window.p6.rawRead();
     return { literalVersion: literal.schemaVersion, historyCount: literal.history.length, before, rawBefore, attempts, after, rawAfter };
   });
-  assert.equal(result.literalVersion, 12); assert.equal(result.rawBefore.version, 12); assert.equal(result.rawBefore.stores.history.length, result.historyCount);
+  assert.equal(result.literalVersion, 13); assert.equal(result.rawBefore.version, 13); assert.equal(result.rawBefore.stores.history.length, result.historyCount);
   for (const attempt of result.attempts) {
     assert.equal(attempt.preview?.code, 'UNSUPPORTED_VERSION', `preview v${attempt.schemaVersion}`); assert.equal(attempt.restore?.code, 'UNSUPPORTED_VERSION', `restore v${attempt.schemaVersion}`);
     assert.match(attempt.restore.message, /не поддерживается.*не изменены/);
@@ -125,34 +125,34 @@ async function rawCounts(page) {
 
 
 check('product-opens-real-v10-database-as-empty-persistent-v11-and-rejects-old-copy', async ({ page, origin }) => {
-  const literal = await literalCopy(); assert.equal(literal.schemaVersion, 12);
+  const literal = await literalCopy(); assert.equal(literal.schemaVersion, 13);
   await seedOldProductDatabase(page, origin, literal);
   const seeded = await rawCounts(page);
   assert.deepEqual(seeded, { version: 10, counts: { history: literal.history.length, practiceDrafts: literal.practiceDrafts.length, preferences: 2, presets: 1, profile: 1, rhythmProjects: literal.rhythmProjects.length }, theme: 'dark' });
   await page.goto(origin); await ready(page);
   const upgraded = await rawCounts(page);
-  assert.equal(upgraded.version, 12); assert.deepEqual(Object.keys(upgraded.counts), CURRENT_STORES);
+  assert.equal(upgraded.version, 13); assert.deepEqual(Object.keys(upgraded.counts), CURRENT_STORES);
   for (const name of ['exercises', 'history', 'practiceDrafts', 'rhythmProjects']) assert.equal(upgraded.counts[name], 0, `${name} must start empty after the upgrade`);
   assert.equal(Object.hasOwn(upgraded.counts, 'presets'), false, 'The removed presets store must not survive the upgrade');
   assert.notEqual(upgraded.theme, 'dark', 'The old profile must not survive the upgrade');
   const surface = await page.evaluate(() => ({ storageDetailsHidden: document.querySelector('#open-storage-details')?.hidden, testApi: ['p5', 'p6'].filter(name => name in window) }));
   assert.deepEqual(surface, { storageDetailsHidden: true, testApi: [] }, 'The upgraded product must persist natively, not in page memory');
   const empty = await exportUi(page, { stay: true });
-  assert.equal(empty.schemaVersion, 12); assert.deepEqual([empty.exercises, empty.history, empty.practiceDrafts, empty.rhythmProjects, empty.activeRhythmProjectId], [[], [], [], [], null]);
+  assert.equal(empty.schemaVersion, 13); assert.deepEqual([empty.exercises, empty.history, empty.practiceDrafts, empty.rhythmProjects, empty.activeRhythmProjectId], [[], [], [], [], null]);
   assert.match(await settingsPage(page).locator('[data-save-detail]').innerText(), /^Сохранено/);
   const lesson = await openSettingsPane(page, 'lesson');
-  await lesson.locator('[data-switch="countIn"]').click();
-  await waitRaw(page, db => db.preferences?.play.countIn === false, 'отсчёт выключен');
+  await lesson.locator('[data-set="countInBars"][data-value="0"]').click();
+  await waitRaw(page, db => db.preferences?.play.countInBars === 0, 'отсчёт выключен');
   await page.reload(); await ready(page);
-  assert.equal(await settingsPage(page).locator('[data-switch="countIn"]').getAttribute('aria-checked'), 'false', 'A setting written after the upgrade must survive reload');
-  const before = await exportUi(page, { stay: true }); assert.equal(before.preferences.play.countIn, false);
+  assert.equal(await settingsPage(page).locator('[data-set="countInBars"][data-value="0"]').getAttribute('aria-pressed'), 'true', 'A setting written after the upgrade must survive reload');
+  const before = await exportUi(page, { stay: true }); assert.equal(before.preferences.play.countInBars, 0);
   const refused = await previewCopy(page, { ...literal, schemaVersion: 10 }, 'old-v10.json');
   assert.equal(refused.rejected, true);
   assert.equal(await refused.dialog.locator('h2').innerText(), 'Эта копия не подходит');
-  const error = await refused.dialog.innerText(); assert.match(error, /версии данных 10.*сейчас версия 12/s); assert.match(error, /Ничего не изменилось/);
+  const error = await refused.dialog.innerText(); assert.match(error, /версии данных 10.*сейчас версия 13/s); assert.match(error, /Ничего не изменилось/);
   await refused.dialog.locator('[data-dlg="close"]').click();
   assert.deepEqual(await exportUi(page, { stay: true }), before, 'A refused old copy must not change confirmed data');
-  assert.equal((await rawCounts(page)).version, 12);
+  assert.equal((await rawCounts(page)).version, 13);
   return { seeded, upgraded, surface, persistedAfterUpgrade: { countIn: false }, oldCopyError: error.replace(/\s+/g, ' ') };
 }, { scope: 'ui' });
 
@@ -443,9 +443,9 @@ check('keyboard-only-full-practice-survives-browser-reopen-at-stable-origin', as
 check('actual-web-lock-prevents-second-writer-and-hands-off-after-close', async ({ page, context, origin }) => {
   await ready(page);
   const lesson = await openSettingsPane(page, 'lesson');
-  await lesson.locator('[data-switch="countIn"]').click();
+  await lesson.locator('[data-set="countInBars"][data-value="0"]').click();
   await openFormCheck(page, 'name-note'); await answerNameNoteCorrectly(page);
-  await waitRaw(page, db => db.history.length === 1 && db.preferences.play.countIn === false, 'запись первой вкладки');
+  await waitRaw(page, db => db.history.length === 1 && db.preferences.play.countInBars === 0, 'запись первой вкладки');
   const before = await exportUi(page, { stay: true });
   const second = await context.newPage(); await second.goto(origin);
   await second.waitForFunction(() => document.querySelector('main')?.inert && !document.querySelector('#retry-tab')?.hidden);
@@ -465,7 +465,7 @@ check('actual-web-lock-prevents-second-writer-and-hands-off-after-close', async 
   assert.equal(await second.locator('main').evaluate(element => element.inert), false);
   const after = await exportUi(second, { stay: true });
   assert.deepEqual(after, before);
-  assert.equal(await settingsPage(second).locator('[data-switch="countIn"]').getAttribute('aria-checked'), 'false');
+  assert.equal(await settingsPage(second).locator('[data-set="countInBars"][data-value="0"]').getAttribute('aria-pressed'), 'true');
   return { nativeHeldLocks: locks, blockedSecondWriter: true, blockedGlobalProfileControls: true, confirmedOwnerDataUnchanged: true, explicitReloadAfterRelease: true, preservedHistoryIds: after.history.map(entry => entry.id) };
 }, { scope: 'ui' });
 

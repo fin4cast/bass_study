@@ -1,6 +1,6 @@
 {
   "format": "bass-study-backup",
-  "schemaVersion": 12,
+  "schemaVersion": 13,
   "preferences": {
     "activeModule": "harmony",
     "lesson": {
@@ -50,9 +50,9 @@
       },
       "tab": "today",
       "playFrom": "C",
-      "viewByExercise": {
-        "builtin:chromatic-position.5": "tab",
-        "user:fixture-penta": "memory"
+      "exerciseSettings": {
+        "builtin:chromatic-position.5": { "view": "tab", "bpm": 84, "targetBpm": 100, "rhythm": "quarters", "groove": null },
+        "user:fixture-penta": { "view": "memory", "bpm": null, "targetBpm": null, "rhythm": "eighths", "groove": "shuffle" }
       },
       "progressTab": "exercises",
       "progressSource": "all",
@@ -65,9 +65,13 @@
     "play": {
       "defaultView": "both",
       "newExerciseView": "board",
-      "countIn": true,
+      "countInBars": 1,
       "labels": "degree",
-      "bpm": 76
+      "bpm": 76,
+      "reference": "auto",
+      "metronome": "two-four",
+      "click": 0.4,
+      "grooveVolume": 0.6
     },
     "reference": {
       "mastered": [
@@ -532,7 +536,8 @@
             }
           },
           "view": "both",
-          "wholePass": true
+          "wholePass": true,
+          "practice": { "rhythm": "eighths", "echo": false, "groove": null }
         }
       }
     },

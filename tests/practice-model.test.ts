@@ -83,7 +83,7 @@ describe('библиотека', () => {
 });
 
 const play = (date: string, assessment: 'clean' | 'errors' | 'slow', bpm: number, key = 'builtin:connect-forms', spec = connect): PracticeRecord =>
-  ({ kind: 'play', id: `play-${date}-${key}-${bpm}`, exerciseKey: key, title: key === 'builtin:connect-forms' ? 'Связка соседних форм' : 'Хроматика 1-2-3-4 в позиции', spec, assessment, bpm, activeMs: 300000, localDate: date, occurredAt: `${date}T18:00:00.000Z`, view: 'both', wholePass: true });
+  ({ kind: 'play', id: `play-${date}-${key}-${bpm}`, exerciseKey: key, title: key === 'builtin:connect-forms' ? 'Связка соседних форм' : 'Хроматика 1-2-3-4 в позиции', spec, assessment, bpm, activeMs: 300000, localDate: date, occurredAt: `${date}T18:00:00.000Z`, view: 'both', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null } });
 const check = (date: string, answers: { degree: string; outcome: 'correct' | 'corrected' | 'revealed' | 'skipped' | 'unanswered'; errors: number }[]): PracticeRecord =>
   ({ kind: 'check', id: `check-${date}`, exerciseKey: 'builtin:pentatonic-form', title: 'Ступени формы B', spec: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), checkKind: 'name-degree', ear: false, activeMs: 120000, localDate: date, occurredAt: `${date}T18:10:00.000Z`, answers });
 

@@ -12,7 +12,7 @@ import {
 
 const today = '2026-11-12';
 const play = (templateId: Parameters<typeof createExerciseSpec>[0], assessment: 'clean' | 'errors' | 'slow', bpm: number, localDate: string, time: string, params = {}): PracticeRecord => ({
-  kind: 'play', id: `play-${localDate}-${time}`, exerciseKey: exerciseKey(createExerciseSpec(templateId, params)), title: templateId, spec: createExerciseSpec(templateId, params), assessment, bpm, activeMs: 60000, localDate, occurredAt: `${localDate}T${time}:00.000Z`, view: 'both', wholePass: true,
+  kind: 'play', id: `play-${localDate}-${time}`, exerciseKey: exerciseKey(createExerciseSpec(templateId, params)), title: templateId, spec: createExerciseSpec(templateId, params), assessment, bpm, activeMs: 60000, localDate, occurredAt: `${localDate}T${time}:00.000Z`, view: 'both', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null },
 });
 const records: PracticeRecord[] = [
   play('chromatic-position', 'clean', 84, '2026-11-10', '18:00'),

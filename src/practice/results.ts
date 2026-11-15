@@ -3,6 +3,7 @@
  * Самооценка игры и экранные ответы «Проверь себя» — разные источники; агрегаты их никогда не смешивают.
  * Чистый модуль: записи приходят из истории, хранение — забота приложения.
  */
+import type { PracticeOptions } from '../exercises/rhythm';
 import type { ExerciseSpec } from '../exercises';
 import type { ExerciseView } from '../training/results';
 import type { CheckKind } from './plan';
@@ -27,6 +28,8 @@ export interface PlayRecord {
   readonly view: ExerciseView;
   /** Проход целиком, без петли-фрагмента. */
   readonly wholePass: boolean;
+  /** Как играли подход: ритм, эхо, подложка (D-050). */
+  readonly practice: PracticeOptions;
 }
 export type CheckOutcome = 'correct' | 'corrected' | 'revealed' | 'skipped' | 'unanswered';
 export interface CheckRecord {

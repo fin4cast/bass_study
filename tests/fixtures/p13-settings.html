@@ -41,7 +41,7 @@
     const log = (name, value = null) => { window.p13Log.push({ name, value }); };
     let state = {
       theme: params.get('theme') === 'dark' ? 'dark' : 'light',
-      playDefaults: { view: 'tabBoard', newExerciseView: 'board', countIn: true, labels: 'notes', bpm: 60 },
+      playDefaults: { view: 'tabBoard', newExerciseView: 'board', countInBars: 1, labels: 'notes', bpm: 60, reference: 'auto', metronome: 'beats' },
       saveStatus: 'saved',
       writer: params.get('writer') === 'other' ? 'other-tab' : 'owner',
       version: '1.4.0',

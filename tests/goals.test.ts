@@ -10,7 +10,7 @@ const specOf = (step: GoalStep): ExerciseSpec => step.content.kind === 'exercise
 let serial = 0;
 const play = (spec: ExerciseSpec, view: 'board' | 'both' | 'tab' | 'memory', wholePass: boolean, assessment: 'clean' | 'errors' = 'clean', bpm = 88, key?: string): PracticeRecord => ({
   kind: 'play', id: `p${++serial}`, exerciseKey: key ?? `builtin:${materialId(spec)}`, title: 't', spec, assessment, bpm, activeMs: 60000,
-  localDate: '2026-11-13', occurredAt: `2026-11-13T10:${String(serial % 60).padStart(2, '0')}:00.000Z`, view, wholePass,
+  localDate: '2026-11-13', occurredAt: `2026-11-13T10:${String(serial % 60).padStart(2, '0')}:00.000Z`, view, wholePass, practice: { rhythm: 'eighths', echo: false, groove: null },
 });
 const check = (spec: ExerciseSpec, firstTry: number, checkKind: 'find-degree' | 'name-degree' = 'find-degree'): PracticeRecord => ({
   kind: 'check', id: `c${++serial}`, exerciseKey: `builtin:${materialId(spec)}`, title: 't', spec, checkKind, ear: false, activeMs: 60000,

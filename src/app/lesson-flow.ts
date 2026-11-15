@@ -3,19 +3,21 @@
  * обновление плана после самооценки и «Проверь себя», записи истории и умолчания экрана игры.
  * Без DOM, звука и хранилища: координатор `lesson-section.ts` только применяет результат.
  */
-import type { ExerciseSpec } from '../exercises';
+import { TEMPLATE_TARGET_BPM, type ExerciseSpec } from '../exercises';
+import { DEFAULT_PRACTICE, type PracticeOptions } from '../exercises/rhythm';
 import { builtinLibrary, type UserExercise } from '../practice/library';
 import { builtinTemplateOf } from '../practice/material';
 import { addStep, completeStep, createPlan, currentStep, planFromTemplate, type CheckSpec, type DayPlan, type PlanStepContent } from '../practice/plan';
 import { difficulties, type Assessment, type Difficulty, type PracticeRecord } from '../practice/results';
 import {
   makeCheckHistory, makeManualHistory, MAX_CHECK_ACTIVE_MS, MAX_EXERCISE_VIEWS,
-  type CheckAnswer, type CheckHistoryEntry, type ExerciseView, type HistoryEntry, type HistoryMetadata, type LessonPreferences, type ManualHistoryEntry, type PlayPreferences,
+  type CheckAnswer, type CheckHistoryEntry, type ExerciseSettings, type ExerciseView, type HistoryEntry, type HistoryMetadata, type LessonPreferences, type ManualHistoryEntry, type PlayPreferences,
 } from '../storage/model';
 import { createManualPracticeResult, manualTempoBounds } from '../training/results';
 import { checkContent, contentMinutes, exerciseKey, exerciseTitle, nextStepId, pendingMatches, stepMaterial } from '../ui/lesson/model';
 import { difficultyId, type ProgressRow } from '../ui/progress/model';
 import type { PlayDefaults } from '../ui/settings/model';
+import type { PlaySettings } from '../ui/play/model';
 
 export { exerciseKey } from '../ui/lesson/model';
 
@@ -42,32 +44,61 @@ export const contentExercise = (content: PlanStepContent): ExerciseSpec => conte
  * Вид экрана игры: запомненный для упражнения; иначе для ни разу не сыгранного — вид нового упражнения
  * (или вид по умолчанию, если он не задан); иначе вид по умолчанию.
  */
-export function viewForExercise(key: string, played: boolean, lesson: Pick<LessonPreferences, 'viewByExercise'>, play: Pick<PlayPreferences, 'defaultView' | 'newExerciseView'>): ExerciseView {
-  const remembered = Object.hasOwn(lesson.viewByExercise, key) ? lesson.viewByExercise[key] : undefined;
+export function viewForExercise(key: string, played: boolean, lesson: Pick<LessonPreferences, 'exerciseSettings'>, play: Pick<PlayPreferences, 'defaultView' | 'newExerciseView'>): ExerciseView {
+  const remembered = Object.hasOwn(lesson.exerciseSettings, key) ? lesson.exerciseSettings[key].view : null;
   if (remembered) return remembered;
   return played ? play.defaultView : play.newExerciseView ?? play.defaultView;
 }
 
-/** Запоминает вид упражнения; последний выбранный ключ — в конце, старейшие сверх предела отбрасываются. */
-export function rememberView(views: Readonly<Record<string, ExerciseView>>, key: string, view: ExerciseView): Readonly<Record<string, ExerciseView>> {
-  if (views[key] === view) return views;
-  const entries = Object.entries(views).filter(([candidate]) => candidate !== key);
-  entries.push([key, view]);
+export const EMPTY_EXERCISE_SETTINGS: ExerciseSettings = Object.freeze({ view: null, bpm: null, targetBpm: null, rhythm: 'eighths', groove: null });
+
+/** Запоминает настройки упражнения; последний ключ — в конце, старейшие сверх предела отбрасываются. */
+export function rememberExerciseSettings(all: Readonly<Record<string, ExerciseSettings>>, key: string, patch: Partial<ExerciseSettings>): Readonly<Record<string, ExerciseSettings>> {
+  const current = Object.hasOwn(all, key) ? all[key] : EMPTY_EXERCISE_SETTINGS;
+  const next = { ...current, ...patch };
+  if (Object.hasOwn(all, key) && JSON.stringify(current) === JSON.stringify(next)) return all;
+  const entries = Object.entries(all).filter(([candidate]) => candidate !== key);
+  entries.push([key, next]);
   return Object.fromEntries(entries.slice(Math.max(0, entries.length - MAX_EXERCISE_VIEWS)));
 }
 
-/** Темп открытия: последний сыгранный темп упражнения («продолжить с прежним темпом»), иначе умолчание. */
-/** Темп: последний проход этого материала, иначе последний проход того же шаблона (другая форма или тоника), иначе запасной. */
+/**
+ * Начальные настройки экрана игры (D-050): темп и цель, ритм и подложка — упражнения; эталон, метроном,
+ * громкости и отсчёт — общие умолчания; «как играть» шага плана главнее запомненного ритма и подложки.
+ */
+export function playSettingsFor(spec: ExerciseSpec, key: string, sources: {
+  readonly lesson: Pick<LessonPreferences, 'exerciseSettings'>; readonly play: PlayPreferences; readonly records: readonly PracticeRecord[];
+  readonly practice?: PracticeOptions | null; readonly bpm?: number;
+}): Partial<PlaySettings> {
+  const saved = Object.hasOwn(sources.lesson.exerciseSettings, key) ? sources.lesson.exerciseSettings[key] : EMPTY_EXERCISE_SETTINGS;
+  const practice = sources.practice ?? null;
+  return {
+    bpm: sources.bpm ?? saved.bpm ?? bpmForExercise(key, sources.records, sources.play.bpm),
+    targetBpm: saved.targetBpm ?? TEMPLATE_TARGET_BPM[spec.templateId],
+    rhythm: practice?.rhythm ?? saved.rhythm,
+    groove: (practice ? practice.groove : saved.groove) as PlaySettings['groove'],
+    echo: practice?.echo ?? false,
+    countInBars: sources.play.countInBars, reference: sources.play.reference, metronome: sources.play.metronome,
+    click: sources.play.click, grooveVolume: sources.play.grooveVolume,
+  };
+}
+
+/**
+ * Темп: последний проход этого материала, иначе последний проход того же шаблона (другая форма или тоника),
+ * иначе запасной. После «Не успевал» темп не повышается: предлагается на 4 BPM ниже отмеченного.
+ */
 export function bpmForExercise(key: string, records: readonly PracticeRecord[], fallback: number): number {
   const template = builtinTemplateOf(key);
-  let last: { bpm: number; occurredAt: string } | null = null;
-  let sameTemplate: { bpm: number; occurredAt: string } | null = null;
+  let last: { bpm: number; occurredAt: string; assessment: Assessment } | null = null;
+  let sameTemplate: { bpm: number; occurredAt: string; assessment: Assessment } | null = null;
   for (const record of records) {
     if (record.kind !== 'play') continue;
     if (record.exerciseKey === key && (!last || record.occurredAt >= last.occurredAt)) last = record;
     else if (template && builtinTemplateOf(record.exerciseKey) === template && (!sameTemplate || record.occurredAt >= sameTemplate.occurredAt)) sameTemplate = record;
   }
-  return last?.bpm ?? sameTemplate?.bpm ?? fallback;
+  const chosen = last ?? sameTemplate;
+  if (!chosen) return fallback;
+  return chosen.assessment === 'slow' ? Math.max(40, chosen.bpm - 4) : chosen.bpm;
 }
 
 export const hasPlayed = (key: string, records: readonly PracticeRecord[]) => records.some(record => record.kind === 'play' && record.exerciseKey === key);
@@ -167,9 +198,10 @@ const clampInteger = (value: number, [min, max]: readonly [number, number]) => M
 /** Самооценка прохода упражнения как ручная отметка истории (R-026, R-011). */
 export function playRatingEntry(input: {
   readonly spec: ExerciseSpec; readonly userExercises: readonly UserExercise[]; readonly view: ExerciseView; readonly wholePass: boolean;
-  readonly assessment: Assessment; readonly bpm: number; readonly activeMs: number;
+  readonly assessment: Assessment; readonly bpm: number; readonly activeMs: number; readonly practice?: PracticeOptions;
 }, metadata: HistoryMetadata): ManualHistoryEntry {
-  const material = { kind: 'exercise' as const, key: exerciseKey(input.spec, input.userExercises), title: exerciseTitle(input.spec, input.userExercises), spec: input.spec, view: input.view, wholePass: input.wholePass };
+  const material = { kind: 'exercise' as const, key: exerciseKey(input.spec, input.userExercises), title: exerciseTitle(input.spec, input.userExercises), spec: input.spec, view: input.view, wholePass: input.wholePass,
+    practice: input.practice ?? DEFAULT_PRACTICE };
   const result = createManualPracticeResult({
     context: null, material, assessment: input.assessment,
     comfortableBpm: clampInteger(input.bpm, manualTempoBounds(material)),
@@ -211,8 +243,11 @@ const VIEW_FROM_SETTINGS = invert(VIEW_TO_SETTINGS);
 const LABELS_FROM_SETTINGS = invert(LABELS_TO_SETTINGS);
 
 export function toPlayDefaults(play: PlayPreferences): PlayDefaults {
-  return { view: VIEW_TO_SETTINGS[play.defaultView], newExerciseView: play.newExerciseView === null ? null : VIEW_TO_SETTINGS[play.newExerciseView], countIn: play.countIn, labels: LABELS_TO_SETTINGS[play.labels], bpm: play.bpm };
+  return { view: VIEW_TO_SETTINGS[play.defaultView], newExerciseView: play.newExerciseView === null ? null : VIEW_TO_SETTINGS[play.newExerciseView], countInBars: play.countInBars,
+    labels: LABELS_TO_SETTINGS[play.labels], bpm: play.bpm, reference: play.reference, metronome: play.metronome };
 }
-export function fromPlayDefaults(defaults: PlayDefaults): PlayPreferences {
-  return { defaultView: VIEW_FROM_SETTINGS[defaults.view], newExerciseView: defaults.newExerciseView === null ? null : VIEW_FROM_SETTINGS[defaults.newExerciseView], countIn: defaults.countIn, labels: LABELS_FROM_SETTINGS[defaults.labels], bpm: defaults.bpm };
+/** Умолчания из «Настроек»; громкости клика и подложки задаются на экране игры и сохраняются как есть. */
+export function fromPlayDefaults(defaults: PlayDefaults, current: Pick<PlayPreferences, 'click' | 'grooveVolume'>): PlayPreferences {
+  return { defaultView: VIEW_FROM_SETTINGS[defaults.view], newExerciseView: defaults.newExerciseView === null ? null : VIEW_FROM_SETTINGS[defaults.newExerciseView], countInBars: defaults.countInBars,
+    labels: LABELS_FROM_SETTINGS[defaults.labels], bpm: defaults.bpm, reference: defaults.reference, metronome: defaults.metronome, click: current.click, grooveVolume: current.grooveVolume };
 }

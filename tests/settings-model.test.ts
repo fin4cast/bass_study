@@ -4,7 +4,7 @@ import {
   type PlayDefaults, type SettingsState,
 } from '../src/ui/settings/model';
 
-const defaults: PlayDefaults = { view: 'tabBoard', newExerciseView: 'board', countIn: true, labels: 'notes', bpm: 60 };
+const defaults: PlayDefaults = { view: 'tabBoard', newExerciseView: 'board', countInBars: 1, labels: 'notes', bpm: 60, reference: 'auto', metronome: 'beats' };
 const state: SettingsState = { theme: 'light', playDefaults: defaults, saveStatus: 'saved', writer: 'owner', version: '1.4.0', dataVersion: 11 };
 
 describe('разделы настроек (вариант B)', () => {
@@ -14,10 +14,10 @@ describe('разделы настроек (вариант B)', () => {
   });
   it('сводка раздела описывает текущее состояние словами', () => {
     expect(sectionSummaries(state)).toEqual({
-      look: 'Светлая', lesson: 'Таб + гриф · отсчёт 4', data: 'Сохранено', input: 'Проверка сигнала', about: 'Версия 1.4.0',
+      look: 'Светлая', lesson: 'Таб + гриф · отсчёт 1 такт', data: 'Сохранено', input: 'Проверка сигнала', about: 'Версия 1.4.0',
     });
-    const dark = sectionSummaries({ ...state, theme: 'dark', playDefaults: { ...defaults, view: 'memory', countIn: false }, saveStatus: { error: 'Тема' }, inputSummary: 'Подключён' });
-    expect(dark).toMatchObject({ look: 'Тёмная', lesson: 'По памяти · отсчёт выкл', data: 'Не сохранено', input: 'Подключён' });
+    const dark = sectionSummaries({ ...state, theme: 'dark', playDefaults: { ...defaults, view: 'memory', countInBars: 0 }, saveStatus: { error: 'Тема' }, inputSummary: 'Подключён' });
+    expect(dark).toMatchObject({ look: 'Тёмная', lesson: 'По памяти · без отсчёта', data: 'Не сохранено', input: 'Подключён' });
     expect(sectionSummaries({ ...state, writer: 'other-tab', saveStatus: { error: 'x' } }).data).toBe('Только просмотр');
   });
   it('вторая вкладка важнее ошибки записи, ошибка важнее «сохраняем»', () => {

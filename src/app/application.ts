@@ -584,7 +584,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
       state: settingsState(),
       onTheme: value => theme.setPreference(value),
       onPlayDefaults(next) {
-        if (!savePreferences({ play: fromPlayDefaults(next) })) reportFailure('Умолчания занятия не сохранены: эта вкладка сейчас не может записывать.');
+        if (!savePreferences({ play: fromPlayDefaults(next, preferences.value.play) })) reportFailure('Умолчания занятия не сохранены: эта вкладка сейчас не может записывать.');
         refreshSettings();
       },
       onExport: exportBackup,

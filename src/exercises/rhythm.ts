@@ -142,3 +142,28 @@ export function barStepRange(timeline: Pick<Timeline, 'steps'>, fromBar: number,
   for (let index = from; index < timeline.steps.length; index++) if (timeline.steps[index].bar >= toBarExclusive) { toExclusive = index; break; }
   return toExclusive > from ? { from, toExclusive } : null;
 }
+
+/* ---------- Как играли материал (D-050) ---------- */
+
+/** Ритм, эхо и подложка подхода: часть материала освоения — эхо или четверти не засчитываются за обычный шаг. */
+export interface PracticeOptions {
+  readonly rhythm: RhythmPatternId;
+  readonly echo: boolean;
+  /** Пресет подложки «Ритма» или `null`. */
+  readonly groove: string | null;
+}
+export const DEFAULT_PRACTICE: PracticeOptions = Object.freeze({ rhythm: 'eighths', echo: false, groove: null });
+export const GROOVE_IDS: readonly string[] = Object.freeze(['rock', 'funk', 'shuffle', 'blues', 'latin', 'disco']);
+export const samePractice = (a: PracticeOptions, b: PracticeOptions) => a.rhythm === b.rhythm && a.echo === b.echo && a.groove === b.groove;
+
+/** Строгая проверка: ровно поля rhythm, echo, groove с допустимыми значениями. */
+export function validatePractice(value: unknown): PracticeOptions {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) throw new RangeError('Как играли: нужен объект.');
+  const raw = value as Record<string, unknown>;
+  const keys = Object.keys(raw);
+  if (keys.length !== 3 || !['rhythm', 'echo', 'groove'].every(key => Object.hasOwn(raw, key))) throw new RangeError('Как играли: ожидаются поля rhythm, echo, groove.');
+  if (!isRhythmPatternId(raw.rhythm)) throw new RangeError('Как играли: неизвестный ритмический рисунок.');
+  if (typeof raw.echo !== 'boolean') throw new RangeError('Как играли: эхо — да или нет.');
+  if (raw.groove !== null && (typeof raw.groove !== 'string' || !GROOVE_IDS.includes(raw.groove))) throw new RangeError('Как играли: неизвестная подложка.');
+  return Object.freeze({ rhythm: raw.rhythm, echo: raw.echo, groove: raw.groove as string | null });
+}

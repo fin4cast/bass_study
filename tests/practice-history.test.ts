@@ -9,7 +9,7 @@ import { makeCheckHistory, makeManualHistory, parseBackup } from '../src/storage
 const spec = createExerciseSpec('arpeggio-1358');
 const play = (id: string, occurredAt: string, assessment: 'clean' | 'errors' | 'slow', bpm: number) => makeManualHistory(createManualPracticeResult({
   context: null, comfortableBpm: bpm, durationMs: 60000, note: '', assessment,
-  material: { kind: 'exercise', key: 'user:arp', title: 'Моё арпеджио', spec, view: 'board', wholePass: true },
+  material: { kind: 'exercise', key: 'user:arp', title: 'Моё арпеджио', spec, view: 'board', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null } },
 }), { id, occurredAt, timeZone: 'Europe/Moscow' });
 
 describe('записи «Прогресса» из истории', () => {
@@ -20,7 +20,7 @@ describe('записи «Прогресса» из истории', () => {
       { kind: 'check', id: 'fixture-check-history', exerciseKey: 'builtin:pentatonic-form.A.minor-pentatonic.penta-b', title: 'Форма пентатоники вверх-вниз', spec: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), checkKind: 'name-degree', ear: false, activeMs: 95000, localDate: '2026-11-09', occurredAt: '2026-11-08T22:45:00.000Z',
         answers: history.find(entry => entry.result.kind === 'check')!.result.kind === 'check' ? (history.find(entry => entry.result.kind === 'check')!.result as { answers: unknown }).answers : [] },
       { kind: 'play', id: 'fixture-exercise-history', exerciseKey: 'user:fixture-penta', title: 'Am пентатоника, форма B', spec: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), assessment: 'clean',
-        bpm: 84, activeMs: 180000, localDate: '2026-11-09', occurredAt: '2026-11-08T22:40:00.000Z', view: 'both', wholePass: true },
+        bpm: 84, activeMs: 180000, localDate: '2026-11-09', occurredAt: '2026-11-08T22:40:00.000Z', view: 'both', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null } },
       { kind: 'manual', id: 'fixture-rhythm-history', area: 'rhythm', title: 'Ритм-секция · Триольный грув · Основной грув · 117 BPM', bpm: 117, activeMs: 600,
         note: 'Отметка ритма', localDate: '2026-11-09', occurredAt: '2026-11-08T22:35:00.000Z' },
     ]);

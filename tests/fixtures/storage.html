@@ -29,7 +29,7 @@
     // Проход упражнения на экране игры: самооценка обязательна, контекста грифа нет.
     function exercisePass(id = 'fixture-exercise-pass', assessment = 'clean') {
       return makeManualHistory(createManualPracticeResult({ context: null, comfortableBpm: 84, durationMs: 180000, note: 'Проход упражнения', assessment,
-        material: { kind: 'exercise', key: 'user:fixture-exercise-a', title: 'Нижняя форма', spec: pentatonic('penta-a'), view: 'both', wholePass: true } }), { ...metadata, id });
+        material: { kind: 'exercise', key: 'user:fixture-exercise-a', title: 'Нижняя форма', spec: pentatonic('penta-a'), view: 'both', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null } } }), { ...metadata, id });
     }
     function check(id = 'fixture-check') {
       return makeCheckHistory({ exerciseKey: 'builtin:pentatonic-form.A.minor-pentatonic.penta-b', title: 'Форма пентатоники вверх-вниз', activeMs: 95000,
@@ -43,7 +43,7 @@
     function seedSnapshot() {
       const preferences = structuredClone(DEFAULT_PREFERENCES);
       preferences.study = { root: 'C', structureId: 'major', labelMode: 'degrees', strings: ['E'], fretMin: 0, fretMax: 3, box: null, showFingers: false };
-      preferences.play.bpm = 96; preferences.play.countIn = false;
+      preferences.play.bpm = 96; preferences.play.countInBars = 0;
       return validateSnapshot({ ...emptySnapshot(), profile: { theme: 'system', onboarding: { version: 1, choice: 'free', completed: false } }, preferences,
         exercises: [exercise('fixture-exercise-a', 'Нижняя форма'), exercise('fixture-exercise-b', 'Вторая форма', 'penta-b')], history: [screen(), manual()] });
     }
