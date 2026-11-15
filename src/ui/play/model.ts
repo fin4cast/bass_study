@@ -131,6 +131,52 @@ export const DEFAULT_PLAY_SETTINGS: PlaySettings = Object.freeze({
   reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6,
 });
 
+/* ---------- Подход (D-050): проходы до оценки ---------- */
+
+/** Как играли подход: ритм, эхо и подложка. */
+export interface ApproachPractice { readonly rhythm: RhythmPatternId; readonly echo: boolean; readonly groove: RhythmPresetId | null }
+
+/** Итог подхода до оценки: живёт через перезапуски (петля, новый старт), пока подход не оценён. */
+export interface ApproachTally {
+  readonly passes: number;
+  readonly lastBpm: number;
+  /** Активное время по аудиочасам, включая недоигранные проходы. */
+  readonly activeMs: number;
+  /** Подсказка последних двух проходов: 3 — «Гриф» … 0 — «По памяти». */
+  readonly hints: readonly number[];
+  readonly wholePass: boolean;
+  readonly practice: ApproachPractice;
+}
+
+/** Неполный первый проход оценивается, если сыграно хотя бы столько; короче — не записывается. */
+export const PARTIAL_PASS_MIN_MS = 5000;
+
+const samePlayPractice = (a: ApproachPractice, b: ApproachPractice) => a.rhythm === b.rhythm && a.echo === b.echo && a.groove === b.groove;
+
+/**
+ * Начало запуска: неоценённый подход с тем же «как играть» продолжается (проходы и время складываются,
+ * проход целиком — только если и новый запуск без петли); иначе начинается новый. `lost` — прежний
+ * подход с проходами или временем пропал без оценки.
+ */
+export function continueApproach(previous: ApproachTally | null, next: { readonly bpm: number; readonly wholePass: boolean; readonly practice: ApproachPractice }): { tally: ApproachTally; lost: boolean } {
+  if (previous && samePlayPractice(previous.practice, next.practice)) return { tally: { ...previous, wholePass: previous.wholePass && next.wholePass }, lost: false };
+  return {
+    tally: { passes: 0, lastBpm: next.bpm, activeMs: 0, hints: [], wholePass: next.wholePass, practice: next.practice },
+    lost: !!previous && (previous.passes > 0 || previous.activeMs >= PARTIAL_PASS_MIN_MS),
+  };
+}
+
+/**
+ * Остановка: недоигранное время прохода добавляется к подходу. Без завершённых проходов подход оценивается
+ * как неполный проход (не целиком), если сыграно не меньше `PARTIAL_PASS_MIN_MS`; иначе оценки нет.
+ */
+export function stopApproach(tally: ApproachTally, partialMs: number, partialHint: number): ApproachTally | null {
+  const activeMs = tally.activeMs + Math.max(0, Math.round(partialMs));
+  if (tally.passes > 0) return { ...tally, activeMs };
+  if (activeMs < PARTIAL_PASS_MIN_MS) return null;
+  return { ...tally, activeMs, hints: [partialHint], wholePass: false };
+}
+
 /** Лестница возможна, если цель выше текущего темпа. */
 export const ladderAvailable = (settings: Pick<PlaySettings, 'bpm' | 'targetBpm'>) => clampBpm(settings.targetBpm) > clampBpm(settings.bpm);
 

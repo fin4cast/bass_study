@@ -9,15 +9,15 @@ import type { ConceptId, ExercisePlan, ExerciseSpec } from '../../exercises';
 import { rhythmPattern, rhythmPatternsFor, type RhythmPatternId, type Timeline } from '../../exercises/rhythm';
 import { conceptForExerciseConcept, parseConceptText, type ReferenceConcept } from '../../practice/concepts';
 import { GROOVE_PRESETS, presetName, type RhythmPresetId } from '../../rhythm/model';
-import { allowsTransportShortcut } from '../transport-shortcut';
+import { allowsSceneKey, allowsTransportShortcut } from '../transport-shortcut';
 import { onPageVisibility } from '../page-visibility';
 import { escapeHtml } from '../html';
 import { boardGeometry, boardNotesFromPlan, formatDegree, formatPosition, pitchLetter, planFretWindow, renderBoard, type BoardLabelMode } from './board';
 import {
   BPM_MAX, BPM_MIN, BPM_STEP, CONCEPT_LABELS, COUNT_IN_CHOICES, DEFAULT_PLAY_SETTINGS, METRONOME_CHOICES, PLAY_VIEWS, REFERENCE_MODES,
-  clampBpm, isPlayView, junctionText, junctions, ladderAvailable, listenConfig, listenProgressText, loopText, playbackConfig, plural,
+  clampBpm, continueApproach, isPlayView, junctionText, stopApproach, junctions, ladderAvailable, listenConfig, listenProgressText, loopText, playbackConfig, plural,
   progressText, referenceAudible, shiftText, suggestion, tabEvents, timelineFor, upcomingJunction, volumesFor,
-  type Assessment, type Junction, type MetronomeChoice, type PlaySettings, type PlayView, type ReferenceMode, type SuggestionAction,
+  type ApproachTally, type Assessment, type Junction, type MetronomeChoice, type PlaySettings, type PlayView, type ReferenceMode, type SuggestionAction,
 } from './model';
 import { createEnginePort, type PlayState, type PlaybackPort } from './port';
 import { pageOf, renderRhythm, renderTab, tabGeometry, totalBars, type TabEvent } from './tab';
@@ -32,7 +32,7 @@ export interface RateEvent {
   /** Темп последнего завершённого прохода подхода. */
   readonly bpm: number;
   readonly passIndex: number;
-  /** Число завершённых проходов подхода. */
+  /** Число завершённых проходов подхода; 0 — неполный первый проход (не целиком, шаг не закрывает, темп не задаёт). */
   readonly passes: number;
   /** Активное время подхода по аудиочасам: без отсчёта и пауз. */
   readonly activeMs: number;
@@ -64,8 +64,13 @@ export interface MountPlayOptions {
   /** Владелец звука разрешает старт или продолжение; `false` — звук не начинается. */
   readonly onBeforeStart?: () => boolean;
   readonly onViewChange?: (view: PlayView) => void;
-  /** Настройки экрана изменены пользователем (темп при остановке, звук, ритм, подписи). */
-  readonly onSettingsChange?: (settings: PlaySettings, labels: Exclude<BoardLabelMode, 'none'>) => void;
+  /**
+   * Настройки экрана изменены пользователем; `changed` — что именно (темп — только по событиям темпа:
+   * остановка, ±, стрелки, поле), чтобы хост не перезаписывал запомненное тем, что не менялось.
+   */
+  readonly onSettingsChange?: (settings: PlaySettings, labels: Exclude<BoardLabelMode, 'none'>, changed: readonly (keyof PlaySettings | 'labels')[]) => void;
+  /** «Как играть» шага цели: другое «как играть» видно у таймера — такой подход в цель не засчитается. */
+  readonly requiredPractice?: { readonly rhythm: RhythmPatternId; readonly echo: boolean; readonly groove: string | null } | null;
   /**
    * «Сначала услышь»: экран сам проигрывает эталон тем же портом (один проход без отсчёта и клика,
    * без самооценки); старт разрешает `onBeforeStart`. Обработчик лишь сообщает хосту о начале эталона.
@@ -199,6 +204,7 @@ const TEMPLATE = `
       <small data-progress-text></small>
       <small class="pl-timer" data-timer hidden></small>
       <small class="pl-pending" data-pending hidden>новые настройки — со следующего старта</small>
+      <small class="pl-approach-note" data-approach-note hidden></small>
       <small class="pl-error" data-error role="alert" hidden></small>
     </div>
     <p class="pl-sr" data-sr aria-live="polite"></p>
@@ -229,6 +235,8 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   rateEl.hidden = true;
   rateEl.setAttribute('role', 'group');
   rateEl.setAttribute('aria-label', 'Самооценка подхода');
+  // После оценки мышью фокус — на группе: Enter открывает следующий шаг, пробел начинает игру.
+  rateEl.tabIndex = -1;
   rateEl.innerHTML = `<strong data-rate-title></strong><span>Как прошло?</span>${ASSESSMENTS.map(item => `<button type="button" class="secondary-button button-compact" data-rate="${escapeHtml(item.id)}" aria-pressed="false" aria-keyshortcuts="${item.key}">${escapeHtml(item.label)}<kbd aria-hidden="true">${item.key}</kbd></button>`).join('')}<span class="pl-suggest" data-suggest aria-live="polite"></span><span class="pl-next-actions" data-next-actions></span><button type="button" class="text-button button-compact pl-rate-close" data-rate-close aria-label="Скрыть самооценку">✕</button>`;
 
   /* ---------- Состояние ---------- */
@@ -259,13 +267,20 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   // «Сначала услышь»: эталон звучит тем же портом, но это не запуск игры — проходы и самооценка не считаются.
   let listening = false;
   let listenNote = '';
-  // Подход: завершённые проходы текущего запуска.
+  // Запуск: проходы порта считаются с 0 на каждом старте — индекс последнего засчитанного прохода, время и темп
+  // текущего (ещё не завершённого) прохода.
   let lastPass = 0;
+  let runPassIndex = -1;
   let passBpm = settings.bpm;
   let passMs = 0;
-  let approach: { passes: number; lastBpm: number; activeMs: number; hints: number[]; lastPassIndex: number; wholePass: boolean; practice: PracticeOptions } | null = null;
+  // Подход: проходы, время и виды до оценки — живут через перезапуски (петля, новый старт).
+  let approach: { passes: number; lastBpm: number; activeMs: number; hints: number[]; wholePass: boolean; practice: PracticeOptions } | null = null;
   let previous: { status: PlayState['status']; audioTime: number } | null = null;
   let pendingRate: Omit<RateEvent, 'assessment'> | null = null;
+  /** Итог подхода, предложенного к оценке: без оценки он продолжается при следующем старте. */
+  let pendingTally: ApproachTally | null = null;
+  /** Короткая строка у транспорта: подход не записан, проход не доигран. */
+  let approachNote = '';
   /** Подсказка за текущий проход: от «Гриф» (3) до «По памяти» (0). */
   let passHint = 0;
   let rated: { assessment: Assessment; bpm: number } | null = null;
@@ -401,7 +416,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     renderLabels();
     sceneKey = '';
     renderScene();
-    notifySettings();
+    notifySettings(['labels']);
   }
 
   /* ---------- Звук ---------- */
@@ -410,7 +425,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (listening) return;
     try { port.setVolumes(volumesFor(settings, view)); } catch { /* порт освобождён */ }
   }
-  function notifySettings() { options.onSettingsChange?.(settings, labels); }
+  function notifySettings(changed: readonly (keyof PlaySettings | 'labels')[]) { options.onSettingsChange?.(settings, labels, changed); }
   function changeSettings(patch: Partial<PlaySettings>, persist = true) {
     settings = { ...settings, ...patch };
     if (plan && ('rhythm' in patch || 'echo' in patch)) {
@@ -420,7 +435,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       sceneKey = '';
     }
     applyVolumes();
-    if (persist) notifySettings();
+    if (persist) notifySettings(Object.keys(patch) as (keyof PlaySettings)[]);
     renderSub();
     update();
   }
@@ -649,6 +664,10 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       timer.classList.toggle('is-over', done >= planStep.plannedMs);
     }
     at('[data-pending]').hidden = !runActive() || !differsForNextStart(runSettings!, settings) || state.status === 'stopped' || state.status === 'finished';
+    const noteEl = at('[data-approach-note]');
+    const noteText = approachNote || requiredPracticeNote() || (runActive() && (runSettings!.loop || runSettings!.ladder) && (state.status === 'playing' || state.status === 'counting') ? 'Esc — остановить и оценить подход.' : '');
+    noteEl.hidden = !noteText;
+    setText(noteEl, noteText);
     const error = at('[data-error]');
     error.hidden = !errorText;
     setText(error, errorText);
@@ -660,6 +679,16 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       : state.status === 'counting' ? '' : note && ordinal !== null ? `Нота ${ordinal + 1} из ${total}: ${note.name}, ${formatPosition(note.id)}${state.status === 'paused' ? ', пауза' : ''}` : state.status === 'finished' ? 'Проход завершён' : '';
     const key = listening ? 'listening' : `${state.status}|${ordinal}|${listenNote}`;
     if (key !== srKey) { srKey = key; setText(at('[data-sr]'), announce); }
+  }
+  /** Шаг цели засчитывается только своим «как играть»: другое — видно у таймера. */
+  function requiredPracticeNote() {
+    const required = options.requiredPractice;
+    // Подложка «как играть» хранится строкой (`GROOVE_IDS`) — это пресеты «Ритма».
+    if (!required || !plan) return '';
+    const current = practiceOf(settings);
+    if (current.rhythm === required.rhythm && current.echo === required.echo && current.groove === required.groove) return '';
+    const how = [rhythmPattern(required.rhythm).label.toLowerCase(), required.echo ? 'эхо' : '', required.groove ? `под ${presetName(required.groove as RhythmPresetId).toLowerCase()}` : 'без подложки'].filter(Boolean).join(', ');
+    return `Шаг цели — ${how}; подход по-другому в цель не засчитается.`;
   }
   function setText(element: Element, text: string) { if (element.textContent !== text) element.textContent = text; }
   function differsForNextStart(running: PlaySettings, next: PlaySettings) {
@@ -691,9 +720,9 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   }
   /** Проход завершён: запоминается в подходе, панель оценки не открывается — подход оценивается целиком. */
   function completePass(passIndex: number) {
-    if (!approach || passIndex < approach.lastPassIndex + 1) return;
+    if (!approach || passIndex < runPassIndex + 1) return;
     approach.passes += 1;
-    approach.lastPassIndex = passIndex;
+    runPassIndex = passIndex;
     approach.lastBpm = Math.round(passBpm);
     approach.activeMs += Math.round(passMs);
     approach.hints = [...approach.hints, passHint].slice(-2);
@@ -702,25 +731,53 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   }
   /** Оценка подхода предлагается после остановки, конца прохода без повтора или конца лестницы. */
   function offerRate() {
-    if (!approach || !approach.passes || !plan) return;
+    if (!approach || !plan) return;
+    // Недоигранное время прохода — в подход; без завершённых проходов — неполный проход или ничего.
+    const played = approach.activeMs + passMs;
+    const tally = stopApproach(approach, passMs, passHint);
+    passMs = 0;
+    if (!tally) {
+      if (played > 0) approachNote = 'Проход не доигран — не записан: оценка — после целого прохода или от 5 секунд игры.';
+      approach = null;
+      return;
+    }
+    pendingTally = tally;
     pendingRate = {
-      bpm: approach.lastBpm, passIndex: approach.lastPassIndex, passes: approach.passes, activeMs: approach.activeMs,
-      passView: HINT_VIEWS[Math.max(...approach.hints)], wholePass: approach.wholePass, practice: approach.practice,
+      bpm: tally.passes ? tally.lastBpm : Math.round(passBpm), passIndex: runPassIndex, passes: tally.passes, activeMs: tally.activeMs,
+      passView: HINT_VIEWS[Math.max(...tally.hints)], wholePass: tally.wholePass, practice: tally.practice,
     };
     approach = null;
     rated = null;
+    approachNote = '';
     rateEl.hidden = false;
     scene.classList.add('is-rated');
     const passes = pendingRate.passes;
-    rateEl.querySelector('[data-rate-title]')!.textContent = `Подход: ${passes} ${plural(passes, 'проход', 'прохода', 'проходов')} · ${pendingRate.bpm} BPM.`;
+    rateEl.querySelector('[data-rate-title]')!.textContent = passes
+      ? `Подход: ${passes} ${plural(passes, 'проход', 'прохода', 'проходов')} · ${pendingRate.bpm} BPM.`
+      : `Подход: неполный проход · ${pendingRate.bpm} BPM.`;
     rateEl.querySelectorAll<HTMLButtonElement>('[data-rate]').forEach(button => { button.disabled = false; button.setAttribute('aria-pressed', 'false'); });
     rateEl.querySelector('[data-suggest]')!.replaceChildren();
-    rateEl.querySelector('[data-next-actions]')!.replaceChildren();
+    const actions = rateEl.querySelector<HTMLElement>('[data-next-actions]')!;
+    actions.replaceChildren();
+    delete actions.dataset.acts;
   }
   function closeRate() {
     rateEl.hidden = true;
     scene.classList.remove('is-rated');
     pendingRate = null;
+    pendingTally = null;
+  }
+  /**
+   * Подход нового запуска: идущий (петля во время игры) или неоценённый (новый старт после остановки, продолжение
+   * после «Оценить подход» на паузе) продолжается при том же «как играть».
+   */
+  function carryApproach(next: PlaySettings) {
+    const running: ApproachTally | null = approach ? { ...approach, activeMs: approach.activeMs + Math.round(passMs) } : null;
+    const previousTally = running ?? (pendingTally && !rated ? pendingTally : null);
+    const { tally, lost } = continueApproach(previousTally, { bpm: next.bpm, wholePass: !next.range, practice: practiceOf(next) });
+    approach = { ...tally, hints: [...tally.hints] };
+    passMs = 0;
+    approachNote = lost ? 'Прошлый подход не оценён и не записан: «как играть» изменилось.' : '';
   }
   function rate(assessment: Assessment) {
     if (!pendingRate || !plan || rated) return;
@@ -738,7 +795,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   /** После оценки: следующий шаг плана (Enter), ещё подход, отметить шаг выполненным. */
   function renderNextActions() {
     const box = rateEl.querySelector<HTMLElement>('[data-next-actions]')!;
-    if (!rated) { box.replaceChildren(); return; }
+    if (!rated) { box.replaceChildren(); delete box.dataset.acts; return; }
     const button = (label: string, act: string, primary = false) => {
       const element = document.createElement('button');
       element.type = 'button';
@@ -747,6 +804,11 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       element.textContent = label;
       return element;
     };
+    const acts = [planStep && options.onNextStep && planStep.hasNext ? 'next' : '', 'again',
+      planStep && !planStep.done && rated.assessment !== 'clean' && options.onCompleteStep ? 'complete' : ''].filter(Boolean).join(' ');
+    // Тот же набор — кнопки не пересоздаются, фокус на них не теряется (обновление таймера после записи).
+    if (box.dataset.acts === acts && box.childElementCount) return;
+    box.dataset.acts = acts;
     const items: HTMLElement[] = [];
     if (planStep && options.onNextStep && planStep.hasNext) {
       const next = button('Следующий шаг плана →', 'next', true);
@@ -819,10 +881,11 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (!allowed()) return;
     if (listening) { listening = false; restart = true; }
     const config = playbackConfig(plan, timeline, settings);
+    if (restart) observe(port.state());
+    carryApproach(settings);
     runSettings = { ...settings };
     runTimeline = timeline;
-    lastPass = 0; passMs = 0; passBpm = settings.bpm; previous = null; fromStart = false; shownStep = null; passHint = HINT_RANK[view];
-    approach = { passes: 0, lastBpm: settings.bpm, activeMs: 0, hints: [], lastPassIndex: -1, wholePass: !settings.range, practice: practiceOf(settings) };
+    lastPass = 0; runPassIndex = -1; passMs = 0; passBpm = settings.bpm; previous = null; fromStart = false; shownStep = null; passHint = HINT_RANK[view];
     closeRate();
     busy = true;
     applyVolumes();
@@ -843,6 +906,11 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     else if (status === 'paused') {
       errorText = '';
       if (!allowed()) return;
+      // «Оценить подход» на паузе без оценки: продолжение возвращает подход; после оценки начинается новый.
+      if (!approach && runSettings) {
+        carryApproach(runSettings);
+        closeRate();
+      }
       busy = true;
       port.resume().catch(failure => { errorText = `Звук не продолжился: ${message(failure)}`; }).finally(() => { busy = false; update(); });
     } else void begin();
@@ -860,7 +928,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     shownStep = null;
     offerRate();
     approach = null;
-    notifySettings();
+    notifySettings(['bpm']);
     update();
   }
   /* ---------- «Сначала услышь» ---------- */
@@ -938,14 +1006,14 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     else if (data.label) setLabels(data.label as Exclude<BoardLabelMode, 'none'>);
     else if (data.play !== undefined) toggle();
     else if (data.restart !== undefined) toStart();
-    else if (data.bpmStep) { applyBpm(settings.bpm + Number(data.bpmStep)); notifySettings(); }
+    else if (data.bpmStep) { applyBpm(settings.bpm + Number(data.bpmStep)); notifySettings(['bpm']); }
     else if (data.flag) setFlag(data.flag as 'loop' | 'ladder' | 'echo');
     else if (data.clearRange !== undefined) setRange(null);
     else if (data.panelToggle !== undefined) { panelOpen = !panelOpen; renderPanel(); }
     else if (data.reference) changeSettings({ reference: data.reference as ReferenceMode });
     else if (data.metronome) changeSettings({ metronome: data.metronome as MetronomeChoice });
     else if (data.countinBars !== undefined) changeSettings({ countInBars: Number(data.countinBars) as 0 | 1 | 2 });
-    else if (data.rate) rate(data.rate as Assessment);
+    else if (data.rate) { rate(data.rate as Assessment); rateEl.focus({ preventScroll: true }); }
     else if (data.rateOpen !== undefined) offerRateNow();
     else if (data.rateClose !== undefined) closeRate();
     else if (data.after === 'next') options.onNextStep?.();
@@ -966,7 +1034,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
 
   scene.addEventListener('change', event => {
     const target = event.target;
-    if (target instanceof HTMLInputElement && target.dataset.bpm !== undefined) { applyBpm(Number(target.value) || settings.bpm); notifySettings(); return; }
+    if (target instanceof HTMLInputElement && target.dataset.bpm !== undefined) { applyBpm(Number(target.value) || settings.bpm); notifySettings(['bpm']); return; }
     if (target instanceof HTMLInputElement && target.dataset.target !== undefined) { changeSettings({ targetBpm: clampBpm(Number(target.value) || settings.targetBpm) }); return; }
     if (target instanceof HTMLSelectElement && target.dataset.groove !== undefined) { changeSettings({ groove: (target.value || null) as RhythmPresetId | null }); return; }
     if (target instanceof HTMLSelectElement && target.dataset.rhythmSelect !== undefined) { changeSettings({ rhythm: target.value as RhythmPatternId, range: null }); return; }
@@ -987,14 +1055,14 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     const space = event.code === 'Space' || event.key === ' ';
     const digit = /^Digit[1-4]$/.test(event.code) ? Number(event.code.slice(5)) : 0;
     if (digit) {
-      if (!allowsTransportShortcut(event, scene)) return;
+      if (!allowsSceneKey(event, scene)) return;
       event.preventDefault();
       setView(PLAY_VIEWS[digit - 1].id);
       return;
     }
     const assessment = ASSESSMENTS.find(item => item.code === event.code);
     if (assessment && !rateEl.hidden && pendingRate && !rated) {
-      if (!allowsTransportShortcut(event, scene)) return;
+      if (!allowsSceneKey(event, scene)) return;
       event.preventDefault(); rate(assessment.id); return;
     }
     if (event.key === 'Enter' && rated && planStep?.hasNext && options.onNextStep && !rateEl.hidden) {
@@ -1004,8 +1072,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (event.code === 'KeyL' || event.code === 'KeyM' || event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
       const arrows = event.code === 'ArrowLeft' || event.code === 'ArrowRight';
       // Shift+стрелка — ±5 BPM: модификатор разрешён только стрелкам.
-      if (!(arrows && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) && !allowsTransportShortcut(event, scene)) return;
-      if (arrows && event.shiftKey && (document.querySelector('dialog[open]') || !visible)) return;
+      if (!allowsSceneKey(event, scene, { shift: arrows })) return;
       event.preventDefault();
       if (event.code === 'KeyM') { panelOpen = !panelOpen; renderPanel(); return; }
       if (event.code === 'KeyL') {
@@ -1015,7 +1082,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
         return;
       }
       const delta = (event.code === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? 5 : 1);
-      if (!(runSettings?.ladder && gameActive())) { applyBpm(settings.bpm + delta); notifySettings(); }
+      if (!(runSettings?.ladder && gameActive())) { applyBpm(settings.bpm + delta); notifySettings(['bpm']); }
       return;
     }
     if (!escape && !space) return;
@@ -1047,7 +1114,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       timeline = timelineFor(nextPlan, settings);
       events = tabEvents(nextPlan, timeline);
       junctionList = junctions(nextPlan);
-      runSettings = null; runTimeline = null; approach = null; fromStart = false; shownStep = null; errorText = ''; sceneKey = '';
+      runSettings = null; runTimeline = null; approach = null; fromStart = false; shownStep = null; errorText = ''; sceneKey = ''; approachNote = '';
       closeRate();
       applyVolumes();
       renderHeader();

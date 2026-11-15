@@ -63,6 +63,43 @@ export function allowsTransportShortcut(event: KeyboardEvent, surface: HTMLEleme
   return focusKind(event.target, surface) === 'none';
 }
 
+export interface SceneKeyInput {
+  readonly repeat: boolean;
+  readonly shift: boolean;
+  /** Нажат Ctrl, Alt или Meta. */
+  readonly command: boolean;
+  readonly defaultPrevented: boolean;
+}
+
+/**
+ * Свои клавиши сцены (буквы, цифры, стрелки экрана игры): в отличие от пробела и Enter у кнопки нет своего
+ * действия на них, поэтому они работают и после клика по кнопке сцены — в том числе по раскрытой
+ * («Звук и ритм»). Поле, список, ползунок, вкладка, диалог и чужая кнопка оставляют клавишу себе.
+ * Shift — только там, где он часть сочетания (`allowShift`, например Shift+стрелка).
+ */
+export function sceneKeyIntent(input: SceneKeyInput, context: { readonly blocked: boolean; readonly focus: TransportFocus | 'scene-button' }, allowShift = false): boolean {
+  if (input.defaultPrevented || input.repeat || input.command || context.blocked) return false;
+  if (input.shift && !allowShift) return false;
+  return context.focus === 'none' || context.focus === 'own-button' || context.focus === 'scene-button';
+}
+
+/** Фокус для клавиш сцены: своя кнопка, в том числе раскрытая без всплывающего меню, и `summary` внутри сцены. */
+function sceneFocus(target: EventTarget | null, surface: HTMLElement): TransportFocus | 'scene-button' {
+  const kind = focusKind(target, surface);
+  if (kind !== 'control' || !(target instanceof Element)) return kind;
+  const control = target.closest(CONTROLS);
+  if (!control || !surface.contains(control) || control.closest('[inert]')) return kind;
+  if (control instanceof HTMLButtonElement && !control.hasAttribute('aria-haspopup')) return 'scene-button';
+  if (control.tagName === 'SUMMARY') return 'scene-button';
+  return kind;
+}
+
+/** Клавиша сцены по событию: см. `sceneKeyIntent`. */
+export function allowsSceneKey(event: KeyboardEvent, surface: HTMLElement, options: { readonly shift?: boolean } = {}): boolean {
+  return sceneKeyIntent({ repeat: event.repeat, shift: event.shiftKey, command: event.ctrlKey || event.altKey || event.metaKey, defaultPrevented: event.defaultPrevented },
+    { blocked: blocked(surface), focus: sceneFocus(event.target, surface) }, options.shift === true);
+}
+
 export interface TransportKeyActions {
   /** Escape: «С начала» — остановка к началу. */
   readonly stop: () => void;

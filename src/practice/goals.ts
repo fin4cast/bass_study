@@ -62,8 +62,9 @@ export function transposeRoot(root: string, semitones: number): string {
   return NOTE_CHOICES.find(note => parseNote(note).pitchClass === (pitch + semitones + 12) % 12)!;
 }
 
-const exercise = (templateId: ExerciseTemplateId, params: Record<string, unknown> = {}, practice?: PracticeOptions): PlanStepContent =>
-  practice ? { kind: 'exercise', spec: createExerciseSpec(templateId, params as never), practice } : { kind: 'exercise', spec: createExerciseSpec(templateId, params as never) };
+/** Шаг цели всегда со своим «как играть»: освоение засчитывает подходы только так (D-050). */
+const exercise = (templateId: ExerciseTemplateId, params: Record<string, unknown> = {}, practice: PracticeOptions = DEFAULT_PRACTICE): PlanStepContent =>
+  ({ kind: 'exercise', spec: createExerciseSpec(templateId, params as never), practice });
 const checkOf = (content: PlanStepContent, kind: CheckKind): PlanStepContent => ({
   kind: 'check', spec: { version: 'check-v1', exercise: (content as { spec: ExerciseSpec }).spec, kind, count: GOAL_CHECK_COUNT, ear: false },
 });

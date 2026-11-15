@@ -20,7 +20,7 @@ import { createEnginePort, type PlaybackPort } from '../ui/play/port';
 import { mountPlay, type PlayHandle, type RateEvent } from '../ui/play/view';
 import { mountReference } from '../ui/reference/view';
 import {
-  addToPlan, checkEntry, exerciseKey, hasPlayed, nextPlanStep, planAfterCheck, planAfterNext, planAfterRating, planForToday, planStepInfo,
+  addToPlan, bpmAfterRating, checkEntry, exerciseKey, exerciseSettingsPatch, hasPlayed, nextPlanStep, planAfterCheck, planAfterNext, planAfterRating, planForToday, planStepInfo,
   playRatingEntry, playSettingsFor, plannedProgressIds, rememberExerciseSettings, repeatContent, specForKey, stepPosition, todayKey, viewForExercise,
 } from './lesson-flow';
 
@@ -224,7 +224,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     else disposePlay();
     const port = createEnginePort();
     const handle = mountPlay(playHost, {
-      port, initialView: view, settings, labels: prefs.play.labels,
+      port, initialView: view, settings, labels: prefs.play.labels, requiredPractice: practice,
       backLabel: origin ? ORIGIN_LABELS[origin] : label ? `← Занятие · ${label}` : '← Занятие',
       onBack: () => leave(origin),
       onBeforeStart: () => options.claimAudio('play'),
@@ -233,11 +233,12 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
         const lesson = lessonPreferences();
         options.savePreferences({ lesson: { ...lesson, exerciseSettings: rememberExerciseSettings(lesson.exerciseSettings, key, { view: next }) } });
       },
-      // Темп, цель, ритм и подложка — упражнения; эталон, метроном, громкости, отсчёт и подписи — общие умолчания.
-      onSettingsChange(next, labels) {
+      // Темп, цель, ритм и подложка — упражнения (только то, что менялось); эталон, метроном, громкости, отсчёт
+      // и подписи — общие умолчания. «Как играть» шага цели — свойство шага: ритм и подложка не запоминаются.
+      onSettingsChange(next, labels, changed) {
         const prefs = options.preferences();
         options.savePreferences({
-          lesson: { ...prefs.lesson, exerciseSettings: rememberExerciseSettings(prefs.lesson.exerciseSettings, key, { bpm: next.bpm, targetBpm: next.targetBpm, rhythm: next.rhythm, groove: next.groove }) },
+          lesson: { ...prefs.lesson, exerciseSettings: rememberExerciseSettings(prefs.lesson.exerciseSettings, key, exerciseSettingsPatch(next, changed, practice !== null)) },
           // «Пр. рука» есть не у всех упражнений — умолчанием подписей не становится.
           play: { ...prefs.play, countInBars: next.countInBars, reference: next.reference, metronome: next.metronome, click: next.click, grooveVolume: next.grooveVolume, labels: labels === 'pluck' ? prefs.play.labels : labels },
         });
@@ -265,6 +266,10 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     try {
       options.saveHistory(playRatingEntry({ spec: current.spec, userExercises: user(), view: event.passView, wholePass: event.wholePass, assessment: event.assessment, bpm: event.bpm, activeMs: event.activeMs, practice: event.practice }, metadata('exercise')));
     } catch (failure) { options.onFailure(`Самооценка не сохранена: ${message(failure)}`); return; }
+    // Неполный проход (0 проходов) записывает время, но не закрывает шаг и не задаёт темп следующего открытия.
+    if (event.passes === 0) { refreshPlanStep(); return; }
+    const lesson = lessonPreferences();
+    options.savePreferences({ lesson: { ...lesson, exerciseSettings: rememberExerciseSettings(lesson.exerciseSettings, current.key, { bpm: bpmAfterRating(event.assessment, event.bpm) }) } });
     if (current.stepId) {
       const plan = currentPlan();
       const next = planAfterRating(plan, current.stepId, event.assessment);
@@ -338,7 +343,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   return {
     get screen() { return screen; },
     /** Новые записи, упражнения или настройки: главная перерисуется сейчас или при следующем показе. */
-    refresh() { renderHome(); },
+    refresh() { renderHome(); refreshPlanStep(); },
     setVisible(next: boolean) {
       if (disposed || next === visible) return;
       visible = next;

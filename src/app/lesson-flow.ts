@@ -101,6 +101,24 @@ export function bpmForExercise(key: string, records: readonly PracticeRecord[], 
   return chosen.assessment === 'slow' ? Math.max(40, chosen.bpm - 4) : chosen.bpm;
 }
 
+/** Темп следующего открытия после оценки: «Не успевал» — на 4 BPM ниже (не ниже 40), иначе темп подхода. */
+export function bpmAfterRating(assessment: Assessment, bpm: number): number {
+  return assessment === 'slow' ? Math.max(40, Math.round(bpm) - 4) : Math.round(bpm);
+}
+
+/**
+ * Что запомнить в настройках упражнения после изменения на экране игры: только менявшиеся поля; ритм и подложка
+ * шага с явным «как играть» (шаг цели) не запоминаются — это свойство шага, а не упражнения.
+ */
+export function exerciseSettingsPatch(settings: Pick<PlaySettings, 'bpm' | 'targetBpm' | 'rhythm' | 'groove'>, changed: readonly string[], stepPractice: boolean): Partial<ExerciseSettings> {
+  const patch: { bpm?: number; targetBpm?: number; rhythm?: ExerciseSettings['rhythm']; groove?: ExerciseSettings['groove'] } = {};
+  if (changed.includes('bpm')) patch.bpm = settings.bpm;
+  if (changed.includes('targetBpm')) patch.targetBpm = settings.targetBpm;
+  if (!stepPractice && changed.includes('rhythm')) patch.rhythm = settings.rhythm;
+  if (!stepPractice && changed.includes('groove')) patch.groove = settings.groove;
+  return patch;
+}
+
 export const hasPlayed = (key: string, records: readonly PracticeRecord[]) => records.some(record => record.kind === 'play' && record.exerciseKey === key);
 
 function completeIfOpen(plan: DayPlan, stepId: string | null): DayPlan {

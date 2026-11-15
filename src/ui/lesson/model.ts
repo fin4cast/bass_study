@@ -11,7 +11,7 @@ import {
 } from '../../practice/plan';
 import { ASSESSMENT_LABELS, exerciseProgress, playedKeys, type Assessment, type PracticeRecord } from '../../practice/results';
 import { recommend } from '../../practice/recommend';
-import { rhythmPattern } from '../../exercises/rhythm';
+import { DEFAULT_PRACTICE, rhythmPattern, samePractice } from '../../exercises/rhythm';
 import { goalProgress, GOALS, isGoalId, mastered, nextGoalSteps, recordsByMaterial, reviewSteps, stepPractice, type GoalId, type GoalProgress, type GoalStep, type MasteryRule } from '../../practice/goals';
 import { conceptForExerciseConcept, REFERENCE_CONCEPTS, REFERENCE_LEVELS, type ReferenceConcept, type ReferenceLevel } from '../../practice/concepts';
 import { annotatePositions, getPosition, type StructureId } from '../../music';
@@ -82,13 +82,15 @@ export function nextStepId(plan: DayPlan): string {
 
 export const contentMinutes = (content: PlanStepContent) => content.kind === 'check' ? CHECK_MINUTES : TEMPLATE_MINUTES[content.spec.templateId];
 
-/** Незавершённые шаги с тем же ключом (упражнение) или той же проверкой. */
+/** Незавершённые шаги с тем же ключом и тем же «как играть» (упражнение) или той же проверкой. */
 export function pendingMatches(plan: DayPlan, content: PlanStepContent, userExercises: readonly UserExercise[] = []): readonly PlanStep[] {
   return plan.steps.filter(step => step.status !== 'done' && sameKey(step.content, content, userExercises));
 }
 function sameKey(a: PlanStepContent, b: PlanStepContent, userExercises: readonly UserExercise[]) {
   if (a.kind !== b.kind) return false;
-  if (a.kind === 'exercise' && b.kind === 'exercise') return exerciseKey(a.spec, userExercises) === exerciseKey(b.spec, userExercises);
+  // «Эхо» или «под шаффл» — другой шаг того же материала; отсутствие «как играть» — обычные восьмые.
+  if (a.kind === 'exercise' && b.kind === 'exercise') return exerciseKey(a.spec, userExercises) === exerciseKey(b.spec, userExercises)
+    && samePractice(a.practice ?? DEFAULT_PRACTICE, b.practice ?? DEFAULT_PRACTICE);
   if (a.kind === 'check' && b.kind === 'check') return a.spec.kind === b.spec.kind && sameSpec(a.spec.exercise, b.spec.exercise);
   return false;
 }

@@ -233,6 +233,7 @@
 .pl-progress { display: flex; flex: 1 1 140px; flex-wrap: wrap; gap: 0 8px; min-width: 140px; }
 .pl-progress small { color: var(--text-secondary); font-size: var(--text-2xs); }
 .pl-progress .pl-pending { color: var(--warning-text); }
+.pl-progress .pl-approach-note { color: var(--text-secondary); }
 .pl-progress .pl-error { flex-basis: 100%; color: var(--danger-text); }
 .pl-meter { flex-basis: 100%; height: 6px; margin-bottom: 3px; overflow: hidden; border-radius: 3px; background: var(--accent-soft); }
 .pl-meter > i { display: block; height: 100%; background: var(--accent); }
