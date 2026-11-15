@@ -772,6 +772,43 @@ check('play-rate-on-pause-then-resume-keeps-counting-the-same-approach', 'ui', a
   return { ok: true };
 });
 
+check('play-enter-after-key-rating-with-focus-on-play-button-opens-next-step', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await openPlanStep(page, FIRST_RUN_PLAN[0]);
+  await playScene(page).locator('[data-flag="loop"]').click();
+  await setBpm(page, 200);
+  await playScene(page).locator('[data-play]').click();
+  await rateGroup(page).waitFor({ timeout: 20000 });
+  // Фокус остался на «Играть»: Z оценивает, Enter — следующий шаг, а не новый проход.
+  await page.keyboard.press('KeyZ');
+  await rateGroup(page).getByRole('button', { name: 'Следующий шаг плана →' }).waitFor();
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(title => document.querySelector('[data-lesson-screen="play"] [data-title]')?.textContent === title, FIRST_RUN_PLAN[1], { timeout: 5000 });
+  return { ok: true };
+});
+
+check('play-rated-on-pause-then-resumed-does-not-count-the-cut-pass-as-whole', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await openPlanStep(page, FIRST_RUN_PLAN[2]);
+  await setBpm(page, 200);
+  await focusPlayTitle(page); await page.keyboard.press('Space');
+  await waitPlay(page, state => state.status === 'playing' && /проход 2/.test(state.text), null, 30000);
+  await page.keyboard.press('Space');
+  await waitPlay(page, state => state.status === 'paused', null, 5000);
+  await playScene(page).locator('[data-rate-open]').click();
+  await rateGroup(page).waitFor();
+  await page.keyboard.press('KeyZ');
+  await waitDb(page, db => db.history.length === 1, 'первый подход записан');
+  // Продолжение после оценки: оборванный проход 2 доигрывается, но целым проходом нового подхода не считается.
+  await focusPlayTitle(page); await page.keyboard.press('Space');
+  await waitPlay(page, state => state.status === 'playing' && /проход 3/.test(state.text), null, 30000);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+  const text = await rateGroup(page).isVisible() ? await rateGroup(page).innerText() : '';
+  assert.doesNotMatch(text, /Подход: 1 проход/, `Обрывок прохода не засчитан целым: ${text}`);
+  return { text };
+});
+
 check('play-slow-rating-opens-next-time-4-bpm-lower-even-after-sound-change', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
   await openPlanStep(page, FIRST_RUN_PLAN[0]);
@@ -782,7 +819,8 @@ check('play-slow-rating-opens-next-time-4-bpm-lower-even-after-sound-change', 'u
   await rateGroup(page).waitFor();
   await page.keyboard.press('KeyC');
   await waitDb(page, db => db.history.some(entry => entry.result?.assessment === 'slow'), '«Не успевал» в истории');
-  // Смена звука после оценки не затирает сниженный темп.
+  // Повторный Esc без запуска и смена звука после оценки не затирают сниженный темп.
+  await focusPlayTitle(page); await page.keyboard.press('Escape');
   await playScene(page).locator('[data-panel-toggle]').click();
   await playScene(page).getByRole('group', { name: 'Звук и ритм' }).locator('[data-metronome="two-four"]').click();
   await waitDb(page, db => db.preferences?.play?.metronome === 'two-four', 'метроном запомнен');
@@ -810,7 +848,9 @@ check('goal-step-opens-with-its-own-practice-not-the-remembered-rhythm', 'ui', a
   // Смена ритма в шаге цели: запомненный ритм упражнения не меняется.
   await playScene(page).locator('[data-panel-toggle]').click();
   await playScene(page).getByRole('group', { name: 'Звук и ритм' }).locator('[data-rhythm-select]').selectOption('sixteenths');
-  await page.waitForTimeout(300);
+  // Записи последовательны: после записи метронома смена ритма уже сохранена (или нет) — без ожидания по таймеру.
+  await playScene(page).getByRole('group', { name: 'Звук и ритм' }).locator('[data-metronome="two-four"]').click();
+  await waitDb(page, db => db.preferences?.play?.metronome === 'two-four', 'метроном записан');
   const db = await readDb(page);
   assert.ok(Object.values(db.preferences.lesson.exerciseSettings).some(item => item.rhythm === 'quarters'), 'запомненные четверти не затёрты');
   return { settings: db.preferences.lesson.exerciseSettings };
@@ -1191,7 +1231,7 @@ check('second-window-waits-for-writer-and-takes-over-after-first-closes', 'ui', 
 markFullOnly(checks, ['native-real-hidden-tab-pauses-play-and-resumes-only-by-action'], FULL_ONLY.hiddenTab);
 markFullOnly(checks, ['live-play-sounds-reached-notes-on-audio-clock-and-pause-cancels-scheduled-voices'], FULL_ONLY.liveAudio);
 markFullOnly(checks, ['play-right-hand-echo-and-shuffle-groove-on-string-crossing-and-memory-pulse', 'play-approach-continues-until-rated-and-partial-first-pass-is-rated-not-whole',
-  'play-rate-on-pause-then-resume-keeps-counting-the-same-approach'], FULL_ONLY.smoke);
+  'play-rate-on-pause-then-resume-keeps-counting-the-same-approach', 'play-rated-on-pause-then-resumed-does-not-count-the-cut-pass-as-whole'], FULL_ONLY.smoke);
 markFullOnly(checks, ['second-window-waits-for-writer-and-takes-over-after-first-closes'], 'несколько окон одного профиля: передача права записи после закрытия первого окна');
 
 const selection = browserCases(checks);

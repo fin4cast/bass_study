@@ -695,11 +695,15 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (key !== srKey) { srKey = key; setText(at('[data-sr]'), announce); }
   }
   /** Шаг цели засчитывается только своим «как играть»: другое — видно у таймера. */
+  let practiceMemo: { key: string; plan: ExercisePlan; value: PracticeOptions } | null = null;
   function requiredPracticeNote() {
     const required = options.requiredPractice;
     // Подложка «как играть» хранится строкой (`GROOVE_IDS`) — это пресеты «Ритма».
     if (!required || !plan) return '';
-    const current = practiceOf(settings);
+    // Шкала строится только при смене ритма, эха или подложки, а не в каждом кадре.
+    const memoKey = `${settings.rhythm}|${settings.echo}|${settings.groove}`;
+    if (!practiceMemo || practiceMemo.key !== memoKey || practiceMemo.plan !== plan) practiceMemo = { key: memoKey, plan, value: practiceOf(settings) };
+    const current = practiceMemo.value;
     if (current.rhythm === required.rhythm && current.echo === required.echo && current.groove === required.groove) return '';
     const how = [rhythmPattern(required.rhythm).label.toLowerCase(), required.echo ? 'эхо' : '', required.groove ? `под ${presetName(required.groove as RhythmPresetId).toLowerCase()}` : 'без подложки'].filter(Boolean).join(', ');
     return `Шаг цели — ${how}; подход по-другому в цель не засчитается.`;
@@ -737,6 +741,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (!approach || passIndex < runPassIndex + 1) return;
     approach.passes += 1;
     runPassIndex = passIndex;
+    approachNote = '';
     approach.lastBpm = Math.round(passBpm);
     approach.activeMs += Math.round(passMs);
     approach.hints = [...approach.hints, passHint].slice(-2);
@@ -922,7 +927,10 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       if (!allowed()) return;
       // «Оценить подход» на паузе без оценки: продолжение возвращает подход; после оценки начинается новый.
       if (!approach && runSettings) {
+        const continued = !!pendingTally && !rated;
         carryApproach(runSettings);
+        // После оценки начинается новый подход: оборванный проход доигрывается, но целым проходом не считается.
+        if (!continued) runPassIndex = lastPass;
         closeRate();
       }
       busy = true;
@@ -936,13 +944,15 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (listening) { stopListen('Эталон остановлен'); return; }
     listenNote = '';
     observe(port.state());
+    // Темп запоминается остановкой запуска; Esc без запуска (например, после оценки) не затирает темп оценки.
+    const stoppedRun = runSettings !== null || approach !== null;
     try { port.stop(); } catch (failure) { errorText = message(failure); }
     runSettings = null;
     fromStart = true;
     shownStep = null;
     offerRate();
     approach = null;
-    notifySettings(['bpm']);
+    if (stoppedRun) notifySettings(['bpm']);
     update();
   }
   /* ---------- «Сначала услышь» ---------- */
@@ -1077,7 +1087,10 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     const assessment = ASSESSMENTS.find(item => item.code === event.code);
     if (assessment && !rateEl.hidden && pendingRate && !rated) {
       if (!allowsSceneKey(event, scene)) return;
-      event.preventDefault(); rate(assessment.id); return;
+      event.preventDefault(); rate(assessment.id);
+      // Фокус на кнопке сцены забрал бы Enter («Следующий шаг»): он переходит на группу оценки.
+      if (document.activeElement instanceof HTMLButtonElement && scene.contains(document.activeElement) && !rateEl.contains(document.activeElement)) rateEl.focus({ preventScroll: true });
+      return;
     }
     if (event.key === 'Enter' && rated && planStep?.hasNext && options.onNextStep && !rateEl.hidden) {
       if (!allowsTransportShortcut(event, scene)) return;

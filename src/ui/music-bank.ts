@@ -366,6 +366,8 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     if (disposed || !visible || document.hidden) return;
     const request = ++intent;
     discardPending();
+    // Другая песня: форма и «Открыть в „Занятии“» прежнего фрагмента к ней не относятся.
+    resetLearn();
     const active = () => !disposed && visible && !document.hidden && request === intent;
     api?.pause(); loading = true; message(`Читаем «${file.name}»…`); controls();
     try {
@@ -481,6 +483,14 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
       info.strings >= 6 ? 'Гитарная партия: ноты будут разложены на бас.' : ''].filter(Boolean).join(' · ');
   }
   let learned: ExerciseSpec | null = null;
+  /** Поколение формы: смена песни или новое «Разучить» отменяет показ результата прежней записи. */
+  let learnGeneration = 0;
+  function resetLearn() {
+    learnGeneration++;
+    learned = null;
+    element('learn-form').hidden = true;
+    element('learn-done').hidden = true;
+  }
   /** Такты фрагмента: выбранный фрагмент, иначе первые такты песни (не больше 16). */
   function learnRange(): { fromBar: number; toBar: number } {
     if (preferences.range) return preferences.range;
@@ -499,8 +509,8 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     }));
     select.value = String(defaultLearnTrack());
     const range = learnRange();
+    resetLearn();
     element<HTMLFormElement>('learn-form').hidden = false;
-    element('learn-done').hidden = true;
     const name = element<HTMLInputElement>('learn-name');
     const title = [preferences.file.title || preferences.file.name, `такты ${range.fromBar}–${range.toBar}`].join(' · ');
     name.value = title.slice(0, 80);
@@ -529,12 +539,12 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
       return;
     }
     const title = (spec.params as { title: string }).title;
-    element('learn-form').hidden = true;
+    resetLearn();
+    const generation = learnGeneration;
     message(`Сохраняем «${title}»…`);
-    learned = null;
     // «Открыть в „Занятии“» — только после записи: ключ материала своего упражнения появляется вместе с ним.
     void saved.then(ok => {
-      if (disposed) return;
+      if (disposed || generation !== learnGeneration) return;
       if (!ok) { message('Фрагмент не сохранён.', 'Запись в базу не прошла — см. сообщение вверху страницы.'); return; }
       learned = spec;
       message(`Сохранено своим упражнением «${title}»: «Занятие» → «Библиотека» → «Свои упражнения».`);

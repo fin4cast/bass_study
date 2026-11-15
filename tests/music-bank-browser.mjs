@@ -495,6 +495,10 @@ check('product-learn-picks-bass-track-drop-d-octave-tie-and-opens-in-lesson-with
   assert.match(history[0].result.material.key, /^user:/, 'Запись — под ключом своего упражнения');
   await scene.locator('[data-back]').click();
   assert.equal(await currentSection(page), 'tracks');
+  // Другая песня: кнопка прошлого фрагмента и форма не остаются.
+  await load(page, 'sample-03');
+  assert.equal(await field(page, 'learn-done').isVisible(), false, '«Открыть в „Занятии“» прошлой песни скрыта');
+  assert.equal(await field(page, 'learn-form').isVisible(), false);
   return { events: spec.params.bars.map(bar => bar.events), key: history[0].result.material.key };
 });
 
