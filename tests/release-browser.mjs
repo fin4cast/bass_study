@@ -149,7 +149,7 @@ check('product-opens-real-v10-database-as-empty-persistent-v11-and-rejects-old-c
   const refused = await previewCopy(page, { ...literal, schemaVersion: 10 }, 'old-v10.json');
   assert.equal(refused.rejected, true);
   assert.equal(await refused.dialog.locator('h2').innerText(), 'Эта копия не подходит');
-  const error = await refused.dialog.innerText(); assert.match(error, /версии данных 10.*сейчас версия 13/s); assert.match(error, /Ничего не изменилось/);
+  const error = await refused.dialog.innerText(); assert.match(error, /версии данных 10.*сейчас версия 14/s); assert.match(error, /Ничего не изменилось/);
   await refused.dialog.locator('[data-dlg="close"]').click();
   assert.deepEqual(await exportUi(page, { stay: true }), before, 'A refused old copy must not change confirmed data');
   assert.equal((await rawCounts(page)).version, 14);
