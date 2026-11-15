@@ -11,6 +11,7 @@ import {
 } from '../../practice/plan';
 import { ASSESSMENT_LABELS, exerciseProgress, playedKeys, type Assessment, type PracticeRecord } from '../../practice/results';
 import { recommend } from '../../practice/recommend';
+import { rhythmPattern } from '../../exercises/rhythm';
 import { goalProgress, GOALS, isGoalId, mastered, nextGoalSteps, recordsByMaterial, reviewSteps, stepPractice, type GoalId, type GoalProgress, type GoalStep, type MasteryRule } from '../../practice/goals';
 import { conceptForExerciseConcept, REFERENCE_CONCEPTS, REFERENCE_LEVELS, type ReferenceConcept, type ReferenceLevel } from '../../practice/concepts';
 import { annotatePositions, getPosition, type StructureId } from '../../music';
@@ -49,8 +50,16 @@ export function stepTitle(content: PlanStepContent, userExercises: readonly User
   return `Проверь себя: ${content.spec.ear ? 'услышь и назови ступень' : CHECK_KIND_TITLES[content.spec.kind]}`;
 }
 
+/** «Как играть» шага плана словами: эхо, подложка, ритм не восьмыми (D-050). */
+function practiceLabels(content: Extract<PlanStepContent, { kind: 'exercise' }>): string[] {
+  const practice = content.practice;
+  if (!practice) return [];
+  const GROOVES: Record<string, string> = { rock: 'рок', funk: 'фанк', shuffle: 'шаффл', blues: 'блюзовый пульс', latin: 'латина', disco: 'диско' };
+  return [practice.echo ? 'эхо: услышь — повтори' : '', practice.groove ? `под ${GROOVES[practice.groove] ?? practice.groove}` : '',
+    practice.rhythm !== 'eighths' ? rhythmPattern(practice.rhythm).label.toLowerCase() : ''].filter(Boolean);
+}
 export function stepMaterial(content: PlanStepContent): string {
-  if (content.kind === 'exercise') return materialLabel(content.spec);
+  if (content.kind === 'exercise') return [materialLabel(content.spec), ...practiceLabels(content)].join(' · ');
   return `${materialLabel(content.spec.exercise)} · ${content.spec.count} вопросов`;
 }
 

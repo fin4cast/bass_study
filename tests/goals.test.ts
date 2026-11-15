@@ -5,7 +5,7 @@ import { goalProgress, GOALS, goalSteps, recordsByMaterial, reviewSteps, stepMas
 import { materialId } from '../src/practice/material';
 import { addStep, createPlan, MAX_PLAN_STEPS, planFromTemplate } from '../src/practice/plan';
 import type { PracticeRecord } from '../src/practice/results';
-import { addGoalSteps, basicsBadge, basicsCourse, goalLine, heroModel, planFromGoal, recommendationCards, storedGoal, untouchedFirstRunPlan } from '../src/ui/lesson/model';
+import { addGoalSteps, basicsBadge, basicsCourse, goalLine, heroModel, planFromGoal, recommendationCards, stepMaterial, storedGoal, untouchedFirstRunPlan } from '../src/ui/lesson/model';
 
 const specOf = (step: GoalStep): ExerciseSpec => step.content.kind === 'exercise' ? step.content.spec : step.content.spec.exercise;
 let serial = 0;
@@ -48,6 +48,8 @@ describe('цели «Основ» (D-049, D-050)', () => {
     expect(steps.find(step => step.id === 'form-a')!.targetBpm).toBe(96);
     expect(steps.find(step => step.id === 'check')!.targetBpm).toBeNull();
     expect(steps.find(step => step.id === 'echo-a')!.content).toMatchObject({ practice: { echo: true } });
+    expect(stepMaterial(steps.find(step => step.id === 'echo-a')!.content)).toBe('Am · минорная пентатоника · форма A · эхо: услышь — повтори');
+    expect(stepMaterial(goalSteps('blues', 'A').find(step => step.id === 'blues-12-shuffle')!.content)).toMatch(/под шаффл$/);
     expect(goalSteps('blues', 'A').find(step => step.id === 'blues-12-shuffle')!.content).toMatchObject({ practice: { groove: 'shuffle' } });
   });
 });
