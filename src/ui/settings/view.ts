@@ -313,7 +313,11 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
     const back = opener;
     opener = null; dialogStep = null; preview = null; rejection = null; confirmed = false; failure = '';
     dialogToken++;
+    // Браузер мог уже вернуть фокус, а пользователь — перевести его дальше (Tab до прихода `close`): тогда не трогаем.
+    const active = document.activeElement;
+    const moved = active && active !== document.body && !dialog.contains(active);
     dialog.innerHTML = '';
+    if (moved) return;
     if (back?.isConnected && !(back as HTMLButtonElement).disabled) back.focus();
     else $('[data-title]')?.focus();
   }

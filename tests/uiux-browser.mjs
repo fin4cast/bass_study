@@ -433,6 +433,24 @@ check('settings-dialog-reopened-before-late-close-event-keeps-its-content', asyn
   return reopened;
 });
 
+// Запоздавший `close` не забирает фокус, который пользователь уже перевёл на другую кнопку (Tab сразу после
+// закрытия): иначе следующий Enter открывает прежний диалог вместо нужного.
+check('settings-dialog-late-close-event-keeps-focus-moved-elsewhere', async ({ page }) => {
+  await ready(page);
+  await settingsSection(page, 'data');
+  await page.locator('[data-page-frame="settings"] [data-dialog-open="restore"]').click();
+  await page.locator('[data-dialog] [data-dlg="choose"]').waitFor();
+  const focused = await page.evaluate(async () => {
+    const frame = document.querySelector('[data-page-frame="settings"]');
+    frame.querySelector('[data-dialog]').close();
+    frame.querySelector('[data-dialog-open="download"]').focus();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    return document.activeElement?.dataset.dialogOpen ?? document.activeElement?.tagName;
+  });
+  assert.equal(focused, 'download');
+  return { focused };
+});
+
 check('settings-dialogs-and-progress-deletion-keep-keyboard-focus', async ({ page }) => {
   await ready(page);
   // Ожидание фокуса с диагностикой: в CI сбой был только тайм-аутом, без состояния диалога.
