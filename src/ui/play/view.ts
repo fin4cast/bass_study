@@ -322,7 +322,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   function renderSub() {
     const line = shownTimeline();
     const n = noteSteps(line);
-    const pattern = line ? rhythmPattern(line.pattern).label.toLowerCase() : '';
+    const pattern = plan?.timing ? 'ритм партитуры' : line ? rhythmPattern(line.pattern).label.toLowerCase() : '';
     at('[data-sub]').textContent = plan && line ? `${n} ${plural(n, 'нота', 'ноты', 'нот')} · ${pattern} · ${line.bars} ${plural(line.bars, 'такт', 'такта', 'тактов')}${line.echo ? ' · эхо' : ''}` : '';
   }
 
@@ -586,8 +586,8 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     }
     const line = timeline;
     select.value = line?.pattern ?? settings.rhythm;
-    setText(at('[data-rhythm-note]'), plan?.spec.templateId === 'progression' ? 'Такт — аккорд: только восьмые или шаффл.' : settings.groove ? 'Свинг — от подложки.' : '');
-    setText(at('[data-rhythm-caption]'), line ? rhythmPattern(line.pattern).label.toLowerCase() : 'восьмые');
+    setText(at('[data-rhythm-note]'), plan?.timing ? 'Ритм из партитуры.' : plan?.spec.templateId === 'progression' ? 'Такт — аккорд: только восьмые или шаффл.' : settings.groove ? 'Свинг — от подложки.' : '');
+    setText(at('[data-rhythm-caption]'), plan?.timing ? 'ритм партитуры' : line ? rhythmPattern(line.pattern).label.toLowerCase() : 'восьмые');
   }
 
   /* ---------- Транспорт ---------- */

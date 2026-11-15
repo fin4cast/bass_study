@@ -411,6 +411,43 @@ check('product-engine-failure-keeps-committed-score-and-latest-selection-wins', 
   return { retainedAfterSoundFontFailure: true, lastFileIntentWins: true, unchangedDescriptorAndMix: true };
 });
 
+check('product-bass-fragment-becomes-own-lesson-exercise-and-plays-with-score-rhythm', 'ui', async ({ page }) => {
+  await enter(page); await load(page, 'sample-03');
+  await field(page, 'from').fill('2'); await field(page, 'to').fill('3'); await field(page, 'apply-range').click();
+  await field(page, 'learn').click();
+  const form = field(page, 'learn-form');
+  await form.waitFor();
+  assert.match(await field(page, 'learn-source').innerText(), /Bass · такты 2–3/);
+  await field(page, 'learn-name').fill('Рисунок A, такты 2–3');
+  await form.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await page.waitForFunction(() => /Сохранено своим упражнением/.test(document.querySelector('#music-bank-mount [data-mb="status"]')?.textContent ?? ''));
+  const copy = await exported(page);
+  assert.equal(copy.exercises.length, 1);
+  const spec = copy.exercises[0].spec;
+  assert.equal(spec.templateId, 'song-fragment');
+  assert.deepEqual({ ...spec.params.source, sha256: spec.params.source.sha256.length }, { sha256: 64, size: spec.params.source.size, trackIndex: 0, trackName: 'Bass', fromBar: 2, toBar: 3 });
+  assert.equal(spec.params.bpm, 120);
+  // Независимо: «0.4.4 2.4.4 3.4.4 2.4.4» — четверти на струне E, лады 0, 2, 3, 2.
+  const expected = [['E', 0, 0, 4], ['E', 2, 4, 4], ['E', 3, 8, 4], ['E', 2, 12, 4]];
+  assert.deepEqual(spec.params.bars.map(bar => bar.events), [expected, expected]);
+  // Упражнение — в «Своих» библиотеки «Занятия» и играется с ритмом партитуры.
+  await go(page, 'lesson');
+  const home = page.locator('[data-lesson-screen="home"]');
+  await home.getByRole('tab', { name: /^Библиотека/ }).click();
+  await home.locator('[data-act="category"][data-value="user"]').click();
+  const card = home.locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: 'Рисунок A, такты 2–3', exact: true }) });
+  assert.match(await card.locator('.ls-meta').innerText(), /Bass · такты 2–3/);
+  assert.equal(await card.locator('[data-act="configure"]').count(), 0);
+  await card.getByRole('button', { name: /^Играть/ }).click();
+  const scene = page.locator('[data-lesson-screen="play"] .pl-scene');
+  await scene.waitFor();
+  assert.match(await scene.locator('[data-sub]').innerText(), /^8 нот · ритм партитуры · 2 такта/);
+  // Старт — с темпа занятия, цель — темп партитуры: лестница ведёт к темпу песни.
+  assert.equal(await scene.locator('[data-target]').inputValue(), '120');
+  assert.equal(await scene.locator('[data-flag="ladder"]').isDisabled(), false);
+  return { source: spec.params.source, events: spec.params.bars[0].events };
+});
+
 markFullOnly(checks, [
   'product-native-tab-hide-pauses-and-return-waits-for-explicit-start',
 ], FULL_ONLY.hiddenTab);

@@ -401,6 +401,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     beforePlay: view => audio.claim(view === 'audio' ? 'tracks' : 'scores'),
     onLeaveView: view => audio.forget(view === 'audio' ? 'tracks' : 'scores'),
     onPreferencesChange: value => { savePreferences(value); },
+    onSaveExercise: (spec, name) => saveExercise(spec, name),
   });
 
   /* ---------- «Прогресс» ---------- */

@@ -8,6 +8,7 @@ import {
   type AnnotatedPosition, type MusicalStructure, type StringId, type StructureId,
 } from '../music';
 import { getBoxCatalogue, getBoxOverlap, type BoxInstance, type BoxShapeId } from '../music/boxes';
+import { degreeFrom, parseChord } from '../music/chords';
 import { createSequence, type SequencePattern } from '../training';
 
 export type ExerciseCategory = 'warmup' | 'notes' | 'forms' | 'connections' | 'positions' | 'arpeggios' | 'sequences' | 'transposition' | 'progressions';
@@ -23,6 +24,16 @@ type Seventh = 'major-seventh' | 'dominant-seventh' | 'minor-seventh' | 'half-di
 export type SpiderPattern = '1234' | '1324' | '1243' | '1432';
 export type ProgressionId = 'I-IV-V' | 'ii-V-I' | 'blues-12';
 export type ProgressionPattern = 'roots' | 'root-fifth' | 'octaves' | 'arpeggio' | 'approach' | 'boogie';
+/**
+ * Событие такта фрагмента песни: `[струна, лад, начало, длина]` в шестнадцатых от начала такта;
+ * пауза — `[null, null, начало, длина]`. События такта идут подряд и покрывают его целиком.
+ */
+export type SongEvent = readonly [StringId | null, number | null, number, number];
+export interface SongBar { readonly chord: string | null; readonly events: readonly SongEvent[] }
+export interface SongSource {
+  /** SHA-256 файла партитуры (64 hex), размер, партия и такты (с 1, включительно). */
+  readonly sha256: string; readonly size: number; readonly trackIndex: number; readonly trackName: string; readonly fromBar: number; readonly toBar: number;
+}
 /** Рисунок правой руки на открытых струнах: соседние струны, через струну, рейкинг. */
 export type CrossingPattern = 'adjacent' | 'skip' | 'raking';
 type PentaShape = Extract<BoxShapeId, `penta-${string}`>;
@@ -52,6 +63,8 @@ export interface ExerciseParams {
   readonly 'form-transpose': { readonly structureId: Pentatonic; readonly shapeId: PentaShape; readonly roots: readonly string[] };
   readonly 'cycle-fourths': { readonly root: string; readonly count: number };
   readonly progression: { readonly root: string; readonly progression: ProgressionId; readonly pattern: ProgressionPattern };
+  /** Фрагмент басовой партии из «Песен» (P14-04): снимок нот, файл для игры не нужен. Только своё упражнение. */
+  readonly 'song-fragment': { readonly title: string; readonly source: SongSource; readonly bpm: number; readonly key: string | null; readonly bars: readonly SongBar[] };
 }
 export type ExerciseTemplateId = keyof ExerciseParams;
 export type ExerciseSpec = { [Id in ExerciseTemplateId]: { readonly version: 'exercise-v1'; readonly templateId: Id; readonly params: ExerciseParams[Id] } }[ExerciseTemplateId];
@@ -87,10 +100,14 @@ export interface ExercisePlan {
    * `none` — у материала нет тоники (хроматика, паук, ноты по грифу) или такт задан аккордом (последовательность).
    */
   readonly cadence: 'tonic' | 'none';
+  /** Ритм задан материалом (фрагмент песни): шаги `note` — индекс ноты или пауза, длина в шестнадцатых. */
+  readonly timing: readonly { readonly note: number | null; readonly grids: number }[] | null;
 }
 export interface ExerciseTemplate<Id extends ExerciseTemplateId = ExerciseTemplateId> {
   readonly id: Id; readonly category: ExerciseCategory; readonly title: string;
   readonly concepts: readonly ConceptId[]; readonly defaults: ExerciseParams[Id];
+  /** Только своё упражнение: не показывается в библиотеке и рекомендациях. */
+  readonly userOnly?: boolean;
 }
 
 const STRINGS: readonly StringId[] = ['E', 'A', 'D', 'G'];
@@ -126,6 +143,10 @@ export const EXERCISE_TEMPLATES: readonly ExerciseTemplate[] = deepFreeze([
   { id: 'thirds', category: 'sequences', title: 'Терциями по гамме', concepts: ['third', 'sequence'], defaults: { root: 'C', structureId: 'major', shapeId: 'compact-e' } },
   { id: 'form-transpose', category: 'transposition', title: 'Та же форма от другой тоники', concepts: ['transposition', 'pentatonic'], defaults: { structureId: 'minor-pentatonic', shapeId: 'penta-a', roots: ['A', 'D', 'E'] } },
   { id: 'progression', category: 'progressions', title: 'Игра по последовательности аккордов', concepts: ['progression', 'degrees'], defaults: { root: 'C', progression: 'I-IV-V', pattern: 'roots' } },
+  { id: 'song-fragment', category: 'progressions', title: 'Фрагмент песни', concepts: ['degrees'], userOnly: true, defaults: {
+    title: 'Фрагмент', source: { sha256: '0'.repeat(64), size: 1, trackIndex: 0, trackName: 'Бас', fromBar: 1, toBar: 1 }, bpm: 90, key: null,
+    bars: [{ chord: 'C', events: [['A', 3, 0, 4], ['A', 3, 4, 4], ['E', 3, 8, 4], [null, null, 12, 4]] }],
+  } },
   { id: 'cycle-fourths', category: 'transposition', title: 'Паттерн по квинтовому кругу', concepts: ['circle-of-fifths', 'fifth', 'transposition'], defaults: { root: 'C', count: 4 } },
 ] satisfies readonly ExerciseTemplate[]);
 
@@ -200,6 +221,48 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
     return { structureId: oneOf(raw.structureId, ['minor-pentatonic', 'major-pentatonic'], 'Структура'), shapeId: oneOf(raw.shapeId, PENTA_SHAPES, 'Форма'), roots: raw.roots.map((root, index) => noteName(root, `Тоника ${index + 1}`)) };
   },
   'cycle-fourths': raw => ({ root: noteName(raw.root, 'Тоника'), count: integer(raw.count, 2, 12, 'Число тоник') }),
+  'song-fragment': raw => {
+    const text = (value: unknown, label: string, max: number) => {
+      if (typeof value !== 'string' || !value.trim() || value.length > max) throw new RangeError(`${label}: нужен текст до ${max} символов.`);
+      return value;
+    };
+    const source = plainRecord(raw.source, 'Источник фрагмента');
+    exactKeys(source, ['sha256', 'size', 'trackIndex', 'trackName', 'fromBar', 'toBar'], 'Источник фрагмента');
+    if (typeof source.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(source.sha256)) throw new RangeError('Источник фрагмента: некорректный SHA-256.');
+    const fromBar = integer(source.fromBar, 1, 9999, 'Первый такт');
+    const toBar = integer(source.toBar, fromBar, fromBar + 15, 'Последний такт');
+    if (!Array.isArray(raw.bars) || raw.bars.length !== toBar - fromBar + 1) throw new RangeError('Фрагмент: число тактов не совпадает с источником.');
+    let total = 0;
+    const bars = raw.bars.map((value, barIndex): SongBar => {
+      const bar = plainRecord(value, 'Такт фрагмента');
+      exactKeys(bar, ['chord', 'events'], 'Такт фрагмента');
+      const chord = bar.chord === null ? null : text(bar.chord, 'Аккорд', 16);
+      if (!Array.isArray(bar.events) || !bar.events.length) throw new RangeError(`Такт ${fromBar + barIndex}: нет событий.`);
+      let at = 0;
+      const events = bar.events.map((item): SongEvent => {
+        if (!Array.isArray(item) || item.length !== 4) throw new RangeError('Событие фрагмента: ожидается [струна, лад, начало, длина].');
+        const [string, fret, start, length] = item as unknown[];
+        if (start !== at) throw new RangeError(`Такт ${fromBar + barIndex}: события идут подряд без пропусков.`);
+        const grids = integer(length, 1, 16 - at, 'Длительность');
+        at += grids;
+        if (string === null && fret === null) return [null, null, start as number, grids];
+        return [oneOf(string, STRINGS, 'Струна'), integer(fret, 0, 24, 'Лад'), start as number, grids];
+      });
+      if (at !== 16) throw new RangeError(`Такт ${fromBar + barIndex}: события должны занять весь такт 4/4.`);
+      total += events.length;
+      return { chord, events };
+    });
+    if (total > 512) throw new RangeError('Фрагмент: не больше 512 событий.');
+    if (!bars.some(bar => bar.events.some(event => event[0] !== null))) throw new RangeError('Во фрагменте нет ни одной ноты.');
+    return {
+      title: text(raw.title, 'Название фрагмента', 80),
+      source: { sha256: source.sha256, size: integer(source.size, 1, 2 ** 31, 'Размер файла'), trackIndex: integer(source.trackIndex, 0, 255, 'Партия'),
+        trackName: text(source.trackName, 'Название партии', 60), fromBar, toBar },
+      bpm: integer(raw.bpm, 40, 220, 'Темп фрагмента'),
+      key: raw.key === null ? null : text(raw.key, 'Тональность', 8),
+      bars,
+    };
+  },
   progression: raw => {
     const progression = oneOf(raw.progression, PROGRESSION_IDS, 'Последовательность');
     const pattern = oneOf(raw.pattern, PROGRESSION_PATTERNS, 'Рисунок');
@@ -298,7 +361,8 @@ export function pluckOrder(strings: readonly StringId[], raking: boolean): ('i' 
   return result;
 }
 
-type Built = { readonly drafts: readonly Draft[]; readonly segments: readonly string[]; readonly title?: string; readonly overlap?: 'shared' | 'none' };
+type Built = { readonly drafts: readonly Draft[]; readonly segments: readonly string[]; readonly title?: string; readonly overlap?: 'shared' | 'none';
+  readonly timing?: readonly { readonly note: number | null; readonly grids: number }[] };
 
 const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[Id]) => Built } = {
   'chromatic-position': ({ startFret }) => ({
@@ -315,6 +379,25 @@ const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[I
     return {
       drafts: order.map((string, index) => ({ position: annotate([[string, 0]], OPEN_STRINGS)[0], finger: null, segment: Math.floor(index / 8), degree: null, pluck: plucks[index] })),
       segments: [CROSSING_TITLES[pattern], CROSSING_TITLES[pattern]], overlap: 'none',
+    };
+  },
+  'song-fragment': ({ title, bars, source, key }) => {
+    const drafts: Draft[] = [];
+    const timing: { note: number | null; grids: number }[] = [];
+    const keyRoot = key ? key.replace(/m$/, '') : null;
+    bars.forEach((bar, index) => {
+      const chord = parseChord(bar.chord);
+      const root = chord?.structureId ? chord.root : keyRoot;
+      for (const [string, fret, , grids] of bar.events) {
+        if (string === null || fret === null) { timing.push({ note: null, grids }); continue; }
+        const position = annotate([[string, fret]], createStructure(root ?? 'C', 'major'))[0];
+        timing.push({ note: drafts.length, grids });
+        drafts.push({ position, finger: null, segment: index, degree: root ? degreeFrom(root, position.midi) : null });
+      }
+    });
+    return {
+      drafts, timing, overlap: 'none', title,
+      segments: bars.map((bar, index) => `${bar.chord ?? '—'} · такт ${source.fromBar + index}`),
     };
   },
   spider: ({ startFret, positions, pattern }) => {
@@ -608,6 +691,7 @@ function buildPlan(spec: ExerciseSpec): ExercisePlan {
     segments: built.segments.map(label => ({ label })), notes, positions: built.drafts.map(draft => draft.position),
     overlap: built.overlap ?? 'shared',
     cadence: TONIC_CADENCE.has(spec.templateId) && notes.some(note => note.degree === '1') ? 'tonic' : 'none',
+    timing: built.timing ?? null,
   });
 }
 /**
@@ -618,8 +702,10 @@ export const TEMPLATE_TARGET_BPM: Readonly<Record<ExerciseTemplateId, number>> =
   'chromatic-position': 100, 'position-shift': 100, spider: 96, 'string-crossing': 100, 'note-all-positions': 80, octaves: 84,
   'pentatonic-form': 96, 'pentatonic-relative': 92, 'scale-compact': 96, 'blues-scale': 96, 'connect-forms': 92, 'pentatonic-neck': 88,
   'scale-one-string': 88, 'scale-position': 92, 'arpeggio-1358': 96, 'arpeggio-seventh': 92, 'arpeggio-inversion': 88, 'root-five-eight': 100,
-  'groups-of-three': 88, thirds: 88, 'form-transpose': 88, 'cycle-fourths': 84, progression: 100,
+  'groups-of-three': 88, thirds: 88, 'form-transpose': 88, 'cycle-fourths': 84, progression: 100, 'song-fragment': 0,
 });
+/** Цель темпа материала: у фрагмента песни — темп партитуры, у остальных — цель шаблона. */
+export const targetBpmFor = (spec: ExerciseSpec): number => spec.templateId === 'song-fragment' ? spec.params.bpm : TEMPLATE_TARGET_BPM[spec.templateId];
 
 /** Шаблоны, проход которых завершается тоникой: формы, гаммы, арпеджио, секвенции, транспонирование. */
 const TONIC_CADENCE: ReadonlySet<ExerciseTemplateId> = new Set<ExerciseTemplateId>([
@@ -701,6 +787,7 @@ const OPTIONS: { readonly [Id in ExerciseTemplateId]: readonly TemplateOption[] 
   thirds: [notes('root'), structures(SCALE_STRUCTURES), compactShape],
   'form-transpose': [structures(PENTA_STRUCTURES), pentaShape],
   'cycle-fourths': [notes('root'), option('count', 'Тоник', range(2, 12))],
+  'song-fragment': [],
   progression: [notes('root', 'Тональность'), option('progression', 'Последовательность', PROGRESSION_IDS, id => PROGRESSION_NAMES[id]), option('pattern', 'Рисунок', PROGRESSION_PATTERNS, id => PATTERN_NAMES[id])],
 };
 

@@ -16,6 +16,11 @@ function token(value: unknown): string {
  * например `pentatonic-form.A.minor-pentatonic.penta-b`. Одинаковые описания дают один идентификатор.
  */
 export function materialId(spec: ExerciseSpec): string {
+  // Фрагмент песни: файл (первые 16 знаков SHA-256), партия и такты — снимок нот в ключ не входит (D-050).
+  if (spec.templateId === 'song-fragment') {
+    const { sha256, trackIndex, fromBar, toBar } = spec.params.source;
+    return `song-fragment.${sha256.slice(0, 16)}.${trackIndex}.${fromBar}-${toBar}`;
+  }
   const params = spec.params as Readonly<Record<string, unknown>>;
   const order = Object.keys(getExerciseTemplate(spec.templateId).defaults);
   return [spec.templateId, ...order.map(key => token(params[key]))].join('.');

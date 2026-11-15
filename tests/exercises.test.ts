@@ -55,6 +55,7 @@ const CONTROL: Record<ExerciseTemplateId, { ids: string; names?: string; degrees
     fingers: '1 4 1 3 1 3 1 3 1 3 1 3 1 4 1 4 1 3 1 3 1 3 1 3 1 3 1 4 1 4 1 3 1 3 1 3 1 3 1 3 1 4', segments: '14 14 14',
   },
   // Паук 1-2-3-4 от 5-го лада, 5 позиций: чётные — E→G, нечётные — G→E, позиция сдвигается на лад.
+  'song-fragment': { ids: 'A:3 A:3 E:3', names: 'C2 C2 G1', degrees: '1 1 5', fingers: '- - -', segments: '3' },
   'string-crossing': {
     ids: 'E:0 A:0 E:0 A:0 A:0 D:0 A:0 D:0 D:0 G:0 D:0 G:0 G:0 D:0 G:0 D:0', names: 'E1 A1 E1 A1 A1 D2 A1 D2 D2 G2 D2 G2 G2 D2 G2 D2',
     fingers: '- - - - - - - - - - - - - - - -', segments: '8 8',
@@ -274,7 +275,8 @@ describe('строгое описание exercise-v1', () => {
 
 describe('настройка упражнения на карточке (D-049)', () => {
   it('у каждого шаблона списки содержат материал по умолчанию, и каждый вариант даёт допустимый материал или понятную ошибку', () => {
-    for (const template of EXERCISE_TEMPLATES) {
+    // Фрагмент песни — только своё упражнение: настройки карточки у него нет.
+    for (const template of EXERCISE_TEMPLATES.filter(item => !item.userOnly)) {
       const spec = createExerciseSpec(template.id);
       const options = templateOptions(template.id);
       expect(options.length, template.id).toBeGreaterThan(0);

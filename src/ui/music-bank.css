@@ -573,3 +573,10 @@
   visibility: hidden;
   pointer-events: none;
 }
+
+/* «Разучить как упражнение» (P14-04) */
+.music-bank .mb-learn { margin-left: auto; }
+.music-bank .mb-learn-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; margin-top: 8px; }
+.music-bank .mb-learn-form[hidden] { display: none; }
+.music-bank .mb-learn-form .form-label { display: flex; flex-direction: column; gap: 2px; min-width: 260px; flex: 1 1 260px; }
+.music-bank .mb-learn-source { color: var(--text-secondary); font-size: var(--text-xs); }

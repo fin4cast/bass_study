@@ -3,7 +3,7 @@
  * обновление плана после самооценки и «Проверь себя», записи истории и умолчания экрана игры.
  * Без DOM, звука и хранилища: координатор `lesson-section.ts` только применяет результат.
  */
-import { TEMPLATE_TARGET_BPM, type ExerciseSpec } from '../exercises';
+import { targetBpmFor, type ExerciseSpec } from '../exercises';
 import { DEFAULT_PRACTICE, type PracticeOptions } from '../exercises/rhythm';
 import { builtinLibrary, type UserExercise } from '../practice/library';
 import { builtinTemplateOf } from '../practice/material';
@@ -74,7 +74,7 @@ export function playSettingsFor(spec: ExerciseSpec, key: string, sources: {
   const practice = sources.practice ?? null;
   return {
     bpm: sources.bpm ?? saved.bpm ?? bpmForExercise(key, sources.records, sources.play.bpm),
-    targetBpm: saved.targetBpm ?? TEMPLATE_TARGET_BPM[spec.templateId],
+    targetBpm: saved.targetBpm ?? targetBpmFor(spec),
     rhythm: practice?.rhythm ?? saved.rhythm,
     groove: (practice ? practice.groove : saved.groove) as PlaySettings['groove'],
     echo: practice?.echo ?? false,

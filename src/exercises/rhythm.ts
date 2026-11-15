@@ -31,7 +31,8 @@ export const rhythmPattern = (id: RhythmPatternId): RhythmPattern => RHYTHM_PATT
  * Рисунки, доступные материалу. У последовательности аккордов такт — это аккорд из восьми восьмых, поэтому
  * только ровные или свинговые восьмые; у фрагмента песни ритм задан партитурой.
  */
-export function rhythmPatternsFor(plan: Pick<ExercisePlan, 'spec'>): readonly RhythmPatternId[] {
+export function rhythmPatternsFor(plan: Pick<ExercisePlan, 'spec'> & Partial<Pick<ExercisePlan, 'timing'>>): readonly RhythmPatternId[] {
+  if (plan.timing) return ['eighths'];
   if (plan.spec.templateId === 'progression') return ['eighths', 'shuffle'];
   return RHYTHM_PATTERNS.map(pattern => pattern.id);
 }
@@ -85,14 +86,17 @@ function landingNote(plan: Pick<ExercisePlan, 'notes'>, last: number): number | 
   return best;
 }
 
-export function buildTimeline(plan: Pick<ExercisePlan, 'spec' | 'notes' | 'segments' | 'cadence'>, options: TimelineOptions = {}): Timeline {
+export function buildTimeline(plan: Pick<ExercisePlan, 'spec' | 'notes' | 'segments' | 'cadence'> & Partial<Pick<ExercisePlan, 'timing'>>, options: TimelineOptions = {}): Timeline {
   const allowed = rhythmPatternsFor(plan);
   const patternId = options.pattern && allowed.includes(options.pattern) ? options.pattern : allowed[0];
   const pattern = rhythmPattern(patternId);
   const raw: { note: number | null; grids: number; landing: boolean }[] = [];
   let at = 0;
   const push = (note: number | null, grids: number, landing = false) => { raw.push({ note, grids, landing }); at += grids; };
-  if (plan.spec.templateId === 'progression') {
+  if (plan.timing) {
+    // Ритм из партитуры: шаги фрагмента песни как есть, такты по 16 шестнадцатых.
+    for (const step of plan.timing) push(step.note, step.grids);
+  } else if (plan.spec.templateId === 'progression') {
     // Такт — аккорд: ноты сегмента заполняют свой такт, следующий аккорд начинается с «раз».
     plan.notes.forEach((note, index) => {
       push(index, pattern.cells[0]);

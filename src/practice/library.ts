@@ -81,7 +81,7 @@ const ROOT_PARAM: Partial<Record<ExerciseTemplateId, 'root' | 'minorRoot' | 'not
  */
 export function builtinLibrary(playFrom: string | null = null): readonly LibraryItem[] {
   const root = playFrom === null ? null : parseNote(playFrom).name;
-  return deepFreeze(EXERCISE_TEMPLATES.map(template => {
+  return deepFreeze(EXERCISE_TEMPLATES.filter(template => !template.userOnly).map(template => {
     let spec = createExerciseSpec(template.id);
     const param = ROOT_PARAM[template.id];
     if (root && param) {

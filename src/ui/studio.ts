@@ -13,6 +13,8 @@ export function mountStudio(container: HTMLElement, options: {
   beforePlay(view: StudioView): boolean;
   onLeaveView(view: StudioView): void;
   onPreferencesChange(patch: Partial<StudioSettings>): void;
+  /** Фрагмент партии как своё упражнение «Занятия» (P14-04). */
+  onSaveExercise?: Parameters<typeof mountMusicBank>[1]['onSaveExercise'];
 }) {
   const lifetime = new AbortController();
   container.innerHTML = `
@@ -33,6 +35,7 @@ export function mountStudio(container: HTMLElement, options: {
     observeHeight: options.observeHeight,
     onBeforePlay: () => options.beforePlay('scores'),
     onPreferencesChange: () => options.onPreferencesChange({ musicBank: scores.getPreferences() }),
+    onSaveExercise: options.onSaveExercise,
   });
   let view: StudioView = 'scores';
   let visible = false;
