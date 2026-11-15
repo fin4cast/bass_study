@@ -188,7 +188,7 @@ export function tabEvents(plan: Pick<ExercisePlan, 'notes'>, timeline: Pick<Time
   const ROWS = ['G', 'D', 'A', 'E'] as const;
   return timeline.steps.map((step, index) => {
     const note = step.note === null ? null : plan.notes[step.note];
-    return { index, bar: step.bar, beatInBar: step.beatInBar, durationBeats: step.grids / 4, echo: step.echo,
+    return { index, bar: step.bar, beatInBar: step.beatInBar, durationBeats: step.grids / 4, echo: step.echo, tie: step.tie,
       tab: note ? { row: ROWS.indexOf(note.string), string: note.string, fret: note.fret } : null };
   });
 }
@@ -217,7 +217,7 @@ export function playbackConfig(plan: Pick<ExercisePlan, 'positions'>, timeline: 
   const range = settings.range ? barStepRange(timeline, settings.range.fromBar, settings.range.toBar) : null;
   return {
     notes: plan.positions,
-    steps: timeline.steps.map(step => ({ note: step.note, grids: step.grids, audible: step.audible })),
+    steps: timeline.steps.map(step => ({ note: step.note, grids: step.grids, audible: step.audible, tie: step.tie })),
     ...(range ? { range } : {}),
     bpm,
     countInBars: settings.countInBars,
@@ -240,7 +240,7 @@ export function listenConfig(plan: ExercisePlan, settings: PlaySettings): Playba
   const range = settings.range ? barStepRange(timeline, Math.floor(settings.range.fromBar / scale), Math.ceil(settings.range.toBar / scale)) : null;
   return {
     notes: plan.positions,
-    steps: timeline.steps.map(step => ({ note: step.note, grids: step.grids, audible: true })),
+    steps: timeline.steps.map(step => ({ note: step.note, grids: step.grids, audible: true, tie: step.tie })),
     ...(range ? { range } : {}),
     bpm: clampBpm(settings.bpm),
     countInBars: 0,

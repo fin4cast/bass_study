@@ -293,7 +293,8 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   /** Шкала, по которой сейчас идёт или пойдёт игра. */
   const shownTimeline = () => (runActive() ? runTimeline : timeline);
   const shownEvents = () => runActive() && runTimeline && plan ? tabEvents(plan, runTimeline) : events;
-  const noteSteps = (line: Timeline | null) => line?.steps.filter(step => step.note !== null).length ?? 0;
+  // Продолжение лиги — не новая нота: не считается в «Нота N из M» и не бывает «следующей».
+  const noteSteps = (line: Timeline | null) => line?.steps.filter(step => step.note !== null && !step.tie).length ?? 0;
   const practiceOf = (source: PlaySettings): PracticeOptions => ({ rhythm: timelineFor(plan!, source).pattern, echo: source.echo, groove: source.groove });
   const labelAvailable = (mode: Exclude<BoardLabelMode, 'none'>) => !plan || mode === 'name'
     || (mode === 'degree' ? plan.notes.some(note => note.degree) : mode === 'pluck' ? plan.notes.some(note => note.pluck) : plan.notes.some(note => note.finger !== null));
@@ -457,7 +458,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (!line) return null;
     const range = (runSettings ?? settings).range;
     const inRange = (index: number) => !range || (line.steps[index].bar >= range.fromBar && line.steps[index].bar < range.toBar);
-    const candidates = line.steps.map((item, index) => ({ item, index })).filter(({ item, index }) => item.note !== null && inRange(index));
+    const candidates = line.steps.map((item, index) => ({ item, index })).filter(({ item, index }) => item.note !== null && !item.tie && inRange(index));
     if (!candidates.length) return null;
     if (step === null) return candidates[0].index;
     const after = candidates.find(({ index }) => index > step);
@@ -662,7 +663,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     const line = shownTimeline();
     const step = currentStep();
     const total = noteSteps(line);
-    const ordinal = step === null || !line ? null : line.steps.slice(0, step + 1).filter(item => item.note !== null).length - 1;
+    const ordinal = step === null || !line ? null : line.steps.slice(0, step + 1).filter(item => item.note !== null && !item.tie).length - 1;
     const meter = ordinal === null ? (state.status === 'finished' ? total : 0) : ordinal + 1;
     at('[data-meter]').style.width = `${total ? (meter / total) * 100 : 0}%`;
     const shownRange = (runSettings ?? settings).range;

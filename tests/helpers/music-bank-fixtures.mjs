@@ -25,6 +25,25 @@ ${bars(snare)}`;
   return Buffer.from(new alphaTab.exporter.Gp7Exporter().export(alphaTab.importer.ScoreLoader.loadAlphaTex(tex)));
 }
 
+/**
+ * Песня для «Разучить как упражнение»: гитара — партия 0 (аккорды Dm, G), бас в Drop D — партия 1 с D1 (весь
+ * фрагмент уходит на октаву вверх) и лигой A1 через черту 1→2 такта. Не входит в каталог образцов.
+ */
+export function learnSongScore() {
+  const tex = String.raw`\title "Песня с лигой"
+\tempo 100
+.
+\track "Guitar" { instrument 25 }
+\staff { score tabs }
+\tuning E4 B3 G3 D3 A2 E2
+0.6.2 {ch "Dm"} 0.6.2 | 0.6.1 {ch "G"} | 0.6.1
+\track "Bass" { instrument 34 }
+\staff { score tabs }
+\tuning G2 D2 A1 D1
+0.4.4 2.4.4 0.3.2 | -.3.4 0.3.4 r.2 | 0.4.1`;
+  return { name: 'Песня с лигой.gp', mimeType: 'application/octet-stream', buffer: Buffer.from(new alphaTab.exporter.Gp7Exporter().export(alphaTab.importer.ScoreLoader.loadAlphaTex(tex))) };
+}
+
 export function portableMusicBankSamples() {
   return [
     ['sample-03', 'Учебный рисунок A.gp', scoreBytes('Учебный рисунок A', '0.4.4 2.4.4 3.4.4 2.4.4', ':4 36 r 36 r', ':4 r 38 r 38')],

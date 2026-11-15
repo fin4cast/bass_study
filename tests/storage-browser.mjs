@@ -175,7 +175,7 @@ check('native-route-manual-drain-rolls-back-child-draft-and-parent', async ({ pa
 });
 
 check('native-indexeddb-schema-preferences-exercises-and-distinct-results', async ({ page }) => {
-  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 13); assert.deepEqual(empty.exercises, []); assert.deepEqual(empty.history, []);
+  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 14); assert.deepEqual(empty.exercises, []); assert.deepEqual(empty.history, []);
   assert.deepEqual(empty.rhythmProjects, []); assert.equal(empty.activeRhythmProjectId, null);
   const state = await seed(page);
   assert.equal(state.format, 'bass-study-backup'); assert.equal(state.preferences.play.bpm, 96);
@@ -191,7 +191,7 @@ check('native-indexeddb-schema-preferences-exercises-and-distinct-results', asyn
     request.onerror = () => reject(request.error);
     request.onsuccess = () => { const db = request.result; const result = { name: db.name, version: db.version, stores: [...db.objectStoreNames] }; db.close(); resolve(result); };
   }));
-  assert.deepEqual(schema, { name: 'bass-study', version: 13, stores: ['exercises', 'history', 'practiceDrafts', 'preferences', 'profile', 'rhythmProjects'] });
+  assert.deepEqual(schema, { name: 'bass-study', version: 14, stores: ['exercises', 'history', 'practiceDrafts', 'preferences', 'profile', 'rhythmProjects'] });
   return { schema, state };
 });
 
@@ -249,7 +249,7 @@ check('native-cancel-and-validation-refusals-never-change-existing-data', async 
       ['broken-json', '{broken', 'INVALID_BACKUP'],
       ['unknown-format', JSON.stringify({ ...clone(), format: 'another-app' }), 'UNSUPPORTED_FORMAT'],
       ['previous-version', JSON.stringify({ ...clone(), schemaVersion: 10 }), 'UNSUPPORTED_VERSION'],
-      ['future-version', JSON.stringify({ ...clone(), schemaVersion: 14 }), 'UNSUPPORTED_VERSION'],
+      ['future-version', JSON.stringify({ ...clone(), schemaVersion: 15 }), 'UNSUPPORTED_VERSION'],
       ['wrong-bpm-type', (() => { const value = clone(); value.preferences.play.bpm = '96'; return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['duplicate-exercises', (() => { const value = clone(); value.exercises.push(value.exercises[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['exercise-extra-field', (() => { const value = clone(); value.exercises[0].preferences = {}; return JSON.stringify(value); })(), 'INVALID_DATA'],
@@ -639,7 +639,7 @@ check('ui-settings-reload-and-download-export', async ({ page }) => {
   await settings.locator('[data-set="labels"][data-value="degrees"]').click();
   await go(page, 'foundation'); await page.locator('[data-label-mode="degrees"]').click();
   const exported = await exportUi(page);
-  assert.equal(exported.schemaVersion, 13); assert.deepEqual(exported.exercises, []);
+  assert.equal(exported.schemaVersion, 14); assert.deepEqual(exported.exercises, []);
   assert.deepEqual(exported.preferences.play, { ...exported.preferences.play, countInBars: 0, bpm, labels: 'degree' });
   assert.equal(exported.preferences.study.labelMode, 'degrees');
   const raw = await rawSnapshot(page);
@@ -873,7 +873,7 @@ check('ui-invalid-import-shows-error-and-preserves-valid-data', async ({ page, f
   const mutations = [
     ['broken.json', '{broken', 'Это не копия тренажёра'],
     ['previous.json', JSON.stringify({ ...incoming, schemaVersion: 10 }), 'Эта копия не подходит'],
-    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 14 }), 'Эта копия не подходит'],
+    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 15 }), 'Эта копия не подходит'],
     ['corrupt.json', (() => { const value = structuredClone(incoming); value.history.find(entry => entry.result.kind === 'screen').result.questions[0].errors = 0; return JSON.stringify(value); })(), 'Это не копия тренажёра'],
   ];
   const errors = [];

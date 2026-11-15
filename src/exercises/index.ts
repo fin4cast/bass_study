@@ -27,8 +27,10 @@ export type ProgressionPattern = 'roots' | 'root-fifth' | 'octaves' | 'arpeggio'
 /**
  * Событие такта фрагмента песни: `[струна, лад, начало, длина]` в шестнадцатых от начала такта;
  * пауза — `[null, null, начало, длина]`. События такта идут подряд и покрывают его целиком.
+ * Пятый элемент `1` — продолжение ноты прошлого такта (лига через тактовую черту): только у первого события
+ * такта, кроме первого, и только той же струны и лада, что последняя нота прошлого такта.
  */
-export type SongEvent = readonly [StringId | null, number | null, number, number];
+export type SongEvent = readonly [StringId | null, number | null, number, number] | readonly [StringId, number, 0, number, 1];
 export interface SongBar { readonly chord: string | null; readonly events: readonly SongEvent[] }
 export interface SongSource {
   /** SHA-256 файла партитуры (64 hex), размер, партия и такты (с 1, включительно). */
@@ -100,8 +102,11 @@ export interface ExercisePlan {
    * `none` — у материала нет тоники (хроматика, паук, ноты по грифу) или такт задан аккордом (последовательность).
    */
   readonly cadence: 'tonic' | 'none';
-  /** Ритм задан материалом (фрагмент песни): шаги `note` — индекс ноты или пауза, длина в шестнадцатых. */
-  readonly timing: readonly { readonly note: number | null; readonly grids: number }[] | null;
+  /**
+   * Ритм задан материалом (фрагмент песни): шаги `note` — индекс ноты или пауза, длина в шестнадцатых;
+   * `tie` — продолжение ноты прошлого шага (лига через тактовую черту), не новая нота.
+   */
+  readonly timing: readonly { readonly note: number | null; readonly grids: number; readonly tie?: boolean }[] | null;
 }
 export interface ExerciseTemplate<Id extends ExerciseTemplateId = ExerciseTemplateId> {
   readonly id: Id; readonly category: ExerciseCategory; readonly title: string;
@@ -239,12 +244,20 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
       const chord = bar.chord === null ? null : text(bar.chord, 'Аккорд', 16);
       if (!Array.isArray(bar.events) || !bar.events.length) throw new RangeError(`Такт ${fromBar + barIndex}: нет событий.`);
       let at = 0;
-      const events = bar.events.map((item): SongEvent => {
-        if (!Array.isArray(item) || item.length !== 4) throw new RangeError('Событие фрагмента: ожидается [струна, лад, начало, длина].');
-        const [string, fret, start, length] = item as unknown[];
+      const events = bar.events.map((item, eventIndex): SongEvent => {
+        if (!Array.isArray(item) || (item.length !== 4 && item.length !== 5)) throw new RangeError('Событие фрагмента: ожидается [струна, лад, начало, длина] или продолжение лиги.');
+        const [string, fret, start, length, tie] = item as unknown[];
         if (start !== at) throw new RangeError(`Такт ${fromBar + barIndex}: события идут подряд без пропусков.`);
         const grids = integer(length, 1, 16 - at, 'Длительность');
         at += grids;
+        if (item.length === 5) {
+          // Лига через черту: первое событие такта продолжает последнюю ноту прошлого такта той же позиции.
+          const before = barIndex > 0 ? (raw.bars as { events?: unknown[] }[])[barIndex - 1]?.events?.at(-1) : undefined;
+          if (tie !== 1 || eventIndex !== 0 || barIndex === 0 || !Array.isArray(before) || before[0] === null || before[0] !== string || before[1] !== fret) {
+            throw new RangeError(`Такт ${fromBar + barIndex}: продолжение лиги — только первое событие такта той же струны и лада, что последняя нота прошлого.`);
+          }
+          return [oneOf(string, STRINGS, 'Струна'), integer(fret, 0, 24, 'Лад'), 0, grids, 1];
+        }
         if (string === null && fret === null) return [null, null, start as number, grids];
         return [oneOf(string, STRINGS, 'Струна'), integer(fret, 0, 24, 'Лад'), start as number, grids];
       });
@@ -362,7 +375,7 @@ export function pluckOrder(strings: readonly StringId[], raking: boolean): ('i' 
 }
 
 type Built = { readonly drafts: readonly Draft[]; readonly segments: readonly string[]; readonly title?: string; readonly overlap?: 'shared' | 'none';
-  readonly timing?: readonly { readonly note: number | null; readonly grids: number }[] };
+  readonly timing?: readonly { readonly note: number | null; readonly grids: number; readonly tie?: boolean }[] };
 
 const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[Id]) => Built } = {
   'chromatic-position': ({ startFret }) => ({
@@ -383,12 +396,16 @@ const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[I
   },
   'song-fragment': ({ title, bars, source, key }) => {
     const drafts: Draft[] = [];
-    const timing: { note: number | null; grids: number }[] = [];
+    const timing: { note: number | null; grids: number; tie?: boolean }[] = [];
     const keyRoot = key ? key.replace(/m$/, '') : null;
     bars.forEach((bar, index) => {
+      // Ступени — от тоники аккорда такта (и у «E5», «Asus»), без аккорда — от тональности.
       const chord = parseChord(bar.chord);
-      const root = chord?.structureId ? chord.root : keyRoot;
-      for (const [string, fret, , grids] of bar.events) {
+      const root = chord ? chord.root : keyRoot;
+      for (const event of bar.events) {
+        const [string, fret, , grids] = event;
+        // Продолжение лиги — та же нота, без новой атаки и без своего номера в «Нота N из M».
+        if (event.length === 5 && drafts.length) { timing.push({ note: drafts.length - 1, grids, tie: true }); continue; }
         if (string === null || fret === null) { timing.push({ note: null, grids }); continue; }
         const position = annotate([[string, fret]], createStructure(root ?? 'C', 'major'))[0];
         timing.push({ note: drafts.length, grids });

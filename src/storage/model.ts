@@ -127,7 +127,7 @@ export class StudyStorageError extends Error {
 }
 export const MAX_BACKUP_BYTES = 67_108_864;
 /** Version of the IndexedDB schema and the backup format. Raising it starts every older database empty (no migrations). */
-export const STUDY_SCHEMA_VERSION = 13;
+export const STUDY_SCHEMA_VERSION = 14;
 
 const ROOT_IDS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const MODES: readonly QuizMode[] = ['name-note', 'name-degree', 'find-note', 'find-all', 'find-degree', 'find-pitch', 'find-interval'];

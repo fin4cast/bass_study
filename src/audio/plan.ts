@@ -15,7 +15,15 @@ export type RepeatMode = 'once' | 'infinite' | {
  * Шаг шкалы прохода (D-050): нота плана (`note` — индекс в `notes`) или пауза (`null`) длиной `grids` шестнадцатых.
  * `audible: false` — нота ведёт подсветку и время, но эталон молчит (такт «эха»).
  */
-export interface PlaybackStep { readonly note: number | null; readonly grids: number; readonly audible?: boolean }
+export interface PlaybackStep {
+  readonly note: number | null; readonly grids: number; readonly audible?: boolean;
+  /**
+   * Продолжение ноты прошлого шага (лига через тактовую черту): без атаки, а предыдущая нота звучит на суммарную
+   * длину — если предыдущий шаг в порядке звучания та же звучащая нота. Иначе (начало петли, после такта «эха»)
+   * продолжение звучит обычной нотой.
+   */
+  readonly tie?: boolean;
+}
 /** Удар подложки-грува на шестнадцатой такта. */
 export interface GrooveHit { readonly sound: RhythmSound; readonly velocity: number }
 
@@ -132,8 +140,8 @@ export function createPlaybackPlan(config: PlaybackConfig): PlaybackPlan {
   }
   const noteDuration = duration(config.duration, 'eighth');
   const steps = config.steps
-    ? config.steps.map(step => Object.freeze({ note: step.note, grids: step.grids, audible: step.audible !== false }))
-    : config.notes.map((_, index) => Object.freeze({ note: index, grids: DURATION_GRIDS[noteDuration], audible: true }));
+    ? config.steps.map(step => Object.freeze({ note: step.note, grids: step.grids, audible: step.audible !== false, tie: step.tie === true }))
+    : config.notes.map((_, index) => Object.freeze({ note: index, grids: DURATION_GRIDS[noteDuration], audible: true, tie: false }));
   if (!steps.length) throw new RangeError('Шкала прохода пуста.');
   for (const step of steps) {
     if (!Number.isInteger(step.grids) || step.grids < 1 || step.grids > 64) throw new RangeError('Длительность шага — целое число шестнадцатых от 1 до 64.');
@@ -227,6 +235,10 @@ export function eventAtGrid(plan: PlaybackPlan, grid: number): GridEvent {
   for (let index = stepIndex - 1; noteIndex === null && index >= plan.range.from; index--) noteIndex = plan.steps[index].note;
   const onset = plan.starts[local] === inPass;
   const note = onset && step.note !== null ? plan.notes[step.note] : null;
+  // Лига: продолжение без атаки; нота перед цепочкой продолжений звучит на их суммарную длину.
+  const held = heldBy(plan, stepIndex);
+  let noteGrids = note ? step.grids : 0;
+  if (note && !held) for (let index = stepIndex + 1; index < plan.range.toExclusive && heldBy(plan, index); index++) noteGrids += plan.steps[index].grids;
   let click: GridEvent['click'] = null;
   if (plan.metronome.enabled) {
     const twoFour = plan.metronome.mode === 'two-four';
@@ -240,10 +252,18 @@ export function eventAtGrid(plan: PlaybackPlan, grid: number): GridEvent {
     }
   }
   return { grid, phase: 'practice', finish: false, passIndex, loopBoundary: practiceGrid > 0 && inPass === 0,
-    stepIndex, noteIndex, note, noteGrids: note ? step.grids : 0, audible: note !== null && step.audible !== false,
+    stepIndex, noteIndex, note, noteGrids, audible: note !== null && step.audible !== false && !held,
     beat, bar, barInPass, bpm, click,
     swingGrids: practiceGrid % 4 === 2 ? ((plan.swing - 50) / 50) * 2 : 0,
     groove: plan.groove ? plan.groove[practiceGrid % 16] : NO_HITS };
+}
+
+/** Шаг — продолжение звучащей той же ноты предыдущего шага (в пределах фрагмента). */
+function heldBy(plan: PlaybackPlan, stepIndex: number): boolean {
+  const step = plan.steps[stepIndex];
+  if (!step.tie || stepIndex <= plan.range.from) return false;
+  const before = plan.steps[stepIndex - 1];
+  return before.note === step.note && before.audible !== false && step.audible !== false;
 }
 
 /** Exact duration for an unchanged finite plan; live manual tempo uses audio callbacks instead. */

@@ -21,8 +21,13 @@ export interface MusicBankOptions {
   readonly preferences?: MusicBankPreferences | null;
   readonly onBeforePlay?: () => boolean | void;
   readonly onPreferencesChange?: (preferences: MusicBankPreferences | null) => void;
-  /** «Разучить как упражнение» (P14-04): сохранить фрагмент партии своим упражнением «Занятия»; ошибка — исключением. */
-  readonly onSaveExercise?: (spec: ExerciseSpec, name: string) => void;
+  /**
+   * «Разучить как упражнение» (P14-04): сохранить фрагмент партии своим упражнением «Занятия»; вкладка без права
+   * записи — исключением; промис — `true` после записи в базу.
+   */
+  readonly onSaveExercise?: (spec: ExerciseSpec, name: string) => Promise<boolean>;
+  /** «Открыть в „Занятии“» после записи: экран игры сохранённого упражнения с возвратом в «Песни». */
+  readonly onOpenExercise?: (spec: ExerciseSpec) => void;
 }
 let instance = 0;
 const PAGE_SIZE = 80;
@@ -63,7 +68,7 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     <section class="mb-transport content-panel content-panel-raised" aria-label="Проигрывание"><div class="mb-transport-line"><div class="studio-playback"><button type="button" class="primary-button button-compact" data-mb="play" aria-keyshortcuts="Space" title="Старт или продолжение с той же позиции (пробел)" disabled>Старт<span aria-hidden="true">▶</span></button><button type="button" class="secondary-button button-compact" data-mb="pause" aria-keyshortcuts="Space" title="Пауза (пробел)" disabled>Пауза</button><button type="button" class="secondary-button button-compact" data-mb="stop" aria-keyshortcuts="Escape" title="Стоп и к началу фрагмента (Esc)" disabled>Стоп</button></div><label class="mb-inline-field form-label">Скорость<select class="form-control form-control-compact" data-mb="speed"><option value="0.25">25%</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></label><label class="mb-master">Громкость<input data-mb="master" type="range" min="0" max="1" step="0.05"></label></div>
       <div class="studio-timeline"><label><span class="sr-only">Позиция в песне</span><input data-mb="seek" type="range" min="0" max="1" step="0.05" value="0" disabled></label><output data-mb="position">0:00 / 0:00</output></div>
       <div class="mb-range"><span class="mb-range-caption">Фрагмент · такты</span><label class="sr-only" for="${id}-from">Первый такт</label><input id="${id}-from" data-mb="from" type="number" class="form-control form-control-compact" min="1" value="1" disabled><span>—</span><label class="sr-only" for="${id}-to">Последний такт</label><input id="${id}-to" data-mb="to" type="number" class="form-control form-control-compact" min="1" value="4" disabled><button type="button" data-mb="apply-range" disabled>Выбрать</button><label class="mb-check"><input data-mb="loop" type="checkbox" aria-label="Повторять фрагмент партитуры" disabled>Повтор</label><button type="button" class="text-button button-compact" data-mb="full-range" disabled>Вся песня</button><span class="mb-current-bar" data-mb="current-bar"></span><button type="button" class="secondary-button button-compact mb-learn" data-mb="learn" disabled title="Фрагмент партии — своё упражнение «Занятия»: ноты, ритм и аккорды, лестница темпа и самооценка">Разучить как упражнение</button></div><p class="mb-range-description" data-mb="range-description"></p>
-      <form class="mb-learn-form" data-mb="learn-form" hidden><label class="form-label">Название упражнения<input type="text" class="form-control form-control-compact" data-mb="learn-name" maxlength="80" required></label><span class="mb-learn-source" data-mb="learn-source"></span><button type="submit" class="primary-button button-compact">Сохранить</button><button type="button" class="text-button button-compact" data-mb="learn-cancel">Отмена</button></form></section>
+      <form class="mb-learn-form" data-mb="learn-form" hidden><label class="form-label">Партия<select class="form-control form-control-compact" data-mb="learn-track"></select></label><label class="form-label">Название упражнения<input type="text" class="form-control form-control-compact" data-mb="learn-name" maxlength="80" required></label><span class="mb-learn-source" data-mb="learn-source"></span><button type="submit" class="primary-button button-compact">Сохранить</button><button type="button" class="text-button button-compact" data-mb="learn-cancel">Отмена</button></form><p class="mb-learn-done" data-mb="learn-done" hidden><button type="button" class="secondary-button button-compact" data-mb="learn-open">Открыть в «Занятии» →</button></p></section>
     <div class="mb-work"><section class="mb-sheet content-panel" aria-label="Партитура"><div class="mb-sheet-toolbar"><span class="mb-sheet-label" data-mb="sheet-label">Партитура</span><div class="mb-sheet-options"><label class="mb-check"><input data-mb="staff" type="checkbox">Ноты</label><label class="mb-check"><input data-mb="tab" type="checkbox">TAB</label><label class="mb-check mb-follow"><input data-mb="follow" type="checkbox">Следовать</label><button type="button" data-mb="toggle-mixer" aria-controls="${id}-mixer" aria-expanded="true">Микшер</button></div></div><div id="${id}-sheet" class="mb-sheet-scroll" data-mb="sheet-scroll" tabindex="0" aria-label="Прокрутка партитуры"><div class="mb-score" data-mb="score"></div><div class="mb-score-empty studio-empty" data-mb="empty"><span aria-hidden="true">♫</span><h3 data-mb="empty-heading">Музыка начинается с выбора</h3><p data-mb="empty-copy">Открой файл Guitar Pro. Звук синтезируется по нотам и не является записью исполнителя.</p></div></div></section>
       <aside id="${id}-mixer" class="mb-mixer content-panel content-panel-raised" data-mb="mixer" aria-label="Микшер инструментов"><div class="mb-mixer-heading panel-heading"><div><span class="mb-eyebrow">СОСТАВ АНСАМБЛЯ</span><h2>Инструменты <span data-mb="track-count"></span></h2></div><button type="button" class="text-button button-compact mb-close" data-mb="close-mixer" aria-label="Свернуть микшер">×</button></div><p class="mb-mixer-hint">Показывай одни партии, слушай другие.</p><div class="mb-mixer-scroll"><table class="mb-mixer-table"><thead class="sr-only"><tr><th>Инструмент</th><th>Показывать</th><th>Звучит</th><th>Solo</th><th>Громкость</th></tr></thead><tbody data-mb="tracks"></tbody></table><p data-mb="mixer-empty">Партии появятся после выбора файла.</p></div></aside></div>
     <footer class="mb-footer"><p class="studio-status" data-mb="status" role="status" aria-live="polite"></p><p class="status-error" data-mb="error" role="alert" hidden></p><p class="mb-source-note">Файлы выбираются заново после открытия страницы. Каталог и звук не входят в резервную копию.</p></footer>`;
@@ -446,12 +451,36 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     const entry = button && catalogue.find(item => item.id === button.dataset.catalogueId);
     if (entry) { element<HTMLDetailsElement>('catalogue').open = false; measureHeight(); void openFile(entry.file, entry.relativePath); }
   }, listen);
-  /** Партия фрагмента: первая показываемая струнная партия (не ударные). */
-  function learnTrack(): number | null {
-    if (!score) return null;
-    const visibleTrack = preferences.tracks.find(track => track.visible && score!.tracks[track.index]?.staves.some(staff => staff.isStringed && !staff.isPercussion));
-    return visibleTrack?.index ?? null;
+  /** Струнные партии песни (не ударные) с числом струн. */
+  function stringedTracks(): { index: number; name: string; strings: number }[] {
+    if (!score) return [];
+    return score.tracks.flatMap((track, index) => {
+      const staff = track.staves.find(item => item.isStringed && !item.isPercussion);
+      return staff ? [{ index, name: preferences.tracks[index]?.name || track.name || `Партия ${index + 1}`, strings: staff.tuning.length }] : [];
+    });
   }
+  /**
+   * Партия фрагмента по умолчанию: бас (4–5 струн или «bass» / «бас» в имени), иначе первая показываемая
+   * струнная, иначе первая струнная.
+   */
+  function defaultLearnTrack(): number | null {
+    const tracks = stringedTracks();
+    const bass = tracks.find(track => track.strings === 4 || track.strings === 5) ?? tracks.find(track => /bass|бас/i.test(track.name));
+    const visibleTrack = tracks.find(track => preferences.tracks[track.index]?.visible);
+    return (bass ?? visibleTrack ?? tracks[0])?.index ?? null;
+  }
+  function learnTrack(): number | null {
+    const value = element<HTMLSelectElement>('learn-track').value;
+    return value === '' ? null : Number(value);
+  }
+  function renderLearnSource() {
+    const track = learnTrack();
+    const range = learnRange();
+    const info = stringedTracks().find(item => item.index === track);
+    element('learn-source').textContent = !info ? '' : [`${info.name} · такты ${range.fromBar}–${range.toBar}`,
+      info.strings >= 6 ? 'Гитарная партия: ноты будут разложены на бас.' : ''].filter(Boolean).join(' · ');
+  }
+  let learned: ExerciseSpec | null = null;
   /** Такты фрагмента: выбранный фрагмент, иначе первые такты песни (не больше 16). */
   function learnRange(): { fromBar: number; toBar: number } {
     if (preferences.range) return preferences.range;
@@ -459,17 +488,27 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
   }
   element('learn').addEventListener('click', () => {
     if (!score || !preferences.file) return;
-    const track = learnTrack();
-    if (track === null) { message('', 'Покажи в микшере струнную партию (бас): фрагмент берётся из неё.'); return; }
+    const tracks = stringedTracks();
+    if (!tracks.length) { message('', 'В песне нет струнной партии: фрагмент берётся из баса или другой струнной партии.'); return; }
+    const select = element<HTMLSelectElement>('learn-track');
+    select.replaceChildren(...tracks.map(track => {
+      const option = document.createElement('option');
+      option.value = String(track.index);
+      option.textContent = `${track.name} · ${track.strings} струн${track.strings === 4 ? 'ы' : ''}`;
+      return option;
+    }));
+    select.value = String(defaultLearnTrack());
     const range = learnRange();
-    const form = element<HTMLFormElement>('learn-form');
-    form.hidden = false;
+    element<HTMLFormElement>('learn-form').hidden = false;
+    element('learn-done').hidden = true;
     const name = element<HTMLInputElement>('learn-name');
     const title = [preferences.file.title || preferences.file.name, `такты ${range.fromBar}–${range.toBar}`].join(' · ');
     name.value = title.slice(0, 80);
-    element('learn-source').textContent = `${preferences.tracks[track]?.name ?? 'Партия'} · такты ${range.fromBar}–${range.toBar}`;
+    renderLearnSource();
     name.focus(); name.select();
   }, listen);
+  element('learn-track').addEventListener('change', renderLearnSource, listen);
+  element('learn-open').addEventListener('click', () => { if (learned) options.onOpenExercise?.(learned); }, listen);
   element('learn-cancel').addEventListener('click', () => { element('learn-form').hidden = true; element<HTMLButtonElement>('learn').focus(); }, listen);
   element('learn-form').addEventListener('submit', event => {
     event.preventDefault();
@@ -478,17 +517,30 @@ export function mountMusicBank(container: HTMLElement, options: MusicBankOptions
     const name = element<HTMLInputElement>('learn-name').value.trim();
     if (track === null || !name) return;
     const range = learnRange();
+    let spec: ExerciseSpec;
+    let saved: Promise<boolean>;
     try {
       const fragment = extractFragment(score as unknown as ScoreLike, track, range.fromBar, range.toBar);
-      const spec = fragmentSpec(fragment, { sha256: preferences.file.sha256, size: preferences.file.size, trackIndex: track,
-        trackName: (preferences.tracks[track]?.name || `Партия ${track + 1}`).slice(0, 60), fromBar: range.fromBar, toBar: range.toBar }, name);
-      options.onSaveExercise(spec, name.slice(0, 80));
-      element('learn-form').hidden = true;
-      message(`Сохранено своим упражнением «${name.slice(0, 80)}»: «Занятие» → «Библиотека» → «Свои упражнения».`);
-      element<HTMLButtonElement>('learn').focus();
+      spec = fragmentSpec(fragment, { sha256: preferences.file.sha256, size: preferences.file.size, trackIndex: track,
+        trackName: (stringedTracks().find(item => item.index === track)?.name || `Партия ${track + 1}`).slice(0, 60), fromBar: range.fromBar, toBar: range.toBar }, name);
+      saved = options.onSaveExercise(spec, (spec.params as { title: string }).title);
     } catch (failure) {
       message('Фрагмент не сохранён.', failureText(failure));
+      return;
     }
+    const title = (spec.params as { title: string }).title;
+    element('learn-form').hidden = true;
+    message(`Сохраняем «${title}»…`);
+    learned = null;
+    // «Открыть в „Занятии“» — только после записи: ключ материала своего упражнения появляется вместе с ним.
+    void saved.then(ok => {
+      if (disposed) return;
+      if (!ok) { message('Фрагмент не сохранён.', 'Запись в базу не прошла — см. сообщение вверху страницы.'); return; }
+      learned = spec;
+      message(`Сохранено своим упражнением «${title}»: «Занятие» → «Библиотека» → «Свои упражнения».`);
+      element('learn-done').hidden = !options.onOpenExercise;
+      (options.onOpenExercise ? element<HTMLButtonElement>('learn-open') : element<HTMLButtonElement>('learn')).focus();
+    });
   }, listen);
   element('search').addEventListener('input', () => { cataloguePage = 0; catalogueView(); }, listen);
   element('previous').addEventListener('click', () => { cataloguePage--; catalogueView(); }, listen);

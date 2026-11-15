@@ -40,8 +40,8 @@ for (const version of [1, 10]) {
       return { snapshot, empty: window.p6.empty, skipped, raw: await window.p6.rawRead() };
     });
     const upgraded = await open();
-    assert.deepEqual(upgraded.snapshot, upgraded.empty); assert.equal(upgraded.snapshot.schemaVersion, 13); assert.deepEqual(upgraded.skipped, []);
-    assert.deepEqual(upgraded.raw, { version: 13, stores: Object.fromEntries(CURRENT_STORES.map(name => [name, []])) });
+    assert.deepEqual(upgraded.snapshot, upgraded.empty); assert.equal(upgraded.snapshot.schemaVersion, 14); assert.deepEqual(upgraded.skipped, []);
+    assert.deepEqual(upgraded.raw, { version: 14, stores: Object.fromEntries(CURRENT_STORES.map(name => [name, []])) });
     await page.reload(); await page.waitForFunction(() => window.p6?.ready);
     const reopened = await open(); assert.deepEqual(reopened, upgraded, 'A second open must not upgrade again or recreate data');
     return { seededVersion: version, seededStores: Object.fromEntries(Object.entries(seeded.raw.stores).map(([name, records]) => [name, records.length])), raw: upgraded.raw, snapshotIsEmptyDefault: true, reopenedWithoutSecondUpgrade: true };
@@ -54,7 +54,7 @@ check('old-version-copy-is-refused-before-preview-and-leaves-native-database-unc
     await store.restorePrepared(store.prepareImport(JSON.stringify(literal)));
     const before = await store.readSnapshot({ fresh: true }), rawBefore = await window.p6.rawRead();
     const attempts = [];
-    for (const schemaVersion of [1, 10, 11, 12]) {
+    for (const schemaVersion of [1, 10, 11, 12, 13]) {
       const json = JSON.stringify({ ...literal, schemaVersion }); let preview = null, restore = null;
       try { window.p6.previewImport(json); } catch (error) { preview = { code: error.code, message: error.message }; }
       try { await store.restorePrepared(store.prepareImport(json)); } catch (error) { restore = { code: error.code, message: error.message }; }
@@ -63,7 +63,7 @@ check('old-version-copy-is-refused-before-preview-and-leaves-native-database-unc
     const after = await store.readSnapshot({ fresh: true }), rawAfter = await window.p6.rawRead();
     return { literalVersion: literal.schemaVersion, historyCount: literal.history.length, before, rawBefore, attempts, after, rawAfter };
   });
-  assert.equal(result.literalVersion, 13); assert.equal(result.rawBefore.version, 13); assert.equal(result.rawBefore.stores.history.length, result.historyCount);
+  assert.equal(result.literalVersion, 14); assert.equal(result.rawBefore.version, 14); assert.equal(result.rawBefore.stores.history.length, result.historyCount);
   for (const attempt of result.attempts) {
     assert.equal(attempt.preview?.code, 'UNSUPPORTED_VERSION', `preview v${attempt.schemaVersion}`); assert.equal(attempt.restore?.code, 'UNSUPPORTED_VERSION', `restore v${attempt.schemaVersion}`);
     assert.match(attempt.restore.message, /не поддерживается.*не изменены/);
@@ -125,20 +125,20 @@ async function rawCounts(page) {
 
 
 check('product-opens-real-v10-database-as-empty-persistent-v11-and-rejects-old-copy', async ({ page, origin }) => {
-  const literal = await literalCopy(); assert.equal(literal.schemaVersion, 13);
+  const literal = await literalCopy(); assert.equal(literal.schemaVersion, 14);
   await seedOldProductDatabase(page, origin, literal);
   const seeded = await rawCounts(page);
   assert.deepEqual(seeded, { version: 10, counts: { history: literal.history.length, practiceDrafts: literal.practiceDrafts.length, preferences: 2, presets: 1, profile: 1, rhythmProjects: literal.rhythmProjects.length }, theme: 'dark' });
   await page.goto(origin); await ready(page);
   const upgraded = await rawCounts(page);
-  assert.equal(upgraded.version, 13); assert.deepEqual(Object.keys(upgraded.counts), CURRENT_STORES);
+  assert.equal(upgraded.version, 14); assert.deepEqual(Object.keys(upgraded.counts), CURRENT_STORES);
   for (const name of ['exercises', 'history', 'practiceDrafts', 'rhythmProjects']) assert.equal(upgraded.counts[name], 0, `${name} must start empty after the upgrade`);
   assert.equal(Object.hasOwn(upgraded.counts, 'presets'), false, 'The removed presets store must not survive the upgrade');
   assert.notEqual(upgraded.theme, 'dark', 'The old profile must not survive the upgrade');
   const surface = await page.evaluate(() => ({ storageDetailsHidden: document.querySelector('#open-storage-details')?.hidden, testApi: ['p5', 'p6'].filter(name => name in window) }));
   assert.deepEqual(surface, { storageDetailsHidden: true, testApi: [] }, 'The upgraded product must persist natively, not in page memory');
   const empty = await exportUi(page, { stay: true });
-  assert.equal(empty.schemaVersion, 13); assert.deepEqual([empty.exercises, empty.history, empty.practiceDrafts, empty.rhythmProjects, empty.activeRhythmProjectId], [[], [], [], [], null]);
+  assert.equal(empty.schemaVersion, 14); assert.deepEqual([empty.exercises, empty.history, empty.practiceDrafts, empty.rhythmProjects, empty.activeRhythmProjectId], [[], [], [], [], null]);
   assert.match(await settingsPage(page).locator('[data-save-detail]').innerText(), /^Сохранено/);
   const lesson = await openSettingsPane(page, 'lesson');
   await lesson.locator('[data-set="countInBars"][data-value="0"]').click();
@@ -152,7 +152,7 @@ check('product-opens-real-v10-database-as-empty-persistent-v11-and-rejects-old-c
   const error = await refused.dialog.innerText(); assert.match(error, /версии данных 10.*сейчас версия 13/s); assert.match(error, /Ничего не изменилось/);
   await refused.dialog.locator('[data-dlg="close"]').click();
   assert.deepEqual(await exportUi(page, { stay: true }), before, 'A refused old copy must not change confirmed data');
-  assert.equal((await rawCounts(page)).version, 13);
+  assert.equal((await rawCounts(page)).version, 14);
   return { seeded, upgraded, surface, persistedAfterUpgrade: { countIn: false }, oldCopyError: error.replace(/\s+/g, ' ') };
 }, { scope: 'ui' });
 

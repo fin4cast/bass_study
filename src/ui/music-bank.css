@@ -580,3 +580,6 @@
 .music-bank .mb-learn-form[hidden] { display: none; }
 .music-bank .mb-learn-form .form-label { display: flex; flex-direction: column; gap: 2px; min-width: 260px; flex: 1 1 260px; }
 .music-bank .mb-learn-source { color: var(--text-secondary); font-size: var(--text-xs); }
+.music-bank .mb-learn-form .form-label:first-child { min-width: 180px; flex: 0 1 220px; }
+.music-bank .mb-learn-done { margin: 8px 0 0; }
+.music-bank .mb-learn-done[hidden] { display: none; }

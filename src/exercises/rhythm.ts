@@ -51,6 +51,8 @@ export interface TimelineStep {
   readonly beatInBar: number;
   /** Нота — завершение прохода тоникой (не из основной последовательности). */
   readonly landing: boolean;
+  /** Продолжение ноты прошлого шага (лига через тактовую черту во фрагменте песни): без атаки и без своего номера. */
+  readonly tie: boolean;
   /** Такт «эха»: повтор предыдущего такта без эталона. */
   readonly echo: boolean;
 }
@@ -90,12 +92,12 @@ export function buildTimeline(plan: Pick<ExercisePlan, 'spec' | 'notes' | 'segme
   const allowed = rhythmPatternsFor(plan);
   const patternId = options.pattern && allowed.includes(options.pattern) ? options.pattern : allowed[0];
   const pattern = rhythmPattern(patternId);
-  const raw: { note: number | null; grids: number; landing: boolean }[] = [];
+  const raw: { note: number | null; grids: number; landing: boolean; tie: boolean }[] = [];
   let at = 0;
-  const push = (note: number | null, grids: number, landing = false) => { raw.push({ note, grids, landing }); at += grids; };
+  const push = (note: number | null, grids: number, landing = false, tie = false) => { raw.push({ note, grids, landing, tie }); at += grids; };
   if (plan.timing) {
     // Ритм из партитуры: шаги фрагмента песни как есть, такты по 16 шестнадцатых.
-    for (const step of plan.timing) push(step.note, step.grids);
+    for (const step of plan.timing) push(step.note, step.grids, false, step.tie === true);
   } else if (plan.spec.templateId === 'progression') {
     // Такт — аккорд: ноты сегмента заполняют свой такт, следующий аккорд начинается с «раз».
     plan.notes.forEach((note, index) => {
@@ -118,7 +120,7 @@ export function buildTimeline(plan: Pick<ExercisePlan, 'spec' | 'notes' | 'segme
   const place = (source: typeof raw, bar: number, echo: boolean) => {
     let start = 0;
     for (const step of source) {
-      steps.push({ note: step.note, grids: step.grids, audible: !echo, start: bar * BAR + start, bar, beatInBar: start / 4, landing: step.landing, echo });
+      steps.push({ note: step.note, grids: step.grids, audible: !echo, start: bar * BAR + start, bar, beatInBar: start / 4, landing: step.landing, tie: step.tie, echo });
       start += step.grids;
     }
   };

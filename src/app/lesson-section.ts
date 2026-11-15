@@ -26,8 +26,9 @@ import {
 
 export type LessonScreen = 'home' | 'play' | 'check' | 'reference';
 /** Раздел, откуда открыт экран игры или «Проверь себя»: возврат ведёт туда, а не на главную «Занятия». */
-export type LessonOrigin = 'foundation' | 'progress';
-const ORIGIN_LABELS: Readonly<Record<LessonOrigin, string>> = { foundation: '← Гриф', progress: '← Прогресс' };
+export type LessonOrigin = 'foundation' | 'progress' | 'songs';
+const ORIGIN_LABELS: Readonly<Record<LessonOrigin, string>> = { foundation: '← Гриф', progress: '← Прогресс', songs: '← Песни' };
+const ORIGIN_NEXT: Readonly<Record<LessonOrigin, string>> = { foundation: 'Вернуться к грифу →', progress: 'Вернуться в «Прогресс» →', songs: 'Вернуться в «Песни» →' };
 
 export interface LessonSectionOptions {
   readonly preferences: () => AppPreferences;
@@ -327,7 +328,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     if (screen === 'check') checkView.stop();
     check = { spec, stepId: null, origin };
     setScreen('check');
-    checkView.start(spec, { backText: ORIGIN_LABELS[origin], nextText: origin === 'foundation' ? 'Вернуться к грифу →' : 'Вернуться в «Прогресс» →' });
+    checkView.start(spec, { backText: ORIGIN_LABELS[origin], nextText: ORIGIN_NEXT[origin] });
   }
 
   function openConcept(id: string) {
@@ -381,7 +382,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
       if (screen === 'check') checkView.stop();
       check = { spec: null, stepId: null, origin };
       setScreen('check');
-      checkView.startReview(positionIds, context, { backText: ORIGIN_LABELS[origin], nextText: origin === 'foundation' ? 'Вернуться к грифу →' : 'Вернуться в «Прогресс» →' });
+      checkView.startReview(positionIds, context, { backText: ORIGIN_LABELS[origin], nextText: ORIGIN_NEXT[origin] });
     },
     /** «Повторить» / «В план» из «Прогресса». */
     addToPlan(target: Difficulty | string) {

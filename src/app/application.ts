@@ -231,16 +231,17 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     catch (failure) { reportFailure(`Повтор ошибок не открылся: ${message(failure)}`); }
   }
 
-  function saveExercise(spec: ExerciseSpec, name: string) {
+  /** Своё упражнение; промис — `true` после записи (ошибку записи показывает очередь сохранения). */
+  function saveExercise(spec: ExerciseSpec, name: string): Promise<boolean> {
     if (retiring || !phase.writable) throw new Error('Упражнение не сохранено: эта вкладка сейчас не может записывать.');
     const exercise = validateUserExercise({ version: 'user-exercise-v1', id: `own-${crypto.randomUUID()}`, name, spec, createdAt: new Date().toISOString() });
     const snapshotGeneration = phase.generation;
-    void writes.run(() => store.saveExercise(exercise), `exercise:${exercise.id}`, undefined, () => {
+    return writes.run(() => store.saveExercise(exercise), `exercise:${exercise.id}`, undefined, () => {
       if (snapshotGeneration !== phase.generation || retiring) return;
       userExercises = [...userExercises, exercise];
       sections.lesson?.refresh();
       refreshSettings();
-    }).catch(() => {});
+    }).then(() => snapshotGeneration === phase.generation && !retiring, () => false);
   }
 
   function reportFailure(text: string) {
@@ -368,7 +369,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     onFailure: reportFailure,
     // Задания R-006 из «Проверь себя» (кроме ступеней) — экранные записи истории, как прежние задания «Грифа».
     saveScreen: sessions.screen,
-    onReturn: section => switchModule(section),
+    onReturn: origin => switchModule(origin === 'songs' ? 'tracks' : origin),
   });
   if (available.includes('foundation')) sections.foundation = mountFoundation(byId('foundation-mount'), {
     onPreferencesChange: value => { savePreferences(value); },
@@ -402,6 +403,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     onLeaveView: view => audio.forget(view === 'audio' ? 'tracks' : 'scores'),
     onPreferencesChange: value => { savePreferences(value); },
     onSaveExercise: (spec, name) => saveExercise(spec, name),
+    onOpenExercise(spec) { if (!sections.lesson) return; switchModule('lesson'); sections.lesson.playExercise(spec, 'songs'); },
   });
 
   /* ---------- «Прогресс» ---------- */

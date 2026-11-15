@@ -411,7 +411,7 @@ check('today-first-run-plan-is-shown-and-saved', 'ui', async ({ page, origin }) 
   assert.deepEqual(statuses, ['is-current', 'is-pending', 'is-pending']);
   // План первого дня сохраняется, а не выводится заново при каждом показе.
   const db = await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'план первого запуска');
-  assert.equal(db.version, 13);
+  assert.equal(db.version, 14);
   const plan = db.preferences.lesson.plan;
   assert.deepEqual(plan.steps.map(step => step.content.spec.templateId), ['note-all-positions', 'octaves', 'chromatic-position']);
   return { plan: { localDate: plan.localDate, steps: plan.steps.map(({ id, minutes, status }) => ({ id, minutes, status })) } };

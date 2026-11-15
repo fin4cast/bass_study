@@ -18,6 +18,8 @@ export interface TabEvent {
   readonly durationBeats: number;
   /** Такт «эха»: эталон молчит. */
   readonly echo?: boolean;
+  /** Продолжение ноты по лиге через тактовую черту: лад в скобках, без новой атаки. */
+  readonly tie?: boolean;
 }
 
 export interface TabRenderOptions {
@@ -115,7 +117,7 @@ export function renderTab(options: TabRenderOptions): string {
       continue;
     }
     const ly = top + event.tab.row * lineGap;
-    const label = String(event.tab.fret);
+    const label = event.tie ? `(${event.tab.fret})` : String(event.tab.fret);
     const w = label.length * fontSize * 0.62 + 6;
     if (!isCurrent) parts.push(`<rect class="pl-tab-gap" x="${round(x - w / 2)}" y="${round(ly - fontSize * 0.62)}" width="${round(w)}" height="${round(fontSize * 1.24)}"/>`);
     const classes = ['pl-tab-fret', isCurrent && 'is-current', isPlayed && 'is-played', event.echo && 'is-echo'].filter(Boolean).join(' ');

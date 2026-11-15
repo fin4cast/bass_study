@@ -141,3 +141,19 @@ describe('шкала шагов (D-050)', () => {
     expect(() => createPlaybackPlan({ ...base, steps, swing: 80 })).toThrow(/Свинг/);
   });
 });
+
+describe('лига через тактовую черту (P17-fix)', () => {
+  const steps = [{ note: 0, grids: 12 }, { note: 1, grids: 4 }, { note: 1, grids: 8, tie: true }, { note: 2, grids: 8 }];
+  it('продолжение без атаки, а нота перед ним звучит на суммарную длину', () => {
+    const plan = createPlaybackPlan({ ...base, steps });
+    expect(eventAtGrid(plan, 12)).toMatchObject({ stepIndex: 1, audible: true, noteGrids: 12 });
+    expect(eventAtGrid(plan, 16)).toMatchObject({ stepIndex: 2, audible: false });
+    expect(eventAtGrid(plan, 24)).toMatchObject({ stepIndex: 3, audible: true, noteGrids: 8 });
+  });
+  it('с начала петли и после молчащего такта «эха» продолжение звучит обычной нотой', () => {
+    const loop = createPlaybackPlan({ ...base, steps, range: { from: 2, toExclusive: 4 } });
+    expect(eventAtGrid(loop, 0)).toMatchObject({ stepIndex: 2, audible: true, noteGrids: 8 });
+    const echo = createPlaybackPlan({ ...base, steps: [{ note: 0, grids: 12 }, { note: 1, grids: 4, audible: false }, { note: 1, grids: 8, tie: true }, { note: 2, grids: 8 }] });
+    expect(eventAtGrid(echo, 16)).toMatchObject({ stepIndex: 2, audible: true, noteGrids: 8 });
+  });
+});

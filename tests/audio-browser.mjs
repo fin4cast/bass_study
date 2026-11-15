@@ -136,6 +136,13 @@ check('offline-steps-of-different-length-and-rest-sound-on-their-onsets', 'api',
   return result;
 });
 
+check('offline-tie-across-barline-sounds-one-attack-for-the-held-note', 'api', async ({ page }) => {
+  // 120 BPM: четверть E:0, затем E:1 на 0,5 с, продолжение той же ноты по лиге (шаг 3) без атаки, E:3 на 1,5 с.
+  const result = await offline(page, { steps: [{ note: 0, grids: 4 }, { note: 1, grids: 4 }, { note: 1, grids: 4, tie: true }, { note: 2, grids: 4 }] });
+  onsets(result.bass.onsets, [0, 0.5, 1.5]);
+  return result.bass;
+});
+
 check('offline-echo-step-and-muted-reference-keep-timing-without-bass-sound', 'api', async ({ page }) => {
   // Шаг «эха» (audible: false) не звучит, но время и запись ноты остаются.
   const echo = await offline(page, { steps: [{ note: 0, grids: 4 }, { note: 1, grids: 4, audible: false }] });

@@ -6,7 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { runTracksBrowserChecks } from './helpers/tracks-browser-harness.mjs';
 import { browserCases, markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 import { browserRun } from './helpers/browser-runner.mjs';
-import { openMusicBankTestInputs } from './helpers/music-bank-fixtures.mjs';
+import { learnSongScore, openMusicBankTestInputs } from './helpers/music-bank-fixtures.mjs';
 import { go, currentSection, exported, previewCopy, confirmCopy, restoreCopy } from './helpers/shell-data-ui.mjs';
 
 const checks = [], check = (name, scope, run) => checks.push({ name, scope, run });
@@ -134,7 +134,7 @@ check('product-directory-search-pages-read-only-selected-file-and-no-full-catalo
   await field(page, 'file-list').locator('button').first().click();
   await page.waitForFunction(() => document.querySelector('#music-bank-mount')?.dataset.musicBankReady === 'true');
   assert.equal(await page.evaluate(() => window.__bankReads), 1);
-  const copy = await exported(page); assert.equal(copy.schemaVersion, 13); assert.ok(copy.preferences.musicBank.file.relativePath);
+  const copy = await exported(page); assert.equal(copy.schemaVersion, 14); assert.ok(copy.preferences.musicBank.file.relativePath);
   const serialized = JSON.stringify(copy); assert.ok(!serialized.includes('music-bank-file-') && serialized.length < 100000);
   return { count, matching: matches, sourceReads: 1, backupBytes: Buffer.byteLength(serialized), onlySelectedDescriptor: true };
 });
@@ -446,6 +446,56 @@ check('product-bass-fragment-becomes-own-lesson-exercise-and-plays-with-score-rh
   assert.equal(await scene.locator('[data-target]').inputValue(), '120');
   assert.equal(await scene.locator('[data-flag="ladder"]').isDisabled(), false);
   return { source: spec.params.source, events: spec.params.bars[0].events };
+});
+
+check('product-learn-picks-bass-track-drop-d-octave-tie-and-opens-in-lesson-with-return-to-songs', 'ui', async ({ page }) => {
+  await enter(page);
+  await field(page, 'file').setInputFiles(learnSongScore());
+  await page.waitForFunction(() => document.querySelector('#music-bank-mount')?.dataset.musicBankReady === 'true', undefined, { timeout: 20000 });
+  await field(page, 'score').locator('svg').first().waitFor();
+  await field(page, 'learn').click();
+  await field(page, 'learn-form').waitFor();
+  // Бас — партия 1 (4 струны), а не первая показываемая гитара.
+  assert.equal(await field(page, 'learn-track').inputValue(), '1');
+  await field(page, 'learn-track').selectOption('0');
+  assert.match(await field(page, 'learn-source').innerText(), /Гитарная партия: ноты будут разложены на бас/);
+  await field(page, 'learn-track').selectOption('1');
+  assert.match(await field(page, 'learn-source').innerText(), /^Bass · такты 1–3$/);
+  await field(page, 'learn-name').fill('Песня с лигой');
+  await field(page, 'learn-form').getByRole('button', { name: 'Сохранить', exact: true }).click();
+  const open = field(page, 'learn-open');
+  await open.waitFor();
+  const copy = await exported(page);
+  const spec = copy.exercises[0].spec;
+  // Независимо: Drop D D1–E1–A1 → весь фрагмент октавой выше (D2 E2 A2), лига A через черту, аккорды из гитары.
+  assert.equal(spec.params.title, 'Песня с лигой · октавой выше');
+  assert.deepEqual(spec.params.source.trackIndex, 1);
+  assert.deepEqual(spec.params.bars.map(bar => bar.chord), ['Dm', 'G', 'G']);
+  assert.deepEqual(spec.params.bars.map(bar => bar.events), [
+    [['A', 5, 0, 4], ['A', 7, 4, 4], ['D', 7, 8, 8]],
+    [['D', 7, 0, 4, 1], ['D', 7, 4, 4], [null, null, 8, 8]],
+    [['A', 5, 0, 16]],
+  ]);
+  // «Открыть в „Занятии“»: экран игры, лига в скобках, возврат — в «Песни».
+  await open.click();
+  const scene = page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene');
+  await scene.waitFor();
+  assert.equal(await scene.locator('[data-back]').innerText(), '← Песни');
+  assert.match(await scene.locator('[data-sub]').innerText(), /^5 нот · ритм партитуры · 3 такта/);
+  await scene.locator('button[data-view="both"]').click();
+  const frets = await scene.locator('[data-tab="both"] text').allTextContents();
+  assert.ok(frets.includes('(7)'), `Продолжение лиги — лад в скобках: ${frets}`);
+  await scene.locator('[data-flag="loop"]').click();
+  await scene.locator('[data-bpm]').fill('200'); await scene.locator('[data-bpm]').press('Enter');
+  await scene.locator('[data-title]').focus(); await page.keyboard.press('Space');
+  await scene.getByRole('group', { name: 'Самооценка подхода' }).waitFor({ timeout: 20000 });
+  await page.keyboard.press('KeyZ');
+  let history = [];
+  for (let attempt = 0; attempt < 50 && !history.length; attempt++) { history = (await exported(page)).history; if (!history.length) await delay(100); }
+  assert.match(history[0].result.material.key, /^user:/, 'Запись — под ключом своего упражнения');
+  await scene.locator('[data-back]').click();
+  assert.equal(await currentSection(page), 'tracks');
+  return { events: spec.params.bars.map(bar => bar.events), key: history[0].result.material.key };
 });
 
 markFullOnly(checks, [
