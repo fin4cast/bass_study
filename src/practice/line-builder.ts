@@ -3,7 +3,7 @@
  * Чистый модуль без DOM: экран держит состояние `LineDraft` и получает описание упражнения.
  */
 import {
-  createExerciseSpec, PROGRESSION_PATTERNS, type ExerciseSpec, type LineBar, type LineChord, type LineMode, type LinePosition, type ProgressionPattern,
+  createExerciseSpec, patternFits, PROGRESSION_PATTERNS, type ExerciseSpec, type LineBar, type LineChord, type LineMode, type LinePosition, type ProgressionPattern,
 } from '../exercises';
 
 export type LineVolume = 1 | 2 | 3;
@@ -34,7 +34,7 @@ export function lineVolume(draft: Pick<LineDraft, 'mode' | 'bars'>): LineVolume 
 /** Рисунки, которые конструктор объёма предлагает для вида аккорда: недопустимое сочетание не предлагается. */
 export function patternsFor(volume: LineVolume, chord: LineChord): readonly ProgressionPattern[] {
   const allowed = volume === 1 ? VOLUME_1_PATTERNS : volume === 2 ? VOLUME_2_PATTERNS : null;
-  return PROGRESSION_PATTERNS.filter(pattern => (allowed === null || allowed.includes(pattern)) && (pattern !== 'boogie' || chord === 'major-triad' || chord === 'dominant-seventh'));
+  return PROGRESSION_PATTERNS.filter(pattern => (allowed === null || allowed.includes(pattern)) && patternFits(pattern, chord));
 }
 
 export const setLineRoot = (draft: LineDraft, root: string): LineDraft => ({ ...draft, root });

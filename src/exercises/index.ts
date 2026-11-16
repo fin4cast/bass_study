@@ -12,7 +12,7 @@ import { degreeFrom, parseChord, type ChordInfo } from '../music/chords';
 import { createSequence, type SequencePattern } from '../training';
 import { TEMPLATE_TASKS, type TemplateTask } from './tasks';
 import { barLayout, isRhythmPatternId, rhythmPattern, RHYTHM_PATTERNS, type RhythmPatternId } from './rhythm';
-import { approachFret, barTones, chordFamily, lowTonic, openTonic, placeTones, type Tone, type Tonic } from './bars';
+import { approachFret, approachName, barTones, chordFamily, lowTonic, openTonic, patternFits, placeTones, toneName, type Tone, type Tonic } from './bars';
 
 export { TASK_LINE_MAX, TEMPLATE_TASKS, type TemplateTask } from './tasks';
 
@@ -27,8 +27,8 @@ type Scale = 'major' | 'natural-minor';
 type Triad = 'major-triad' | 'minor-triad' | 'diminished-triad';
 type Seventh = 'major-seventh' | 'dominant-seventh' | 'minor-seventh' | 'half-diminished-seventh';
 export type SpiderPattern = '1234' | '1324' | '1243' | '1432';
-export type ProgressionId = 'I-IV-V' | 'ii-V-I' | 'blues-12';
-export type ProgressionPattern = 'roots' | 'root-fifth' | 'octaves' | 'arpeggio' | 'approach' | 'boogie';
+export type ProgressionId = 'I-IV-V' | 'ii-V-I' | 'blues-12' | 'I-V-vi-IV' | 'I-vi-IV-V' | 'i-iv-v';
+export type ProgressionPattern = 'roots' | 'root-fifth' | 'octaves' | 'arpeggio' | 'approach' | 'boogie' | 'r5b78' | 'r56' | 'roots-approach';
 /**
  * Событие такта фрагмента песни: `[струна, лад, начало, длина]` в шестнадцатых от начала такта;
  * пауза — `[null, null, начало, длина]`. События такта идут подряд и покрывают его целиком.
@@ -166,8 +166,9 @@ export interface ExerciseTemplate<Id extends ExerciseTemplateId = ExerciseTempla
 
 const STRINGS: readonly StringId[] = ['E', 'A', 'D', 'G'];
 export const SPIDER_PATTERNS: readonly SpiderPattern[] = ['1234', '1324', '1243', '1432'];
-export const PROGRESSION_IDS: readonly ProgressionId[] = ['I-IV-V', 'ii-V-I', 'blues-12'];
-export const PROGRESSION_PATTERNS: readonly ProgressionPattern[] = ['roots', 'root-fifth', 'octaves', 'arpeggio', 'approach', 'boogie'];
+export const PROGRESSION_IDS: readonly ProgressionId[] = ['I-IV-V', 'ii-V-I', 'blues-12', 'I-V-vi-IV', 'I-vi-IV-V', 'i-iv-v'];
+export const PROGRESSION_PATTERNS: readonly ProgressionPattern[] = ['roots', 'root-fifth', 'octaves', 'arpeggio', 'approach', 'boogie', 'r5b78', 'r56', 'roots-approach'];
+export { patternFits } from './bars';
 export const CROSSING_PATTERNS: readonly CrossingPattern[] = ['adjacent', 'skip', 'raking'];
 export const TRIADS: readonly Triad[] = ['major-triad', 'minor-triad', 'diminished-triad'];
 export const SEVENTHS: readonly Seventh[] = ['major-seventh', 'dominant-seventh', 'minor-seventh', 'half-diminished-seventh'];
@@ -305,7 +306,7 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
       exactKeys(bar, ['step', 'chord', 'pattern', 'rhythm'], `Такт ${index + 1}`);
       const chord = oneOf(bar.chord, LINE_CHORDS, 'Вид аккорда');
       const pattern = oneOf(bar.pattern, PROGRESSION_PATTERNS, 'Рисунок');
-      if (pattern === 'boogie' && chord !== 'major-triad' && chord !== 'dominant-seventh') throw new RangeError('Буги строится только на мажорном трезвучии и доминантсептаккорде.');
+      if (!patternFits(pattern, chord)) throw new RangeError(pattern === 'boogie' ? 'Буги строится только на мажорном трезвучии и доминантсептаккорде.' : 'Рисунок не строится на уменьшённом аккорде.');
       // Ритм такта — рисунок части A на сетке шестнадцатых, без свинга (свинг задаёт «как играть»).
       const rhythm = oneOf(bar.rhythm, RHYTHM_PATTERNS.filter(candidate => candidate.swing === 50).map(candidate => candidate.id), 'Ритм такта');
       return { step: integer(bar.step, 0, 11, 'Ступень аккорда'), chord, pattern, rhythm };
@@ -367,6 +368,7 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
     const progression = oneOf(raw.progression, PROGRESSION_IDS, 'Последовательность');
     const pattern = oneOf(raw.pattern, PROGRESSION_PATTERNS, 'Рисунок');
     if (pattern === 'boogie' && progression !== 'blues-12') throw new RangeError('Буги-рисунок играется только по 12-тактовому блюзу.');
+    if (!PROGRESSION_CHORDS[progression].every(([, structureId]) => patternFits(pattern, structureId))) throw new RangeError('Рисунок не строится на аккорде этой последовательности.');
     const position = oneOf(raw.position, PROGRESSION_POSITIONS, 'Позиция');
     // Открытые струны (B1.3): только тоники рисунком `roots`, только I–IV–V и блюз; тональности без нужных открытых струн отклоняет построение.
     if (position === 'open' && (pattern !== 'roots' || (progression !== 'I-IV-V' && progression !== 'blues-12'))) throw new RangeError('Открытые струны: только тоники по I–IV–V или блюзу.');
@@ -727,7 +729,18 @@ const PROGRESSION_CHORDS: Readonly<Record<ProgressionId, readonly (readonly [num
   'I-IV-V': [[1, 'major-triad', 'I'], [4, 'major-triad', 'IV'], [5, 'major-triad', 'V'], [1, 'major-triad', 'I']],
   'ii-V-I': [[2, 'minor-seventh', 'ii7'], [5, 'dominant-seventh', 'V7'], [1, 'major-seventh', 'Imaj7'], [1, 'major-seventh', 'Imaj7']],
   'blues-12': [1, 1, 1, 1, 4, 4, 1, 1, 5, 4, 1, 5].map(degree => [degree, 'dominant-seventh', degree === 1 ? 'I7' : degree === 4 ? 'IV7' : 'V7'] as const),
+  'I-V-vi-IV': [[1, 'major-triad', 'I'], [5, 'major-triad', 'V'], [6, 'minor-triad', 'vi'], [4, 'major-triad', 'IV']],
+  'I-vi-IV-V': [[1, 'major-triad', 'I'], [6, 'minor-triad', 'vi'], [4, 'major-triad', 'IV'], [5, 'major-triad', 'V']],
+  // Минорная последовательность (B1.2): ступени — из натурального минора от тоники, v — минорное трезвучие.
+  'i-iv-v': [[1, 'minor-triad', 'i'], [4, 'minor-triad', 'iv'], [5, 'minor-triad', 'v'], [1, 'minor-triad', 'i']],
 };
+/** Минорные последовательности: `root` — тоника натурального минора (B1.1). */
+const MINOR_PROGRESSIONS: ReadonlySet<ProgressionId> = new Set<ProgressionId>(['i-iv-v']);
+/** Аккорды последовательности в тональности `root`: тоника с написанием из гаммы, вид и цифра. */
+function progressionChordRefs(root: string, progression: ProgressionId): ChordRef[] {
+  const key = createStructure(root, MINOR_PROGRESSIONS.has(progression) ? 'natural-minor' : 'major');
+  return PROGRESSION_CHORDS[progression].map(([degree, structureId, roman]) => ({ root: key.notes[degree - 1].name, structureId, roman }));
+}
 const CHORD_SYMBOL: Partial<Readonly<Record<StructureId, string>>> = { 'minor-triad': 'm', 'major-seventh': 'maj7', 'dominant-seventh': '7', 'minor-seventh': 'm7' };
 
 /**
@@ -736,13 +749,25 @@ const CHORD_SYMBOL: Partial<Readonly<Record<StructureId, string>>> = { 'minor-tr
  * по ладу к предыдущей тонике (при равенстве — на E). Ступени подписываются от тоники своего аккорда.
  */
 function progressionPlan(root: string, progression: ProgressionId, pattern: ProgressionPattern, position: ProgressionPosition = 'closed'): Built {
-  const key = createStructure(root, 'major');
-  const chords = PROGRESSION_CHORDS[progression].map(([degree, structureId, roman]) => ({ root: key.notes[degree - 1].name, structureId, roman }));
+  const chords = progressionChordRefs(root, progression);
   return chordBars(chords, chords.map(() => pattern), position);
 }
 
 /** Аккорд такта: тоника с написанием, вид и цифра для подписи сегмента. */
 interface ChordRef { readonly root: string; readonly structureId: StructureId; readonly roman: string }
+
+/** Ноты такта по формам Q и E (B2.1) и хвост: индексы в списке нот такта, начинающегося с `base`. */
+function patternForms(pattern: ProgressionPattern, base: number): BarForms {
+  const quarters = pattern === 'root-fifth' ? [0, 2, 0, 2] : pattern === 'octaves' ? [0, 1, 0, 1] : pattern === 'roots' || pattern === 'roots-approach' ? [0, 0, 0, 0]
+    : pattern === 'r5b78' || pattern === 'r56' ? [0, 2, 4, 6] : [0, 1, 2, 3];
+  // У рисунка с подходом последняя нота формы E — нота рисунка вместо подхода (тоника или терция арпеджио); сам подход живёт в хвосте.
+  const last = pattern === 'approach' ? 1 : pattern === 'roots-approach' ? 0 : 7;
+  const hasTail = pattern === 'approach' || pattern === 'roots-approach';
+  return { q: quarters.map(offset => base + offset), e: Array.from({ length: 8 }, (_, step) => base + (step === 7 ? last : step)), tail: hasTail ? [base + 7] : [] };
+}
+
+/** Нота с заданным написанием: подход и тоны вне структуры аккорда (B0.2, B2.3). */
+const spelled = (position: AnnotatedPosition, name: string | null): AnnotatedPosition => (name === null ? position : { ...position, noteName: name });
 
 /**
  * Такты по аккордам и рисункам (по рисунку на такт): позиции тоник — `closed` (ближайшая к прошлой), `low` или `open` (R-028, B0.1);
@@ -777,16 +802,21 @@ function chordBars(chords: readonly ChordRef[], patterns: readonly ProgressionPa
     else if (pattern === 'root-fifth') bar = [rootPosition, rootPosition, fifth, fifth, rootPosition, rootPosition, fifth, fifth].map(note);
     else if (pattern === 'octaves') bar = Array.from({ length: 8 }, (_, step) => note(step % 2 && octave ? octave : rootPosition));
     else if (pattern === 'boogie') bar = boogieBar(box, index);
-    else {
+    else if (pattern === 'r5b78' || pattern === 'r56') {
+      // Клетки B0.2 от тоники формы; 6 и ♭7 у трезвучий — дополнение к форме, написание — от тоники аккорда.
+      const structure = createStructure(chords[index].root, chords[index].structureId);
+      const placed = placeTones({ string: box.selection.anchorString, fret: box.selection.anchorFret }, barTones(pattern, chords[index].structureId), chordFamily(chords[index].structureId))!;
+      bar = placed.map(item => ({ position: spelled(annotate([[item.string, item.fret]], structure)[0], toneName(chords[index].root, item.tone)), finger: item.finger, segment: index, degree: item.tone === '8' ? '1' : item.tone }));
+    } else if (pattern === 'roots-approach') {
+      bar = Array.from({ length: 8 }, () => note(rootPosition));
+      bar[7] = approachNote(boxes[(index + 1) % boxes.length], chords[(index + 1) % chords.length].root, index, createStructure(chords[index].root, chords[index].structureId));
+    } else {
       const arpeggio = seventh && octave ? [rootPosition, third, fifth, seventh, octave, seventh, fifth, third] : [rootPosition, third, fifth, third, rootPosition, third, fifth, third];
       bar = arpeggio.map(note);
-      if (pattern === 'approach') bar[7] = approachNote(boxes[(index + 1) % boxes.length], box, index);
+      if (pattern === 'approach') bar[7] = approachNote(boxes[(index + 1) % boxes.length], chords[(index + 1) % chords.length].root, index, createStructure(chords[index].root, chords[index].structureId));
     }
     drafts.push(...bar);
-    // Форма Q — по ноте на долю: те же позиции, что у формы E (`root-fifth` 1 5 1 5, `octaves` 1 8 1 8, остальные — первые четыре ноты).
-    const quarters = pattern === 'root-fifth' ? [0, 2, 0, 2] : pattern === 'octaves' ? [0, 1, 0, 1] : pattern === 'roots' ? [0, 0, 0, 0] : [0, 1, 2, 3];
-    // У рисунка с подходом восьмая нота формы E — терция арпеджио (та же позиция, что вторая нота такта); сам подход живёт в хвосте.
-    bars.push({ q: quarters.map(offset => base + offset), e: Array.from({ length: 8 }, (_, step) => base + (pattern === 'approach' && step === 7 ? 1 : step)), tail: pattern === 'approach' ? [base + 7] : [] });
+    bars.push(patternForms(pattern, base));
   });
   return {
     drafts, overlap: 'none', bars,
@@ -816,15 +846,14 @@ function positionedProgressionPlan(chords: readonly ChordRef[], patterns: readon
     const pattern = patterns[index];
     const placed = placeTones(tonics[index], barTones(pattern, chord.structureId), chordFamily(chord.structureId))!;
     const bar: Draft[] = placed.map(item => ({
-      position: annotate([[item.string, item.fret]], structure)[0], finger: item.finger, segment: index, degree: item.tone === '8' ? '1' : item.tone,
+      position: spelled(annotate([[item.string, item.fret]], structure)[0], toneName(chord.root, item.tone)), finger: item.finger, segment: index, degree: item.tone === '8' ? '1' : item.tone,
     }));
-    if (pattern === 'approach') {
+    if (pattern === 'approach' || pattern === 'roots-approach') {
       const next = tonics[(index + 1) % tonics.length];
-      bar[7] = { position: annotate([[next.string, approachFret(next)]], structure)[0], finger: null, segment: index, degree: null };
+      bar[7] = { position: spelled(annotate([[next.string, approachFret(next)]], structure)[0], approachName(chords[(index + 1) % chords.length].root, next.fret < 1)), finger: null, segment: index, degree: null };
     }
     drafts.push(...bar);
-    const quarters = pattern === 'root-fifth' ? [0, 2, 0, 2] : pattern === 'octaves' ? [0, 1, 0, 1] : pattern === 'roots' ? [0, 0, 0, 0] : [0, 1, 2, 3];
-    bars.push({ q: quarters.map(offset => base + offset), e: Array.from({ length: 8 }, (_, step) => base + (pattern === 'approach' && step === 7 ? 1 : step)), tail: pattern === 'approach' ? [base + 7] : [] });
+    bars.push(patternForms(pattern, base));
   });
   return { drafts, overlap: 'none', bars, segments: chords.map(chord => `${chord.root}${CHORD_SYMBOL[chord.structureId] ?? ''} · ${chord.roman}`) };
 }
@@ -836,10 +865,7 @@ function positionedProgressionPlan(chords: readonly ChordRef[], patterns: readon
 export function barChords(spec: ExerciseSpec): readonly (ChordInfo | null)[] | null {
   const info = (root: string, structureId: StructureId): ChordInfo => ({ root, structureId, name: `${root}${CHORD_SYMBOL[structureId] ?? ''}` });
   switch (spec.templateId) {
-    case 'progression': {
-      const key = createStructure(spec.params.root, 'major');
-      return PROGRESSION_CHORDS[spec.params.progression].map(([degree, structureId]) => info(key.notes[degree - 1].name, structureId));
-    }
+    case 'progression': return progressionChordRefs(spec.params.root, spec.params.progression).map(chord => info(chord.root, chord.structureId));
     case 'riff': {
       const key = createStructure(spec.params.root, 'major');
       return PROGRESSION_CHORDS[RIFFS[spec.params.riff].progression].map(([degree, structureId]) => info(key.notes[degree - 1].name, structureId));
@@ -917,11 +943,11 @@ function riffPlan(riff: RiffId, root: string): Built {
   return { drafts, timing, overlap: 'none', title: `Рифф «${figure.title}»`, segments: base.segments };
 }
 
-/** Хроматический подход: полутон снизу к тонике следующего аккорда на её струне (на 1-м ладу — сверху); без пальца и ступени. */
-function approachNote(next: BoxInstance, current: BoxInstance, segment: number): Draft {
+/** Хроматический подход: полутон снизу к тонике следующего аккорда на её струне (на 1-м ладу — сверху); без пальца и ступени, написание — по B2.3. */
+function approachNote(next: BoxInstance, nextRoot: string, segment: number, structure: MusicalStructure): Draft {
   const { anchorString, anchorFret } = next.selection;
   const fret = anchorFret - 1 >= 1 ? anchorFret - 1 : anchorFret + 1;
-  return { position: annotate([[anchorString, fret]], createStructure(current.selection.root, current.selection.structureId))[0], finger: null, segment, degree: null };
+  return { position: spelled(annotate([[anchorString, fret]], structure)[0], approachName(nextRoot, anchorFret - 1 < 1)), finger: null, segment, degree: null };
 }
 
 /** Буги 1-3-5-6-♭7-6-5-3 от тоники формы: 3 и 6 — на лад ниже тоники, 5 — на два выше, ♭7 — на её ладу. */
@@ -1046,10 +1072,10 @@ export const NOTE_CHOICES: readonly string[] = Object.freeze(['C', 'C♯', 'D', 
 const PENTA_STRUCTURES = ['minor-pentatonic', 'major-pentatonic'] as const;
 const SCALE_STRUCTURES = ['major', 'natural-minor'] as const;
 const COMPACT_SHAPES = ['compact-e', 'compact-a'] as const;
-const PROGRESSION_NAMES: Readonly<Record<ProgressionId, string>> = { 'I-IV-V': 'I–IV–V', 'ii-V-I': 'ii–V–I', 'blues-12': 'блюз 12 тактов' };
+const PROGRESSION_NAMES: Readonly<Record<ProgressionId, string>> = { 'I-IV-V': 'I–IV–V', 'ii-V-I': 'ii–V–I', 'blues-12': 'блюз 12 тактов', 'I-V-vi-IV': 'I–V–vi–IV', 'I-vi-IV-V': 'I–vi–IV–V', 'i-iv-v': 'i–iv–v' };
 /** Позиция последовательности (B0.1): закрытая переносится по грифу, нижняя начинается у порожка, открытые — тоники на открытых струнах. */
 export const POSITION_NAMES: Readonly<Record<ProgressionPosition, string>> = { closed: 'закрытая', low: 'нижняя', open: 'открытые струны' };
-const PATTERN_NAMES: Readonly<Record<ProgressionPattern, string>> = { roots: 'тоники', 'root-fifth': 'тоника и квинта', octaves: 'октавы', arpeggio: 'арпеджио', approach: 'арпеджио и подходы', boogie: 'буги' };
+const PATTERN_NAMES: Readonly<Record<ProgressionPattern, string>> = { roots: 'тоники', 'root-fifth': 'тоника и квинта', octaves: 'октавы', arpeggio: 'арпеджио', approach: 'арпеджио и подходы', boogie: 'буги', r5b78: '1–5–♭7–8', r56: '1–5–6', 'roots-approach': 'тоники с подходом' };
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, index) => from + index);
 const option = <T extends string | number>(param: string, label: string, values: readonly T[], name: (value: T) => string = String): TemplateOption =>
   ({ param, label, values: values.map(value => ({ value, label: name(value) })) });

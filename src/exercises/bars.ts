@@ -3,7 +3,7 @@
  * от каталога упражнений: рисунок такта превращается в позиции на грифе от тоники аккорда.
  * Позиция `closed` строится прежним кодом по компактным формам; здесь — `low` (нижняя) и `open` (открытые струны).
  */
-import { getPosition, type StringId, type StructureId } from '../music';
+import { getPosition, parseNote, type StringId, type StructureId } from '../music';
 
 export type Tone = '1' | '3' | 'b3' | '5' | 'b5' | '6' | 'b7' | '7' | '8';
 export type ChordFamily = 'major' | 'minor';
@@ -27,19 +27,62 @@ export const chordFamily = (structureId: StructureId): ChordFamily =>
   structureId === 'minor-triad' || structureId === 'minor-seventh' || structureId === 'diminished-triad' || structureId === 'half-diminished-seventh' ? 'minor' : 'major';
 const isSeventh = (structureId: StructureId) => structureId === 'dominant-seventh' || structureId === 'major-seventh' || structureId === 'minor-seventh';
 
+const isDiminished = (structureId: StructureId) => structureId === 'diminished-triad' || structureId === 'half-diminished-seventh';
+
+/**
+ * Допустим ли рисунок такта для вида аккорда (B2.1): буги — только мажорное трезвучие и доминантсептаккорд;
+ * `r5b78` и `r56` — любой аккорд, кроме уменьшённых.
+ */
+export function patternFits(pattern: string, structureId: StructureId): boolean {
+  if (pattern === 'boogie') return structureId === 'major-triad' || structureId === 'dominant-seventh';
+  if (pattern === 'r5b78' || pattern === 'r56') return !isDiminished(structureId);
+  return true;
+}
+
 /** Рисунки такта в форме E (восемь нот) по B2.1; подход — отдельно, он заменяет последнюю ноту. */
 export function barTones(pattern: string, structureId: StructureId): readonly Tone[] {
   const family = chordFamily(structureId);
   const third: Tone = family === 'major' ? '3' : 'b3';
+  const fifth: Tone = structureId === 'diminished-triad' ? 'b5' : '5';
   const seventh: Tone = structureId === 'major-seventh' ? '7' : 'b7';
   switch (pattern) {
-    case 'roots': return ['1', '1', '1', '1', '1', '1', '1', '1'];
-    case 'root-fifth': return ['1', '1', '5', '5', '1', '1', '5', '5'];
+    case 'roots': case 'roots-approach': return ['1', '1', '1', '1', '1', '1', '1', '1'];
+    case 'root-fifth': return ['1', '1', fifth, fifth, '1', '1', fifth, fifth];
     case 'octaves': return ['1', '8', '1', '8', '1', '8', '1', '8'];
     case 'boogie': return ['1', '3', '5', '6', 'b7', '6', '5', '3'];
+    case 'r5b78': return ['1', '1', '5', '5', seventh, seventh, '8', '8'];
+    case 'r56': { const sixth: Tone = family === 'major' ? '6' : 'b7'; return ['1', '1', '5', '5', sixth, sixth, '5', '5']; }
     default: // arpeggio, approach
       return isSeventh(structureId) ? ['1', third, '5', seventh, '8', seventh, '5', third] : ['1', third, '5', third, '1', third, '5', third];
   }
+}
+
+const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const;
+const NATURAL_PITCH: Readonly<Record<string, number>> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+/** Название ноты: буква по номеру (по кругу), знак — чтобы получился нужный класс высоты. */
+function spell(letterIndex: number, pitchClass: number): string {
+  const letter = LETTERS[((letterIndex % 7) + 7) % 7];
+  let accidental = ((((pitchClass - NATURAL_PITCH[letter]) % 12) + 12) % 12);
+  if (accidental > 6) accidental -= 12;
+  return `${letter}${accidental > 0 ? '♯'.repeat(accidental) : '♭'.repeat(-accidental)}`;
+}
+
+/**
+ * Написание подхода (B2.3): буква на одну ниже буквы целевой тоники, знак — чтобы получился полутон.
+ * К A — G♯, к D — C♯, к C — B, к F — E, к B♭ — A. Подход сверху (тоника на открытой струне, B0.1) — следующая буква с бемолем: к A — B♭, к E — F.
+ */
+export function approachName(targetRoot: string, above = false): string {
+  const target = parseNote(targetRoot);
+  return above ? spell(LETTERS.indexOf(target.letter) + 1, target.pitchClass + 1) : spell(LETTERS.indexOf(target.letter) - 1, target.pitchClass - 1);
+}
+
+/** Тон вне структуры аккорда пишется по ступени от его тоники (B0.2): 6 — VI мажора, ♭7 — ♭VII. */
+const OUTSIDE_STEPS: Readonly<Partial<Record<Tone, readonly [number, number]>>> = { '6': [5, 9], b7: [6, 10] };
+export function toneName(chordRoot: string, tone: Tone): string | null {
+  const steps = OUTSIDE_STEPS[tone];
+  if (!steps) return null;
+  const root = parseNote(chordRoot);
+  return spell(LETTERS.indexOf(root.letter) + steps[0], root.pitchClass + steps[1]);
 }
 
 export interface Placed { readonly string: StringId; readonly fret: number; readonly tone: Tone; readonly finger: number | null }

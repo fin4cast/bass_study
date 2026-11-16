@@ -23,7 +23,7 @@ describe('конструктор «Своей линии» (R-028, B5.4)', () =>
   });
   it('недопустимое сочетание рисунка и аккорда не предлагается', () => {
     expect(patternsFor(1, 'major-triad')).toEqual(['roots', 'root-fifth', 'octaves']);
-    expect(patternsFor(2, 'major-triad')).toEqual(['roots', 'root-fifth', 'octaves', 'arpeggio']);
+    expect(patternsFor(2, 'major-triad')).toEqual(['roots', 'root-fifth', 'octaves', 'arpeggio', 'roots-approach']);
     expect(patternsFor(3, 'minor-triad')).not.toContain('boogie');
     expect(patternsFor(3, 'dominant-seventh')).toContain('boogie');
   });

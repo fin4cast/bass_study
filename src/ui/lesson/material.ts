@@ -37,8 +37,8 @@ export const CONCEPT_LABELS: Readonly<Record<ConceptId, string>> = Object.freeze
 
 export { STRUCTURE_LABELS };
 
-export const PROGRESSION_LABELS: Readonly<Record<string, string>> = { 'I-IV-V': 'I–IV–V', 'ii-V-I': 'ii–V–I', 'blues-12': 'блюз 12 тактов' };
-export const PATTERN_LABELS: Readonly<Record<string, string>> = { roots: 'тоники', 'root-fifth': 'тоника и квинта', octaves: 'октавы', arpeggio: 'арпеджио', approach: 'арпеджио и подходы', boogie: 'буги' };
+export const PROGRESSION_LABELS: Readonly<Record<string, string>> = { 'I-IV-V': 'I–IV–V', 'ii-V-I': 'ii–V–I', 'blues-12': 'блюз 12 тактов', 'I-V-vi-IV': 'I–V–vi–IV', 'I-vi-IV-V': 'I–vi–IV–V', 'i-iv-v': 'i–iv–v' };
+export const PATTERN_LABELS: Readonly<Record<string, string>> = { roots: 'тоники', 'root-fifth': 'тоника и квинта', octaves: 'октавы', arpeggio: 'арпеджио', approach: 'арпеджио и подходы', boogie: 'буги', r5b78: '1–5–♭7–8', r56: '1–5–6', 'roots-approach': 'тоники с подходом' };
 export const RIFF_TITLES: Readonly<Record<string, string>> = { 'rock-eighths': 'Рок-восьмые' };
 export const CROSSING_LABELS: Readonly<Record<string, string>> = { adjacent: 'соседние струны', skip: 'через струну', raking: 'рейкинг' };
 

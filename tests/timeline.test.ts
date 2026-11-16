@@ -183,6 +183,22 @@ describe('ноты такта последовательности по прав
     expect(bar(plan('progression', { root: 'C', pattern: 'root-fifth' }), pattern)).toEqual(row(rootFifth));
   });
 
+  // Колонка `roots-approach` той же таблицы B3: подход к F (A:7, E2) стоит на последней атаке такта.
+  it.each<[Pattern, string]>([
+    ['quarters', 'C2 C2 C2 E2'],
+    ['eighths', 'C2 C2 C2 C2 C2 C2 C2 E2'],
+    ['shuffle', 'C2 C2 C2 C2 C2 C2 C2 E2'],
+    ['quarter-rest', 'C2 C2 E2 п'],
+    ['syncopation', 'C2 C2 C2 C2 C2 E2'],
+    ['sixteenths', 'C2 C2 C2 C2 C2 C2 C2 C2 C2 C2 C2 C2 C2 C2 C2 E2'],
+  ])('%s: тоники с подходом', (pattern, expected) => {
+    expect(bar(plan('progression', { root: 'C', pattern: 'roots-approach' }), pattern)).toEqual(row(expected));
+  });
+  it('r5b78 и r56: форма Q — первая, третья, пятая и седьмая ноты формы E (1 5 ♭7 8, 1 5 6 5)', () => {
+    expect(bar(plan('progression', { root: 'A', progression: 'blues-12', pattern: 'r5b78' }), 'quarters')).toEqual(row('A1 E2 G2 A2'));
+    expect(bar(plan('progression', { root: 'A', progression: 'blues-12', pattern: 'r56' }), 'quarters')).toEqual(row('A1 E2 F♯2 E2'));
+  });
+
   it('арпеджио: форма Q — первые четыре ноты, форма E — по восьмой; ступени не зависят от рисунка', () => {
     const arpeggio = plan('progression', { root: 'C', pattern: 'arpeggio' });
     expect(bar(arpeggio, 'quarters')).toEqual(row('C2 E2 G2 E2'));
