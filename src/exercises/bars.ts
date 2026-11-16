@@ -5,7 +5,7 @@
  */
 import { getPosition, parseNote, type StringId, type StructureId } from '../music';
 
-export type Tone = '1' | '3' | 'b3' | '5' | 'b5' | '6' | 'b7' | '7' | '8';
+export type Tone = '1' | '3' | 'b3' | '4' | '5' | 'b5' | '6' | 'b7' | '7' | '8';
 export type ChordFamily = 'major' | 'minor';
 
 const STRINGS: readonly StringId[] = ['E', 'A', 'D', 'G'];
@@ -18,7 +18,7 @@ const MAJOR_CELLS: Readonly<Partial<Record<Tone, Cell>>> = {
   '6': { dString: 2, dFret: -1, finger: 1 }, b7: { dString: 2, dFret: 0, finger: 2 }, '7': { dString: 2, dFret: 1, finger: 3 }, '8': { dString: 2, dFret: 2, finger: 4 },
 };
 const MINOR_CELLS: Readonly<Partial<Record<Tone, Cell>>> = {
-  '1': { dString: 0, dFret: 0, finger: 1 }, b3: { dString: 0, dFret: 3, finger: 4 }, '5': { dString: 1, dFret: 2, finger: 3 }, b5: { dString: 1, dFret: 1, finger: 2 },
+  '1': { dString: 0, dFret: 0, finger: 1 }, b3: { dString: 0, dFret: 3, finger: 4 }, '4': { dString: 1, dFret: 0, finger: 1 }, '5': { dString: 1, dFret: 2, finger: 3 }, b5: { dString: 1, dFret: 1, finger: 2 },
   b7: { dString: 2, dFret: 0, finger: 1 }, '8': { dString: 2, dFret: 2, finger: 3 },
 };
 
@@ -76,8 +76,8 @@ export function approachName(targetRoot: string, above = false): string {
   return above ? spell(LETTERS.indexOf(target.letter) + 1, target.pitchClass + 1) : spell(LETTERS.indexOf(target.letter) - 1, target.pitchClass - 1);
 }
 
-/** Тон вне структуры аккорда пишется по ступени от его тоники (B0.2): 6 — VI мажора, ♭7 — ♭VII. */
-const OUTSIDE_STEPS: Readonly<Partial<Record<Tone, readonly [number, number]>>> = { '6': [5, 9], b7: [6, 10] };
+/** Тон вне структуры аккорда пишется по ступени от его тоники (B0.2): 4 — IV, 6 — VI мажора, ♭7 — ♭VII. */
+const OUTSIDE_STEPS: Readonly<Partial<Record<Tone, readonly [number, number]>>> = { '4': [3, 5], '6': [5, 9], b7: [6, 10] };
 export function toneName(chordRoot: string, tone: Tone): string | null {
   const steps = OUTSIDE_STEPS[tone];
   if (!steps) return null;

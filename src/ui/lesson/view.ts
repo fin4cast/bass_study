@@ -21,8 +21,10 @@ import {
 } from './model';
 import { CATEGORY_ORDER, CATEGORY_TITLES } from '../../practice/library';
 import { pathBadge, pathModel, stageLine, type PathStep } from './path';
-import { builderMarkup, builderPattern, builderRoot, builderSpec, initialBuilder, toggleBuilder, type BuilderState } from './line-builder';
-import type { ProgressionPattern } from '../../exercises';
+import {
+  builderAddBar, builderKind, builderMarkup, builderMode, builderPattern, builderRemoveBar, builderRoot, builderSpec, builderStep, builderVolume, initialBuilder, toggleBuilder, type BuilderState,
+} from './line-builder';
+import type { LineChord, ProgressionPattern } from '../../exercises';
 
 export type { LessonState, LessonTab } from './model';
 
@@ -506,6 +508,9 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         case 'path-build': builder = toggleBuilder(builder, true); selectTab('library'); render(); container.querySelector<HTMLElement>('[data-key="builder-root"]')?.focus(); break;
         case 'path-song': toast('Фрагменты своих песен сохраняются в разделе «Песни»: выбери такты партии и нажми «Разучить как упражнение».'); break;
         case 'builder-toggle': builder = toggleBuilder(builder); render(); break;
+        case 'builder-volume': builder = builderVolume(builder, Number(target.dataset.value) === 2 ? 2 : 1); render(); break;
+        case 'builder-add': builder = builderAddBar(builder); render(); break;
+        case 'builder-remove': builder = builderRemoveBar(builder, Number(target.dataset.bar)); render(); break;
         case 'builder-play': try { options.onPlay({ kind: 'exercise', spec: builderSpec(builder) }, null); } catch (failure) { builder = { ...builder, error: failure instanceof Error ? failure.message : String(failure) }; render(); } break;
         case 'builder-save': {
           if (!options.onSaveExercise) break;
@@ -554,6 +559,9 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     if (!control || !state) return;
     if (control.dataset.control === 'play-from') { options.onPlayFromChange(control.value || null); return; }
     if (control.dataset.control === 'builder-root') { builder = builderRoot(builder, control.value); render(); return; }
+    if (control.dataset.control === 'builder-mode') { builder = builderMode(builder, control.value === 'minor' ? 'minor' : 'major'); render(); return; }
+    if (control.dataset.control === 'builder-step') { builder = builderStep(builder, Number(control.dataset.bar), Number(control.value)); render(); return; }
+    if (control.dataset.control === 'builder-kind') { builder = builderKind(builder, Number(control.dataset.bar), control.value as LineChord); render(); return; }
     if (control.dataset.control === 'builder-pattern') { builder = builderPattern(builder, Number(control.dataset.bar), control.value as ProgressionPattern); render(); return; }
     if (control.dataset.control === 'card-param') { configureCard(state, control.dataset.card!, control.dataset.param!, control.value); return; }
     if (control.dataset.control === 'structure') library = { ...library, structureId: (control.value || null) as LibraryControls['structureId'] };

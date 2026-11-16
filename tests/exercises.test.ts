@@ -98,6 +98,8 @@ const CONTROL: Record<ExerciseTemplateId, { ids: string; names?: string; degrees
   },
   // A5: шестнадцать нот E:0, пальцы левой руки и ступени не назначаются.
   'pulse-note': { ids: Array(16).fill('E:0').join(' '), names: Array(16).fill('E1').join(' '), fingers: Array(16).fill('-').join(' '), segments: '16' },
+  // A6.2: круг кварт на струне E: C F B♭ E♭ A♭ D♭ G♭ B E A D G, лады 0–11.
+  'string-fourths': { ids: 'E:8 E:1 E:6 E:11 E:4 E:9 E:2 E:7 E:0 E:5 E:10 E:3', names: 'C2 F1 B♭1 E♭2 A♭1 D♭2 G♭1 B1 E1 A1 D2 G1', fingers: Array(12).fill('-').join(' '), segments: '12' },
   // A8.1: шестнадцать нот E:5 (A1), первые восемь длинные, вторые короткие; пальцы левой руки не назначаются.
   'long-short': { ids: Array(16).fill('E:5').join(' '), names: Array(16).fill('A1').join(' '), fingers: Array(16).fill('-').join(' '), segments: '8 8' },
   // A6.1: натуральные ноты струны E на ладах 0–5 и обратно: E F G A G F.

@@ -39,7 +39,7 @@ export { STRUCTURE_LABELS };
 
 export const PROGRESSION_LABELS: Readonly<Record<string, string>> = { 'I-IV-V': 'I–IV–V', 'ii-V-I': 'ii–V–I', 'blues-12': 'блюз 12 тактов', 'I-V-vi-IV': 'I–V–vi–IV', 'I-vi-IV-V': 'I–vi–IV–V', 'i-iv-v': 'i–iv–v' };
 export const PATTERN_LABELS: Readonly<Record<string, string>> = { roots: 'тоники', 'root-fifth': 'тоника и квинта', octaves: 'октавы', arpeggio: 'арпеджио', approach: 'арпеджио и подходы', boogie: 'буги', r5b78: '1–5–♭7–8', r56: '1–5–6', 'roots-approach': 'тоники с подходом' };
-export const RIFF_TITLES: Readonly<Record<string, string>> = { 'rock-eighths': 'Рок-восьмые' };
+export const RIFF_TITLES: Readonly<Record<string, string>> = { 'rock-eighths': 'Рок-восьмые', 'approach-eighths': 'С подходом', 'disco-octaves': 'Октавы диско', 'penta-a': 'В форме A пентатоники' };
 export const CROSSING_LABELS: Readonly<Record<string, string>> = { adjacent: 'соседние струны', skip: 'через струну', raking: 'рейкинг' };
 
 /** Плановое время шага по шаблону (VIS-10 r2), минуты. */
@@ -47,7 +47,7 @@ export const TEMPLATE_MINUTES: Readonly<Record<ExerciseTemplateId, number>> = Ob
   'chromatic-position': 3, 'position-shift': 3, 'note-all-positions': 3, octaves: 3, 'pentatonic-form': 3,
   'pentatonic-relative': 4, 'scale-compact': 4, 'connect-forms': 5, 'pentatonic-neck': 5, 'scale-one-string': 3,
   'scale-position': 4, 'arpeggio-1358': 4, 'root-five-eight': 3, 'groups-of-three': 4, thirds: 4, 'form-transpose': 3, 'cycle-fourths': 4,
-  'pulse-note': 2, 'chromatic-shift': 4, 'string-naturals': 3, 'long-short': 3,
+  'pulse-note': 2, 'chromatic-shift': 4, 'string-naturals': 3, 'long-short': 3, 'string-fourths': 3,
   line: 5, riff: 4, spider: 4, 'blues-scale': 3, 'arpeggio-seventh': 4, 'arpeggio-inversion': 3, progression: 4, 'string-crossing': 3, 'song-fragment': 4,
 });
 export const CHECK_MINUTES = 3;
@@ -89,6 +89,7 @@ export function materialLabel(spec: ExerciseSpec): string {
   switch (spec.templateId) {
     case 'chromatic-position': return `позиция ${spec.params.startFret} · ${spec.params.fingering === '124' ? 'пальцы 1-2-4' : 'палец на лад'}${spec.params.direction === 'up-down' ? ' · вверх и вниз' : ''}`;
     case 'pulse-note': return spec.params.fret === 0 ? `открытая струна ${spec.params.string} · ${spec.params.notes} нот` : `струна ${spec.params.string} · лад ${spec.params.fret} · ${spec.params.notes} нот`;
+    case 'string-fourths': return `струна ${spec.params.string} · круг кварт · лады 0–11`;
     case 'long-short': return spec.params.fret === 0 ? `открытая струна ${spec.params.string} · длинные и короткие` : `струна ${spec.params.string} · лад ${spec.params.fret} · длинные и короткие`;
     case 'chromatic-shift': return `лады ${spec.params.startFret}–${spec.params.startFret + spec.params.positions + 2} · ${spec.params.positions} позиций`;
     case 'string-naturals': return `струна ${spec.params.string} · натуральные ноты · лады 0–${spec.params.fretMax}`;

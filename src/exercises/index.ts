@@ -54,8 +54,8 @@ export const FINGERINGS: readonly Fingering[] = ['1234', '124'];
 export const DIRECTIONS: readonly Direction[] = ['up', 'up-down'];
 /** Число нот «Пульса на одной ноте»: 16 — четыре такта четвертями, 8 — «нота — пауза», 32 — два такта шестнадцатыми (A5). */
 /** Риффы (R-028, B4): типовые стилевые фигуры без привязки к песне; список дополняется без повышения версии. */
-export type RiffId = 'rock-eighths';
-export const RIFF_IDS: readonly RiffId[] = ['rock-eighths'];
+export type RiffId = 'rock-eighths' | 'approach-eighths' | 'disco-octaves' | 'penta-a';
+export const RIFF_IDS: readonly RiffId[] = ['rock-eighths', 'approach-eighths', 'disco-octaves', 'penta-a'];
 /** «Своя линия» (R-028, B5): тональность, лад, позиция и такты — аккорд относительно тоники, рисунок такта и его ритм. */
 export type LineMode = 'major' | 'minor';
 export type LinePosition = 'closed' | 'low';
@@ -78,6 +78,8 @@ export interface ExerciseParams {
   readonly 'string-crossing': { readonly pattern: CrossingPattern };
   /** Пульс правой рукой на одной ноте (R-028, A5). */
   readonly 'pulse-note': { readonly string: StringId; readonly fret: number; readonly notes: PulseNotes };
+  /** Круг кварт на струне: двенадцать нот C F B♭ … G на ладах 0–11 (A6.2). */
+  readonly 'string-fourths': { readonly string: StringId };
   /** Длинные и короткие ноты: половина прохода звучит полностью, половина — вполовину (A8.1). */
   readonly 'long-short': { readonly string: StringId; readonly fret: number };
   /** Хроматика по позициям: ход вверх по грифу и обратно (A7.2). */
@@ -185,6 +187,7 @@ export const EXERCISE_TEMPLATES: readonly ExerciseTemplate[] = deepFreeze([
   { id: 'spider', category: 'warmup', title: 'Паук: четыре пальца по грифу', concepts: ['finger-per-fret', 'position-shift'], defaults: { startFret: 5, positions: 5, pattern: '1234' } },
   { id: 'string-crossing', category: 'warmup', title: 'Переход между струнами (правая рука)', concepts: ['right-hand'], defaults: { pattern: 'adjacent' } },
   { id: 'pulse-note', category: 'warmup', title: 'Пульс на одной ноте', concepts: ['right-hand'], defaults: { string: 'E', fret: 0, notes: 16 } },
+  { id: 'string-fourths', category: 'notes', title: 'Круг кварт на струне', concepts: ['semitone', 'octave'], defaults: { string: 'E' } },
   { id: 'long-short', category: 'warmup', title: 'Длинные и короткие ноты', concepts: ['right-hand'], defaults: { string: 'E', fret: 5 } },
   { id: 'chromatic-shift', category: 'warmup', title: 'Хроматика по позициям', concepts: ['finger-per-fret', 'position-shift', 'semitone'], defaults: { startFret: 5, positions: 3 } },
   { id: 'note-all-positions', category: 'notes', title: 'Одна нота по всему грифу', concepts: ['octave', 'unison'], defaults: { note: 'C' } },
@@ -268,6 +271,7 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
     if (!PULSE_NOTES.includes(notes)) throw new RangeError('Число нот: допустимо 8, 16 или 32.');
     return { string: oneOf(raw.string, STRINGS, 'Струна'), fret: integer(raw.fret, 0, 12, 'Лад'), notes };
   },
+  'string-fourths': raw => ({ string: oneOf(raw.string, STRINGS, 'Струна') }),
   'long-short': raw => ({ string: oneOf(raw.string, STRINGS, 'Струна'), fret: integer(raw.fret, 0, 12, 'Лад') }),
   'chromatic-shift': raw => {
     const startFret = integer(raw.startFret, 1, 12, 'Первый лад'); const positions = integer(raw.positions, 2, 5, 'Число позиций');
@@ -495,6 +499,13 @@ const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[I
   'pulse-note': ({ string, fret, notes }) => ({
     drafts: Array.from({ length: notes }, (_, index): Draft => ({ position: chromatic(string, fret), finger: null, segment: 0, degree: null, pluck: index % 2 ? 'm' : 'i' })),
     segments: [fret === 0 ? `Открытая струна ${string} · i–m` : `Струна ${string} · лад ${fret} · i–m`], overlap: 'none',
+  }),
+  'string-fourths': ({ string }) => ({
+    // A6.2: C F B♭ E♭ A♭ D♭ G♭ B E A D G; лад — класс высоты ноты минус открытая струна, в ладах 0–11; написание ровно как в ряду.
+    drafts: FOURTHS_ROW.map((name, index): Draft => ({
+      position: spelled(chromatic(string, (parseNote(name).pitchClass - getPosition(string, 0).pitchClass + 12) % 12), name), finger: null, segment: 0, degree: null,
+    })),
+    segments: [`Струна ${string} · круг кварт · лады 0–11`], overlap: 'none',
   }),
   'long-short': ({ string, fret }) => ({
     // A8.1: ноты 0–7 длинные (звучат весь шаг), 8–15 короткие (половина шага); граница совпадает с тактовой чертой в обоих ритмах.
@@ -895,7 +906,7 @@ const STEP_LETTERS = [0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 6];
 const LETTER_NAMES = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const;
 const LETTER_PITCH = [0, 2, 4, 5, 7, 9, 11];
 /** Тоника аккорда: буква — по ступени от тоники линии, знак — чтобы получилось `step` полутонов (B5.2). */
-function stepName(root: string, step: number): string {
+export function stepName(root: string, step: number): string {
   const tonic = parseNote(root);
   const letter = (LETTER_NAMES.indexOf(tonic.letter) + STEP_LETTERS[step]) % 7;
   let accidental = (((tonic.pitchClass + step - LETTER_PITCH[letter]) % 12) + 12) % 12;
@@ -921,8 +932,8 @@ function linePlan(root: string, mode: LineMode, position: LinePosition, bars: re
 }
 
 /** Событие фигуры такта: начало и длина в шестнадцатых; `null` вместо тона — пауза. */
-interface RiffEvent { readonly start: number; readonly grids: number; readonly tone: Tone | null }
-const eighths = (tone: Tone, from: number, count: number): RiffEvent[] => Array.from({ length: count }, (_, step) => ({ start: from + step * 2, grids: 2, tone }));
+interface RiffEvent { readonly start: number; readonly grids: number; readonly tone: Tone | 'approach' | null }
+const eighths = (tone: Tone | 'approach', from: number, count: number): RiffEvent[] => Array.from({ length: count }, (_, step) => ({ start: from + step * 2, grids: 2, tone }));
 
 /** Фигуры такта по B4: на каждом такте последовательности — своя функция; ритм входит в фигуру. */
 const RIFFS: Readonly<Record<RiffId, { readonly title: string; readonly progression: ProgressionId; readonly bar: (index: number) => readonly RiffEvent[] }>> = {
@@ -933,14 +944,28 @@ const RIFFS: Readonly<Record<RiffId, { readonly title: string; readonly progress
       ? [...eighths('1', 0, 6), ...eighths('5', 12, 2)]
       : [...eighths('1', 0, 4), { start: 8, grids: 4, tone: '1' }, { start: 12, grids: 4, tone: null }],
   },
+  'approach-eighths': {
+    title: 'С подходом', progression: 'I-V-vi-IV',
+    // Четверть, две восьмых, четверть, восьмая — тоника; последняя восьмая — подход к тонике следующего такта.
+    bar: () => [{ start: 0, grids: 4, tone: '1' }, { start: 4, grids: 2, tone: '1' }, { start: 6, grids: 2, tone: '1' }, { start: 8, grids: 4, tone: '1' }, { start: 12, grids: 2, tone: '1' }, { start: 14, grids: 2, tone: 'approach' }],
+  },
+  'disco-octaves': {
+    title: 'Октавы диско', progression: 'I-vi-IV-V',
+    // На каждую долю: тоника восьмой, октава шестнадцатой на «и», шестнадцатая пауза.
+    bar: () => Array.from({ length: 4 }, (_, beat): RiffEvent[] => [{ start: beat * 4, grids: 2, tone: '1' }, { start: beat * 4 + 2, grids: 1, tone: '8' }, { start: beat * 4 + 3, grids: 1, tone: null }]).flat(),
+  },
+  'penta-a': {
+    title: 'В форме A пентатоники', progression: 'i-iv-v',
+    // Форма A минорной пентатоники от тоники своего аккорда: 1, ♭3, 4, 5, ♭7, 5.
+    bar: () => [{ start: 0, grids: 4, tone: '1' }, { start: 4, grids: 2, tone: 'b3' }, { start: 6, grids: 2, tone: '4' }, { start: 8, grids: 4, tone: '5' }, { start: 12, grids: 2, tone: 'b7' }, { start: 14, grids: 2, tone: '5' }],
+  },
 };
 
 /** Рифф по аккордам последовательности: позиция тоники — `closed` (B0.1), тоны — клетки B0.2, ритм задан материалом (`timing`). */
 function riffPlan(riff: RiffId, root: string): Built {
   const figure = RIFFS[riff];
-  const key = createStructure(root, 'major');
   const base = progressionPlan(root, figure.progression, 'roots', 'closed');
-  const chords = PROGRESSION_CHORDS[figure.progression].map(([degree, structureId]) => ({ root: key.notes[degree - 1].name, structureId }));
+  const chords = progressionChordRefs(root, figure.progression);
   const drafts: Draft[] = [];
   const timing: { note: number | null; grids: number }[] = [];
   chords.forEach((chord, bar) => {
@@ -948,8 +973,15 @@ function riffPlan(riff: RiffId, root: string): Built {
     const structure = createStructure(chord.root, chord.structureId);
     for (const event of figure.bar(bar)) {
       if (event.tone === null) { timing.push({ note: null, grids: event.grids }); continue; }
+      if (event.tone === 'approach') {
+        // Подход (B2.3): на лад ниже тоники следующего такта (у последнего — первого) на её струне; без пальца и ступени.
+        const next = base.drafts[((bar + 1) % chords.length) * 8].position;
+        drafts.push({ position: spelled(annotate([[next.string, next.fret - 1]], structure)[0], approachName(chords[(bar + 1) % chords.length].root)), finger: null, segment: bar, degree: null });
+        timing.push({ note: drafts.length - 1, grids: event.grids });
+        continue;
+      }
       const [placed] = placeTones({ string: tonic.string, fret: tonic.fret }, [event.tone], chordFamily(chord.structureId))!;
-      drafts.push({ position: annotate([[placed.string, placed.fret]], structure)[0], finger: placed.finger, segment: bar, degree: event.tone === '8' ? '1' : event.tone });
+      drafts.push({ position: spelled(annotate([[placed.string, placed.fret]], structure)[0], toneName(chord.root, placed.tone)), finger: placed.finger, segment: bar, degree: event.tone === '8' ? '1' : event.tone });
       timing.push({ note: drafts.length - 1, grids: event.grids });
     }
   });
@@ -1005,6 +1037,7 @@ function scalePosition(structure: MusicalStructure, start: number, window: numbe
   return { drafts, stretches, window };
 }
 
+const FOURTHS_ROW = ['C', 'F', 'B♭', 'E♭', 'A♭', 'D♭', 'G♭', 'B', 'E', 'A', 'D', 'G'] as const;
 const CHROMATIC_LABELS = createStructure('C', 'major');
 function chromatic(string: StringId, fret: number) { return annotatePositions([getPosition(string, fret)], CHROMATIC_LABELS)[0]; }
 
@@ -1034,7 +1067,7 @@ export const TEMPLATE_TARGET_BPM: Readonly<Record<ExerciseTemplateId, number>> =
   'pentatonic-form': 96, 'pentatonic-relative': 92, 'scale-compact': 96, 'blues-scale': 96, 'connect-forms': 92, 'pentatonic-neck': 88,
   'scale-one-string': 88, 'scale-position': 92, 'arpeggio-1358': 96, 'arpeggio-seventh': 92, 'arpeggio-inversion': 88, 'root-five-eight': 100,
   'groups-of-three': 88, thirds: 88, 'form-transpose': 88, 'cycle-fourths': 84, progression: 100, 'song-fragment': 0,
-  'pulse-note': 100, 'chromatic-shift': 96, 'string-naturals': 80, riff: 96, line: 96, 'long-short': 80,
+  'pulse-note': 100, 'chromatic-shift': 96, 'string-naturals': 80, riff: 96, line: 96, 'long-short': 80, 'string-fourths': 80,
 });
 /** Цель темпа материала: у фрагмента песни — темп партитуры, у остальных — цель шаблона. */
 export const targetBpmFor = (spec: ExerciseSpec): number => spec.templateId === 'song-fragment' ? spec.params.bpm : TEMPLATE_TARGET_BPM[spec.templateId];
@@ -1104,6 +1137,7 @@ const OPTIONS: { readonly [Id in ExerciseTemplateId]: readonly TemplateOption[] 
     option('fingering', 'Аппликатура', FINGERINGS, fingering => (fingering === '1234' ? 'палец на лад 1-2-3-4' : 'три лада 1-2-4')),
     option('direction', 'Направление', DIRECTIONS, direction => (direction === 'up' ? 'вверх' : 'вверх и вниз')),
   ],
+  'string-fourths': [option('string', 'Струна', STRINGS)],
   'long-short': [option('string', 'Струна', STRINGS), option('fret', 'Лад', range(0, 12), fret => (fret === 0 ? 'открытая' : String(fret)))],
   'pulse-note': [option('string', 'Струна', STRINGS), option('fret', 'Лад', range(0, 12), fret => (fret === 0 ? 'открытая' : String(fret))), option('notes', 'Нот', PULSE_NOTES)],
   'chromatic-shift': [option('startFret', 'С лада', range(1, 12)), option('positions', 'Позиций', range(2, 5))],

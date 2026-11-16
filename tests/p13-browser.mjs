@@ -1048,12 +1048,21 @@ check('library-line-builder-assembles-saves-as-own-exercise-and-plays-it', 'ui',
   await home(page).getByRole('button', { name: /^Свои/ }).click();
   assert.deepEqual(await home(page).locator('.ls-lib-card h3').allInnerTexts(), ['Моя линия в A']);
 
-  // «Сыграть» открывает экран игры с той же линией: 32 ноты (четыре такта по восемь).
+  // Объём 2: своя последовательность — тоника и вид аккорда такта, ещё один такт; рисунки объёма 2 включают «тоники с подходом».
+  await builder.locator('[data-act="builder-volume"][data-value="2"]').click();
+  assert.deepEqual(await builder.locator('.ls-bb-chord').allInnerTexts(), ['A · I', 'D · IV', 'E · V', 'A · I']);
+  await builder.locator('[data-control="builder-step"][data-bar="1"]').selectOption({ label: 'F♯' });
+  await builder.locator('[data-control="builder-kind"][data-bar="1"]').selectOption('minor-triad');
+  await builder.locator('[data-act="builder-add"]').click();
+  assert.deepEqual(await builder.locator('.ls-bb-chord').allInnerTexts(), ['A · I', 'F♯m · vi', 'E · V', 'A · I', 'A · I']);
+  assert.ok((await builder.locator('[data-control="builder-pattern"][data-bar="1"]').locator('option').allInnerTexts()).includes('тоники с подходом'));
+  await builder.locator('[data-control="builder-pattern"][data-bar="1"]').selectOption('roots-approach');
+  // «Сыграть» открывает экран игры с этой линией: 40 нот (пять тактов по восемь).
   await home(page).locator('.ls-builder [data-act="builder-play"]').click();
   await playScene(page).locator('[data-title]').waitFor();
   assert.match(await playScene(page).innerText(), /Своя линия/);
-  assert.match(await playScene(page).locator('[data-sub]').innerText(), /32 ноты/);
-  return { chords: ['A · I', 'D · IV', 'E · V', 'A · I'] };
+  assert.match(await playScene(page).locator('[data-sub]').innerText(), /40 нот/);
+  return { chords: ['A · I', 'F♯m · vi', 'E · V', 'A · I', 'A · I'] };
 });
 
 /* ---------- Проверка по диапазону (R-028, A9) ---------- */
@@ -1589,6 +1598,9 @@ check('progress-shows-program-status-after-a-lesson-pass-and-reload', 'ui', asyn
 markFullOnly(checks, ['basics-path-two-variants-pass-the-step-and-two-days-master-it', 'today-next-day-offers-next-variant-and-keeps-manual-steps-and-long-break-recalls',
   'today-start-runs-the-lesson-from-first-to-last-step-without-choosing-parameters'], FULL_ONLY.smoke);
 markFullOnly(checks, ['play-variant-unrated-approach-is-rated-first-or-dropped-explicitly-and-own-exercise-has-no-selectors'], FULL_ONLY.smoke);
+// Оценка прохода и сохранение в «Прогресс» после перезагрузки в быстром наборе проходит сценарий progress-shows-program-status-after-a-lesson-pass-and-reload;
+// счёт, пауза и вид экрана игры — сценарии audio-browser `ui-play-*`.
+markFullOnly(checks, ['play-self-assessment-clean-is-saved-and-visible-in-progress-after-reload', 'play-count-in-note-progress-space-pause-resume-view-and-escape'], FULL_ONLY.smoke);
 // Экономия времени быстрого набора перед заходом C (P18): те же потоки оценки и перехода покрывают соседние сценарии.
 markFullOnly(checks, ['play-keys-work-after-mouse-clicks-rating-view-panel-and-timer-counts-rated-approach', 'play-slow-rating-opens-next-time-4-bpm-lower-even-after-sound-change',
   'play-enter-after-key-rating-with-focus-on-play-button-opens-next-step', 'plan-step-timer-and-next-step-after-rating'], FULL_ONLY.smoke);

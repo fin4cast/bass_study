@@ -3,7 +3,7 @@
  * Чистый модуль без DOM: экран держит состояние `LineDraft` и получает описание упражнения.
  */
 import {
-  createExerciseSpec, patternFits, PROGRESSION_PATTERNS, type ExerciseSpec, type LineBar, type LineChord, type LineMode, type LinePosition, type ProgressionPattern,
+  createExerciseSpec, LINE_MIN_BARS, patternFits, PROGRESSION_PATTERNS, stepName, type ExerciseSpec, type LineBar, type LineChord, type LineMode, type LinePosition, type ProgressionPattern,
 } from '../exercises';
 
 export type LineVolume = 1 | 2 | 3;
@@ -12,7 +12,9 @@ export interface LineDraft { readonly root: string; readonly mode: LineMode; rea
 /** Рисунки объёма 1: тоники, тоника и квинта, октавы; объёма 2 — плюс тоники с подходом и арпеджио; объёма 3 — все. */
 const VOLUME_1_PATTERNS: readonly string[] = ['roots', 'root-fifth', 'octaves'];
 const VOLUME_2_PATTERNS: readonly string[] = [...VOLUME_1_PATTERNS, 'roots-approach', 'arpeggio'];
-const VOLUME_2_CHORDS: readonly LineChord[] = ['major-triad', 'minor-triad', 'dominant-seventh'];
+export const VOLUME_2_CHORDS: readonly LineChord[] = ['major-triad', 'minor-triad', 'dominant-seventh'];
+/** Не больше восьми тактов в объёме 2 (B5.4). */
+export const VOLUME_2_MAX_BARS = 8;
 const STANDARD_STEPS: readonly number[] = [0, 5, 7, 0];
 
 export const VOLUME_TITLES: Readonly<Record<LineVolume, string>> = { 1: 'I–IV–V–I, рисунки этапа 1', 2: 'до восьми тактов, любые аккорды', 3: 'все рисунки и ритм на такт' };
@@ -38,6 +40,39 @@ export function patternsFor(volume: LineVolume, chord: LineChord): readonly Prog
 }
 
 export const setLineRoot = (draft: LineDraft, root: string): LineDraft => ({ ...draft, root });
+export const setLineMode = (draft: LineDraft, mode: LineMode): LineDraft => ({ ...draft, mode });
+
+/** Черновик объёма: объём 1 — стандартные четыре такта; объём 2 начинается с них же и дальше правится по тактам. */
+export const volumeDraft = (root: string): LineDraft => newLineDraft(root);
+
+/** Названия тоник аккорда относительно тоники линии: двенадцать ступеней с написанием из тональности (B5.2). */
+export const stepChoices = (root: string): readonly { readonly step: number; readonly name: string }[] => Array.from({ length: 12 }, (_, step) => ({ step, name: stepName(root, step) }));
+
+function replaceBar(draft: LineDraft, index: number, change: (bar: LineBar) => LineBar): LineDraft {
+  if (!Number.isInteger(index) || index < 0 || index >= draft.bars.length) throw new RangeError('Нет такого такта.');
+  return { ...draft, bars: draft.bars.map((bar, at) => (at === index ? change(bar) : bar)) };
+}
+/** Тоника аккорда такта — ступень от тоники линии в полутонах (0–11). */
+export function setBarStep(draft: LineDraft, index: number, step: number): LineDraft {
+  if (!Number.isInteger(step) || step < 0 || step > 11) throw new RangeError('Ступень аккорда — от 0 до 11 полутонов.');
+  return replaceBar(draft, index, bar => ({ ...bar, step }));
+}
+/** Вид аккорда такта объёма 2; рисунок, не подходящий новому аккорду, сменяется «тониками». */
+export function setBarKind(draft: LineDraft, index: number, chord: LineChord): LineDraft {
+  if (!VOLUME_2_CHORDS.includes(chord)) throw new RangeError('В объёме 2 — мажорное трезвучие, минорное или доминантсептаккорд.');
+  return replaceBar(draft, index, bar => ({ ...bar, chord, pattern: patternsFor(2, chord).includes(bar.pattern) ? bar.pattern : 'roots' }));
+}
+/** Такт в конец: тоника линии, мажорное трезвучие, «тоники», восьмые; не больше восьми. */
+export function addBar(draft: LineDraft): LineDraft {
+  if (draft.bars.length >= VOLUME_2_MAX_BARS) throw new RangeError(`В объёме 2 не больше ${VOLUME_2_MAX_BARS} тактов.`);
+  return { ...draft, bars: [...draft.bars, { step: 0, chord: 'major-triad', pattern: 'roots', rhythm: 'eighths' }] };
+}
+/** Убирает такт; остаётся не меньше двух. */
+export function removeBar(draft: LineDraft, index: number): LineDraft {
+  if (draft.bars.length <= LINE_MIN_BARS) throw new RangeError(`В линии не меньше ${LINE_MIN_BARS} тактов.`);
+  if (!Number.isInteger(index) || index < 0 || index >= draft.bars.length) throw new RangeError('Нет такого такта.');
+  return { ...draft, bars: draft.bars.filter((_, at) => at !== index) };
+}
 export function setBarPattern(draft: LineDraft, index: number, pattern: ProgressionPattern): LineDraft {
   if (!Number.isInteger(index) || index < 0 || index >= draft.bars.length) throw new RangeError('Нет такого такта.');
   return { ...draft, bars: draft.bars.map((bar, at) => (at === index ? { ...bar, pattern } : bar)) };
