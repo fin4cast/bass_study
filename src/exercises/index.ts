@@ -44,8 +44,16 @@ export type CrossingPattern = 'adjacent' | 'skip' | 'raking';
 type PentaShape = Extract<BoxShapeId, `penta-${string}`>;
 type CompactShape = 'compact-e' | 'compact-a';
 
+/** Аппликатура и направление хроматики, позиция последовательности (R-028, A1/B7): форма введена сейчас, значения добавляются новыми значениями списков без повышения версии. */
+export type Fingering = '1234';
+export type Direction = 'up';
+export type ProgressionPosition = 'closed';
+export const FINGERINGS: readonly Fingering[] = ['1234'];
+export const DIRECTIONS: readonly Direction[] = ['up'];
+export const PROGRESSION_POSITIONS: readonly ProgressionPosition[] = ['closed'];
+
 export interface ExerciseParams {
-  readonly 'chromatic-position': { readonly startFret: number };
+  readonly 'chromatic-position': { readonly startFret: number; readonly fingering: Fingering; readonly direction: Direction };
   readonly 'position-shift': { readonly string: StringId; readonly startFret: number; readonly shifts: number };
   readonly spider: { readonly startFret: number; readonly positions: number; readonly pattern: SpiderPattern };
   readonly 'string-crossing': { readonly pattern: CrossingPattern };
@@ -67,7 +75,7 @@ export interface ExerciseParams {
   readonly thirds: { readonly root: string; readonly structureId: Scale; readonly shapeId: CompactShape };
   readonly 'form-transpose': { readonly structureId: Pentatonic; readonly shapeId: PentaShape; readonly roots: readonly string[] };
   readonly 'cycle-fourths': { readonly root: string; readonly count: number };
-  readonly progression: { readonly root: string; readonly progression: ProgressionId; readonly pattern: ProgressionPattern };
+  readonly progression: { readonly root: string; readonly progression: ProgressionId; readonly pattern: ProgressionPattern; readonly position: ProgressionPosition };
   /** Фрагмент басовой партии из «Песен» (P14-04): снимок нот, файл для игры не нужен. Только своё упражнение. */
   readonly 'song-fragment': { readonly title: string; readonly source: SongSource; readonly bpm: number; readonly key: string | null; readonly bars: readonly SongBar[] };
 }
@@ -131,7 +139,7 @@ const PENTA_SHAPES: readonly PentaShape[] = ['penta-a', 'penta-b', 'penta-c', 'p
 const SHAPE_LETTER: Record<PentaShape, string> = { 'penta-a': 'A', 'penta-b': 'B', 'penta-c': 'C', 'penta-d': 'D', 'penta-e': 'E' };
 
 export const EXERCISE_TEMPLATES: readonly ExerciseTemplate[] = deepFreeze([
-  { id: 'chromatic-position', category: 'warmup', title: 'Хроматика 1-2-3-4 в позиции', concepts: ['finger-per-fret', 'semitone'], defaults: { startFret: 5 } },
+  { id: 'chromatic-position', category: 'warmup', title: 'Хроматика 1-2-3-4 в позиции', concepts: ['finger-per-fret', 'semitone'], defaults: { startFret: 5, fingering: '1234', direction: 'up' } },
   { id: 'position-shift', category: 'warmup', title: 'Смена позиции по струне', concepts: ['position-shift', 'finger-per-fret'], defaults: { string: 'A', startFret: 3, shifts: 2 } },
   { id: 'spider', category: 'warmup', title: 'Паук: четыре пальца по грифу', concepts: ['finger-per-fret', 'position-shift'], defaults: { startFret: 5, positions: 5, pattern: '1234' } },
   { id: 'string-crossing', category: 'warmup', title: 'Переход между струнами (правая рука)', concepts: ['right-hand'], defaults: { pattern: 'adjacent' } },
@@ -152,7 +160,7 @@ export const EXERCISE_TEMPLATES: readonly ExerciseTemplate[] = deepFreeze([
   { id: 'groups-of-three', category: 'sequences', title: 'Группы по три', concepts: ['sequence', 'pentatonic'], defaults: { root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a' } },
   { id: 'thirds', category: 'sequences', title: 'Терциями по гамме', concepts: ['third', 'sequence'], defaults: { root: 'C', structureId: 'major', shapeId: 'compact-e' } },
   { id: 'form-transpose', category: 'transposition', title: 'Та же форма от другой тоники', concepts: ['transposition', 'pentatonic'], defaults: { structureId: 'minor-pentatonic', shapeId: 'penta-a', roots: ['A', 'D', 'E'] } },
-  { id: 'progression', category: 'progressions', title: 'Игра по последовательности аккордов', concepts: ['progression', 'degrees'], defaults: { root: 'C', progression: 'I-IV-V', pattern: 'roots' } },
+  { id: 'progression', category: 'progressions', title: 'Игра по последовательности аккордов', concepts: ['progression', 'degrees'], defaults: { root: 'C', progression: 'I-IV-V', pattern: 'roots', position: 'closed' } },
   { id: 'song-fragment', category: 'progressions', title: 'Фрагмент песни', concepts: ['degrees'], userOnly: true, defaults: {
     title: 'Фрагмент', source: { sha256: '0'.repeat(64), size: 1, trackIndex: 0, trackName: 'Бас', fromBar: 1, toBar: 1 }, bpm: 90, key: null,
     bars: [{ chord: 'C', events: [['A', 3, 0, 4], ['A', 3, 4, 4], ['E', 3, 8, 4], [null, null, 12, 4]] }],
@@ -198,7 +206,7 @@ const noteName = (value: unknown, label: string) => {
 };
 
 const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, unknown>) => ExerciseParams[Id] } = {
-  'chromatic-position': raw => ({ startFret: integer(raw.startFret, 1, 21, 'Первый лад') }),
+  'chromatic-position': raw => ({ startFret: integer(raw.startFret, 1, 21, 'Первый лад'), fingering: oneOf(raw.fingering, FINGERINGS, 'Аппликатура'), direction: oneOf(raw.direction, DIRECTIONS, 'Направление') }),
   'position-shift': raw => {
     const startFret = integer(raw.startFret, 1, 20, 'Первый лад'); const shifts = integer(raw.shifts, 1, 4, 'Число сдвигов');
     if (startFret + shifts + 3 > 24) throw new RangeError('Последняя группа должна помещаться на ладах до 24.');
@@ -285,7 +293,7 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
     const progression = oneOf(raw.progression, PROGRESSION_IDS, 'Последовательность');
     const pattern = oneOf(raw.pattern, PROGRESSION_PATTERNS, 'Рисунок');
     if (pattern === 'boogie' && progression !== 'blues-12') throw new RangeError('Буги-рисунок играется только по 12-тактовому блюзу.');
-    return { root: noteName(raw.root, 'Тоника'), progression, pattern };
+    return { root: noteName(raw.root, 'Тоника'), progression, pattern, position: oneOf(raw.position, PROGRESSION_POSITIONS, 'Позиция') };
   },
 };
 

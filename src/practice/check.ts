@@ -174,3 +174,11 @@ export function checkId(spec: CheckSpec): string {
 
 /** Серия засчитывается шагу только при описании без изменений, включая число вопросов (A9.5): сравнение полное. */
 export const sameCheck = (a: CheckSpec, b: CheckSpec): boolean => JSON.stringify(a) === JSON.stringify(b);
+
+/** Материал упражнения, если проверка задана по нему; у проверки по диапазону — `null`. */
+export const checkExercise = (spec: CheckSpec): ExerciseSpec | null => (spec.area.type === 'exercise' ? spec.area.exercise : null);
+
+/** Проверка ступеней материала упражнения: вид find-degree или name-degree, цели — любые ступени структуры. */
+export function degreeCheck(exercise: ExerciseSpec, kind: 'find-degree' | 'name-degree', count: number, ear = false): CheckSpec {
+  return validateCheckSpec({ version: 'check-v2', kind, area: { type: 'exercise', exercise }, subject: { type: 'degrees', scale: null, targets: null }, count, ear });
+}

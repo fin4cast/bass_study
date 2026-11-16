@@ -25,12 +25,13 @@
     import '/src/styles.css';
     import { mountCheck } from '/src/ui/check/view.ts';
     import { createExerciseSpec } from '/src/exercises/index.ts';
+    import { degreeCheck } from '/src/practice/check.ts';
 
     const params = new URLSearchParams(location.search);
     document.documentElement.dataset.theme = params.get('theme') === 'dark' ? 'dark' : 'light';
     const template = params.get('template') ?? 'pentatonic-form';
     const exercise = template === 'pentatonic-form' ? createExerciseSpec('pentatonic-form', { shapeId: params.get('shape') ?? 'penta-b' }) : createExerciseSpec(template);
-    const spec = { version: 'check-v1', exercise, kind: params.get('kind') === 'find-degree' ? 'find-degree' : 'name-degree', count: Number(params.get('count') ?? 6), ear: params.get('ear') === '1' };
+    const spec = degreeCheck(exercise, params.get('kind') === 'find-degree' ? 'find-degree' : 'name-degree', Number(params.get('count') ?? 6), params.get('ear') === '1');
     /** Журнал фикстуры: итоги серий и намерения навигации. Правильные ответы сюда до итога не попадают. */
     window.checkLog = [];
     const view = mountCheck(document.getElementById('check'), {

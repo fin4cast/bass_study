@@ -11,7 +11,8 @@ import { createManualPracticeResult, manualTempoBounds, EXERCISE_VIEWS, type Exe
 import { collectEarResults, createEarQuestionV1, createEarQuestionsV1, isEarQuality, replayEarResultV1,
   type EarAnswerEvent, type EarListenEvent, type EarQuality, type EarSession, type SavedEarResult } from '../ear/rules-v1';
 import { exerciseStructure, validateExerciseSpec } from '../exercises';
-import { validateCheckSpec, validatePlan, type CheckSpec, type DayPlan } from '../practice/plan';
+import { checkExercise, validateCheckSpec, type CheckSpec } from '../practice/check';
+import { validatePlan, type DayPlan } from '../practice/plan';
 import { validateUserExercise, type UserExercise } from '../practice/library';
 import { materialId } from '../practice/material';
 import { REFERENCE_CONCEPTS } from '../practice/concepts';
@@ -70,6 +71,9 @@ export interface PlayPreferences {
   /** Громкость клика и подложки, 0–1. */
   readonly click: number;
   readonly grooveVolume: number;
+  /** Аккомпанемент аккордами (R-028, B6): режим и громкость. Экрана пока нет — умолчание «выключен». */
+  readonly accompaniment: 'off' | 'hold' | 'beats';
+  readonly accompanimentVolume: number;
 }
 export interface AppPreferences {
   readonly activeModule: ActiveModule;
@@ -245,7 +249,7 @@ export const DEFAULT_PREFERENCES: AppPreferences = immutable({
   rhythm: null,
   activeModule: 'lesson',
   lesson: { plan: null, tab: 'today', playFrom: null, exerciseSettings: {}, progressTab: 'exercises', progressSource: 'all', basicsView: 'path', skipped: [] },
-  play: { defaultView: 'both', newExerciseView: 'board', countInBars: 1, labels: 'name', bpm: 72, reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6 },
+  play: { defaultView: 'both', newExerciseView: 'board', countInBars: 1, labels: 'name', bpm: 72, reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6, accompaniment: 'off', accompanimentVolume: 0.5 },
   reference: { mastered: [] },
   study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12,
     box: createBoxSelection({ root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a', anchorString: 'E', anchorFret: 5 }), showFingers: false },
@@ -313,14 +317,16 @@ function skippedBlocks(value: unknown): string[] {
   return ids;
 }
 function validatePlayPreferences(value: unknown): PlayPreferences {
-  const data = object(value, ['defaultView', 'newExerciseView', 'countInBars', 'labels', 'bpm', 'reference', 'metronome', 'click', 'grooveVolume'], 'Настройки экрана игры');
+  const data = object(value, ['defaultView', 'newExerciseView', 'countInBars', 'labels', 'bpm', 'reference', 'metronome', 'click', 'grooveVolume', 'accompaniment', 'accompanimentVolume'], 'Настройки экрана игры');
   return { defaultView: oneOf(data.defaultView, EXERCISE_VIEWS, 'Вид по умолчанию'),
     newExerciseView: data.newExerciseView === null ? null : oneOf(data.newExerciseView, EXERCISE_VIEWS, 'Вид нового упражнения'),
     countInBars: countInBars(data.countInBars), labels: oneOf(data.labels, ['name', 'degree', 'finger'] as const, 'Подписи нот'),
     bpm: number(data.bpm, 40, 220, 'Темп экрана игры'),
     reference: oneOf(data.reference, ['auto', 'on', 'quiet', 'off'] as const, 'Эталонный бас'),
     metronome: oneOf(data.metronome, ['beats', 'eighths', 'two-four', 'gap', 'off'] as const, 'Метроном экрана игры'),
-    click: number(data.click, 0, 1, 'Громкость клика', false), grooveVolume: number(data.grooveVolume, 0, 1, 'Громкость подложки', false) };
+    click: number(data.click, 0, 1, 'Громкость клика', false), grooveVolume: number(data.grooveVolume, 0, 1, 'Громкость подложки', false),
+    accompaniment: oneOf(data.accompaniment, ['off', 'hold', 'beats'] as const, 'Аккомпанемент аккордами'),
+    accompanimentVolume: number(data.accompanimentVolume, 0, 1, 'Громкость аккомпанемента', false) };
 }
 function validateReferencePreferences(value: unknown): AppPreferences['reference'] {
   const data = object(value, ['mastered'], 'Справочник');
@@ -635,8 +641,11 @@ function validateCheckHistory(value: unknown): CheckHistoryResult {
   if (raw.source !== 'screen-check') invalid('Итог «Проверь себя» должен иметь источник screen-check.');
   const key = exerciseKey(raw.exerciseKey, 'Ключ упражнения проверки');
   const spec = rhythmData('Описание проверки', () => validateCheckSpec(raw.spec));
-  if (key.startsWith('builtin:') && key !== `builtin:${materialId(spec.exercise)}`) invalid('Ключ встроенного упражнения не соответствует его материалу.');
-  const structure = exerciseStructure(spec.exercise);
+  // Пока экран проверок умеет только ступени материала упражнения; диапазон и ноты записываются с P18-12.
+  const material = checkExercise(spec);
+  if (!material || spec.subject.type !== 'degrees' || spec.subject.targets !== null) invalid('Проверки по диапазону, нотам и целям записываются позже (P18-12).');
+  if (key.startsWith('builtin:') && key !== `builtin:${materialId(material)}`) invalid('Ключ встроенного упражнения не соответствует его материалу.');
+  const structure = exerciseStructure(material);
   if (!structure) invalid('В материале этого упражнения нет ступеней одной структуры — проверка ступеней недоступна.');
   const degrees = new Set(structure.notes.map(note => note.degree));
   const answers = array(raw.answers, 20, 'Ответы проверки').map((item): CheckAnswer => {

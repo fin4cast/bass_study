@@ -116,3 +116,29 @@ describe('прогресс', () => {
   });
 });
 
+
+describe('шаг плана и ID шага программы (R-028)', () => {
+  const linked = (id: string, programStep: string) => ({ ...step(id), programStep });
+
+  it('programStep хранится условным полем и переживает операции плана и проверку', () => {
+    const plan = createPlan('2026-11-16', [linked('d1', 't1-left.quarters'), step('manual')]);
+    expect(plan.steps.map(item => item.programStep)).toEqual(['t1-left.quarters', undefined]);
+    expect(Object.hasOwn(plan.steps[1], 'programStep')).toBe(false);
+    const added = addStep(plan, linked('d2', 'h1-roots.eighths'));
+    expect(added.steps.at(-1)?.programStep).toBe('h1-roots.eighths');
+    expect(validatePlan(JSON.parse(JSON.stringify(moveStep(completeStep(added, 'd1'), 'd2', -1))))).toBeTruthy();
+    expect(removeStep(added, 'd1').steps.map(item => item.programStep)).toEqual([undefined, 'h1-roots.eighths']);
+  });
+
+  it('некорректный ID шага программы отклоняется, а не исправляется', () => {
+    const good = createPlan('2026-11-16', [linked('d1', 't1-left.quarters')]);
+    for (const bad of ['t1-left', 'T1-left.quarters', 't1 left.quarters', 't1-left.', '.quarters', 't1--left.quarters', `${'a'.repeat(40)}.${'b'.repeat(30)}`, '', 5]) {
+      const input = JSON.parse(JSON.stringify(good));
+      input.steps[0].programStep = bad;
+      expect(() => validatePlan(input), String(bad)).toThrow(RangeError);
+    }
+    const extra = JSON.parse(JSON.stringify(good));
+    extra.steps[0].other = 1;
+    expect(() => validatePlan(extra)).toThrow(RangeError);
+  });
+});

@@ -7,7 +7,8 @@ import { buildExercise, configureSpec, targetBpmFor, type ExercisePlan, type Exe
 import { DEFAULT_PRACTICE, type PracticeOptions } from '../exercises/rhythm';
 import { builtinLibrary, type UserExercise } from '../practice/library';
 import { builtinTemplateOf } from '../practice/material';
-import { addStep, completeStep, createPlan, currentStep, type CheckSpec, type DayPlan, type PlanStepContent } from '../practice/plan';
+import { addStep, completeStep, contentExerciseOf, createPlan, currentStep, type DayPlan, type PlanStepContent } from '../practice/plan';
+import { checkExercise, type CheckSpec } from '../practice/check';
 import { difficulties, type Assessment, type Difficulty, type PracticeRecord } from '../practice/results';
 import {
   makeCheckHistory, makeManualHistory, MAX_CHECK_ACTIVE_MS, MAX_EXERCISE_VIEWS,
@@ -37,7 +38,7 @@ export function planForToday(stored: DayPlan | null, today: string): DayPlan {
   return createPlan(today, carried.map(({ id, content, minutes }) => ({ id, content, minutes })));
 }
 
-export const contentExercise = (content: PlanStepContent): ExerciseSpec => content.kind === 'exercise' ? content.spec : content.spec.exercise;
+export const contentExercise = contentExerciseOf;
 
 /**
  * Вид экрана игры: запомненный для упражнения; иначе для ни разу не сыгранного — вид нового упражнения
@@ -200,7 +201,8 @@ export function specForKey(key: string, sources: { readonly records: readonly Pr
   }
   if (found) return found.spec;
   for (const entry of sources.history) {
-    if (entry.result.kind === 'check' && entry.result.exerciseKey === key && (!found || entry.occurredAt >= found.occurredAt)) found = { spec: entry.result.spec.exercise, occurredAt: entry.occurredAt };
+    const material = entry.result.kind === 'check' ? checkExercise(entry.result.spec) : null;
+    if (entry.result.kind === 'check' && material && entry.result.exerciseKey === key && (!found || entry.occurredAt >= found.occurredAt)) found = { spec: material, occurredAt: entry.occurredAt };
   }
   if (found) return found.spec;
   if (key.startsWith('user:')) return sources.userExercises.find(exercise => `user:${exercise.id}` === key)?.spec ?? null;
@@ -227,7 +229,9 @@ export function plannedProgressIds(plan: DayPlan, records: readonly PracticeReco
   const checks = new Set<string>();
   for (const step of plan.steps) {
     if (step.status === 'done') continue;
-    const key = exerciseKey(contentExercise(step.content), userExercises);
+    const material = contentExercise(step.content);
+    if (!material) continue;
+    const key = exerciseKey(material, userExercises);
     (step.content.kind === 'exercise' ? exercises : checks).add(key);
   }
   const ids = new Set<string>([...exercises, ...checks]);
@@ -258,7 +262,8 @@ export function playRatingEntry(input: {
 export function checkEntry(input: {
   readonly spec: CheckSpec; readonly userExercises: readonly UserExercise[]; readonly activeMs: number; readonly answers: readonly CheckAnswer[];
 }, metadata: HistoryMetadata): CheckHistoryEntry | null {
-  const exercise = input.spec.exercise;
+  const exercise = checkExercise(input.spec);
+  if (!exercise) throw new RangeError('Проверки по диапазону записываются позже (P18-12).');
   return makeCheckHistory({
     exerciseKey: exerciseKey(exercise, input.userExercises),
     title: `Проверь себя: ${exerciseTitle(exercise, input.userExercises)}`.slice(0, 120),
@@ -291,7 +296,8 @@ export function toPlayDefaults(play: PlayPreferences): PlayDefaults {
     labels: LABELS_TO_SETTINGS[play.labels], bpm: play.bpm, reference: play.reference, metronome: play.metronome };
 }
 /** Умолчания из «Настроек»; громкости клика и подложки задаются на экране игры и сохраняются как есть. */
-export function fromPlayDefaults(defaults: PlayDefaults, current: Pick<PlayPreferences, 'click' | 'grooveVolume'>): PlayPreferences {
+export function fromPlayDefaults(defaults: PlayDefaults, current: Pick<PlayPreferences, 'click' | 'grooveVolume' | 'accompaniment' | 'accompanimentVolume'>): PlayPreferences {
   return { defaultView: VIEW_FROM_SETTINGS[defaults.view], newExerciseView: defaults.newExerciseView === null ? null : VIEW_FROM_SETTINGS[defaults.newExerciseView], countInBars: defaults.countInBars,
-    labels: LABELS_FROM_SETTINGS[defaults.labels], bpm: defaults.bpm, reference: defaults.reference, metronome: defaults.metronome, click: current.click, grooveVolume: current.grooveVolume };
+    labels: LABELS_FROM_SETTINGS[defaults.labels], bpm: defaults.bpm, reference: defaults.reference, metronome: defaults.metronome, click: current.click, grooveVolume: current.grooveVolume,
+    accompaniment: current.accompaniment, accompanimentVolume: current.accompanimentVolume };
 }

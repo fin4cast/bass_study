@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createExerciseSpec } from '../src/exercises';
 import { builtinLibrary, type UserExercise } from '../src/practice/library';
 import { materialId } from '../src/practice/material';
-import { createPlan, completeStep, type CheckSpec } from '../src/practice/plan';
+import { createPlan, completeStep } from '../src/practice/plan';
+import { degreeCheck, type CheckSpec } from '../src/practice/check';
 import { practiceRecords } from '../src/practice/history';
 import { difficulties, type PracticeRecord } from '../src/practice/results';
 import { MAX_EXERCISE_VIEWS, type ExerciseView, type PlayPreferences } from '../src/storage/model';
@@ -26,9 +27,9 @@ const fourStepPlan = (date: string) => createPlan(date, [
   { id: 'step-1', content: { kind: 'exercise', spec: createExerciseSpec('chromatic-position') }, minutes: 3 },
   { id: 'step-2', content: { kind: 'exercise', spec: createExerciseSpec('connect-forms') }, minutes: 5 },
   { id: 'step-3', content: { kind: 'exercise', spec: arpeggio }, minutes: 4 },
-  { id: 'step-4', content: { kind: 'check', spec: { version: 'check-v1', exercise: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), kind: 'name-degree', count: 6, ear: false } }, minutes: 3 },
+  { id: 'step-4', content: { kind: 'check', spec: degreeCheck(createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), 'name-degree', 6) }, minutes: 3 },
 ]);
-const checkSpec = (exercise = penta): CheckSpec => ({ version: 'check-v1', exercise, kind: 'name-degree', count: 6, ear: false });
+const checkSpec = (exercise = penta): CheckSpec => degreeCheck(exercise, 'name-degree', 6);
 
 describe('план на сегодня', () => {
   it('локальная дата устройства — YYYY-MM-DD', () => {
@@ -144,7 +145,7 @@ describe('план после самооценки и проверки', () => {
 describe('«Повторить» и «В план» из «Прогресса»', () => {
   it('трудная ступень добавляет проверку, остальное — упражнение; без описания — ничего', () => {
     const degree = { kind: 'degree' as const, exerciseKey: 'builtin:pentatonic-form', title: 'Форма', degree: 'b7', count: 2, dates: [TODAY] };
-    expect(repeatContent(degree, penta)).toEqual({ kind: 'check', spec: { version: 'check-v1', exercise: penta, kind: 'name-degree', count: 6, ear: false } });
+    expect(repeatContent(degree, penta)).toEqual({ kind: 'check', spec: degreeCheck(penta, 'name-degree', 6) });
     expect(repeatContent('builtin:pentatonic-form', penta)).toEqual({ kind: 'exercise', spec: penta });
     expect(repeatContent({ kind: 'errors', exerciseKey: 'builtin:pentatonic-form', title: 'Форма', count: 2, dates: [TODAY] }, penta)).toEqual({ kind: 'exercise', spec: penta });
     expect(repeatContent('builtin:pentatonic-form', null)).toBeNull();
@@ -212,10 +213,10 @@ describe('записи истории занятия', () => {
 
 describe('умолчания экрана игры и копия', () => {
   it('умолчания «Настроек» и настройки хранения переводятся без потерь', () => {
-    const play: PlayPreferences = { defaultView: 'both', newExerciseView: 'board', countInBars: 0, labels: 'degree', bpm: 96, reference: 'quiet', metronome: 'two-four', click: 0.3, grooveVolume: 0.5 };
+    const play: PlayPreferences = { defaultView: 'both', newExerciseView: 'board', countInBars: 0, labels: 'degree', bpm: 96, reference: 'quiet', metronome: 'two-four', click: 0.3, grooveVolume: 0.5, accompaniment: 'hold', accompanimentVolume: 0.8 };
     expect(toPlayDefaults(play)).toEqual({ view: 'tabBoard', newExerciseView: 'board', countInBars: 0, labels: 'degrees', bpm: 96, reference: 'quiet', metronome: 'two-four' });
     expect(fromPlayDefaults(toPlayDefaults(play), play)).toEqual(play);
-    const plain: PlayPreferences = { defaultView: 'memory', newExerciseView: null, countInBars: 2, labels: 'finger', bpm: 60, reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6 };
+    const plain: PlayPreferences = { defaultView: 'memory', newExerciseView: null, countInBars: 2, labels: 'finger', bpm: 60, reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6, accompaniment: 'off', accompanimentVolume: 0.5 };
     expect(fromPlayDefaults(toPlayDefaults(plain), plain)).toEqual(plain);
   });
 

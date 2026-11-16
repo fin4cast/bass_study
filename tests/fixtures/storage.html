@@ -6,6 +6,7 @@
   <h1>Изолированная проверка IndexedDB</h1>
   <script type="module">
     import { createStudyStore, DEFAULT_PREFERENCES, emptySnapshot, makeCheckHistory, makeManualHistory, makeRouteHistory, makeScreenHistory, previewImport, validateSnapshot } from '/src/storage/index.ts';
+    import { degreeCheck } from '/src/practice/check.ts';
     import { annotatePositions, createStructure, getPosition } from '/src/music/index.ts';
     import { createManualPracticeResult, nextQuestion, startQuiz, submitAnswer } from '/src/training/index.ts';
     import { advanceRouteSession, createRouteMaterial, startRouteSession } from '/src/route/index.ts';
@@ -33,7 +34,7 @@
     }
     function check(id = 'fixture-check') {
       return makeCheckHistory({ exerciseKey: 'builtin:pentatonic-form.A.minor-pentatonic.penta-b', title: 'Форма пентатоники вверх-вниз', activeMs: 95000,
-        spec: { version: 'check-v1', exercise: pentatonic('penta-b'), kind: 'name-degree', count: 3, ear: false },
+        spec: degreeCheck(pentatonic('penta-b'), 'name-degree', 3),
         answers: [{ degree: 'b3', outcome: 'correct', errors: 0 }, { degree: 'b7', outcome: 'corrected', errors: 2 }, { degree: '4', outcome: 'unanswered', errors: 0 }] }, { ...metadata, id });
     }
     function route(id, atMs = 2500) {

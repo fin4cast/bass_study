@@ -2,30 +2,29 @@
  * План на сегодня (R-026): плейлист шагов занятия с плановым временем.
  * Чистый модуль: без DOM, звука и хранилища. Все значения заморожены; операции возвращают новый план.
  */
-import { createExerciseSpec, validateExerciseSpec, type ExerciseSpec } from '../exercises';
+import { validateExerciseSpec, type ExerciseSpec } from '../exercises';
 import { validatePractice, type PracticeOptions } from '../exercises/rhythm';
+import { checkExercise, validateCheckSpec, type CheckSpec } from './check';
 
-export type CheckKind = 'find-degree' | 'name-degree';
-export interface CheckSpec {
-  readonly version: 'check-v1';
-  /** Материал проверки — то же упражнение, по которому задаются вопросы. */
-  readonly exercise: ExerciseSpec;
-  readonly kind: CheckKind;
-  readonly count: number;
-  /** Слух как опция вопроса: сначала тоника, потом нота. */
-  readonly ear: boolean;
-}
+export { validateCheckSpec, type CheckKind, type CheckSpec } from './check';
+
 export type PlanStepContent =
   /** `practice` — как играть шаг (эхо, подложка, ритм); без него — восьмые без эха и подложки (D-050). */
   | { readonly kind: 'exercise'; readonly spec: ExerciseSpec; readonly practice?: PracticeOptions }
   | { readonly kind: 'check'; readonly spec: CheckSpec };
+/** Материал содержимого шага: упражнение или материал проверки по упражнению; у проверки по диапазону — `null`. */
+export const contentExerciseOf = (content: PlanStepContent): ExerciseSpec | null => (content.kind === 'exercise' ? content.spec : checkExercise(content.spec));
 export type PlanStepStatus = 'pending' | 'current' | 'done';
 export interface PlanStep {
   readonly id: string;
   readonly content: PlanStepContent;
   readonly minutes: number;
   readonly status: PlanStepStatus;
+  /** ID шага программы (R-028, `h1-roots.eighths`); у шагов, добавленных из библиотеки вручную, поля нет. */
+  readonly programStep?: string;
 }
+/** Шаг, который принимают `createPlan` и `addStep`: статус назначает план. */
+export type NewPlanStep = { readonly id: string; readonly content: PlanStepContent; readonly minutes: number; readonly programStep?: string };
 export interface DayPlan {
   readonly version: 'plan-v1';
   /** Локальная дата плана YYYY-MM-DD. */
@@ -35,6 +34,8 @@ export interface DayPlan {
 
 export const MAX_PLAN_STEPS = 12;
 const ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+/** ID шага программы: блок и шаг через точку, строчными латиницей, цифрами и дефисом. */
+export const PROGRAM_STEP_ID = /^(?=.{3,64}$)[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
 function deepFreeze<T>(value: T): T {
@@ -49,15 +50,6 @@ function record(value: unknown, keys: readonly string[], label: string): Record<
   return value as Record<string, unknown>;
 }
 
-export function validateCheckSpec(value: unknown): CheckSpec {
-  const raw = record(value, ['version', 'exercise', 'kind', 'count', 'ear'], 'Проверка');
-  if (raw.version !== 'check-v1') throw new RangeError('Неизвестная версия проверки.');
-  if (raw.kind !== 'find-degree' && raw.kind !== 'name-degree') throw new RangeError('Неизвестный вид проверки.');
-  if (!Number.isInteger(raw.count) || (raw.count as number) < 3 || (raw.count as number) > 20) throw new RangeError('В проверке от 3 до 20 вопросов.');
-  if (typeof raw.ear !== 'boolean') throw new RangeError('Опция слуха должна быть да или нет.');
-  return deepFreeze({ version: 'check-v1', exercise: validateExerciseSpec(raw.exercise), kind: raw.kind, count: raw.count as number, ear: raw.ear });
-}
-
 function validateContent(value: unknown): PlanStepContent {
   const withPractice = !!value && typeof value === 'object' && Object.hasOwn(value, 'practice');
   const raw = record(value, withPractice ? ['kind', 'spec', 'practice'] : ['kind', 'spec'], 'Шаг плана');
@@ -70,11 +62,15 @@ function validateContent(value: unknown): PlanStepContent {
 }
 
 function validateStep(value: unknown): PlanStep {
-  const raw = record(value, ['id', 'content', 'minutes', 'status'], 'Шаг плана');
+  const linked = !!value && typeof value === 'object' && Object.hasOwn(value, 'programStep');
+  const raw = record(value, linked ? ['id', 'content', 'minutes', 'status', 'programStep'] : ['id', 'content', 'minutes', 'status'], 'Шаг плана');
   if (typeof raw.id !== 'string' || !ID.test(raw.id)) throw new RangeError('Шаг плана: некорректный идентификатор.');
   if (!Number.isInteger(raw.minutes) || (raw.minutes as number) < 1 || (raw.minutes as number) > 60) throw new RangeError('Шаг плана: от 1 до 60 минут.');
   if (raw.status !== 'pending' && raw.status !== 'current' && raw.status !== 'done') throw new RangeError('Шаг плана: неизвестный статус.');
-  return { id: raw.id, content: validateContent(raw.content), minutes: raw.minutes as number, status: raw.status };
+  const base = { id: raw.id, content: validateContent(raw.content), minutes: raw.minutes as number, status: raw.status as PlanStepStatus };
+  if (!linked) return base;
+  if (typeof raw.programStep !== 'string' || !PROGRAM_STEP_ID.test(raw.programStep)) throw new RangeError('Шаг плана: некорректный ID шага программы.');
+  return { ...base, programStep: raw.programStep };
 }
 
 /** Не больше одного текущего шага; если текущего нет — им становится первый незавершённый. */
@@ -101,13 +97,13 @@ export function validatePlan(value: unknown): DayPlan {
   return deepFreeze({ version: 'plan-v1', localDate: raw.localDate, steps });
 }
 
-export function createPlan(localDate: string, steps: readonly { readonly id: string; readonly content: PlanStepContent; readonly minutes: number }[] = []): DayPlan {
+export function createPlan(localDate: string, steps: readonly NewPlanStep[] = []): DayPlan {
   return validatePlan(JSON.parse(JSON.stringify({ version: 'plan-v1', localDate, steps: normalize(steps.map(step => ({ ...step, status: 'pending' as const }))) })));
 }
 
 const rebuild = (plan: DayPlan, steps: readonly PlanStep[]) => validatePlan(JSON.parse(JSON.stringify({ ...plan, steps: normalize(steps) })));
 
-export function addStep(plan: DayPlan, step: { readonly id: string; readonly content: PlanStepContent; readonly minutes: number }): DayPlan {
+export function addStep(plan: DayPlan, step: NewPlanStep): DayPlan {
   if (plan.steps.length >= MAX_PLAN_STEPS) throw new RangeError(`В плане не больше ${MAX_PLAN_STEPS} шагов.`);
   return rebuild(plan, [...plan.steps, { ...step, status: 'pending' }]);
 }

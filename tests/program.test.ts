@@ -6,7 +6,7 @@ import { getConcept } from '../src/practice/concepts';
 import { materialId } from '../src/practice/material';
 import { PROGRAM } from '../src/practice/program-data';
 import {
-  BASE_BPM, composeDay, daysBetween, evaluateProgram, isDone, isRequired, MEMORY_TEMPLATE_IDS, playContent, playFacts, stepMinutes, stepRefs,
+  BASE_BPM, checkFacts, composeDay, daysBetween, evaluateProgram, isDone, isRequired, MEMORY_TEMPLATE_IDS, playContent, playFacts, stepMinutes, stepRefs,
   type Block, type CheckFact, type LineFact, type PlayFact, type PlayStep, type Program, type ProgramFacts, type Step,
 } from '../src/practice/program';
 import type { PlayRecord } from '../src/practice/results';
@@ -400,5 +400,23 @@ describe('данные программы (этап 1, заход B)', () => {
     expect(first.items.map(item => item.step.id)).toEqual(['t1-crossing.eighths', 'f1-octave.quarters', 'h1-roots.eighths']);
     expect(first.items.every(item => item.variant === 0 && item.minutes >= 2 && item.minutes <= 5)).toBe(true);
     for (const ref of refs) expect(isRequired(ref.step) || ref.step.kind === 'song').toBe(true);
+  });
+});
+
+describe('факты из записей «Проверь себя»', () => {
+  it('проверка по материалу превращается в факт с тем же checkId, что у шага программы', () => {
+    const exercise = createExerciseSpec('root-five-eight', { root: 'C', string: 'A' });
+    const answers = [
+      { degree: '1', outcome: 'correct' as const, errors: 0 }, { degree: '5', outcome: 'corrected' as const, errors: 1 },
+      { degree: '1', outcome: 'revealed' as const, errors: 0 }, { degree: '5', outcome: 'correct' as const, errors: 0 },
+      { degree: '1', outcome: 'correct' as const, errors: 0 }, { degree: '5', outcome: 'correct' as const, errors: 0 },
+    ];
+    const record = { kind: 'check' as const, id: 'c1', exerciseKey: 'builtin:x', title: 'Октава', spec: exercise, checkKind: 'find-degree' as const, ear: false, activeMs: 1, localDate: TODAY, occurredAt: `${TODAY}T10:00:00.000Z`, answers };
+    const [fact] = checkFacts([record]);
+    const step = stepRefs(PROGRAM).map(ref => ref.step).find(item => item.kind === 'check');
+    expect(step?.kind === 'check' && fact.checkId === checkId(step.check)).toBe(true);
+    expect(fact).toMatchObject({ firstTry: 4, count: 6, localDate: TODAY });
+    const status = evaluateProgram(PROGRAM, facts({ checks: [{ ...fact, firstTry: 5 }] })).statuses.get('f1-octave.degrees');
+    expect(status?.state).toBe('passed');
   });
 });

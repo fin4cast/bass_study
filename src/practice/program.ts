@@ -6,7 +6,7 @@
 import { buildExercise, type ExerciseSpec } from '../exercises';
 import { buildTimeline, samePractice, type PracticeOptions } from '../exercises/rhythm';
 import type { TemplateTask } from '../exercises/tasks';
-import { checkId, type CheckSpec } from './check';
+import { checkId, degreeCheck, type CheckSpec } from './check';
 import { materialId } from './material';
 import type { PlanStepContent } from './plan';
 import type { PlayRecord, PracticeRecord } from './results';
@@ -135,6 +135,22 @@ export function playFacts(records: readonly PracticeRecord[]): PlayFact[] {
     let id: string;
     try { id = materialId((record as PlayRecord).spec); } catch { continue; }
     facts.push({ materialId: id, practice: record.practice, assessment: record.assessment, wholePass: record.wholePass, bpm: record.bpm, localDate: record.localDate, view: record.view });
+  }
+  return facts;
+}
+
+/**
+ * Факты из записей «Проверь себя»: описание проверки восстанавливается из материала, вида вопроса и слуха записи
+ * (проверка по материалу упражнения), число вопросов — по числу ответов; верные с первой попытки — без ошибок и показа.
+ */
+export function checkFacts(records: readonly PracticeRecord[]): CheckFact[] {
+  const facts: CheckFact[] = [];
+  for (const record of records) {
+    if (record.kind !== 'check') continue;
+    try {
+      const id = checkId(degreeCheck(record.spec, record.checkKind as 'find-degree' | 'name-degree', record.answers.length, record.ear));
+      facts.push({ checkId: id, firstTry: record.answers.filter(answer => answer.outcome === 'correct' && answer.errors === 0).length, count: record.answers.length, localDate: record.localDate });
+    } catch { /* запись с описанием, которое не строится, шагу не засчитывается */ }
   }
   return facts;
 }

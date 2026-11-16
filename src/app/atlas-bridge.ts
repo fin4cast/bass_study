@@ -6,7 +6,7 @@
 import { createExerciseSpec, type ExerciseSpec } from '../exercises';
 import type { StructureId } from '../music';
 import { getBoxCatalogue, getBoxInstance, type BoxSelection } from '../music/boxes';
-import type { CheckSpec } from '../practice/plan';
+import { degreeCheck, type CheckSpec } from '../practice/check';
 
 export interface AtlasStudy {
   readonly root: string;
@@ -57,6 +57,6 @@ export function atlasBridge(study: AtlasStudy): AtlasBridge {
   const note = lowest && lowest.window.fretMin !== selected.window.fretMin
     ? `Упражнение и проверка — по нижнему экземпляру этой формы: лады ${lowest.window.fretMin}–${lowest.window.fretMax}.`
     : '';
-  const check: CheckSpec = Object.freeze({ version: 'check-v1', exercise, kind: 'find-degree', count: ATLAS_CHECK_COUNT, ear: false });
+  const check: CheckSpec = degreeCheck(exercise, 'find-degree', ATLAS_CHECK_COUNT);
   return Object.freeze({ exercise, check, reason: '', note });
 }

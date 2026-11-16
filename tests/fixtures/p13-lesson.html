@@ -31,6 +31,7 @@
     import '/src/styles.css';
     import { mountLesson } from '/src/ui/lesson/view.ts';
     import { completeStep, createPlan } from '/src/practice/plan.ts';
+    import { degreeCheck } from '/src/practice/check.ts';
     import { createExerciseSpec } from '/src/exercises/index.ts';
     import { exerciseKey } from '/src/practice/material.ts';
 
@@ -60,7 +61,7 @@
         { id: 'step-1', content: { kind: 'exercise', spec: createExerciseSpec('chromatic-position') }, minutes: 3 },
         { id: 'step-2', content: { kind: 'exercise', spec: createExerciseSpec('connect-forms') }, minutes: 5 },
         { id: 'step-3', content: { kind: 'exercise', spec: createExerciseSpec('arpeggio-1358') }, minutes: 4 },
-        { id: 'step-4', content: { kind: 'check', spec: { version: 'check-v1', exercise: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), kind: 'name-degree', count: 6, ear: false } }, minutes: 3 },
+        { id: 'step-4', content: { kind: 'check', spec: degreeCheck(createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), 'name-degree', 6) }, minutes: 3 },
       ]);
       return completeStep(plan, plan.steps[0].id);
     };

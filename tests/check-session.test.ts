@@ -9,9 +9,10 @@ import {
   hasActivity, isDegreeKind, markedPosition, modeFor, prompt, QUESTION_KINDS, recordAnswers, recordsDegrees, retryRun, reveal, revealedAnswer, reviewMaterial,
   runStatus, scopeApplies, skip, startRun, summarize, summaryRow, wrongFeedback, type CheckRun, type QuestionKind,
 } from '../src/ui/check/session';
+import { degreeCheck } from '../src/practice/check';
 
 const formB = createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' });
-const spec = (kind: CheckSpec['kind'], ear = false, exercise = formB, count = 6): CheckSpec => ({ version: 'check-v1', exercise, kind, count, ear });
+const spec = (kind: 'find-degree' | 'name-degree', ear = false, exercise = formB, count = 6): CheckSpec => degreeCheck(exercise, kind, count, ear);
 
 /** Первый seed, у которого первый вопрос удовлетворяет условию (подбор материала теста, не подсказка интерфейсу). */
 function runWhere(material: ReturnType<typeof checkMaterial>, mode: 'board' | 'cards', test: (run: CheckRun) => boolean) {

@@ -330,3 +330,24 @@ describe('P18-03: задание из трёх строк у каждого ша
     for (const id of ids) expect(buildExercise(createExerciseSpec(id)).task, id).toBe(TEMPLATE_TASKS[id]);
   });
 });
+
+describe('форма A1/B7: аппликатура, направление и позиция (P18-20)', () => {
+  it('новые параметры идут в порядке A1/B7 и входят в ключ материала', async () => {
+    const { materialId } = await import('../src/practice/material');
+    expect(Object.keys(createExerciseSpec('chromatic-position').params)).toEqual(['startFret', 'fingering', 'direction']);
+    expect(materialId(createExerciseSpec('chromatic-position'))).toBe('chromatic-position.5.1234.up');
+    expect(Object.keys(createExerciseSpec('progression').params)).toEqual(['root', 'progression', 'pattern', 'position']);
+    expect(materialId(createExerciseSpec('progression'))).toBe('progression.C.I-IV-V.roots.closed');
+  });
+
+  it('до захода C допустимы только умолчания: остальные значения отклоняются', () => {
+    const chromatic = createExerciseSpec('chromatic-position');
+    for (const [param, value] of [['fingering', '124'], ['direction', 'up-down'], ['fingering', '']] as const) {
+      expect(() => validateExerciseSpec({ ...chromatic, params: { ...chromatic.params, [param]: value } }), `${param}=${value}`).toThrow(RangeError);
+    }
+    const progression = createExerciseSpec('progression');
+    for (const value of ['low', 'open', 'Closed']) expect(() => validateExerciseSpec({ ...progression, params: { ...progression.params, position: value } }), value).toThrow(RangeError);
+    // Старая форма без новых полей — не материал этой версии.
+    expect(() => validateExerciseSpec({ version: 'exercise-v1', templateId: 'chromatic-position', params: { startFret: 5 } })).toThrow(RangeError);
+  });
+});

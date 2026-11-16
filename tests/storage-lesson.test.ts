@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import backupJson from './fixtures/backup.json?raw';
 import { createExerciseSpec } from '../src/exercises';
 import { createPlan } from '../src/practice/plan';
+import { degreeCheck } from '../src/practice/check';
 import { REFERENCE_CONCEPTS } from '../src/practice/concepts';
 import { materialId } from '../src/practice/material';
 import { annotatePositions, createStructure, getPosition, parseNote } from '../src/music';
@@ -23,7 +24,7 @@ const pass = (id = 'exercise-pass', assessment: 'clean' | 'errors' | 'slow' = 'c
   makeManualHistory(createManualPracticeResult({ context: null, comfortableBpm: bpm, durationMs: 120000, note: '', assessment, material: material() }), { ...metadata, id });
 const checkResult = () => ({
   exerciseKey: `builtin:${materialId(pentaB)}`, title: 'Форма пентатоники вверх-вниз', activeMs: 90000,
-  spec: { version: 'check-v1' as const, exercise: pentaB, kind: 'name-degree' as const, count: 4, ear: false },
+  spec: degreeCheck(pentaB, 'name-degree', 4),
   answers: [{ degree: 'b3', outcome: 'correct' as const, errors: 0 }, { degree: 'b7', outcome: 'corrected' as const, errors: 1 },
     { degree: '4', outcome: 'revealed' as const, errors: 2 }, { degree: '1', outcome: 'unanswered' as const, errors: 0 }],
 });
@@ -40,7 +41,7 @@ describe('настройки P13: занятие, экран игры, спра�
     expect(validatePreferences(DEFAULT_PREFERENCES)).toMatchObject({
       activeModule: 'lesson',
       lesson: { plan: null, tab: 'today', playFrom: null, exerciseSettings: {}, progressTab: 'exercises', progressSource: 'all', basicsView: 'path', skipped: [] },
-      play: { defaultView: 'both', newExerciseView: 'board', countInBars: 1, labels: 'name', bpm: 72, reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6 },
+      play: { defaultView: 'both', newExerciseView: 'board', countInBars: 1, labels: 'name', bpm: 72, reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6, accompaniment: 'off', accompanimentVolume: 0.5 },
       reference: { mastered: [] },
     });
     for (const section of ['lesson', 'foundation', 'harmony', 'tracks', 'progress', 'settings']) expect(validatePreferences({ ...DEFAULT_PREFERENCES, activeModule: section }).activeModule).toBe(section);
@@ -50,12 +51,12 @@ describe('настройки P13: занятие, экран игры, спра�
     const plan = createPlan('2026-11-12', [{ id: 'step-1', content: { kind: 'exercise', spec: pentaB }, minutes: 5 }]);
     const value = validatePreferences({ ...clone(DEFAULT_PREFERENCES),
       lesson: { plan, tab: 'library', playFrom: 'F♯', exerciseSettings: { 'builtin:octaves.G': { view: 'memory', bpm: 80, targetBpm: 96, rhythm: 'quarters', groove: 'shuffle' }, 'user:my-1': { view: 'tab', bpm: null, targetBpm: null, rhythm: 'eighths', groove: null } }, progressTab: 'calendar', progressSource: 'check', basicsView: 'knowledge', skipped: ['t1-left', 'f1-octave'] },
-      play: { defaultView: 'tab', newExerciseView: null, countInBars: 2, labels: 'finger', bpm: 40, reference: 'off', metronome: 'gap', click: 0, grooveVolume: 1 },
+      play: { defaultView: 'tab', newExerciseView: null, countInBars: 2, labels: 'finger', bpm: 40, reference: 'off', metronome: 'gap', click: 0, grooveVolume: 1, accompaniment: 'beats', accompanimentVolume: 1 },
       reference: { mastered: REFERENCE_CONCEPTS.slice(0, 3).map(concept => concept.id) } });
     expect(value.lesson.plan).toEqual(plan);
     expect(value.lesson.playFrom).toBe(parseNote('F♯').name);
     expect(value.lesson.exerciseSettings['builtin:octaves.G']).toEqual({ view: 'memory', bpm: 80, targetBpm: 96, rhythm: 'quarters', groove: 'shuffle' });
-    expect(value.play).toMatchObject({ countInBars: 2, reference: 'off', metronome: 'gap', click: 0, grooveVolume: 1 });
+    expect(value.play).toMatchObject({ countInBars: 2, reference: 'off', metronome: 'gap', click: 0, grooveVolume: 1, accompaniment: 'beats', accompanimentVolume: 1 });
     expect(value.lesson.basicsView).toBe('knowledge');
     expect(value.lesson.skipped).toEqual(['t1-left', 'f1-octave']);
     expect(value.play.newExerciseView).toBeNull();
@@ -191,7 +192,7 @@ describe('«Проверь себя» в истории', () => {
   });
 
   it('пентатоника и трезвучия: ступени — только из структуры упражнения', () => {
-    const minorTriad = { ...checkResult(), exerciseKey: 'user:arpeggio', spec: { ...checkResult().spec, exercise: createExerciseSpec('arpeggio-1358', { structureId: 'minor-triad' }) },
+    const minorTriad = { ...checkResult(), exerciseKey: 'user:arpeggio', spec: degreeCheck(createExerciseSpec('arpeggio-1358', { structureId: 'minor-triad' }), 'name-degree', 4),
       answers: [{ degree: 'b3', outcome: 'correct' as const, errors: 0 }, { degree: '5', outcome: 'skipped' as const, errors: 0 }] };
     expect(makeCheckHistory(minorTriad, { ...metadata, id: 'triad' })!.result.answers).toHaveLength(2);
     invalid(() => makeCheckHistory({ ...minorTriad, answers: [{ degree: '4', outcome: 'correct', errors: 0 }] }, { ...metadata, id: 'triad' }));
@@ -215,10 +216,12 @@ describe('«Проверь себя» в истории', () => {
     ['ключ', (x: any) => { x.result.exerciseKey = 'pentatonic-form'; }],
     ['чужой шаблон встроенного ключа', (x: any) => { x.result.exerciseKey = 'builtin:octaves'; }],
     ['пустое название', (x: any) => { x.result.title = ''; }],
-    ['версия проверки', (x: any) => { x.result.spec.version = 'check-v2'; }],
+    ['версия проверки', (x: any) => { x.result.spec.version = 'check-v1'; }],
+    ['проверка по диапазону — P18-12', (x: any) => { x.result.spec.area = { type: 'range', strings: ['E', 'A'], fretMin: 0, fretMax: 5 }; x.result.spec.subject = { type: 'notes', notes: 'natural' }; x.result.spec.kind = 'name-note'; }],
+    ['проверка с ограничением целей', (x: any) => { x.result.spec.subject.targets = ['b3']; }],
     ['число вопросов', (x: any) => { x.result.spec.count = 2; }],
-    ['хроматика без одной структуры', (x: any) => { x.result.spec.exercise = clone(createExerciseSpec('chromatic-position')); x.result.exerciseKey = 'user:chromatic'; }],
-    ['транспонирование без одной структуры', (x: any) => { x.result.spec.exercise = clone(createExerciseSpec('form-transpose')); x.result.exerciseKey = 'user:transpose'; }],
+    ['хроматика без одной структуры', (x: any) => { x.result.spec.area.exercise = clone(createExerciseSpec('chromatic-position')); x.result.exerciseKey = 'user:chromatic'; }],
+    ['транспонирование без одной структуры', (x: any) => { x.result.spec.area.exercise = clone(createExerciseSpec('form-transpose')); x.result.exerciseKey = 'user:transpose'; }],
     ['маршрут', (x: any) => { x.routeRef = { routeId: 'route-1', step: 'ear' }; }],
     ['лишнее поле', (x: any) => { x.result.seed = 1; }],
   ])('отклоняет: %s', (_name, change) => {

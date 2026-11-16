@@ -16,7 +16,9 @@
                 "version": "exercise-v1",
                 "templateId": "chromatic-position",
                 "params": {
-                  "startFret": 5
+                  "startFret": 5,
+                  "fingering": "1234",
+                  "direction": "up"
                 }
               }
             },
@@ -28,17 +30,25 @@
             "content": {
               "kind": "check",
               "spec": {
-                "version": "check-v1",
-                "exercise": {
-                  "version": "exercise-v1",
-                  "templateId": "pentatonic-form",
-                  "params": {
-                    "root": "A",
-                    "structureId": "minor-pentatonic",
-                    "shapeId": "penta-b"
+                "version": "check-v2",
+                "kind": "name-degree",
+                "area": {
+                  "type": "exercise",
+                  "exercise": {
+                    "version": "exercise-v1",
+                    "templateId": "pentatonic-form",
+                    "params": {
+                      "root": "A",
+                      "structureId": "minor-pentatonic",
+                      "shapeId": "penta-b"
+                    }
                   }
                 },
-                "kind": "name-degree",
+                "subject": {
+                  "type": "degrees",
+                  "scale": null,
+                  "targets": null
+                },
                 "count": 6,
                 "ear": false
               }
@@ -51,7 +61,7 @@
       "tab": "today",
       "playFrom": "C",
       "exerciseSettings": {
-        "builtin:chromatic-position.5": { "view": "tab", "bpm": 84, "targetBpm": 100, "rhythm": "quarters", "groove": null },
+        "builtin:chromatic-position.5.1234.up": { "view": "tab", "bpm": 84, "targetBpm": 100, "rhythm": "quarters", "groove": null },
         "user:fixture-penta": { "view": "memory", "bpm": null, "targetBpm": null, "rhythm": "eighths", "groove": "shuffle" }
       },
       "progressTab": "exercises",
@@ -68,7 +78,9 @@
       "reference": "auto",
       "metronome": "two-four",
       "click": 0.4,
-      "grooveVolume": 0.6
+      "grooveVolume": 0.6,
+      "accompaniment": "off",
+      "accompanimentVolume": 0.5
     },
     "reference": {
       "mastered": [
@@ -309,17 +321,25 @@
         "exerciseKey": "builtin:pentatonic-form.A.minor-pentatonic.penta-b",
         "title": "Форма пентатоники вверх-вниз",
         "spec": {
-          "version": "check-v1",
-          "exercise": {
-            "version": "exercise-v1",
-            "templateId": "pentatonic-form",
-            "params": {
-              "root": "A",
-              "structureId": "minor-pentatonic",
-              "shapeId": "penta-b"
+          "version": "check-v2",
+          "kind": "name-degree",
+          "area": {
+            "type": "exercise",
+            "exercise": {
+              "version": "exercise-v1",
+              "templateId": "pentatonic-form",
+              "params": {
+                "root": "A",
+                "structureId": "minor-pentatonic",
+                "shapeId": "penta-b"
+              }
             }
           },
-          "kind": "name-degree",
+          "subject": {
+            "type": "degrees",
+            "scale": null,
+            "targets": null
+          },
           "count": 6,
           "ear": false
         },

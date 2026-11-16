@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createExerciseSpec } from '../src/exercises';
 import { completeStep, createPlan, type DayPlan } from '../src/practice/plan';
+import { checkExercise, degreeCheck } from '../src/practice/check';
 import type { PracticeRecord } from '../src/practice/results';
 import type { UserExercise } from '../src/practice/library';
 import { exerciseStructure, formatDegree, formatPosition, materialLabel } from '../src/ui/lesson/material';
@@ -26,7 +27,7 @@ const continuePlan = (): DayPlan => {
     { id: 'step-1', content: { kind: 'exercise', spec: createExerciseSpec('chromatic-position') }, minutes: 3 },
     { id: 'step-2', content: { kind: 'exercise', spec: createExerciseSpec('connect-forms') }, minutes: 5 },
     { id: 'step-3', content: { kind: 'exercise', spec: createExerciseSpec('arpeggio-1358') }, minutes: 4 },
-    { id: 'step-4', content: { kind: 'check', spec: { version: 'check-v1', exercise: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), kind: 'name-degree', count: 6, ear: false } }, minutes: 3 },
+    { id: 'step-4', content: { kind: 'check', spec: degreeCheck(createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), 'name-degree', 6) }, minutes: 3 },
   ]);
   return completeStep(plan, plan.steps[0].id);
 };
@@ -244,7 +245,7 @@ describe('«Основы»', () => {
   });
   it('проверка шага существует только для материала со ступенями, иначе — вопрос карточки', () => {
     for (const step of basicsCourse([]).flatMap(level => level.steps).filter(item => item.kind === 'check')) {
-      if (step.content) expect(step.content.kind === 'check' && exerciseStructure(step.content.spec.exercise)).toBeTruthy();
+      if (step.content) expect(step.content.kind === 'check' && exerciseStructure(checkExercise(step.content.spec)!)).toBeTruthy();
       else expect(step.title).toMatch(/^Вопрос карточки/);
     }
   });

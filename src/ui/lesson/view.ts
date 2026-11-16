@@ -7,7 +7,7 @@ import './mini-board.css';
 import './lesson.css';
 import { configureSpec, NOTE_CHOICES, templateOptions, type ExerciseSpec, type TemplateOption } from '../../exercises';
 import { conceptForExerciseConcept, getConcept, conceptBoard, parseConceptText, type ConceptBoard, type ConceptRole } from '../../practice/concepts';
-import { moveStep, plannedMinutes, removeStep, type DayPlan, type PlanStepContent } from '../../practice/plan';
+import { contentExerciseOf, moveStep, plannedMinutes, removeStep, type DayPlan, type PlanStepContent } from '../../practice/plan';
 import { renderPageHeader } from '../../app/page-frame';
 import { bindPageTabs } from '../page-tabs';
 import { escapeHtml as e } from '../html';
@@ -174,12 +174,12 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         <div class="ls-actions"><button type="button" class="secondary-button" data-act="go-library" data-key="hero-library">Открыть библиотеку →</button></div>`;
     } else {
       const content = hero.content!;
-      const spec = content.kind === 'exercise' ? content.spec : content.spec.exercise;
+      const spec = contentExerciseOf(content);
       heroMarkup = `<div class="ls-hero-top"><div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
           <div class="ls-chips">${hero.concepts.map(concept => `<span class="ls-chip ls-chip-concept">${e(concept)}</span>`).join('')}</div></div>
         <div class="ls-actions"><button type="button" class="primary-button button-large" data-act="play" data-ref="${ref(content)}" data-step="${e(hero.stepId ?? '')}" data-key="hero-play">▶ ${content.kind === 'check' ? 'Проверь себя' : 'Играть'}</button>
           ${hero.stats.length ? `<div class="ls-stats">${hero.stats.map(stat => `<span><b>${e(stat.value)}</b>${e(stat.label)}</span>`).join('')}</div>` : '<div class="ls-stats"><span class="ls-sub">Отметку «Чисто / С ошибками / Не успевал» поставишь после прохода.</span></div>'}</div>
-        ${exerciseBoardMarkup(spec, 700, 28)}`;
+        ${spec ? exerciseBoardMarkup(spec, 700, 28) : ''}`;
     }
 
     const planMarkup = `<div class="ls-plan-head"><h2>План на сегодня · ${e(total)} мин</h2><span class="ls-sub">${e(rows.length)} ${plural(rows.length, 'шаг', 'шага', 'шагов')}</span></div>
@@ -240,7 +240,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
       <div class="ls-filters"><div class="ls-field"><span>Понятие</span><div class="ls-chips">${LIBRARY_CONCEPTS.map(concept => `<button type="button" class="ls-chip ls-chip-filter" data-act="concept-filter" data-value="${e(concept)}" data-key="cf:${e(concept)}" aria-pressed="${library.concept === concept}">${e(CONCEPT_LABELS[concept])}</button>`).join('')}</div></div>
         <div class="ls-count ls-end"><span role="status">Показано ${e(model.cards.length)} из ${e(model.total)}</span><button type="button" class="ls-link" data-act="reset" data-key="reset">Сбросить</button></div></div>`;
     const cards = model.cards.map(card => {
-      const data = exerciseBoard(card.content.kind === 'exercise' ? card.content.spec : card.content.spec.exercise, 'none');
+      const data = exerciseBoard(contentExerciseOf(card.content)!, 'none');
       const saving = saveDraft?.key === card.id;
       const save = options.onSaveExercise && card.builtin ? (saving
         ? `<form class="ls-save" data-save="${e(card.id)}"><label class="ls-field">Название <input type="text" maxlength="80" required value="${e(saveDraft!.name)}" data-save-name data-key="save-name:${e(card.id)}"></label><button type="submit" class="primary-button button-compact">Сохранить</button><button type="button" class="secondary-button button-compact" data-act="save-cancel" data-key="save-cancel">Отмена</button></form>`

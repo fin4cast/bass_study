@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import backupJson from './fixtures/backup.json?raw';
 import { createExerciseSpec } from '../src/exercises';
+import { degreeCheck } from '../src/practice/check';
 import { practiceRecords } from '../src/practice/history';
 import { exerciseProgress, checkProgress, minutesByDay, difficulties } from '../src/practice/results';
 import { createManualPracticeResult } from '../src/training/results';
@@ -34,7 +35,7 @@ describe('записи «Прогресса» из истории', () => {
       play('p1', '2026-11-08T20:30:00.000Z', 'clean', 80),
       play('p2', '2026-11-08T21:30:00.000Z', 'errors', 92),
       play('p3', '2026-11-09T09:00:00.000Z', 'errors', 92),
-      makeCheckHistory({ exerciseKey: 'user:arp', title: 'Моё арпеджио', activeMs: 120000, spec: { version: 'check-v1', exercise: spec, kind: 'find-degree', count: 3, ear: false },
+      makeCheckHistory({ exerciseKey: 'user:arp', title: 'Моё арпеджио', activeMs: 120000, spec: degreeCheck(spec, 'find-degree', 3),
         answers: [{ degree: '3', outcome: 'revealed', errors: 1 }, { degree: '5', outcome: 'correct', errors: 0 }, { degree: '1', outcome: 'correct', errors: 0 }] }, { id: 'c1', occurredAt: '2026-11-09T10:00:00.000Z', timeZone: 'Europe/Moscow' })!,
     ];
     const records = practiceRecords(history);

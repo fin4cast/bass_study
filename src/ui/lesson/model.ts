@@ -6,9 +6,10 @@
 import { createExerciseSpec, EXERCISE_TEMPLATES, type ConceptId, type ExerciseCategory, type ExerciseSpec, type ExerciseTemplateId } from '../../exercises';
 import { builtinLibrary, CATEGORY_ORDER, isPlayed, CATEGORY_TITLES, countByCategory, filterLibrary, userLibrary, type LibraryItem, type UserExercise } from '../../practice/library';
 import {
-  addStep, currentStep, doneMinutes, MAX_PLAN_STEPS, plannedMinutes, removeStep, validatePlan,
-  type CheckKind, type CheckSpec, type DayPlan, type PlanStep, type PlanStepContent,
+  addStep, contentExerciseOf, currentStep, doneMinutes, MAX_PLAN_STEPS, plannedMinutes, removeStep, validatePlan,
+  type DayPlan, type PlanStep, type PlanStepContent,
 } from '../../practice/plan';
+import { checkExercise, checkId, degreeCheck, type CheckKind, type CheckSpec } from '../../practice/check';
 import { ASSESSMENT_LABELS, exerciseProgress, playedKeys, type Assessment, type PracticeRecord } from '../../practice/results';
 import { DEFAULT_PRACTICE, rhythmPattern, samePractice } from '../../exercises/rhythm';
 import { conceptForExerciseConcept, REFERENCE_CONCEPTS, REFERENCE_LEVELS, type ReferenceConcept, type ReferenceLevel } from '../../practice/concepts';
@@ -33,7 +34,9 @@ export interface LessonState {
 import { exerciseKey, materialId, sameSpec } from '../../practice/material';
 export { exerciseKey, materialId };
 
-export const CHECK_KIND_TITLES: Readonly<Record<CheckKind, string>> = Object.freeze({ 'find-degree': 'найди ступень', 'name-degree': 'назови ступень' });
+export const CHECK_KIND_TITLES: Readonly<Record<CheckKind, string>> = Object.freeze({
+  'find-degree': 'найди ступень', 'name-degree': 'назови ступень', 'find-note': 'найди ноту', 'name-note': 'назови ноту', 'find-all': 'найди все позиции',
+});
 
 export function exerciseTitle(spec: ExerciseSpec, userExercises: readonly UserExercise[] = []): string {
   return userExercises.find(exercise => sameSpec(exercise.spec, spec))?.name ?? exercisePlan(spec).title;
@@ -54,14 +57,15 @@ function practiceLabels(content: Extract<PlanStepContent, { kind: 'exercise' }>)
 }
 export function stepMaterial(content: PlanStepContent): string {
   if (content.kind === 'exercise') return [materialLabel(content.spec), ...practiceLabels(content)].join(' · ');
-  return `${materialLabel(content.spec.exercise)} · ${content.spec.count} вопросов`;
+  const area = content.spec.area;
+  const label = area.type === 'exercise' ? materialLabel(area.exercise) : `струны ${area.strings.join(', ')} · лады ${area.fretMin}–${area.fretMax}`;
+  return `${label} · ${content.spec.count} вопросов`;
 }
 
 /** Проверка ступеней по материалу упражнения; без ступеней в материале — `null`. */
-export function checkContent(spec: ExerciseSpec, kind: CheckKind = 'name-degree', ear = false): PlanStepContent | null {
+export function checkContent(spec: ExerciseSpec, kind: 'find-degree' | 'name-degree' = 'name-degree', ear = false): PlanStepContent | null {
   if (!exerciseStructure(spec)) return null;
-  const check: CheckSpec = { version: 'check-v1', exercise: spec, kind, count: CHECK_COUNT, ear };
-  return { kind: 'check', spec: check };
+  return { kind: 'check', spec: degreeCheck(spec, kind, CHECK_COUNT, ear) };
 }
 
 /* ---------- Операции плана ---------- */
@@ -85,7 +89,7 @@ function sameKey(a: PlanStepContent, b: PlanStepContent, userExercises: readonly
   // «Эхо» или «под шаффл» — другой шаг того же материала; отсутствие «как играть» — обычные восьмые.
   if (a.kind === 'exercise' && b.kind === 'exercise') return exerciseKey(a.spec, userExercises) === exerciseKey(b.spec, userExercises)
     && samePractice(a.practice ?? DEFAULT_PRACTICE, b.practice ?? DEFAULT_PRACTICE);
-  if (a.kind === 'check' && b.kind === 'check') return a.spec.kind === b.spec.kind && sameSpec(a.spec.exercise, b.spec.exercise);
+  if (a.kind === 'check' && b.kind === 'check') return checkId(a.spec) === checkId(b.spec);
   return false;
 }
 
@@ -154,7 +158,7 @@ export function planRows(plan: DayPlan, records: readonly PracticeRecord[], user
     return {
       id: step.id, index, status: step.status, title: stepTitle(step.content, userExercises), meta: `${stepMaterial(step.content)}${tempo}`,
       minutes: step.minutes, check: step.content.kind === 'check', ear: step.content.kind === 'check' ? step.content.spec.ear : null,
-      earAvailable: step.content.kind === 'check' && earSupported(step.content.spec.exercise), mark,
+      earAvailable: step.content.kind === 'check' && (() => { const material = checkExercise(step.content.spec); return !!material && earSupported(material); })(), mark,
       first: movable[0]?.id === step.id, last: movable.at(-1)?.id === step.id,
     };
   });
@@ -180,8 +184,8 @@ export function heroModel(state: Pick<LessonState, 'plan' | 'records' | 'userExe
     if (last?.kind === 'play') { content = { kind: 'exercise', spec: last.spec }; eyebrow = 'Продолжить · с прошлого занятия'; }
   }
   if (!content) return { mode: 'empty', eyebrow: 'План пуст', title: 'Собери план на сегодня', meta: 'Добавь упражнения из библиотеки.', content: null, stepId: null, concepts: [], stats: [] };
-  const exercise = content.kind === 'exercise' ? content.spec : content.spec.exercise;
-  const key = exerciseKey(exercise, state.userExercises);
+  const exercise = contentExerciseOf(content);
+  const key = exercise ? exerciseKey(exercise, state.userExercises) : null;
   const progress = content.kind === 'exercise' ? exerciseProgress(state.records).find(item => item.exerciseKey === key) : undefined;
   const stats: { value: string; label: string }[] = [];
   if (progress?.bestCleanBpm) stats.push({ value: String(progress.bestCleanBpm), label: 'лучший удобный темп' });
@@ -189,7 +193,7 @@ export function heroModel(state: Pick<LessonState, 'plan' | 'records' | 'userExe
   return {
     mode: 'continue', eyebrow, title: stepTitle(content, state.userExercises), meta: stepMaterial(content),
     content, stepId: step && step.content === content ? step.id : null,
-    concepts: exercisePlan(exercise).concepts.slice(0, 3).map(concept => CONCEPT_LABELS[concept]), stats,
+    concepts: exercise ? exercisePlan(exercise).concepts.slice(0, 3).map(concept => CONCEPT_LABELS[concept]) : [], stats,
   };
 }
 

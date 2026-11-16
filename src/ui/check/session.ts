@@ -10,7 +10,7 @@ import {
 } from '../../ear';
 import type { ExercisePlan } from '../../exercises';
 import { annotatePositions, createStructure, formatMidi, getPosition, getPositions, parseNote, type AnnotatedPosition, type MusicalStructure, type StringId } from '../../music';
-import { validateCheckSpec, type CheckSpec } from '../../practice/plan';
+import { checkExercise, validateCheckSpec, type CheckSpec } from '../../practice/check';
 import type { CheckOutcome } from '../../practice/results';
 import { INTERVAL_DEGREES, nextQuestion, revealAnswer, skipQuestion, startQuiz, submitAnswer, type IntervalDegree, type QuestionContext, type QuizMode, type QuizSession } from '../../training';
 import { exercisePlan, exerciseStructure, formatDegree, formatPosition, keyName, materialLabel, STRUCTURE_LABELS } from '../lesson/material';
@@ -78,16 +78,18 @@ function area(positions: readonly AnnotatedPosition[], structure: MusicalStructu
 
 export function checkMaterial(input: CheckSpec): CheckMaterial {
   const spec = validateCheckSpec(JSON.parse(JSON.stringify(input)));
-  const structure = exerciseStructure(spec.exercise);
+  const exercise = checkExercise(spec);
+  if (!exercise || spec.subject.type !== 'degrees' || spec.subject.targets !== null) throw new RangeError('Проверки по диапазону, нотам и целям вопросов появятся в P18-12.');
+  const structure = exerciseStructure(exercise);
   if (!structure) throw new RangeError('В материале этого упражнения нет ступеней одной тоники — проверка ступеней недоступна.');
-  const plan = exercisePlan(spec.exercise);
+  const plan = exercisePlan(exercise);
   const unique = [...new Map(plan.positions.map(position => [position.id, position])).values()];
   const positions = annotatePositions(unique, structure).filter(position => position.inStructure);
   if (!positions.length) throw new RangeError('В материале нет нот выбранной структуры.');
   const window = boardWindow(positions.map(position => position.fret), 6);
   return Object.freeze({
     spec, plan, structure, positions: Object.freeze(positions), chromatic: area(positions, structure), earQuality: EAR_QUALITY[structure.id] ?? null,
-    fretMin: window.fretMin, fretMax: window.fretMax, root: structure.root, key: keyName(structure), material: materialLabel(spec.exercise),
+    fretMin: window.fretMin, fretMax: window.fretMax, root: structure.root, key: keyName(structure), material: materialLabel(exercise),
     count: spec.count, review: false,
   });
 }
