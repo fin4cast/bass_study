@@ -3,7 +3,7 @@ import { createPlaybackPlan, eventAtGrid } from '../src/audio/plan';
 import { buildExercise, createExerciseSpec } from '../src/exercises';
 import { buildTimeline, rhythmPatternsFor, type RhythmPatternId } from '../src/exercises/rhythm';
 import { annotatePositions, createStructure, getPosition } from '../src/music';
-import { renderRhythm, renderTab } from '../src/ui/play/tab';
+import { articulationText, renderRhythm, renderTab } from '../src/ui/play/tab';
 import { playbackConfig, DEFAULT_PLAY_SETTINGS, tabEvents, timelineFor } from '../src/ui/play/model';
 
 /* ---------- Длительность звучания ноты и «Длинные и короткие» (R-028, A3, A8.1) ---------- */
@@ -97,5 +97,11 @@ describe('показ: знак артикуляции в TAB и закраска
     expect(filledShort).toBeCloseTo(fullShort / 2, 1);
     expect(long).toContain('нота · длинно');
     expect(short).toContain('нота · коротко');
+  });
+  it('текст и ARIA: подпись артикуляции у ноты и в названии строки ритма', () => {
+    expect([articulationText(1), articulationText(0.5), articulationText(null)]).toEqual(['длинно', 'коротко', '']);
+    expect(renderRhythm(events, 0, null)).toContain('aria-label="Ритм такта 1 · длинные ноты"');
+    expect(renderRhythm(events, 2, null)).toContain('aria-label="Ритм такта 3 · короткие ноты"');
+    expect(renderRhythm(tabEvents(buildExercise(createExerciseSpec('pulse-note')), timelineFor(buildExercise(createExerciseSpec('pulse-note')), { rhythm: 'eighths', echo: false })), 0, null)).toContain('aria-label="Ритм такта 1"');
   });
 });

@@ -27,6 +27,8 @@ export interface TabEvent {
 /** Артикуляция ноты по доле звучания: подпись для знака и ARIA. */
 export const articulation = (gate: number | null | undefined): 'long' | 'short' | null => (gate === null || gate === undefined ? null : gate >= 1 ? 'long' : 'short');
 const ARTICULATION_TITLE = { long: 'длинно', short: 'коротко' } as const;
+/** Подпись артикуляции для текста экрана и ARIA: «длинно» / «коротко»; у ноты без `gate` — пусто. */
+export const articulationText = (gate: number | null | undefined): string => { const kind = articulation(gate); return kind ? ARTICULATION_TITLE[kind] : ''; };
 
 export interface TabRenderOptions {
   readonly events: readonly TabEvent[];
@@ -159,6 +161,8 @@ export function renderRhythm(events: readonly TabEvent[], bar: number, current: 
   const x = (beat: number) => left + (beat / 4) * span;
   const height = top + h + 6;
   const parts: string[] = [];
+  const arts = [...new Set(events.filter(item => item.bar === bar && item.tab).map(item => articulation(item.gate)).filter(Boolean))] as ('long' | 'short')[];
+  const rhythmLabel = `Ритм такта ${bar + 1}${arts.length ? ` · ${arts.map(kind => (kind === 'long' ? 'длинные ноты' : 'короткие ноты')).join(', ')}` : ''}`;
   for (let eighth = 0; eighth < 8; eighth++) parts.push(`<text class="pl-rh-count" x="${round(x(eighth / 2) + span / 16)}" y="10" text-anchor="middle">${countLabel(eighth / 2)}</text>`);
   for (let beat = 0; beat <= 4; beat++) parts.push(`<line class="pl-rh-beat" x1="${round(x(beat))}" x2="${round(x(beat))}" y1="${top - 2}" y2="${top + h + 2}"/>`);
   for (const event of events.filter(item => item.bar === bar)) {
@@ -171,5 +175,5 @@ export function renderRhythm(events: readonly TabEvent[], bar: number, current: 
     const width = art ? Math.max(3, full * (event.gate as number)) : full;
     parts.push(`<rect class="${cls}"${art ? ` data-articulation="${art}"` : ''} x="${x0}" y="${top}" width="${round(width)}" height="${h}" rx="4"><title>${event.tab ? (event.tie ? 'лига — нота продолжается' : `нота${art ? ` · ${ARTICULATION_TITLE[art]}` : ''}`) : 'пауза'}</title></rect>`);
   }
-  return `<svg xmlns="${NS}" class="pl-rh-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Ритм такта ${bar + 1}">${parts.join('')}</svg>`;
+  return `<svg xmlns="${NS}" class="pl-rh-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${rhythmLabel}">${parts.join('')}</svg>`;
 }

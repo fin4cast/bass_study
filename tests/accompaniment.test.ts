@@ -4,7 +4,7 @@ import { barChords, createExerciseSpec, type ExerciseSpec } from '../src/exercis
 import { annotatePositions, createStructure, getPosition } from '../src/music';
 import { parseChord } from '../src/music/chords';
 import { chordVoicing } from '../src/music/voicing';
-import { chordTrack, DEFAULT_PLAY_SETTINGS, playbackConfig } from '../src/ui/play/model';
+import { chordTrack, DEFAULT_PLAY_SETTINGS, hasChords, listenConfig, playbackConfig } from '../src/ui/play/model';
 import { buildExercise } from '../src/exercises';
 import { timelineFor } from '../src/ui/play/model';
 
@@ -68,9 +68,10 @@ describe('дорожка аккордов экрана игры', () => {
     const other = createExerciseSpec('pentatonic-form');
     expect(chordTrack(other, timelineFor(buildExercise(other), { rhythm: 'eighths', echo: false }), null, 'hold')).toBeNull();
   });
-  it('конфигурация звука несёт режим; «Сначала услышь» её не получает', () => {
+  it('конфигурация звука несёт режим; «Сначала услышь» её не получает даже у материала с аккордами', () => {
     const config = playbackConfig(plan, timeline, { ...DEFAULT_PLAY_SETTINGS, accompaniment: 'hold' });
     expect(config.chords?.mode).toBe('hold');
+    expect(listenConfig(plan, { ...DEFAULT_PLAY_SETTINGS, accompaniment: 'hold' }).chords).toBeUndefined();
     expect(playbackConfig(plan, timeline, DEFAULT_PLAY_SETTINGS).chords).toBeNull();
   });
 });
@@ -93,7 +94,10 @@ describe('план: аккорды на сетке шестнадцатых', ()
     const counted = createPlaybackPlan({ ...base, countInBars: 1, chords: { mode: 'hold', bars: [C, null] } });
     expect([0, 4, 8, 12].map(grid => eventAtGrid(counted, grid).chord)).toEqual([null, null, null, null]);
     expect(eventAtGrid(counted, 16).chord?.midis).toEqual(C);
-    expect(eventAtGrid(counted, 32).chord).toBeNull();
+    // Граница такта без аккорда в «Держать» — событие без голосов: оно снимает прошлый аккорд.
+    expect(eventAtGrid(counted, 32).chord).toEqual({ mode: 'hold', midis: [], grids: 16 });
+    const beats = createPlaybackPlan({ ...base, countInBars: 0, chords: { mode: 'beats', bars: [C, null] } });
+    expect(eventAtGrid(beats, 16).chord).toBeNull();
     expect(eventAtGrid(createPlaybackPlan(base), 0).chord).toBeNull();
   });
   it('строгая проверка: режим, непустой список тактов, голоса — целые MIDI', () => {
@@ -101,5 +105,17 @@ describe('план: аккорды на сетке шестнадцатых', ()
     expect(() => createPlaybackPlan({ ...base, chords: { mode: 'hold', bars: [] } })).toThrow(RangeError);
     expect(() => createPlaybackPlan({ ...base, chords: { mode: 'hold', bars: [[60.5]] } })).toThrow(RangeError);
     expect(() => createPlaybackPlan({ ...base, chords: { mode: 'hold', bars: [[]] } })).toThrow(RangeError);
+  });
+});
+
+describe('материал без названных аккордов', () => {
+  it('фрагмент песни, где ни у одного такта нет распознанного аккорда, управления аккордами не получает', () => {
+    const noChords = { version: 'exercise-v1', templateId: 'song-fragment', params: { bars: [{ chord: null, events: [] }, { chord: '?', events: [] }] } } as unknown as ExerciseSpec;
+    expect(hasChords(noChords)).toBe(false);
+    expect(chordTrack(noChords, { bars: 2, echo: false }, null, 'hold')).toBeNull();
+    expect(hasChords(createExerciseSpec('progression'))).toBe(true);
+  });
+  it('аккорды риффа строятся от той же тональности, что его ноты: penta-a в A — Am, Dm, Em, Am', () => {
+    expect(barChords(createExerciseSpec('riff', { riff: 'penta-a', root: 'A' }))!.map(chord => chord?.name)).toEqual(['Am', 'Dm', 'Em', 'Am']);
   });
 });

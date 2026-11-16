@@ -67,7 +67,10 @@ describe('«Сначала услышь»: эталон экрана игры', 
     const reference = listenConfig(plan, settings);
     expect({ ...reference, countInBars: game.countInBars, repeat: game.repeat, metronome: game.metronome, groove: game.groove, chords: game.chords }).toEqual(game);
     // Аккорды — часть игры, а не «Сначала услышь»: даже при включённом режиме эталон их не получает.
-    expect(listenConfig(plan, { ...settings, accompaniment: 'hold' }).chords).toBeUndefined();
+    const withChords = buildExercise(createExerciseSpec('progression'));
+    const playing = playbackConfig(withChords, timelineFor(withChords, settings), { ...settings, accompaniment: 'hold' });
+    expect(playing.chords?.mode).toBe('hold');
+    expect(listenConfig(withChords, { ...settings, accompaniment: 'hold' }).chords).toBeUndefined();
     expect(game.countInBars).toBe(1);
     expect(game.repeat).toBe('infinite');
   });

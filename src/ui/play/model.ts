@@ -222,7 +222,7 @@ const METRONOME_CONFIG: Readonly<Record<MetronomeChoice, NonNullable<PlaybackCon
 export function chordTrack(spec: ExerciseSpec, timeline: Pick<Timeline, 'bars' | 'echo'>, range: PlaySettings['range'], mode: AccompanimentChoice): ChordTrack | null {
   if (mode === 'off') return null;
   const chords = barChords(spec);
-  if (!chords) return null;
+  if (!chords?.some(chord => chord !== null)) return null;
   const scale = timeline.echo ? 2 : 1;
   const from = range?.fromBar ?? 0, to = range?.toBar ?? timeline.bars;
   const bars = Array.from({ length: Math.max(0, to - from) }, (_, offset) => {
@@ -232,7 +232,7 @@ export function chordTrack(spec: ExerciseSpec, timeline: Pick<Timeline, 'bars' |
   return bars.length ? { mode, bars } : null;
 }
 /** У материала есть аккорды по тактам: без них управление аккордами недоступно. */
-export const hasChords = (spec: ExerciseSpec): boolean => barChords(spec) !== null;
+export const hasChords = (spec: ExerciseSpec): boolean => barChords(spec)?.some(chord => chord !== null) ?? false;
 
 /** Конфигурация звука: шкала шагов, петля по тактам, метроном, отсчёт, свинг, подложка и аккорды. */
 export function playbackConfig(plan: Pick<ExercisePlan, 'positions' | 'spec'>, timeline: Timeline, settings: PlaySettings): PlaybackConfig {

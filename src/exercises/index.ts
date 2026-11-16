@@ -187,7 +187,7 @@ export const EXERCISE_TEMPLATES: readonly ExerciseTemplate[] = deepFreeze([
   { id: 'spider', category: 'warmup', title: 'Паук: четыре пальца по грифу', concepts: ['finger-per-fret', 'position-shift'], defaults: { startFret: 5, positions: 5, pattern: '1234' } },
   { id: 'string-crossing', category: 'warmup', title: 'Переход между струнами (правая рука)', concepts: ['right-hand'], defaults: { pattern: 'adjacent' } },
   { id: 'pulse-note', category: 'warmup', title: 'Пульс на одной ноте', concepts: ['right-hand'], defaults: { string: 'E', fret: 0, notes: 16 } },
-  { id: 'string-fourths', category: 'notes', title: 'Круг кварт на струне', concepts: ['semitone', 'octave'], defaults: { string: 'E' } },
+  { id: 'string-fourths', category: 'notes', title: 'Круг кварт на струне', concepts: ['circle-of-fifths', 'semitone'], defaults: { string: 'E' } },
   { id: 'long-short', category: 'warmup', title: 'Длинные и короткие ноты', concepts: ['right-hand'], defaults: { string: 'E', fret: 5 } },
   { id: 'chromatic-shift', category: 'warmup', title: 'Хроматика по позициям', concepts: ['finger-per-fret', 'position-shift', 'semitone'], defaults: { startFret: 5, positions: 3 } },
   { id: 'note-all-positions', category: 'notes', title: 'Одна нота по всему грифу', concepts: ['octave', 'unison'], defaults: { note: 'C' } },
@@ -890,10 +890,7 @@ export function barChords(spec: ExerciseSpec): readonly (ChordInfo | null)[] | n
   const info = (root: string, structureId: StructureId): ChordInfo => ({ root, structureId, name: `${root}${CHORD_SYMBOL[structureId] ?? ''}` });
   switch (spec.templateId) {
     case 'progression': return progressionChordRefs(spec.params.root, spec.params.progression).map(chord => info(chord.root, chord.structureId));
-    case 'riff': {
-      const key = createStructure(spec.params.root, 'major');
-      return PROGRESSION_CHORDS[RIFFS[spec.params.riff].progression].map(([degree, structureId]) => info(key.notes[degree - 1].name, structureId));
-    }
+    case 'riff': return progressionChordRefs(spec.params.root, RIFFS[spec.params.riff].progression).map(chord => info(chord.root, chord.structureId));
     case 'line': return spec.params.bars.map(bar => info(stepName(spec.params.root, bar.step), bar.chord));
     case 'song-fragment': return spec.params.bars.map(bar => parseChord(bar.chord));
     default: return null;
@@ -1067,7 +1064,7 @@ export const TEMPLATE_TARGET_BPM: Readonly<Record<ExerciseTemplateId, number>> =
   'pentatonic-form': 96, 'pentatonic-relative': 92, 'scale-compact': 96, 'blues-scale': 96, 'connect-forms': 92, 'pentatonic-neck': 88,
   'scale-one-string': 88, 'scale-position': 92, 'arpeggio-1358': 96, 'arpeggio-seventh': 92, 'arpeggio-inversion': 88, 'root-five-eight': 100,
   'groups-of-three': 88, thirds: 88, 'form-transpose': 88, 'cycle-fourths': 84, progression: 100, 'song-fragment': 0,
-  'pulse-note': 100, 'chromatic-shift': 96, 'string-naturals': 80, riff: 96, line: 96, 'long-short': 80, 'string-fourths': 80,
+  'pulse-note': 100, 'chromatic-shift': 96, 'string-naturals': 80, riff: 96, line: 96, 'long-short': 100, 'string-fourths': 80,
 });
 /** Цель темпа материала: у фрагмента песни — темп партитуры, у остальных — цель шаблона. */
 export const targetBpmFor = (spec: ExerciseSpec): number => spec.templateId === 'song-fragment' ? spec.params.bpm : TEMPLATE_TARGET_BPM[spec.templateId];

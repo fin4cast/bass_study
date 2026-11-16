@@ -115,7 +115,7 @@ export interface GridEvent {
   readonly swingGrids: number;
   readonly click: { readonly audible: boolean; readonly accent: boolean; readonly countIn: boolean } | null;
   readonly groove: readonly GrooveHit[];
-  /** Голоса аккорда, начинающегося на этой шестнадцатой (такт «Держать» или доля «Доли»), и режим; иначе `null`. */
+  /** Голоса аккорда, начинающегося на этой шестнадцатой (такт «Держать» или доля «Доли»), и режим; иначе `null`. Пустой список голосов — граница такта без аккорда: прошлый аккорд «Держать» снимается. */
   readonly chord: { readonly mode: AccompanimentMode; readonly midis: readonly number[]; readonly grids: number } | null;
 }
 
@@ -230,9 +230,11 @@ export function createPlaybackPlan(config: PlaybackConfig): PlaybackPlan {
 function chordAt(plan: PlaybackPlan, inPass: number, barInPass: number): GridEvent['chord'] {
   if (!plan.chords) return null;
   const midis = plan.chords.bars[barInPass % plan.chords.bars.length];
-  if (!midis) return null;
   const grids = plan.chords.mode === 'hold' ? 16 : 4;
-  return inPass % grids === 0 ? { mode: plan.chords.mode, midis, grids } : null;
+  if (inPass % grids !== 0) return null;
+  // Такт без аккорда в режиме «Держать» всё равно даёт событие без голосов: оно снимает аккорд прошлого такта на своей границе.
+  if (!midis) return plan.chords.mode === 'hold' ? { mode: plan.chords.mode, midis: [], grids } : null;
+  return { mode: plan.chords.mode, midis, grids };
 }
 
 /** Шаг фрагмента, в который попадает шестнадцатая прохода: двоичный поиск по началам. */

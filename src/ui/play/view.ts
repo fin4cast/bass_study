@@ -21,7 +21,7 @@ import {
   type AccompanimentChoice, type ApproachTally, type Assessment, type Junction, type MetronomeChoice, type PlaySettings, type PlayView, type ReferenceMode, type SuggestionAction,
 } from './model';
 import { createEnginePort, type PlayState, type PlaybackPort } from './port';
-import { pageOf, renderRhythm, renderTab, tabGeometry, totalBars, type TabEvent } from './tab';
+import { articulationText, pageOf, renderRhythm, renderTab, tabGeometry, totalBars, type TabEvent } from './tab';
 
 export type { PlayView, Assessment, PlaySettings } from './model';
 
@@ -616,7 +616,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       at('[data-bar-label="board"]').textContent = barLabel;
       at('[data-now-caption]').textContent = current === null ? 'Старт' : 'Сейчас';
       at('[data-now]').textContent = pitchLetter(focusNote.name);
-      at('[data-now-detail]').textContent = [formatPosition(focusNote.id), focusNote.degree ? `ступень ${formatDegree(focusNote.degree)}` : '', focusNote.pluck ? `пр. рука ${focusNote.pluck}` : ''].filter(Boolean).join(' · ');
+      at('[data-now-detail]').textContent = [formatPosition(focusNote.id), focusNote.degree ? `ступень ${formatDegree(focusNote.degree)}` : '', focusNote.pluck ? `пр. рука ${focusNote.pluck}` : '', articulationText(focusNote.gate)].filter(Boolean).join(' · ');
       put('[data-board="board"]', boardFor(effectiveLabels(), 2, 1000, 46));
     } else if (view === 'both') {
       const page = pageOf(tabList, bar, BARS_PER_PAGE);

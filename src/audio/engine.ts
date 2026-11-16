@@ -95,6 +95,8 @@ function createGraph(context: BaseAudioContext, separateChannels: boolean) {
   /** Удары подложки — голоса «Ритма» (`rhythm-synth.ts`) на своей шине; шум создаётся по первому удару. */
   let drums: RhythmVoice[] = [];
   let noise: AudioBuffer | null = null;
+  /** Группа голосов аккорда «Держать», звучащего сейчас. */
+  let heldChord: GainNode | null = null;
 
   /** Нота с огибающей ADSR: атака линейно, спад к sustain экспоненциально, короткое линейное затухание. */
   function voice(destination: AudioNode, waveform: OscillatorType, frequency: number, level: number, envelope: Envelope, time: number, duration: number, lowpassHz?: number) {
@@ -148,8 +150,15 @@ function createGraph(context: BaseAudioContext, separateChannels: boolean) {
       voice(clickBus, CLICK_VOICE.waveform, accent ? 2093.004522 : 1046.502261, CLICK_VOICE.level * (accent ? 1 : 0.7), CLICK_VOICE.envelope, time, 0.018);
     },
     /** Аккорд: по голосу на каждую высоту окна G3–F♯4; «Держать» держит весь такт, «Доли» играет коротко. */
-    chord(midis: readonly number[], duration: number, time: number) {
-      for (const midi of midis) voice(chordBus, CHORD_VOICE.waveform, midiHz(midi), CHORD_VOICE.level, CHORD_VOICE.envelope, time, duration);
+    chord(midis: readonly number[], duration: number, time: number, hold: boolean) {
+      const group = context.createGain(); group.connect(chordBus);
+      for (const midi of midis) voice(group, CHORD_VOICE.waveform, midiHz(midi), CHORD_VOICE.level, CHORD_VOICE.envelope, time, duration);
+      if (hold) heldChord = group;
+    },
+    /** Граница такта: аккорд «Держать» прошлого такта снимается на этой границе, даже если темп сменился посреди такта. */
+    chordCut(time: number) {
+      heldChord?.gain.setTargetAtTime(0, time, 0.01);
+      heldChord = null;
     },
     groove(hits: readonly GrooveHit[], time: number) {
       if (!hits.length) return;
@@ -168,6 +177,7 @@ function createGraph(context: BaseAudioContext, separateChannels: boolean) {
       master.gain.setValueAtTime(0, now);
       voices.forEach(voice => release(voice, now)); voices = [];
       drums.forEach(voice => voice.cancel(now)); drums = [];
+      heldChord = null;
     },
     setVolumes(volumes: PlayerVolumes) {
       const now = context.currentTime;
@@ -339,9 +349,14 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
     if (event.groove.length) graph.groove(event.groove, sound);
     if (event.chord) {
       // Свинг на аккорды не действует: время сетки, не сдвинутое. «Держать» снимается перед следующим тактом.
+      // Длина «Держать» — верхняя граница по текущему темпу; настоящий конец задаёт граница следующего такта (`chordCut`).
       const span = event.chord.grids * gridSeconds(bpm);
-      graph.chord(event.chord.midis, event.chord.mode === 'hold' ? Math.max(0.05, span - 0.04) : Math.min(span * 0.5, 0.3), time);
-      record('chord', time, event, { bpm, audible: (volumes.chords ?? 0.35) > 0 });
+      const hold = event.chord.mode === 'hold';
+      graph.chordCut(time);
+      if (event.chord.midis.length) {
+        graph.chord(event.chord.midis, hold ? Math.max(0.05, span - 0.04) : Math.min(span * 0.5, 0.3), time, hold);
+        record('chord', time, event, { bpm, audible: (volumes.chords ?? 0.35) > 0 });
+      }
     }
     nextGrid = grid + 1;
     nextAt = time + gridSeconds(bpm);
@@ -448,7 +463,7 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
   function setVolumes(change: Partial<PlayerVolumes>) {
     ensureUsable();
     const next = { ...volumes, ...change };
-    if (![next.bass, next.click, next.groove].every(value => Number.isFinite(value) && value >= 0 && value <= 1)) throw new RangeError('Громкость должна быть от 0 до 1.');
+    if (![next.bass, next.click, next.groove, next.chords ?? 0].every(value => Number.isFinite(value) && value >= 0 && value <= 1)) throw new RangeError('Громкость должна быть от 0 до 1.');
     volumes = next; graph.setVolumes(volumes); return getSnapshot();
   }
   function playbackState() {

@@ -85,7 +85,7 @@ describe('данные этапа 2 по таблице R-028', () => {
   });
   it('проверки по таблице A9.7: диапазон, вид и предмет', () => {
     expect(checkOf('f2-dg.name-note')).toMatchObject({ kind: 'name-note', area: { type: 'range', strings: ['D', 'G'], fretMin: 0, fretMax: 12 }, subject: { type: 'notes', notes: 'natural' } });
-    expect(checkOf('f2-all.find-all')).toMatchObject({ kind: 'find-all', area: { strings: ['E', 'A', 'D', 'G'], fretMax: 12 }, subject: { notes: 'natural' } });
+    expect(checkOf('f2-all.find-all')).toMatchObject({ kind: 'find-all', area: { strings: ['E', 'A', 'D', 'G'], fretMax: 12 }, subject: { type: 'notes', notes: 'all' } });
     expect(checkOf('f2-all.name-note')).toMatchObject({ kind: 'name-note', subject: { type: 'notes', notes: 'all' } });
     expect(checkOf('f2-penta.find-degree')).toMatchObject({ kind: 'find-degree', area: { type: 'exercise' }, subject: { type: 'degrees', scale: null, targets: null } });
     expect(checkOf('h2-blues.name-degree')).toMatchObject({

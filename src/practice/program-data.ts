@@ -128,7 +128,7 @@ const STAGE_2: readonly Block[] = [
   block('f2-all', 'Нота на всём грифе', 'fretboard', ['accidentals', 'unison'], [
     play('f2-all.note', 'Одна нота по всему грифу четвертями', ['C', 'G', 'D', 'A', 'F', 'B♭'].map(note => createExerciseSpec('note-all-positions', { note })), QUARTERS),
     play('f2-all.fourths', 'Круг кварт на струне четвертями', (['E', 'A'] as const).map(string => createExerciseSpec('string-fourths', { string })), QUARTERS),
-    check('f2-all.find-all', 'Найди все позиции ноты: лады 0–12', { kind: 'find-all', area: range(['E', 'A', 'D', 'G'], 0, 12), subject: natural }),
+    check('f2-all.find-all', 'Найди все позиции ноты со знаками: лады 0–12', { kind: 'find-all', area: range(['E', 'A', 'D', 'G'], 0, 12), subject: allNotes }),
     check('f2-all.name-note', 'Назови ноту со знаками: все струны, лады 0–12', { kind: 'name-note', area: range(['E', 'A', 'D', 'G'], 0, 12), subject: allNotes }),
   ]),
   block('f2-penta', 'Первая форма', 'fretboard', ['degree', 'pentatonic'], [
