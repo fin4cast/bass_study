@@ -4,7 +4,7 @@
  * (нормализованных записей истории) и нигде не записываются. Данные этапов — `program-data.ts`.
  */
 import { buildExercise, type ExerciseSpec } from '../exercises';
-import { buildTimeline, samePractice, type PracticeOptions } from '../exercises/rhythm';
+import { buildTimeline, samePractice, type PracticeOptions, type RhythmPatternId } from '../exercises/rhythm';
 import type { TemplateTask } from '../exercises/tasks';
 import { checkId, degreeCheck, type CheckSpec } from './check';
 import { materialId } from './material';
@@ -437,7 +437,11 @@ export function dayPlanSteps(day: DayComposition): NewPlanStep[] {
 }
 
 const GROOVE_TITLES: Readonly<Record<string, string>> = { rock: 'рок', funk: 'фанк', shuffle: 'шаффл', blues: 'блюзовый пульс', latin: 'латина', disco: 'диско' };
-const RHYTHM_TITLES: Readonly<Record<string, string>> = { eighths: 'восьмые', quarters: 'четверти', sixteenths: 'шестнадцатые', syncopation: 'синкопа', shuffle: 'шаффл' };
+const RHYTHM_TITLES: Readonly<Record<RhythmPatternId, string>> = {
+  eighths: 'восьмые', quarters: 'четверти', sixteenths: 'шестнадцатые', syncopation: 'синкопа', shuffle: 'шаффл',
+  'quarter-two-eighths': 'четверть и две восьмые', 'note-rest': 'нота — пауза', 'quarter-rest': 'с четвертной паузой',
+  'eighth-rest': 'с восьмой паузой', 'tied-syncopation': 'синкопа с лигой',
+};
 
 /**
  * Правило зачёта шага словами для экрана игры (R-028): как играть, что значит «пройден» и «освоен».

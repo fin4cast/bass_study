@@ -12,6 +12,7 @@
   <script type="module">
     import { createPlayer, renderSequenceOffline } from '/src/audio/engine.ts';
     import { annotatePositions, createStructure, getPosition } from '/src/music/index.ts';
+    import { buildTimeline } from '/src/exercises/rhythm.ts';
     const notes = annotatePositions([0, 1, 3, 5].map(fret => getPosition('E', fret)), createStructure('C', 'major'));
     const player = createPlayer();
     const makeConfig = (overrides = {}) => ({
@@ -40,7 +41,11 @@
       const levels = harmonicLevels(samples, sampleRate, position.frequency, .15, .65);
       return { fret, hz: position.frequency, peak, levels, ratios: levels.slice(1).map(level => level / levels[0]) };
     }
-    window.p4 = { player, makeConfig, bassSpectrum, config: makeConfig(), ready: true, action: null };
+    /** Шаги настоящей шкалы прохода для `count` нот без тоники: ритмический рисунок → шаги звука. */
+    const rhythmSteps = (pattern, count) => buildTimeline(
+      { spec: { templateId: 'chromatic-position' }, notes: Array.from({ length: count }, () => ({ degree: null, segment: 0, midi: 40 })), segments: [], cadence: 'none' }, { pattern },
+    ).steps.map(({ note, grids, audible, tie }) => ({ note, grids, audible, tie }));
+    window.p4 = { player, makeConfig, bassSpectrum, rhythmSteps, config: makeConfig(), ready: true, action: null };
     for (const name of ['start', 'pause', 'resume', 'stop']) {
       document.getElementById(name).addEventListener('click', async () => {
         window.p4.action = { name, done: false, error: null };

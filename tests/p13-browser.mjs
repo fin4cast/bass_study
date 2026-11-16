@@ -1448,6 +1448,9 @@ check('progress-shows-program-status-after-a-lesson-pass-and-reload', 'ui', asyn
 markFullOnly(checks, ['basics-path-two-variants-pass-the-step-and-two-days-master-it', 'today-next-day-offers-next-variant-and-keeps-manual-steps-and-long-break-recalls',
   'today-start-runs-the-lesson-from-first-to-last-step-without-choosing-parameters'], FULL_ONLY.smoke);
 markFullOnly(checks, ['play-variant-unrated-approach-is-rated-first-or-dropped-explicitly-and-own-exercise-has-no-selectors'], FULL_ONLY.smoke);
+// Экономия времени быстрого набора перед заходом C (P18): те же потоки оценки и перехода покрывают соседние сценарии.
+markFullOnly(checks, ['play-keys-work-after-mouse-clicks-rating-view-panel-and-timer-counts-rated-approach', 'play-slow-rating-opens-next-time-4-bpm-lower-even-after-sound-change',
+  'play-enter-after-key-rating-with-focus-on-play-button-opens-next-step', 'plan-step-timer-and-next-step-after-rating'], FULL_ONLY.smoke);
 markFullOnly(checks, ['play-task-lines-fit-1280x720-for-every-library-template'], FULL_ONLY.smoke);
 markFullOnly(checks, ['native-real-hidden-tab-pauses-play-and-resumes-only-by-action'], FULL_ONLY.hiddenTab);
 markFullOnly(checks, ['live-play-sounds-reached-notes-on-audio-clock-and-pause-cancels-scheduled-voices'], FULL_ONLY.liveAudio);

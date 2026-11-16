@@ -5,23 +5,43 @@
  */
 import type { ExercisePlan } from './index';
 
-export type RhythmPatternId = 'eighths' | 'quarters' | 'sixteenths' | 'syncopation' | 'shuffle';
+export type RhythmPatternId =
+  | 'eighths' | 'quarters' | 'sixteenths' | 'syncopation' | 'shuffle'
+  | 'quarter-two-eighths' | 'note-rest' | 'quarter-rest' | 'eighth-rest' | 'tied-syncopation';
+
+/** Ячейка рисунка (A2.1): нота, пауза или лига — продолжение предыдущей ноты без новой атаки. */
+export interface RhythmCell {
+  readonly kind: 'note' | 'rest' | 'tie';
+  /** Длительность, шестнадцатые. */
+  readonly grids: number;
+}
 
 export interface RhythmPattern {
   readonly id: RhythmPatternId;
   readonly label: string;
-  /** Длительности нот по кругу, в шестнадцатых; сумма делит такт. */
-  readonly cells: readonly number[];
+  /** Ячейки по кругу; сумма длительностей — 1, 2, 4, 8 или 16 шестнадцатых (рисунок укладывается в такт целое число раз). */
+  readonly cells: readonly RhythmCell[];
   /** Свинг слабой восьмой, % (50 — ровно). */
   readonly swing: number;
 }
 
+/** Запись ячеек как в требованиях: `n4` — нота в четверть, `r2` — пауза в восьмую, `t2` — лига в восьмую. */
+const cellsOf = (notation: string): readonly RhythmCell[] => notation.split(' ').map(token => {
+  const kind = ({ n: 'note', r: 'rest', t: 'tie' } as const)[token[0] as 'n' | 'r' | 't'];
+  return Object.freeze({ kind, grids: Number(token.slice(1)) });
+});
+
 export const RHYTHM_PATTERNS: readonly RhythmPattern[] = Object.freeze(([
-  { id: 'eighths', label: 'Восьмые', cells: [2], swing: 50 },
-  { id: 'quarters', label: 'Четверти', cells: [4], swing: 50 },
-  { id: 'sixteenths', label: 'Шестнадцатые', cells: [1], swing: 50 },
-  { id: 'syncopation', label: 'Синкопа 8–4–8', cells: [2, 4, 2], swing: 50 },
-  { id: 'shuffle', label: 'Шаффл (свинг-восьмые)', cells: [2], swing: 66 },
+  { id: 'eighths', label: 'Восьмые', cells: cellsOf('n2'), swing: 50 },
+  { id: 'quarters', label: 'Четверти', cells: cellsOf('n4'), swing: 50 },
+  { id: 'sixteenths', label: 'Шестнадцатые', cells: cellsOf('n1'), swing: 50 },
+  { id: 'syncopation', label: 'Синкопа 8–4–8', cells: cellsOf('n2 n4 n2'), swing: 50 },
+  { id: 'shuffle', label: 'Шаффл (свинг-восьмые)', cells: cellsOf('n2'), swing: 66 },
+  { id: 'quarter-two-eighths', label: 'Четверть и две восьмые', cells: cellsOf('n4 n2 n2'), swing: 50 },
+  { id: 'note-rest', label: 'Нота — пауза', cells: cellsOf('n4 r4'), swing: 50 },
+  { id: 'quarter-rest', label: 'С четвертной паузой', cells: cellsOf('n4 n4 n4 r4'), swing: 50 },
+  { id: 'eighth-rest', label: 'С восьмой паузой', cells: cellsOf('n4 r2 n2'), swing: 50 },
+  { id: 'tied-syncopation', label: 'Синкопа с лигой', cells: cellsOf('n4 n2 n2 t2 n2 n4'), swing: 50 },
 ] satisfies RhythmPattern[]).map(pattern => Object.freeze({ ...pattern, cells: Object.freeze([...pattern.cells]) })));
 
 export const isRhythmPatternId = (value: unknown): value is RhythmPatternId => RHYTHM_PATTERNS.some(pattern => pattern.id === value);
@@ -101,15 +121,27 @@ export function buildTimeline(plan: Pick<ExercisePlan, 'spec' | 'notes' | 'segme
   } else if (plan.spec.templateId === 'progression') {
     // Такт — аккорд: ноты сегмента заполняют свой такт, следующий аккорд начинается с «раз».
     plan.notes.forEach((note, index) => {
-      push(index, pattern.cells[0]);
+      push(index, pattern.cells[0].grids);
       const nextSegment = plan.notes[index + 1]?.segment;
       if (nextSegment !== note.segment && at % BAR) push(null, BAR - (at % BAR));
     });
   } else {
-    plan.notes.forEach((_, index) => push(index, pattern.cells[index % pattern.cells.length]));
+    // A2.3: ячейки читаются по кругу; нота берёт следующую ноту очереди (плана, затем завершения тоникой),
+    // лига — ту же ноту без атаки, пауза стоит только перед очередной нотой.
+    const queue = plan.notes.map((_, index) => ({ note: index, landing: false }));
     const landing = plan.cadence === 'tonic' ? landingNote(plan, plan.notes.length - 1) : null;
-    if (landing !== null) push(landing, pattern.cells[plan.notes.length % pattern.cells.length], true);
-    // Последняя нота тянется до доли, остаток такта — пауза.
+    if (landing !== null) queue.push({ note: landing, landing: true });
+    let next = 0, held = -1, cell = 0;
+    const cells = pattern.cells;
+    while (next < queue.length) {
+      const item = cells[cell++ % cells.length];
+      if (item.kind === 'note') { held = queue[next].note; push(held, item.grids, queue[next].landing); next++; }
+      else if (item.kind === 'tie') push(held, item.grids, false, true);
+      else push(null, item.grids);
+    }
+    // Лиги последней ноты — её продолжение, они принадлежат ей.
+    while (cells[cell % cells.length].kind === 'tie') push(held, cells[cell++ % cells.length].grids, false, true);
+    // Последний шаг тянется до доли, остаток такта — пауза.
     const last = raw[raw.length - 1];
     const toBeat = (4 - (at % 4)) % 4;
     if (toBeat) { last.grids += toBeat; at += toBeat; }

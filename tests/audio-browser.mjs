@@ -137,6 +137,16 @@ check('offline-steps-of-different-length-and-rest-sound-on-their-onsets', 'api',
   return result;
 });
 
+check('offline-rhythm-pattern-rest-is-silent-and-tie-has-no-second-attack', 'api', async ({ page }) => {
+  // Шкала настоящего рисунка (A2) → шаги звука; 120 BPM: шестнадцатая — 0,125 с, четыре ноты из материала по умолчанию.
+  const noteRest = await offline(page, { steps: await page.evaluate(() => window.p4.rhythmSteps('note-rest', 4)) });
+  pcm(noteRest, [0, 1, 2, 3]); near(noteRest.finishAt, 4, 0.0001);
+  // «Синкопа с лигой»: нота 2 держится через середину такта, атаки на 0; 0,5; 0,75 и 1,25 с.
+  const tied = await offline(page, { steps: await page.evaluate(() => window.p4.rhythmSteps('tied-syncopation', 4)) });
+  pcm(tied, [0, 0.5, 0.75, 1.25]);
+  return { noteRest: noteRest.bass, tied: tied.bass };
+});
+
 check('offline-tie-across-barline-sounds-one-attack-for-the-held-note', 'api', async ({ page }) => {
   // 120 BPM: четверть E:0, затем E:1 на 0,5 с, продолжение той же ноты по лиге (шаг 3) без атаки, E:3 на 1,5 с.
   const result = await offline(page, { steps: [{ note: 0, grids: 4 }, { note: 1, grids: 4 }, { note: 1, grids: 4, tie: true }, { note: 2, grids: 4 }] });

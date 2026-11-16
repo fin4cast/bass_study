@@ -149,8 +149,8 @@ export function renderRhythm(events: readonly TabEvent[], bar: number, current: 
   for (let beat = 0; beat <= 4; beat++) parts.push(`<line class="pl-rh-beat" x1="${round(x(beat))}" x2="${round(x(beat))}" y1="${top - 2}" y2="${top + h + 2}"/>`);
   for (const event of events.filter(item => item.bar === bar)) {
     const x0 = round(x(event.beatInBar) + 2), x1 = round(x(event.beatInBar + event.durationBeats) - 2);
-    const cls = ['pl-rh-note', !event.tab && 'is-rest', event.index === current && 'is-current', event.echo && 'is-echo'].filter(Boolean).join(' ');
-    parts.push(`<rect class="${cls}" x="${x0}" y="${top}" width="${round(Math.max(4, x1 - x0))}" height="${h}" rx="4"><title>${event.tab ? 'нота' : 'пауза'}</title></rect>`);
+    const cls = ['pl-rh-note', !event.tab && 'is-rest', event.tie && 'is-tie', event.index === current && 'is-current', event.echo && 'is-echo'].filter(Boolean).join(' ');
+    parts.push(`<rect class="${cls}" x="${x0}" y="${top}" width="${round(Math.max(4, x1 - x0))}" height="${h}" rx="4"><title>${event.tab ? (event.tie ? 'лига — нота продолжается' : 'нота') : 'пауза'}</title></rect>`);
   }
   return `<svg xmlns="${NS}" class="pl-rh-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Ритм такта ${bar + 1}">${parts.join('')}</svg>`;
 }

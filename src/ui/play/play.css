@@ -148,6 +148,7 @@
 .pl-rh-svg .pl-rh-count { fill: var(--text-secondary); font: 10px var(--font-ui); }
 .pl-rh-svg .pl-rh-beat { stroke: var(--border-strong); stroke-opacity: .6; }
 .pl-rh-svg .pl-rh-note { fill: var(--accent); fill-opacity: .55; }
+.pl-rh-svg .pl-rh-note.is-tie { fill-opacity: .3; }
 .pl-rh-svg .pl-rh-note.is-rest { fill: none; stroke: var(--border-strong); stroke-dasharray: 3 3; }
 .pl-rh-svg .pl-rh-note.is-echo { fill: var(--info-text); fill-opacity: .35; }
 .pl-rh-svg .pl-rh-note.is-current { fill: var(--selection); fill-opacity: .95; }
