@@ -532,6 +532,16 @@ export function basicsCourse(records: readonly PracticeRecord[], userExercises: 
 }
 
 /**
+ * Подпись места шага в уровне. Счёт тот же, что у шапки уровня (`BasicsLevel.total`): понятия и отслеживаемые шаги;
+ * «Вопрос карточки» шагом по счёту не считается и номера не получает.
+ */
+export function basicsStepPosition(level: BasicsLevel, step: BasicsStep): string {
+  const counted = level.steps.filter(item => item.tracked || item.kind === 'concept');
+  const index = counted.indexOf(step);
+  return index < 0 ? 'вопрос карточки' : `шаг ${index + 1} из ${level.total}`;
+}
+
+/**
  * Текущий шаг уровня — первый невыполненный понятие, упражнение или проверка ступеней.
  * Вопрос карточки не хранит результат, поэтому текущим не становится; у пройденного уровня — первый шаг.
  */

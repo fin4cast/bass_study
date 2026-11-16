@@ -5,7 +5,7 @@ import type { PracticeRecord } from '../src/practice/results';
 import type { UserExercise } from '../src/practice/library';
 import { exerciseStructure, formatDegree, formatPosition, materialLabel } from '../src/ui/lesson/material';
 import {
-  appendTemplate, basicsBadge, basicsCourse, checkContent, conceptsOfLevel, currentBasicsStep, DEFAULT_LIBRARY, exerciseBoard, exerciseKey,
+  appendTemplate, basicsBadge, basicsCourse, basicsStepPosition, checkContent, conceptsOfLevel, currentBasicsStep, DEFAULT_LIBRARY, exerciseBoard, exerciseKey,
   heroModel, isPentatonic, libraryModel, nextStepId, planRows, planStrip, recommendationCards, searchBasics, setStepMinutes, stepTitle,
   togglePlanContent, toggleStepEar, libraryItems, configuredItems, materialId, searchMatches,
 } from '../src/ui/lesson/model';
@@ -230,6 +230,16 @@ describe('«Основы»', () => {
     expect(currentBasicsStep(levels[0])).toMatchObject({ kind: 'concept', conceptId: 'semitone' });
     expect(levels[0].total).toBe(levels[0].steps.filter(step => !step.title.startsWith('Вопрос карточки')).length);
     expect(basicsBadge(levels)).toBe('ур. 0');
+  });
+  it('P18-02: число шагов в шапке уровня и в подписи шага считается одинаково; вопрос карточки номера не имеет', () => {
+    for (const level of basicsCourse([])) {
+      const numbered = level.steps.filter(step => basicsStepPosition(level, step) !== 'вопрос карточки');
+      expect(numbered.length, level.key).toBe(level.total);
+      numbered.forEach((step, index) => expect(basicsStepPosition(level, step), level.key).toBe(`шаг ${index + 1} из ${level.total}`));
+      for (const step of level.steps.filter(item => item.title.startsWith('Вопрос карточки'))) {
+        expect(basicsStepPosition(level, step)).toBe('вопрос карточки');
+      }
+    }
   });
   it('пентатоника и общие ноты идут на уровне 2 раньше гамм', () => {
     expect(conceptsOfLevel(2).map(concept => concept.id)).toEqual(['degree', 'pentatonic', 'shared-notes', 'relative-keys', 'major-formula', 'natural-minor', 'blues-scale']);

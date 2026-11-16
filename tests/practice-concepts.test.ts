@@ -288,3 +288,29 @@ describe('разметка текстов карточек', () => {
     expect(() => parseConceptText('{p:E/25}')).toThrow(RangeError);
   });
 });
+
+describe('P18-02: наполнение сходится с экраном игры', () => {
+  it('«Тон и полутон» пишет ноты так же, как хроматика (B♭1, а не A♯1)', () => {
+    const semitone = getConcept('semitone')!;
+    const chromatic = buildExercise(createExerciseSpec('chromatic-position')).notes;
+    const board = conceptBoard(semitone)!;
+    expect(board.positions.length).toBeGreaterThan(0);
+    for (const position of board.positions) {
+      const note = chromatic.find(candidate => candidate.id === position.id);
+      expect(note, `${position.id} есть в плане хроматики`).toBeDefined();
+      expect(position.label, position.id).toBe(note!.name);
+    }
+    const labelled = textsOf(semitone).flatMap(text => [...text.matchAll(/\{p:([^|}]+)\|([^}]+)\}/g)]);
+    for (const [, id, label] of labelled) {
+      const note = chromatic.find(candidate => candidate.id === id.replace('/', ':'));
+      if (note) expect(label, id).toBe(note.name);
+    }
+    expect(JSON.stringify(cardOf(semitone).play)).not.toContain('A♯1');
+  });
+
+  it('«Басовый ключ» не отправляет искать нотоносец на экране игры', () => {
+    const text = textsOf(getConcept('bass-clef')!).join(' ');
+    expect(text).not.toMatch(/экран/i);
+    expect(text).toMatch(/Песн/);
+  });
+});

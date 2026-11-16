@@ -118,7 +118,7 @@ describe('«Послушать» в справочнике: план из дан
       const named = listen.match(/[A-G][♯♭]?\d/g);
       if (named) expect(plan.notes.map(note => note.label)).toEqual(named);
     }
-    expect(conceptListenPlan(getConcept('semitone')!)!.notes.map(note => note.label)).toEqual(['A1', 'A♯1', 'B1']);
+    expect(conceptListenPlan(getConcept('semitone')!)!.notes.map(note => note.label)).toEqual(['A1', 'B♭1', 'B1']);
     expect(conceptListenPlan(getConcept('octave')!)!.notes.map(note => note.midi)).toEqual([33, 45]);
   });
 

@@ -14,7 +14,7 @@ import { escapeHtml as e } from '../html';
 import { CONCEPT_LABELS, exercisePlan, materialLabel, STRUCTURE_LABELS } from './material';
 import { boardSvg, boardWindow, type BoardNote } from './mini-board';
 import {
-  addGoalSteps, appendTemplate, basicsBadge, basicsCourse, checkContent, contentMinutes, currentGoalProgress, goalRootLabel, goalsOverview, planFromGoal, stepRuleHint, untouchedFirstRunPlan, currentBasicsStep, DEFAULT_LIBRARY, exerciseBoard, heroModel,
+  addGoalSteps, appendTemplate, basicsBadge, basicsCourse, basicsStepPosition, checkContent, contentMinutes, currentGoalProgress, goalRootLabel, goalsOverview, planFromGoal, stepRuleHint, untouchedFirstRunPlan, currentBasicsStep, DEFAULT_LIBRARY, exerciseBoard, heroModel,
   configuredItems, LIBRARY_CONCEPTS, LIBRARY_STRUCTURES, libraryItems, libraryModel, nextExerciseStep, pendingMatches, planRows, planStrip,
   recommendationCards, searchBasics, setStepMinutes, stepMaterial, stepTitle, togglePlanContent, toggleStepEar,
   type BasicsLevel, type BasicsStep, type BasicsView, type LessonState, type LessonTab, type LibraryCategory, type LibraryControls,
@@ -439,7 +439,6 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const sibling = (kind: BasicsStep['kind']) => level.steps.find(item => item.conceptId === step.conceptId && item.kind === kind) ?? null;
     const ownExercise = sibling('exercise');
     const ownCheck = sibling('check');
-    const index = level.steps.indexOf(step);
     const isCurrent = step === currentBasicsStep(level) && level.status === 'current';
     let primary = '';
     if (step.kind === 'check' && step.content) primary = `<button type="button" class="primary-button button-large" data-act="play" data-ref="${ref(step.content)}" data-key="focus-primary">▶ Проверь себя <small>${e(stepMaterial(step.content))}</small></button>`;
@@ -451,7 +450,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
       `<button type="button" class="secondary-button button-compact" data-act="concept" data-concept="${e(concept.id)}" data-key="focus-concept">Открыть карточку</button>`,
     ].join('');
     const source = conceptBoard(concept);
-    return `<div class="ls-focus-top"><span class="ls-eyebrow">${isCurrent ? (firstRun ? 'Первый шаг' : 'Твой текущий шаг') : 'Выбранный шаг'} · ${level.lane === 'main' ? `уровень ${e(level.mark)}` : e(level.title.toLowerCase())} · шаг ${e(index + 1)} из ${e(level.steps.length)}</span><span class="ls-chip ls-chip-concept">${e(KIND_LABEL[step.kind])} · ${e(concept.title)}</span></div>
+    return `<div class="ls-focus-top"><span class="ls-eyebrow">${isCurrent ? (firstRun ? 'Первый шаг' : 'Твой текущий шаг') : 'Выбранный шаг'} · ${level.lane === 'main' ? `уровень ${e(level.mark)}` : e(level.title.toLowerCase())} · ${e(basicsStepPosition(level, step))}</span><span class="ls-chip ls-chip-concept">${e(KIND_LABEL[step.kind])} · ${e(concept.title)}</span></div>
       <h2>${e(concept.title)}</h2>
       <div class="ls-concept"><p>${conceptText(card.name)}</p><p class="ls-why"><b>Зачем басисту.</b> ${conceptText(card.why)}</p></div>
       <div class="ls-actions">${primary}${secondary}</div>

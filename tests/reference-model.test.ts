@@ -52,7 +52,7 @@ describe('мини-гриф и линзы', () => {
     expect(svg).toContain('rf-b-note is-root');
     expect(svg.match(/class="rf-b-finger"/g)).toHaveLength(3);
     expect(svg).toContain('role="img"');
-    expect(svg).toContain('E/5 A, E/6 A♯, E/7 B');
+    expect(svg).toContain('E/5 A, E/6 B♭, E/7 B');
     const shared = getConcept('shared-notes')!;
     expect(boardSvg(conceptBoard(shared)!, 'degrees', shared.title).match(/rf-b-ring/g)).toHaveLength(1);
     expect(() => boardSvg({ ...conceptBoard(concept)!, fretMin: 5, fretMax: 2 }, 'notes', 'x')).toThrow();
