@@ -16,7 +16,7 @@ import { reviewMaterial } from '../ui/check/session';
 import { mountCheck } from '../ui/check/view';
 import { mountLesson } from '../ui/lesson/view';
 import { PROGRAM } from '../practice/program-data';
-import { checkFacts, composeDay, dayPlanSteps, evaluateProgram, playContent, playFacts, stepRefs, stepRuleText, stepStatus, type Block, type PlayStep, type ProgramFacts } from '../practice/program';
+import { checkFacts, composeDay, dayPlanSteps, evaluateProgram, lineFacts, playContent, playFacts, stepRefs, stepRuleText, stepStatus, type Block, type PlayStep, type ProgramFacts } from '../practice/program';
 import { materialId } from '../practice/material';
 import { stepTitle } from '../ui/lesson/model';
 import { createEnginePort, type PlaybackPort } from '../ui/play/port';
@@ -159,7 +159,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   /** Факты программы по истории и отметкам «Уже умею» (статусы нигде не хранятся). */
   function programFacts(): ProgramFacts {
     const all = records();
-    return { plays: playFacts(all), checks: checkFacts(all), lines: [], skippedBlocks: new Set(lessonPreferences().skipped), today: today() };
+    return { plays: playFacts(all), checks: checkFacts(all), lines: lineFacts(all), skippedBlocks: new Set(lessonPreferences().skipped), today: today() };
   }
   function homeState() {
     const prefs = options.preferences();

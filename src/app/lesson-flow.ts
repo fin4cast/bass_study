@@ -9,7 +9,7 @@ import { builtinLibrary, type UserExercise } from '../practice/library';
 import { builtinTemplateOf } from '../practice/material';
 import { addStep, completeStep, contentExerciseOf, createPlan, currentStep, MAX_PLAN_STEPS, type DayPlan, type NewPlanStep, type PlanStepContent } from '../practice/plan';
 import { checkExercise, checkId, type CheckSpec } from '../practice/check';
-import { BASE_BPM, checkFacts, evaluateProgram, playFacts, type ProgramState } from '../practice/program';
+import { BASE_BPM, checkFacts, evaluateProgram, lineFacts, playFacts, type ProgramState } from '../practice/program';
 import { PROGRAM } from '../practice/program-data';
 import { difficulties, type Assessment, type Difficulty, type PracticeRecord } from '../practice/results';
 import {
@@ -322,5 +322,5 @@ export function fromPlayDefaults(defaults: PlayDefaults, current: Pick<PlayPrefe
 
 /** Статусы программы по истории, отметкам «Уже умею» и дате (R-028): вычисляются, нигде не хранятся. */
 export function programStateFor(records: readonly PracticeRecord[], skipped: readonly string[], today: string): ProgramState {
-  return evaluateProgram(PROGRAM, { plays: playFacts(records), checks: checkFacts(records), lines: [], skippedBlocks: new Set(skipped), today });
+  return evaluateProgram(PROGRAM, { plays: playFacts(records), checks: checkFacts(records), lines: lineFacts(records), skippedBlocks: new Set(skipped), today });
 }

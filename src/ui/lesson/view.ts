@@ -21,6 +21,8 @@ import {
 } from './model';
 import { CATEGORY_ORDER, CATEGORY_TITLES } from '../../practice/library';
 import { pathBadge, pathModel, stageLine, type PathStep } from './path';
+import { builderMarkup, builderPattern, builderRoot, builderSpec, initialBuilder, toggleBuilder, type BuilderState } from './line-builder';
+import type { ProgressionPattern } from '../../exercises';
 
 export type { LessonState, LessonTab } from './model';
 
@@ -73,6 +75,8 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
   let pathStage: number | null = null;
   const pathPicks = new Map<string, number>();
   let saveDraft: { key: string; name: string } | null = null;
+  /** Конструктор «Своей линии» во вкладке «Библиотека». */
+  let builder: BuilderState = initialBuilder();
   /** Материал, настроенный на встроенных карточках библиотеки (по id карточки), и открытая строка настройки. */
   let cardSpecs = new Map<string, ExerciseSpec>();
   let configuring: string | null = null;
@@ -279,7 +283,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const bar = strip.count
       ? `<strong>План на сегодня · ${e(strip.count)} ${plural(strip.count, 'шаг', 'шага', 'шагов')} · ${e(strip.minutes)} мин</strong><span class="ls-bar-list">${strip.items.map(item => item.current ? `<b>▶ ${e(item.title)}</b>` : `${item.done ? '✓ ' : ''}${e(item.title)}`).join(' → ')}</span><span class="ls-bar-btns"><button type="button" class="secondary-button button-compact" data-act="edit-today" data-key="bar-edit">Изменить в «Сегодня»</button><button type="button" class="primary-button" data-act="play"${strip.current ? ` data-ref="${ref(strip.current.content)}" data-step="${e(strip.current.id)}"` : ' disabled'} data-key="bar-start">Начать →</button></span>`
       : `<strong>План пуст</strong><span class="ls-bar-list">Добавь упражнения кнопкой «+ в план» или сразу нажми «Играть».</span><span class="ls-bar-btns"><button type="button" class="primary-button" disabled>Начать →</button></span>`;
-    regions.library.innerHTML = `<div class="ls-lib-body">
+    regions.library.innerHTML = `${builderMarkup(builder, `${id}-builder-title`)}<div class="ls-lib-body">
         <nav class="ls-cats" aria-label="Категории">${model.categories.map(category => `<button type="button" class="ls-cat" data-act="category" data-value="${e(category.id)}" data-key="cat:${e(category.id)}" aria-pressed="${library.category === category.id}"><span>${e(category.title)}</span><small>${e(category.count)}</small></button>`).join('')}</nav>
         <div class="ls-lib-right">${filters}<div class="ls-grid">${cards}</div></div>
       </div>
@@ -330,11 +334,14 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const chips = step.variants.length > 1 ? `<div class="ls-vchips" role="group" aria-label="Варианты шага: ${e(step.title)}">${step.variants.map((variant, index) =>
       `<button type="button" class="ls-vchip${index === step.selected ? ' is-on' : ''}${variant.clean ? ' is-clean' : ''}" data-act="path-variant" data-step-id="${e(step.id)}" data-value="${index}" data-key="pv:${e(step.id)}:${index}" aria-pressed="${index === step.selected}">${e(variant.label)}${variant.clean ? ' ✓' : ''}</button>`).join('')}</div>`
       : step.variants.length === 1 ? `<span class="ls-sub ls-vone">${e(step.variants[0].label)}</span>` : '';
+    const build = step.kind === 'line'
+      ? `<button type="button" class="${step.current ? 'primary-button' : 'secondary-button'} button-compact" data-act="path-build" data-step-id="${e(step.id)}" data-key="path-build:${e(step.id)}" aria-label="${e(`Построить: ${step.title}`)}">▶ Построить</button>`
+      : step.kind === 'song' ? `<button type="button" class="secondary-button button-compact" data-act="path-song" data-step-id="${e(step.id)}" data-key="path-song:${e(step.id)}" aria-label="${e(`Своя песня: ${step.title}`)}">Фрагменты из «Песен»</button>` : '';
     const play = step.kind === 'play' || step.kind === 'check'
       ? `<button type="button" class="${step.current ? 'primary-button' : 'secondary-button'} button-compact" data-act="path-play" data-step-id="${e(step.id)}" data-key="path-play:${e(step.id)}" aria-label="${e(`${step.kind === 'check' ? 'Проверь себя' : 'Играть'}: ${step.title}`)}">${step.kind === 'check' ? '▶ Проверь себя' : '▶ Играть'}</button>` : '';
     return `<li class="ls-pstep is-${step.state}${step.current ? ' is-current' : ''}" data-step-id="${e(step.id)}">
       <div class="ls-pstep-main"><b>${e(step.title)}</b><span class="ls-chip ls-chip-status" data-status="${e(step.state)}">${e(step.label)}</span>${step.review ? '<span class="ls-chip ls-chip-review">пора повторить</span>' : ''}${step.current ? '<span class="ls-chip ls-chip-concept">сейчас</span>' : ''}</div>
-      <div class="ls-pstep-side">${chips}${play}</div></li>`;
+      <div class="ls-pstep-side">${chips}${play}${build}</div></li>`;
   }
   function renderPath(current: LessonState) {
     const stages = pathModel(current.program, current.programState, new Set(current.skipped), pathPicks);
@@ -496,6 +503,18 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         case 'go-path': setBasicsView('path'); basicsMode = 'path'; selectTab('basics'); render(); container.querySelector<HTMLElement>('[data-key^="path-play:"]')?.focus(); break;
         case 'path-stage': pathStage = Number(target.dataset.value); render(); break;
         case 'path-variant': pathPicks.set(target.dataset.stepId!, Number(target.dataset.value)); render(); break;
+        case 'path-build': builder = toggleBuilder(builder, true); selectTab('library'); render(); container.querySelector<HTMLElement>('[data-key="builder-root"]')?.focus(); break;
+        case 'path-song': toast('Фрагменты своих песен сохраняются в разделе «Песни»: выбери такты партии и нажми «Разучить как упражнение».'); break;
+        case 'builder-toggle': builder = toggleBuilder(builder); render(); break;
+        case 'builder-play': try { options.onPlay({ kind: 'exercise', spec: builderSpec(builder) }, null); } catch (failure) { builder = { ...builder, error: failure instanceof Error ? failure.message : String(failure) }; render(); } break;
+        case 'builder-save': {
+          if (!options.onSaveExercise) break;
+          const name = builder.name.trim();
+          if (!name) { builder = { ...builder, error: 'Назови линию, чтобы сохранить её как своё упражнение.' }; render(); container.querySelector<HTMLElement>('[data-key="builder-name"]')?.focus(); break; }
+          try { options.onSaveExercise(builderSpec(builder), name.slice(0, 80)); builder = { ...builder, name: '', error: '' }; toast(`Сохранено как своё упражнение: ${name.slice(0, 80)}`); render(); }
+          catch (failure) { builder = { ...builder, error: failure instanceof Error ? failure.message : String(failure) }; render(); }
+          break;
+        }
         case 'path-play': {
           const id = target.dataset.stepId!;
           const stages = pathModel(state.program, state.programState, new Set(state.skipped), pathPicks);
@@ -534,6 +553,8 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const control = event.target instanceof HTMLSelectElement ? event.target : null;
     if (!control || !state) return;
     if (control.dataset.control === 'play-from') { options.onPlayFromChange(control.value || null); return; }
+    if (control.dataset.control === 'builder-root') { builder = builderRoot(builder, control.value); render(); return; }
+    if (control.dataset.control === 'builder-pattern') { builder = builderPattern(builder, Number(control.dataset.bar), control.value as ProgressionPattern); render(); return; }
     if (control.dataset.control === 'card-param') { configureCard(state, control.dataset.card!, control.dataset.param!, control.value); return; }
     if (control.dataset.control === 'structure') library = { ...library, structureId: (control.value || null) as LibraryControls['structureId'] };
     if (control.dataset.control === 'sort') library = { ...library, sort: control.value as LibraryControls['sort'] };
@@ -556,6 +577,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
 
   container.addEventListener('input', event => {
     if (event.target === searchInput) { renderSearch(); return; }
+    if (event.target instanceof HTMLInputElement && event.target.dataset.builderName !== undefined) { builder = { ...builder, name: event.target.value }; return; }
     if (event.target instanceof HTMLInputElement && event.target.dataset.saveName !== undefined && saveDraft) saveDraft = { ...saveDraft, name: event.target.value };
   }, listen);
   searchInput.addEventListener('keydown', event => {

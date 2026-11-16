@@ -240,3 +240,14 @@
 .lesson-view .ls-chip-done { background: var(--accent-soft); color: var(--accent-text); }
 .lesson-view .ls-st.is-review { border-style: dashed; border-color: var(--warning-text); }
 .lesson-view .ls-st.is-review small { color: var(--warning-text); }
+
+/* Конструктор «Своя линия» (R-028, B5.4) */
+.lesson-view .ls-builder { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-l); padding: var(--card-padding); margin-bottom: 14px; }
+.lesson-view .ls-builder-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; justify-content: space-between; }
+.lesson-view .ls-builder-head h3 { margin: 0 0 2px; font-size: var(--text-s); }
+.lesson-view .ls-builder-body { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.lesson-view .ls-builder-bars { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.lesson-view .ls-builder-bars li { display: flex; flex-direction: column; gap: 4px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-m); }
+.lesson-view .ls-bb-chord { font-weight: 600; font-family: var(--font-mono); }
+.lesson-view .ls-builder-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.lesson-view .ls-builder-error { margin: 0; color: var(--danger-text, var(--text-primary)); font-size: var(--text-xs); }

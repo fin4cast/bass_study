@@ -992,6 +992,39 @@ check('check-board-answer-positions-hidden-then-correction-and-reveal-match-inde
   return { first: { root: first.root, target: first.target, answers: first.answers, wrong: first.wrong[0], phrase: first.phrase }, second: { target: question.target, answers: question.answers, shown }, answers: entry.result.answers };
 });
 
+/* ---------- Конструктор «Своя линия» (R-028, B5.4) ---------- */
+
+check('library-line-builder-assembles-saves-as-own-exercise-and-plays-it', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await lessonTab(page, 'Библиотека');
+  const builder = home(page).locator('.ls-builder');
+  await builder.locator('[data-act="builder-toggle"]').click();
+  assert.deepEqual(await builder.locator('.ls-bb-chord').allInnerTexts(), ['G · I', 'C · IV', 'D · V', 'G · I']);
+  // Недопустимое не предлагается: в объёме 1 только тоники, тоника и квинта, октавы.
+  assert.deepEqual(await builder.locator('[data-control="builder-pattern"]').first().locator('option').allInnerTexts(), ['тоники', 'тоника и квинта', 'октавы']);
+
+  await builder.locator('[data-control="builder-root"]').selectOption('A');
+  await builder.locator('[data-control="builder-pattern"][data-bar="1"]').selectOption('root-fifth');
+  await builder.locator('[data-control="builder-pattern"][data-bar="2"]').selectOption('octaves');
+  assert.deepEqual(await builder.locator('.ls-bb-chord').allInnerTexts(), ['A · I', 'D · IV', 'E · V', 'A · I']);
+
+  // Сохранение требует название; ошибка видна и не теряет сборку.
+  await builder.locator('[data-act="builder-save"]').click();
+  assert.match(await builder.locator('[role="alert"]').innerText(), /Назови линию/);
+  await builder.locator('[data-builder-name]').fill('Моя линия в A');
+  await builder.locator('[data-act="builder-save"]').click();
+  await page.waitForFunction(() => /Сохранено как своё упражнение: Моя линия в A/.test(document.querySelector('[data-toast]')?.textContent ?? ''));
+  await home(page).getByRole('button', { name: /^Свои/ }).click();
+  assert.deepEqual(await home(page).locator('.ls-lib-card h3').allInnerTexts(), ['Моя линия в A']);
+
+  // «Сыграть» открывает экран игры с той же линией: 32 ноты (четыре такта по восемь).
+  await home(page).locator('.ls-builder [data-act="builder-play"]').click();
+  await playScene(page).locator('[data-title]').waitFor();
+  assert.match(await playScene(page).innerText(), /Своя линия/);
+  assert.match(await playScene(page).locator('[data-sub]').innerText(), /32 ноты/);
+  return { chords: ['A · I', 'D · IV', 'E · V', 'A · I'] };
+});
+
 /* ---------- Проверка по диапазону (R-028, A9) ---------- */
 
 check('check-range-chord-root-hatches-outside-cells-records-check-and-retry-keeps-question', 'ui', async ({ page, origin }) => {

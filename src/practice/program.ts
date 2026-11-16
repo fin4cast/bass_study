@@ -7,7 +7,9 @@ import { buildExercise, type ExerciseSpec } from '../exercises';
 import { buildTimeline, samePractice, type PracticeOptions, type RhythmPatternId } from '../exercises/rhythm';
 import type { TemplateTask } from '../exercises/tasks';
 import { checkId, degreeCheck, type CheckSpec } from './check';
-import { materialId } from './material';
+import { lineBarsText, materialId } from './material';
+import { lineVolume } from './line-builder';
+import { parseNote } from '../music';
 import type { NewPlanStep, PlanStepContent } from './plan';
 import type { PlayRecord, PracticeRecord } from './results';
 
@@ -135,6 +137,30 @@ export function playFacts(records: readonly PracticeRecord[]): PlayFact[] {
     let id: string;
     try { id = materialId((record as PlayRecord).spec); } catch { continue; }
     facts.push({ materialId: id, practice: record.practice, assessment: record.assessment, wholePass: record.wholePass, bpm: record.bpm, localDate: record.localDate, view: record.view });
+  }
+  return facts;
+}
+
+/** Рисунки объёма 2 (B5.4): всё остальное в линии — «рисунок вне объёма 2». */
+const VOLUME_2_PATTERNS = ['roots', 'root-fifth', 'octaves', 'roots-approach', 'arpeggio'];
+const STANDARD_STEPS = [0, 5, 7, 0];
+
+/**
+ * Факты из проходов «Своей линии» (R-028, правила `h1-line`…`h4-line`): объём, состав тактов, тональность (класс высоты),
+ * лад и признаки правил. Берутся записи игры, материал которых — шаблон `line`.
+ */
+export function lineFacts(records: readonly PracticeRecord[]): LineFact[] {
+  const facts: LineFact[] = [];
+  for (const record of records) {
+    if (record.kind !== 'play' || record.spec.templateId !== 'line') continue;
+    const { root, mode, bars } = record.spec.params;
+    facts.push({
+      volume: lineVolume({ mode, bars }), composition: lineBarsText(bars), tonality: String(parseNote(root).pitchClass), mode,
+      allRoots: bars.every(bar => bar.pattern === 'roots'),
+      standardChords: bars.length === STANDARD_STEPS.length && bars.every((bar, index) => bar.chord === 'major-triad' && bar.step === STANDARD_STEPS[index]),
+      beyondVolume2: bars.some(bar => !VOLUME_2_PATTERNS.includes(bar.pattern) || bar.rhythm !== 'eighths'),
+      assessment: record.assessment, wholePass: record.wholePass, bpm: record.bpm, localDate: record.localDate,
+    });
   }
   return facts;
 }
