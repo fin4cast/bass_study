@@ -7,6 +7,7 @@ import { seedPlan } from './helpers/seed-plan.mjs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { browserCases, markFullOnly, FULL_ONLY } from './helpers/browser-case.mjs';
 import { runP13BrowserChecks } from './helpers/p13-browser-harness.mjs';
+import { exportUi, go, restoreCopy } from './helpers/data-ui.mjs';
 
 const checks = [];
 const check = (name, scope, run) => checks.push({ name, scope, run });
@@ -989,6 +990,82 @@ check('check-board-answer-positions-hidden-then-correction-and-reveal-match-inde
   assert.deepEqual(entry.result.answers.slice(0, 2).map(answer => [normalizeDegree(answer.target), answer.outcome]), [[first.target, 'corrected'], [question.target, 'revealed']]);
   assert.equal(entry.result.check.kind, 'find-degree');
   return { first: { root: first.root, target: first.target, answers: first.answers, wrong: first.wrong[0], phrase: first.phrase }, second: { target: question.target, answers: question.answers, shown }, answers: entry.result.answers };
+});
+
+/* ---------- Проверка по диапазону (R-028, A9) ---------- */
+
+check('check-range-chord-root-hatches-outside-cells-records-check-and-retry-keeps-question', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  // Шаг-проверка по диапазону попадает в план так же, как после восстановления копии: программа этапа 1 её добавит в P18-14.
+  const copy = await exportUi(page);
+  const today = await page.evaluate(() => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; });
+  const spec = { version: 'check-v2', kind: 'find-note', area: { type: 'range', strings: ['E', 'A'], fretMin: 0, fretMax: 12 }, subject: { type: 'chord-root', notes: 'natural' }, count: 6, ear: false };
+  copy.preferences.lesson.plan = { version: 'plan-v1', localDate: today, steps: [{ id: 'step-1', content: { kind: 'check', spec }, minutes: 3, status: 'current' }] };
+  await restoreCopy(page, copy, 'range-check.json');
+  await go(page, 'lesson');
+  await home(page).getByRole('tab', { name: /^Сегодня/ }).click();
+  await home(page).locator('.ls-hero [data-act="play"]').click();
+  const host = checkHost(page);
+  await host.locator('[data-ck-title]').waitFor();
+  assert.equal(await host.locator('h1').innerText(), 'Проверь себя: найди ноту');
+
+  const ask = async () => {
+    const title = (await host.locator('[data-ck-title]').innerText()).trim();
+    const match = /^Найди тонику аккорда ([A-G])(m|7|)$/.exec(title);
+    assert.ok(match, `Вопрос о тонике аккорда: ${title}`);
+    return { title, chord: match[1] + match[2], pc: pitchClass(match[1]) };
+  };
+  const inside = () => host.locator('[data-cell]:not(.is-outside)').evaluateAll(list => list.map(cell => cell.dataset.cell));
+  const classOf = id => { const [string, fret] = id.split(':'); return positionMidi(string, fret) % 12; };
+
+  // Гриф показывает ровно лады 0–12; струны D и G вне диапазона вопроса — штриховка и подпись, ответ в них не принимается.
+  const first = await ask();
+  const scan = await answerLeakScan(page);
+  assert.deepEqual(scan.problems, [], 'Признаки ответа в DOM/ARIA до ответа');
+  assert.deepEqual(scan.svgTexts.filter(name => !['mb-fret', 'mb-string-name'].includes(name)), [], 'На грифе вопроса нет подписей нот');
+  assert.equal(scan.cellLabels.length, 4 * 13);
+  assert.equal(scan.cellLabels.filter(label => label.endsWith(' — вне диапазона вопроса')).length, 2 * 13);
+  for (const label of scan.cellLabels) assert.match(label, /^Струна [EADG], лад \d+( — вне диапазона вопроса)?$/);
+  assert.equal((await inside()).length, 2 * 13);
+  assert.deepEqual([...new Set((await inside()).map(id => id[0]))].sort(), ['A', 'E'], 'Внутри диапазона только струны E и A');
+  assert.ok(!scan.html.includes(`aria-label="Струна E, лад ${(await inside()).find(id => classOf(id) === first.pc)?.split(':')[1]} — ответ`), 'Позиция ответа не названа в документе');
+
+  // aria-disabled не блокирует указатель: Playwright считает такую кнопку недоступной, поэтому нажатие вынужденное.
+  await host.locator('[data-cell="D:5"]').click({ force: true });
+  assert.match(await feedbackText(page), /вне диапазона вопроса/);
+  assert.equal(await host.locator('.ck-cell.is-wrong').count(), 0, 'Клетка вне диапазона не засчитывается ошибкой');
+  assert.equal((await ask()).title, first.title, 'Вопрос остался прежним');
+
+  const wrong = (await inside()).find(id => classOf(id) !== first.pc);
+  await host.locator(`[data-cell="${wrong}"]`).click();
+  assert.equal(await host.locator(`[data-cell="${wrong}"]`).evaluate(cell => cell.classList.contains('is-wrong')), true);
+  const right = (await inside()).find(id => classOf(id) === first.pc);
+  await host.locator(`[data-cell="${right}"]`).click();
+  assert.match(await feedbackText(page), /^Верно, с исправлением \(ошибок: 1\)\./);
+  await host.locator('[data-act="next"]').click();
+
+  for (let index = 1; index < 6; index++) {
+    const question = await ask();
+    const target = (await inside()).find(id => classOf(id) === question.pc);
+    await host.locator(`[data-cell="${target}"]`).click();
+    assert.match(await feedbackText(page), /^Верно, с первой попытки\./);
+    await host.locator('[data-act="next"]').click();
+  }
+  await host.locator('[data-ck-summary]').waitFor();
+
+  const db = await waitDb(page, db => db.history.some(entry => entry.result?.kind === 'check'), 'итог проверки по диапазону в истории');
+  const entry = db.history.find(item => item.result?.kind === 'check');
+  assert.equal(entry.result.exerciseKey, 'check:find-note.EA-0-12.chord-natural');
+  assert.deepEqual(entry.result.check, spec);
+  assert.equal(entry.result.answers.length, 6);
+  assert.deepEqual(entry.result.answers[0], { target: first.chord, outcome: 'corrected', errors: 1 });
+  assert.ok(entry.result.answers.slice(1).every(answer => answer.outcome === 'correct' && answer.errors === 0 && /^[A-G](m|7)?$/.test(answer.target)));
+
+  // «Повторить трудные» показывает тот же вопрос, включая обозначение аккорда.
+  await host.locator('[data-act="retry"]').click();
+  await host.locator('[data-ck-title]').waitFor();
+  assert.equal((await ask()).title, first.title);
+  return { first: first.chord, answers: entry.result.answers };
 });
 
 /* ---------- Справочник ---------- */

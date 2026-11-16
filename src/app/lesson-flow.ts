@@ -268,6 +268,15 @@ export function playRatingEntry(input: {
   return makeManualHistory(result, metadata);
 }
 
+const CHECK_KIND_TITLES: Readonly<Record<CheckSpec['kind'], string>> = {
+  'find-note': 'найди ноту', 'name-note': 'назови ноту', 'find-all': 'найди все позиции', 'find-degree': 'найди ступень', 'name-degree': 'назови ступень',
+};
+/** Название проверки по диапазону для строки «Прогресса»: вид вопроса и область («назови ноту · струны E, A · лады 0–5»). */
+function rangeCheckTitle(spec: CheckSpec): string {
+  const area = spec.area;
+  return `${CHECK_KIND_TITLES[spec.kind]} · ${area.type === 'range' ? `струны ${area.strings.join(', ')} · лады ${area.fretMin}–${area.fretMax}` : 'материал упражнения'}`;
+}
+
 /** Итог «Проверь себя»; без ответов записи нет. */
 export function checkEntry(input: {
   readonly spec: CheckSpec; readonly userExercises: readonly UserExercise[]; readonly activeMs: number; readonly answers: readonly CheckAnswer[];
@@ -275,7 +284,7 @@ export function checkEntry(input: {
   const exercise = checkExercise(input.spec);
   return makeCheckHistory({
     exerciseKey: `check:${checkId(input.spec)}`,
-    title: `Проверь себя: ${exercise ? exerciseTitle(exercise, input.userExercises) : stepMaterial({ kind: 'check', spec: input.spec })}`.slice(0, 120),
+    title: `Проверь себя: ${exercise ? exerciseTitle(exercise, input.userExercises) : rangeCheckTitle(input.spec)}`.slice(0, 120),
     check: input.spec,
     activeMs: Math.min(MAX_CHECK_ACTIVE_MS, Math.max(0, Math.round(Number.isFinite(input.activeMs) ? input.activeMs : 0))),
     answers: input.answers,

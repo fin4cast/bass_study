@@ -9,7 +9,7 @@ import {
   hasActivity, isDegreeKind, markedPosition, modeFor, prompt, QUESTION_KINDS, recordAnswers, recordsDegrees, retryRun, reveal, revealedAnswer, reviewMaterial,
   runStatus, scopeApplies, skip, startRun, summarize, summaryRow, wrongFeedback, type CheckRun, type QuestionKind,
 } from '../src/ui/check/session';
-import { degreeCheck } from '../src/practice/check';
+import { degreeCheck, validateCheckSpec } from '../src/practice/check';
 
 const formB = createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' });
 const spec = (kind: 'find-degree' | 'name-degree', ear = false, exercise = formB, count = 6): CheckSpec => degreeCheck(exercise, kind, count, ear);
@@ -286,3 +286,65 @@ describe('повтор ошибок прежних заданий (R-011, P13-08
     expect(() => reviewMaterial(['E:25'], { root: 'A', structureId: 'minor-pentatonic' })).toThrow(RangeError);
   });
 });
+
+describe('серия по диапазону на экране (R-028, A9)', () => {
+  const rangeSpec = (kind: CheckSpec['kind'], subject: CheckSpec['subject'], strings: ('E' | 'A' | 'D' | 'G')[] = ['E', 'A'], fretMin = 0, fretMax = 5): CheckSpec =>
+    validateCheckSpec({ version: 'check-v2', kind, area: { type: 'range', strings, fretMin, fretMax }, subject, count: 6, ear: false });
+  const natural = rangeSpec('name-note', { type: 'notes', notes: 'natural' });
+
+  it('гриф показывает ровно лады области, вид вопроса задан шагом, ноты участка не меняются', () => {
+    const material = checkMaterial(natural);
+    expect(material).toMatchObject({ series: true, fretMin: 0, fretMax: 5, material: 'струны E, A · лады 0–5', count: 6, review: false });
+    expect(material.positions.map(position => position.id)).toEqual(['E:0', 'E:1', 'E:3', 'E:5', 'A:0', 'A:2', 'A:3', 'A:5']);
+    expect(defaultSettings(material).kind).toBe('name-note');
+    expect(modeFor(material)).toBe('cards');
+    expect(modeFor(checkMaterial(rangeSpec('find-note', { type: 'notes', notes: 'natural' })))).toBe('board');
+  });
+  it('серия — шесть вопросов по описанию; способ ответа обязан соответствовать виду', () => {
+    const material = checkMaterial(natural);
+    const run = startRun(material, 'cards', 5);
+    expect(run.mode === 'cards' && run.quiz.questions).toHaveLength(6);
+    expect(run.mode === 'cards' && run.quiz.questionPolicy).toBe('spread-v1');
+    expect(() => startRun(material, 'board', 5)).toThrow(RangeError);
+    expect(() => startRun(material, 'ear', 5)).toThrow(RangeError);
+  });
+  it('«Назови ноту»: семь карточек, цель записи — класс высоты, ответ раскрывается только после закрытия', () => {
+    const material = checkMaterial(natural);
+    const run = startRun(material, 'cards', 9);
+    expect(choiceLabels(run)).toEqual(['C', 'D', 'E', 'F', 'G', 'A', 'B']);
+    expect(revealedAnswer(run, material)).toBeNull();
+    const first = entries(run)[0];
+    expect(first.target).toMatch(/^[A-G][♯♭]?$/);
+    expect(recordAnswers(entries(run))[0]).toMatchObject({ target: first.target, outcome: 'unanswered' });
+  });
+  it('тоника аккорда: вопрос называет аккорд, ответ — позиция на гриде; клетка вне диапазона — «вне диапазона вопроса»', () => {
+    const material = checkMaterial(rangeSpec('find-note', { type: 'chord-root', notes: 'natural' }, ['E', 'A'], 0, 12));
+    const run = startRun(material, 'board', 3);
+    expect(prompt(run, material).title).toMatch(/^Найди тонику аккорда [A-G](m|7)?$/);
+    expect(prompt(run, material).sub).toContain('струны E, A · лады 0–12');
+    const outside = 'D:5';
+    expect(inQuizAreaOf(run, outside)).toBe(false);
+    expect(wrongFeedback(run, material, { positionId: outside })).toBe('D/5 — вне диапазона вопроса. Ищи внутри.');
+  });
+  it('повтор трудных показывает те же вопросы, включая обозначение аккорда', () => {
+    const material = checkMaterial(rangeSpec('find-note', { type: 'chord-root', notes: 'natural' }, ['E', 'A'], 0, 12));
+    const first = startRun(material, 'board', 3);
+    const titles = first.mode === 'board' ? first.quiz.questions.map(question => question.prompt) : [];
+    const retry = retryRun(material, first, [1, 3], 77);
+    expect(retry.mode === 'board' && retry.quiz.questions.map(question => question.prompt)).toEqual([titles[1], titles[3]]);
+    expect(prompt(retry, material).title).toBe(titles[1].replace(/\.$/, ''));
+  });
+  it('римская цифра и ступени гаммы проверки: текст из A9.4, итог называет цель', () => {
+    const roman = checkMaterial(rangeSpec('find-note', { type: 'roman-root', key: 'C' }, ['E', 'A'], 0, 12));
+    const run = startRun(roman, 'board', 1);
+    expect(prompt(run, roman).title).toMatch(/^Тональность C мажор\. Найди тонику аккорда (I|ii|iii|IV|V|vi|vii°)$/);
+    const blues = checkMaterial(rangeSpec('name-degree', { type: 'degrees', scale: { root: 'A', degrees: ['1', '5', '6', 'b7'] }, targets: null }, ['E', 'A', 'D'], 4, 7));
+    const cards = startRun(blues, 'cards', 2);
+    expect(choiceLabels(cards)).toEqual(['1', '5', '6', '♭7']);
+    expect(entries(cards).every(entry => ['1', '5', '6', 'b7'].includes(entry.target))).toBe(true);
+  });
+});
+
+function inQuizAreaOf(run: CheckRun, positionId: string) {
+  return run.mode !== 'ear' && run.quiz.currentQuestion.context.positionIds.includes(positionId);
+}

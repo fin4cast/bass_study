@@ -184,7 +184,7 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
   }
   /** Экранное задание прочих видов уходит в историю после каждого закрытого ответа и в итоге. */
   function publishScreen(current: CheckRun | null = run) {
-    if (!current || current.mode === 'ear' || recordsDegrees(runKind(current))) return;
+    if (!current || current.mode === 'ear' || recordsDegrees(runKind(current)) || material?.series) return;
     try { options.onScreen?.(current.quiz); } catch (error) { notice = error instanceof Error ? error.message : String(error); }
   }
   function begin(nextRun: CheckRun, isRetry: boolean) {
@@ -217,7 +217,7 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     const finished = run;
     render();
     summaryBox.querySelector<HTMLElement>('[data-act="next-step"]')?.focus({ preventScroll: true });
-    if (finished.mode !== 'ear' && !recordsDegrees(runKind(finished))) { publishScreen(finished); if (notice) render(); return; }
+    if (finished.mode !== 'ear' && !recordsDegrees(runKind(finished)) && !material.series) { publishScreen(finished); if (notice) render(); return; }
     if (!material.spec) return;
     try { options.onFinish(summary, recordAnswers(list)); } catch (error) { notice = error instanceof Error ? error.message : String(error); render(); }
   }
@@ -225,6 +225,8 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
 
   function answerAt(positionId: string) {
     if (!run || !material || run.mode !== 'board' || !answersOpen(run)) return;
+    // Клетка вне диапазона вопроса — не ответ: пояснение, без ошибки в серии (дефект доски P13-11).
+    if (material.series && !inQuizArea(run, material, positionId)) { feedback = { text: `${formatPosition(positionId)} — вне диапазона вопроса: ответ ищи среди ${material.material}.`, tone: '' }; render(); return; }
     if (run.quiz.answerState.selectedPositionIds.includes(positionId)) { feedback = { text: `${formatPosition(positionId)} уже отмечена.`, tone: '' }; render(); return; }
     if (wrongPositions.has(positionId)) { feedback = { text: `${formatPosition(positionId)} уже проверена — это не ответ.`, tone: '' }; render(); return; }
     markContour();
@@ -328,13 +330,13 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     const canToggleEar = !!material.earQuality && degreeKind && !hasActivity(run) && !summary;
     const earOn = run.mode === 'ear';
     const lockedTitle = material.review ? 'Повтор ошибок задаёт вопрос «Назови ноту» по этим позициям' : 'Вид вопроса меняется до первого ответа серии или после итога';
-    const kindSelect = `<label class="ck-field"><span class="ck-sr">Вид вопроса</span><select class="ck-select" data-kind data-key="kind" aria-label="Вид вопроса"${fresh && !material.review ? '' : ` disabled title="${e(lockedTitle)}"`}>${QUESTION_KINDS.map(item => `<option value="${item.id}"${item.id === settings.kind ? ' selected' : ''}>${e(item.label)}</option>`).join('')}</select></label>`;
+    const kindSelect = `<label class="ck-field"><span class="ck-sr">Вид вопроса</span><select class="ck-select" data-kind data-key="kind" aria-label="Вид вопроса"${fresh && !material.review && !material.series ? '' : ` disabled title="${e(material.series ? 'Вид вопроса задан шагом проверки' : lockedTitle)}"`}>${QUESTION_KINDS.map(item => `<option value="${item.id}"${item.id === settings.kind ? ' selected' : ''}>${e(item.label)}</option>`).join('')}</select></label>`;
     const intervalSelect = settings.kind === 'find-interval' ? `<label class="ck-field"><span class="ck-sr">Интервал от тоники</span><select class="ck-select" data-interval data-key="interval" aria-label="Интервал от тоники"${fresh ? '' : ' disabled'}>${INTERVAL_CHOICES.map(degree => `<option value="${degree}"${degree === settings.interval ? ' selected' : ''}>${e(formatDegree(degree))}</option>`).join('')}</select></label>` : '';
-    const scopeToggle = scopeApplies(settings.kind) && !material.review ? `<button type="button" class="ck-toggle" data-act="toggle-scope" data-key="toggle-scope" aria-pressed="${settings.scope === 'chromatic'}"${fresh ? '' : ' disabled'} title="${e(fresh ? 'Все ноты участка формы, а не только ноты структуры' : 'Ноты меняются до первого ответа серии или после итога')}">◫ Все ноты участка</button>` : '';
+    const scopeToggle = scopeApplies(settings.kind) && !material.review && !material.series ? `<button type="button" class="ck-toggle" data-act="toggle-scope" data-key="toggle-scope" aria-pressed="${settings.scope === 'chromatic'}"${fresh ? '' : ' disabled'} title="${e(fresh ? 'Все ноты участка формы, а не только ноты структуры' : 'Ноты меняются до первого ответа серии или после итога')}">◫ Все ноты участка</button>` : '';
     return `<div class="ck-progress"><strong>${summary ? `Итог · ${e(list.length)} из ${e(list.length)}` : `Вопрос ${e(index + 1)} из ${e(questionCount(run))}`}</strong>${dotsMarkup(list, summary ? null : index)}</div>
       <div class="ck-tools">${kindSelect}${intervalSelect}${scopeToggle}
         ${summary ? '' : `${degreeKind ? `<button type="button" class="ck-toggle" data-act="toggle-ear" data-key="toggle-ear" aria-pressed="${earOn}"${canToggleEar ? '' : ' disabled'} title="${e(!material.earQuality ? 'Слух пока только для пентатоник и трезвучий' : canToggleEar ? 'Слух — опция вопроса: сначала тоника, потом нота' : 'Слух меняется до первого ответа серии')}">♪ <b>+ слух</b></button>` : ''}
-        ${run.mode === 'board' ? `<button type="button" class="ck-toggle" data-act="toggle-contour" data-key="toggle-contour" aria-pressed="${contour}" title="Подсказка: контуры позиций материала без подписей">◌ Контуры формы</button>` : ''}
+        ${run.mode === 'board' && !material.series ? `<button type="button" class="ck-toggle" data-act="toggle-contour" data-key="toggle-contour" aria-pressed="${contour}" title="Подсказка: контуры позиций материала без подписей">◌ Контуры формы</button>` : ''}
         <button type="button" class="text-button" data-act="finish" data-key="finish" title="Незаданные вопросы попадут в итог как «без ответа»">Завершить серию</button>`}</div>`;
   }
 
@@ -347,7 +349,7 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     const degrees = question.mode === 'find-degree';
     const notes: BoardNote[] = review
       ? mat.positions.map(position => ({ id: position.id, kind: position.degree === '1' ? 'root' : 'b', label: degrees ? formatDegree(position.degree) : position.noteName }))
-      : contour ? mat.positions.map(position => ({ id: position.id, kind: 'ghost' })) : [];
+      : contour && !mat.series ? mat.positions.map(position => ({ id: position.id, kind: 'ghost' })) : [];
     const foundText = degrees ? formatDegree(question.target.degree) : question.mode === 'find-interval' ? formatDegree(question.target.degree) : question.target.name;
     const geo = boardGeometry({ fretMin: mat.fretMin, fretMax: mat.fretMax, width: BOARD_WIDTH, marker: BOARD_MARKER, labels: true });
     const w = geo.cell * .9, h = geo.rowGap * .94;
@@ -358,12 +360,14 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
       const cell = `${string}:${fret}`;
       const wrong = wrongPositions.has(cell), isFound = found.has(cell), isShown = shown.has(cell) && !isFound;
       const inside = inQuizArea(current, mat, cell);
+      // Клетка вне диапазона вопроса у серии `check-v2`: штриховка, не принимает ответ (у прежних проверок по материалу — отказ «вне материала»).
+      const outside = mat.series && !inside;
       // После ошибки подпись объясняет нажатое: ступень у ступеней, нота у прочих видов.
       const said = wrong && inside ? (degrees ? formatDegree(degreeAt(mat, cell)) : noteAt(mat, cell, question.mode === 'find-pitch')) : '';
       const text = review ? '' : isFound ? foundText : wrong ? (inside ? said : '✕') : '';
       const note = isFound ? ' — найдено' : wrong ? ` — неверно${inside ? `: это ${said}` : ', вне материала'}` : isShown ? ' — ответ' : '';
       const style = `left:${((geo.x(fret) - w / 2) / geo.width * 100).toFixed(3)}%;top:${((geo.y(string) - h / 2) / geo.height * 100).toFixed(3)}%;width:${(w / geo.width * 100).toFixed(3)}%;height:${(h / geo.height * 100).toFixed(3)}%`;
-      cells.push(`<button type="button" class="ck-cell${isFound ? ' is-found' : ''}${wrong ? ' is-wrong' : ''}${isShown ? ' is-shown' : ''}${review ? ' is-final' : ''}" data-cell="${cell}" data-key="cell:${cell}" tabindex="${cell === focusCell ? 0 : -1}" aria-label="${e(`Струна ${string}, лад ${fret}${note}`)}"${locked ? ' aria-disabled="true"' : ''} style="${style}"><span class="ck-dot">${e(text)}</span></button>`);
+      cells.push(`<button type="button" class="ck-cell${isFound ? ' is-found' : ''}${wrong ? ' is-wrong' : ''}${isShown ? ' is-shown' : ''}${review ? ' is-final' : ''}${outside ? ' is-outside' : ''}" data-cell="${cell}" data-key="cell:${cell}" tabindex="${cell === focusCell ? 0 : -1}" aria-label="${e(`Струна ${string}, лад ${fret}${note}${outside ? ' — вне диапазона вопроса' : ''}`)}"${locked || outside ? ' aria-disabled="true"' : ''} style="${style}"><span class="ck-dot">${e(text)}</span></button>`);
     }
     return `<div class="ck-boardwrap"><div class="ck-wrap" style="--ck-dot:${dot}%">${boardSvg({ fretMin: mat.fretMin, fretMax: mat.fretMax, notes, width: BOARD_WIDTH, marker: BOARD_MARKER, labels: true, decorative: true })}<div class="ck-hit" role="group" aria-label="${e(`Гриф для ответа, лады ${mat.fretMin}–${mat.fretMax}: стрелки — по позициям, Enter — ответ`)}">${cells.join('')}</div></div></div>
       <div class="ck-foot"><span>Клик по позиции — ответ · <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> по позициям, <kbd>Enter</kbd> — ответ</span><span>${review ? `Подписи — ${degrees ? 'ступени' : 'ноты'} материала · кольцо — ответ · ✕ — ошибка` : contour ? 'Контуры — позиции материала, без подписей' : 'Без контуров: материал по памяти'}</span></div>`;

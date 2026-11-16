@@ -3,7 +3,7 @@ import { createExerciseSpec } from '../src/exercises';
 import { builtinLibrary, type UserExercise } from '../src/practice/library';
 import { materialId } from '../src/practice/material';
 import { createPlan, completeStep } from '../src/practice/plan';
-import { checkId, degreeCheck, type CheckSpec } from '../src/practice/check';
+import { checkId, degreeCheck, validateCheckSpec, type CheckSpec } from '../src/practice/check';
 import { practiceRecords } from '../src/practice/history';
 import { difficulties, type PracticeRecord } from '../src/practice/results';
 import { MAX_EXERCISE_VIEWS, type ExerciseView, type PlayPreferences } from '../src/storage/model';
@@ -322,6 +322,15 @@ describe('P18-11: план нового дня собирает программ
   it('в плане не больше 12 шагов', () => {
     const many = Array.from({ length: 14 }, (_, index) => ({ id: `d${index + 1}`, content: composed[0].content, minutes: 2 }));
     expect(planForToday(null, TODAY, () => many).steps).toHaveLength(12);
+  });
+});
+
+describe('строка проверки по диапазону называет вид вопроса и диапазон', () => {
+  it('название записи — вид вопроса и область, а не ступени', () => {
+    const spec = validateCheckSpec({ version: 'check-v2', kind: 'name-note', area: { type: 'range', strings: ['E', 'A'], fretMin: 0, fretMax: 5 }, subject: { type: 'notes', notes: 'natural' }, count: 6, ear: false });
+    const entry = checkEntry({ spec, userExercises: [], activeMs: 1000, answers: [{ target: 'E', outcome: 'correct', errors: 0 }] }, { id: 'r1', occurredAt: '2026-11-10T10:00:00.000Z', timeZone: 'Europe/Moscow' })!;
+    expect(entry.result.kind === 'check' && entry.result.title).toBe('Проверь себя: назови ноту · струны E, A · лады 0–5');
+    expect(entry.result.kind === 'check' && entry.result.exerciseKey).toBe('check:name-note.EA-0-5.notes-natural');
   });
 });
 

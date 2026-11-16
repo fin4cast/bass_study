@@ -24,6 +24,13 @@ const cardLabel = (pitchClass: number) => (NATURAL_CLASSES.has(pitchClass) ? SHA
 /** Одно имя ноты в вопросе: диезное при чётном `seed` вопроса, бемольное при нечётном. */
 const askName = (pitchClass: number, seed: number) => (seed % 2 === 0 ? SHARP_NAMES[pitchClass] : FLAT_NAMES[pitchClass]);
 
+/**
+ * Серию вопросов строит `checkSeries`, если проверка не сводится к прежней: диапазон грифа, ноты, тоника аккорда,
+ * римская цифра, гамма проверки или ограничение целей. Ступени материала без ограничений идут прежним путём `training`.
+ */
+export const usesCheckSeries = (spec: CheckSpec): boolean =>
+  spec.area.type === 'range' || spec.subject.type !== 'degrees' || spec.subject.targets !== null;
+
 export interface CheckSeries {
   readonly questions: readonly Question[];
   /** Структура, по которой подписаны ноты и ступени. */

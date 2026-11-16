@@ -10,7 +10,8 @@ import {
 } from '../../ear';
 import type { ExercisePlan } from '../../exercises';
 import { annotatePositions, createStructure, formatMidi, getPosition, getPositions, parseNote, type AnnotatedPosition, type MusicalStructure, type StringId } from '../../music';
-import { checkExercise, validateCheckSpec, type CheckSpec } from '../../practice/check';
+import { CHECK_COUNT_MIN, checkExercise, validateCheckSpec, type CheckSpec } from '../../practice/check';
+import { checkSeries, startCheckQuiz, usesCheckSeries } from '../../practice/check-series';
 import type { CheckOutcome } from '../../practice/results';
 import { INTERVAL_DEGREES, nextQuestion, revealAnswer, skipQuestion, startQuiz, submitAnswer, type IntervalDegree, type QuestionContext, type QuizMode, type QuizSession } from '../../training';
 import { exercisePlan, exerciseStructure, formatDegree, formatPosition, keyName, materialLabel, STRUCTURE_LABELS } from '../lesson/material';
@@ -63,6 +64,8 @@ export interface CheckMaterial {
   readonly count: number;
   /** Повтор ошибок прежних заданий: вид вопроса и материал фиксированы. */
   readonly review: boolean;
+  /** Серия по описанию `check-v2` с диапазоном, нотами или целями (`checkSeries`): вид вопроса задан шагом и не меняется. */
+  readonly series: boolean;
 }
 
 const EAR_QUALITY: Partial<Record<MusicalStructure['id'], EarQuality>> = {
@@ -76,10 +79,22 @@ function area(positions: readonly AnnotatedPosition[], structure: MusicalStructu
   return Object.freeze(annotatePositions(getPositions({ strings, fretMin: Math.min(...frets), fretMax: Math.max(...frets) }), structure));
 }
 
+/** Материал проверки по диапазону, нотам и целям: гриф показывает ровно лады области (A9.2). */
+function seriesMaterial(spec: CheckSpec): CheckMaterial {
+  const series = checkSeries(spec, 1);
+  const exercise = checkExercise(spec);
+  const window = spec.area.type === 'range' ? { fretMin: spec.area.fretMin, fretMax: spec.area.fretMax } : boardWindow(series.area.map(position => position.fret), 6);
+  const material = spec.area.type === 'range' ? `струны ${spec.area.strings.join(', ')} · лады ${spec.area.fretMin}–${spec.area.fretMax}` : materialLabel(exercise!);
+  return Object.freeze({
+    spec, plan: exercise ? exercisePlan(exercise) : null, structure: series.structure, positions: series.positions, chromatic: series.area, earQuality: null,
+    fretMin: window.fretMin, fretMax: window.fretMax, root: series.structure.root, key: keyName(series.structure), material, count: spec.count, review: false, series: true,
+  });
+}
+
 export function checkMaterial(input: CheckSpec): CheckMaterial {
   const spec = validateCheckSpec(JSON.parse(JSON.stringify(input)));
-  const exercise = checkExercise(spec);
-  if (!exercise || spec.subject.type !== 'degrees' || spec.subject.targets !== null) throw new RangeError('Проверки по диапазону, нотам и целям вопросов появятся в P18-12.');
+  if (usesCheckSeries(spec)) return seriesMaterial(spec);
+  const exercise = checkExercise(spec)!;
   const structure = exerciseStructure(exercise);
   if (!structure) throw new RangeError('В материале этого упражнения нет ступеней одной тоники — проверка ступеней недоступна.');
   const plan = exercisePlan(exercise);
@@ -90,7 +105,7 @@ export function checkMaterial(input: CheckSpec): CheckMaterial {
   return Object.freeze({
     spec, plan, structure, positions: Object.freeze(positions), chromatic: area(positions, structure), earQuality: EAR_QUALITY[structure.id] ?? null,
     fretMin: window.fretMin, fretMax: window.fretMax, root: structure.root, key: keyName(structure), material: materialLabel(exercise),
-    count: spec.count, review: false,
+    count: spec.count, review: false, series: false,
   });
 }
 
@@ -114,7 +129,7 @@ export function reviewMaterial(positionIds: readonly string[], context: Pick<Que
     spec: null, plan: null, structure, positions: annotated, chromatic: annotated, earQuality: null,
     fretMin: window.fretMin, fretMax: window.fretMax, root: structure.root, key: keyName(structure),
     material: `повтор ошибок · ${keyName(structure)} · ${STRUCTURE_LABELS[structure.id]} · ${ids.length} ${ids.length % 10 === 1 && ids.length % 100 !== 11 ? 'позиция' : ids.length % 10 >= 2 && ids.length % 10 <= 4 && (ids.length % 100 < 12 || ids.length % 100 > 14) ? 'позиции' : 'позиций'}`,
-    count: REVIEW_COUNT, review: true,
+    count: REVIEW_COUNT, review: true, series: false,
   });
 }
 
@@ -137,6 +152,11 @@ export type CheckRun =
 export const runKind = (run: CheckRun): QuestionKind => run.mode === 'ear' ? 'name-degree' : run.quiz.questions[0].mode;
 
 export function startRun(material: CheckMaterial, mode: CheckMode, seed: number, count = material.count, settings?: QuestionSettings): CheckRun {
+  if (material.series && material.spec) {
+    // Серия по описанию шага: вид вопроса, область и цели заданы им; повтор трудных берёт готовые вопросы, число — не меньше минимума.
+    if (mode === 'ear' || isNamingKind(material.spec.kind) !== (mode === 'cards')) throw new RangeError('Способ ответа не соответствует виду вопроса.');
+    return { mode, quiz: startCheckQuiz({ ...material.spec, count: Math.max(CHECK_COUNT_MIN, count) }, seed) };
+  }
   if (mode === 'ear') {
     if (!material.earQuality) throw new RangeError('Слух пока работает только для пентатоник и трезвучий.');
     return { mode, ear: startEarSession({ root: material.root, quality: material.earQuality, count, seed }) };
@@ -246,6 +266,11 @@ export function prompt(run: CheckRun, material: CheckMaterial): Prompt {
   const frets = quizArea(run).map(id => Number(id.split(':')[1]));
   const window = `лады ${Math.min(...frets)}–${Math.max(...frets)}`;
   const notes = question.context.scope === 'chromatic' ? 'все ноты участка' : 'ноты материала';
+  // Вопрос серии `check-v2` называет цель сам (тоника аккорда, цифра, нота, ступень гаммы проверки): текст — из генератора.
+  const asked = (kind: string): Prompt => ({ kind, title: question.prompt.replace(/\.$/, ''), sub: `Область: ${material.material}. Подходит любая позиция${question.mode === 'find-all' ? ', нужны все' : ''}.` });
+  if (question.recordTarget !== undefined && (question.mode === 'find-degree' || question.mode === 'find-note' || question.mode === 'find-all')) {
+    return asked(question.mode === 'find-degree' ? 'Найди на грифе' : question.mode === 'find-all' ? 'Найди все позиции' : 'Найди ноту');
+  }
   switch (question.mode) {
     case 'find-degree': return { kind: 'Найди на грифе', title: `Найди ${question.target.degree === '1' ? 'тонику 1' : formatDegree(question.target.degree)}`, sub: `Тоника — ${material.root}. Материал: ${material.material}, ${window}. Подходит любая позиция этой ступени в материале.` };
     case 'name-degree': return { kind: 'Назови ступень', title: `Какая это ступень от ${material.root}?`, sub: `Отмеченная нота — ${formatPosition(question.targetPositionId!)}. Ответь ${keysHint(question.choices.length)}.` };
@@ -296,9 +321,10 @@ export function wrongFeedback(run: CheckRun, material: CheckMaterial, answer: { 
     if (question.mode === 'find-degree') {
       const target = question.target.degree;
       const degree = degreeAt(material, answer.positionId);
-      if (!inside) return degree === target
+      if (!inside) return material.series ? `${here} — вне диапазона вопроса. Ищи внутри.` : degree === target
         ? `${here} — тоже ${formatDegree(degree)}, но вне материала упражнения. Найди её внутри.`
         : `${here} — вне материала упражнения (${material.material}). Ищи внутри.`;
+      if (degree === null) return `${here} — это нота ${noteAt(material, answer.positionId)}, её нет в гамме проверки; нужна ${formatDegree(target)}. Попробуй ещё.`;
       return `${here} — это ${formatDegree(degree)}, не ${formatDegree(target)}. Попробуй ещё.`;
     }
     const position = positionAt(material, answer.positionId);
@@ -311,7 +337,7 @@ export function wrongFeedback(run: CheckRun, material: CheckMaterial, answer: { 
     }
     const heard = question.mode === 'find-pitch' ? formatMidi(position.midi, position.noteName) : position.noteName;
     const match = question.mode === 'find-pitch' ? position.midi === question.targetMidi : position.pitchClass === question.target.pitchClass;
-    if (!inside) return match ? `${here} — тоже ${targetText(question)}, но вне материала вопроса. Найди внутри.` : `${here} — вне материала вопроса (${material.material}). Ищи внутри.`;
+    if (!inside) return material.series ? `${here} — вне диапазона вопроса. Ищи внутри.` : match ? `${here} — тоже ${targetText(question)}, но вне материала вопроса. Найди внутри.` : `${here} — вне материала вопроса (${material.material}). Ищи внутри.`;
     return question.mode === 'find-pitch' && position.pitchClass === question.target.pitchClass
       ? `${here} — это ${heard}: та же нота, другая октава. Нужна ${targetText(question)}.`
       : `${here} — это ${heard}, не ${targetText(question)}. Попробуй ещё.`;
@@ -440,7 +466,7 @@ export function summaryRow(run: CheckRun, material: CheckMaterial, entry: CheckE
   const question = run.mode === 'ear' ? null : run.quiz.questions[entry.index];
   if (question && question.mode !== 'find-degree' && question.mode !== 'name-degree') {
     if (question.mode === 'name-note') return { question: `Нота ${formatPosition(question.targetPositionId ?? '')}`, answer: shown ? question.target.name : '—' };
-    const asked = question.mode === 'find-interval' ? `Найди ${formatDegree(question.target.degree)} от ${material.root}` : question.mode === 'find-all' ? `Найди все ${question.target.name}` : `Найди ${targetText(question)}`;
+    const asked = question.recordTarget !== undefined ? question.prompt.replace(/\.$/, '') : question.mode === 'find-interval' ? `Найди ${formatDegree(question.target.degree)} от ${material.root}` : question.mode === 'find-all' ? `Найди все ${question.target.name}` : `Найди ${targetText(question)}`;
     return { question: asked, answer: shown ? question.expectedPositionIds.map(formatPosition).join(', ') : '—' };
   }
   if (run.mode === 'board') {
