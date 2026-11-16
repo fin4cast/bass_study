@@ -730,7 +730,8 @@ function progressionPlan(root: string, progression: ProgressionId, pattern: Prog
     drafts.push(...bar);
     // Форма Q — по ноте на долю: те же позиции, что у формы E (`root-fifth` 1 5 1 5, `octaves` 1 8 1 8, остальные — первые четыре ноты).
     const quarters = pattern === 'root-fifth' ? [0, 2, 0, 2] : pattern === 'octaves' ? [0, 1, 0, 1] : pattern === 'roots' ? [0, 0, 0, 0] : [0, 1, 2, 3];
-    bars.push({ q: quarters.map(offset => base + offset), e: Array.from({ length: 8 }, (_, step) => base + step), tail: pattern === 'approach' ? [base + 7] : [] });
+    // У рисунка с подходом восьмая нота формы E — терция арпеджио (та же позиция, что вторая нота такта); сам подход живёт в хвосте.
+    bars.push({ q: quarters.map(offset => base + offset), e: Array.from({ length: 8 }, (_, step) => base + (pattern === 'approach' && step === 7 ? 1 : step)), tail: pattern === 'approach' ? [base + 7] : [] });
   });
   return {
     drafts, overlap: 'none', bars,

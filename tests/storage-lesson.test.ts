@@ -242,7 +242,6 @@ describe('«Проверь себя» в истории', () => {
     ['ступень вместо ноты у проверки нот', (x: any) => { x.result.check = clone(rangeCheck('name-note', { type: 'notes', notes: 'natural' })); x.result.exerciseKey = `check:${checkId(x.result.check)}`; x.result.answers[0].target = 'b3'; }],
     ['обозначение аккорда не из вида', (x: any) => { x.result.check = clone(rangeCheck('find-note', { type: 'chord-root', notes: 'natural' })); x.result.exerciseKey = `check:${checkId(x.result.check)}`; x.result.answers[0].target = 'Hm'; }],
     ['римская цифра не из мажора', (x: any) => { x.result.check = clone(rangeCheck('find-note', { type: 'roman-root', key: 'C' })); x.result.exerciseKey = `check:${checkId(x.result.check)}`; x.result.answers[0].target = 'VIII'; }],
-    ['проверка с ограничением целей', (x: any) => { x.result.check.subject.targets = ['b3']; }],
     ['число вопросов', (x: any) => { x.result.check.count = 2; }],
     ['хроматика без одной структуры', (x: any) => { x.result.check.area.exercise = clone(createExerciseSpec('chromatic-position')); x.result.exerciseKey = 'user:chromatic'; }],
     ['транспонирование без одной структуры', (x: any) => { x.result.check.area.exercise = clone(createExerciseSpec('form-transpose')); x.result.exerciseKey = 'user:transpose'; }],

@@ -14,6 +14,8 @@ import type { CheckSpec } from './check';
 const NATURAL_CLASSES: ReadonlySet<number> = new Set([0, 2, 4, 5, 7, 9, 11]);
 const SHARP_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'] as const;
 const FLAT_NAMES = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'] as const;
+/** Класс высоты в записи цели ответа (A1 F6): одно имя, как `CHROMATIC_NAMES`. */
+const RECORD_NAMES = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'] as const;
 const CHORD_SUFFIXES = ['', 'm', '7'] as const;
 const ROMAN = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'] as const;
 
@@ -85,10 +87,13 @@ export function checkSeries(spec: CheckSpec, seed: number): CheckSeries {
   let targets: Target[];
   if (subject.type === 'roman-root') {
     const key = createStructure(parseNote(subject.key).name, 'major');
-    targets = ROMAN.map((roman, index) => ({ key: roman, pitchClass: key.notes[index].pitchClass, roman, degree: String(index + 1) }))
-      .filter(target => positions.some(position => position.pitchClass === target.pitchClass));
+    targets = ROMAN.map((roman, index) => ({ key: roman, pitchClass: key.notes[index].pitchClass, roman, degree: String(index + 1) }));
+    if (targets.some(target => !positions.some(position => position.pitchClass === target.pitchClass))) throw new RangeError('В области нет позиции для каждой ступени тональности: расширьте диапазон.');
   } else if (naming) targets = positions.map(position => ({ key: position.id, pitchClass: position.pitchClass, positionId: position.id, degree: position.degree }));
-  else if (subject.type === 'degrees') targets = unique(positions.map(position => position.degree!)).map(degree => ({ key: degree, pitchClass: positions.find(position => position.degree === degree)!.pitchClass, degree }));
+  else if (subject.type === 'degrees') {
+    if (subject.targets && subject.targets.some(degree => !positions.some(position => position.degree === degree))) throw new RangeError('У цели вопроса нет позиции в области: расширьте диапазон.');
+    targets = unique(positions.map(position => position.degree!)).map(degree => ({ key: degree, pitchClass: positions.find(position => position.degree === degree)!.pitchClass, degree }));
+  }
   else targets = unique(positions.map(position => position.pitchClass)).map(pitchClass => ({ key: String(pitchClass), pitchClass }));
   if (targets.length < 2) throw new RangeError('В области меньше двух целей для вопросов: расширьте диапазон.');
 
@@ -99,7 +104,13 @@ export function checkSeries(spec: CheckSpec, seed: number): CheckSeries {
   let order: Target[];
   if (accidentalSplit && accidental.length && accidental.length < targets.length) {
     const marked = shuffle(accidental, next), plain = shuffle(targets.filter(target => NATURAL_CLASSES.has(target.pitchClass)), next);
-    order = Array.from({ length: spec.count }, (_, index) => (index % 2 === 0 ? marked[Math.floor(index / 2) % marked.length] : plain[Math.floor(index / 2) % plain.length]));
+    // Чётные места — со знаком, нечётные — натуральные; когда нужный список исчерпан, берём из другого, пока не использованы все цели.
+    let usedMarked = 0, usedPlain = 0;
+    order = Array.from({ length: spec.count }, (_, index) => {
+      if (usedMarked >= marked.length && usedPlain >= plain.length) { usedMarked = 0; usedPlain = 0; }
+      const markedTurn = index % 2 === 0 ? usedMarked < marked.length : usedPlain >= plain.length;
+      return markedTurn ? marked[usedMarked++] : plain[usedPlain++];
+    });
   } else {
     const list = shuffle(targets, next);
     order = Array.from({ length: spec.count }, (_, index) => list[index % list.length]);
@@ -118,22 +129,23 @@ export function checkSeries(spec: CheckSpec, seed: number): CheckSeries {
     const expected = naming ? [target.positionId!]
       : positions.filter(position => (subject.type === 'degrees' ? position.degree === target.degree : position.pitchClass === target.pitchClass)).map(position => position.id);
     const matching = positions.filter(position => position.pitchClass === target.pitchClass).map(position => position.id);
-    const spelled = target.degree !== undefined && subject.type === 'degrees' ? structure.notes.find(note => note.pitchClass === target.pitchClass)!.name : askName(target.pitchClass, questionSeed);
+    // Ступени и римская цифра пишутся по структуре (мажор тональности), остальное — диез при чётном seed, бемоль при нечётном.
+    const spelled = subject.type === 'degrees' || subject.type === 'roman-root' ? structure.notes.find(note => note.pitchClass === target.pitchClass)!.name : askName(target.pitchClass, questionSeed);
     const here = naming ? positions.find(position => position.id === target.positionId)! : null;
     let prompt: string;
     let record: string;
     switch (kind) {
-      case 'name-note': prompt = `Назови ноту: струна ${here!.string}, лад ${here!.fret}. Октава не влияет на выбор имени.`; record = naturalOnly ? SHARP_NAMES[target.pitchClass] : cardLabel(target.pitchClass); break;
+      case 'name-note': prompt = `Назови ноту: струна ${here!.string}, лад ${here!.fret}. Октава не влияет на выбор имени.`; record = RECORD_NAMES[target.pitchClass]; break;
       case 'name-degree': prompt = `Какая это ступень от ${structure.root}: струна ${here!.string}, лад ${here!.fret}?`; record = target.degree!; break;
       case 'find-degree': prompt = `Найди ступень ${formatDegree(target.degree)} от ${structure.root}.`; record = target.degree!; break;
-      case 'find-all': prompt = `Найди все позиции ноты ${spelled}: ${matching.length}.`; record = cardLabel(target.pitchClass); break;
+      case 'find-all': prompt = `Найди все позиции ноты ${spelled}: ${matching.length}.`; record = RECORD_NAMES[target.pitchClass]; break;
       default:
         if (subject.type === 'chord-root') {
           const chord = `${spelled}${CHORD_SUFFIXES[questionSeed % 3]}`;
           prompt = `Найди тонику аккорда ${chord}.`; record = chord;
         } else if (subject.type === 'roman-root') {
           prompt = `Тональность ${structure.root} мажор. Найди тонику аккорда ${target.roman}.`; record = target.roman!;
-        } else { prompt = `Найди ноту ${spelled}.`; record = cardLabel(target.pitchClass); }
+        } else { prompt = `Найди ноту ${spelled}.`; record = RECORD_NAMES[target.pitchClass]; }
     }
     const expectedIds = kind === 'find-all' || kind === 'find-note' || kind === 'find-degree' ? (subject.type === 'degrees' ? expected : matching) : expected;
     return Object.freeze({

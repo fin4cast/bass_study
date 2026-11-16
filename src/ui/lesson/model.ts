@@ -432,7 +432,7 @@ export function basicsCourse(records: readonly PracticeRecord[], userExercises: 
       const key = spec ? exerciseKey(spec, userExercises) : null;
       const exerciseDone = !!key && played.has(key);
       const check = spec ? checkContent(spec, FORM_TEMPLATES.has(spec.templateId) ? 'find-degree' : 'name-degree') : null;
-      const checkDone = !!check && !!key && checked.has(key);
+      const checkDone = !!check && check.kind === 'check' && checked.has(`check:${checkId(check.spec)}`);
       const base = `${String(level.id)}:${concept.id}`;
       const result: BasicsStep[] = [{ key: `${base}:concept`, kind: 'concept', conceptId: concept.id, title: concept.title, content: null, tracked: false, done: exerciseDone || checkDone }];
       if (spec) result.push({ key: `${base}:exercise`, kind: 'exercise', conceptId: concept.id, title: exerciseTitle(spec, userExercises), content: { kind: 'exercise', spec }, tracked: true, done: exerciseDone });

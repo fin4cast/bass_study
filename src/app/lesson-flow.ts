@@ -210,6 +210,15 @@ export function specForKey(key: string, sources: { readonly records: readonly Pr
   return builtinLibrary(sources.playFrom).find(item => item.key === key)?.spec ?? null;
 }
 
+/** Описание проверки по ключу `check:<checkId>`: последняя запись истории с этим ключом. */
+export function checkForKey(key: string, history: readonly HistoryEntry[]): CheckSpec | null {
+  let found: { check: CheckSpec; occurredAt: string } | null = null;
+  for (const entry of history) {
+    if (entry.result.kind === 'check' && entry.result.exerciseKey === key && (!found || entry.occurredAt >= found.occurredAt)) found = { check: entry.result.check, occurredAt: entry.occurredAt };
+  }
+  return found?.check ?? null;
+}
+
 /** Что добавить в план по «Повторить» / «В план» «Прогресса»: трудная цель — та же проверка, остальное — упражнение. */
 export function repeatContent(target: Difficulty | string, spec: ExerciseSpec | null): PlanStepContent | null {
   if (typeof target !== 'string' && target.kind === 'target') return { kind: 'check', spec: target.check };

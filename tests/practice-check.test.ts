@@ -112,3 +112,22 @@ describe('check-v2: строгая проверка описания (A9.1)', ()
     expect(sameCheck(six, validateCheckSpec(base({ count: 5 })))).toBe(false);
   });
 });
+
+describe('check-v2: структура, цели и слух по A9.1', () => {
+  const exercise = (templateId: Parameters<typeof createExerciseSpec>[0]) => createExerciseSpec(templateId);
+  const degrees = (area: unknown, targets: string[] | null = null, ear = false, kind = 'name-degree') =>
+    () => validateCheckSpec({ version: 'check-v2', kind, area, subject: { type: 'degrees', scale: null, targets }, count: 6, ear });
+  it('ступени материала без одной структуры отклоняются при описании, а не при игре', () => {
+    expect(degrees({ type: 'exercise', exercise: exercise('chromatic-position') })).toThrow(RangeError);
+    expect(degrees({ type: 'exercise', exercise: exercise('form-transpose') })).toThrow(RangeError);
+    expect(degrees({ type: 'exercise', exercise: exercise('pentatonic-form') })).not.toThrow();
+  });
+  it('цели вопросов — подмножество ступеней структуры материала', () => {
+    expect(degrees({ type: 'exercise', exercise: exercise('pentatonic-form') }, ['b7', '1'].sort())).not.toThrow();
+    expect(degrees({ type: 'exercise', exercise: exercise('pentatonic-form') }, ['2'])).toThrow(RangeError);
+  });
+  it('слух — только у пентатоник и трезвучий', () => {
+    expect(degrees({ type: 'exercise', exercise: exercise('pentatonic-form') }, null, true)).not.toThrow();
+    expect(degrees({ type: 'exercise', exercise: exercise('scale-compact') }, null, true)).toThrow(RangeError);
+  });
+});

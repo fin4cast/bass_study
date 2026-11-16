@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createExerciseSpec, EXERCISE_TEMPLATES } from '../src/exercises';
 import { completeStep, createPlan, type DayPlan } from '../src/practice/plan';
-import { checkExercise, degreeCheck } from '../src/practice/check';
+import { checkExercise, degreeCheck, type CheckSpec } from '../src/practice/check';
 import type { PracticeRecord } from '../src/practice/results';
 import type { UserExercise } from '../src/practice/library';
 import { exerciseStructure, formatDegree, formatPosition, materialLabel } from '../src/ui/lesson/material';
@@ -300,5 +300,20 @@ describe('P18-11: «Сегодня» — первое занятие, «Вспо
     expect(hero.eyebrow).toBe('Вспомнить · шаг 1 из 2');
     const normal = heroModel({ plan: createPlan(today, [programStep('d1', 't1-left.quarters')]), records, userExercises: [], firstRun: false });
     expect(normal.recall).toBe(false);
+  });
+});
+
+describe('«Основы»: сданная проверка отмечает шаг по тождеству проверки', () => {
+  it('запись проверки с ключом check:<checkId> закрывает шаг-проверку и не трогает соседний материал', async () => {
+    const { checkId } = await import('../src/practice/check');
+    const before = basicsCourse([]).flatMap(level => level.steps).filter(step => step.kind === 'check' && step.content?.kind === 'check');
+    const step = before[0];
+    const spec = (step.content as { kind: 'check'; spec: CheckSpec }).spec;
+    const record = { kind: 'check' as const, id: 'c1', exerciseKey: `check:${checkId(spec)}`, title: 'Проверь себя', check: spec, activeMs: 1000, localDate: '2026-11-12', occurredAt: '2026-11-12T10:00:00.000Z',
+      answers: [{ target: '1', outcome: 'correct' as const, errors: 0 }] };
+    const after = basicsCourse([record]).flatMap(level => level.steps);
+    expect(after.find(item => item.key === step.key)!.done).toBe(true);
+    expect(after.filter(item => item.kind === 'check' && item.key !== step.key && item.content?.kind === 'check' && checkId((item.content as { spec: CheckSpec }).spec) === checkId(spec)).every(item => item.done)).toBe(true);
+    expect(basicsCourse([]).flatMap(level => level.steps).find(item => item.key === step.key)!.done).toBe(false);
   });
 });

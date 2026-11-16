@@ -3,6 +3,8 @@ import { createExerciseSpec } from '../src/exercises';
 import { checkSeries, startCheckQuiz } from '../src/practice/check-series';
 import { validateCheckSpec, type CheckSpec } from '../src/practice/check';
 import { nextQuestion, submitAnswer } from '../src/training';
+import { makeCheckHistory } from '../src/storage/model';
+import { checkId } from '../src/practice/check';
 
 /**
  * Серии `check-v2` (R-028, A9): области и цели. Контрольные области посчитаны в требованиях вручную
@@ -133,5 +135,49 @@ describe('серия как сессия training', () => {
     let session = quiz;
     for (const id of question.expectedPositionIds) session = submitAnswer(session, id, 10);
     expect(session.status).toBe('review');
+  });
+});
+
+describe('серия записывается: цели ответов проходят проверку записи', () => {
+  const meta = { id: 'series', occurredAt: '2026-11-12T10:00:00.000Z', timeZone: 'Europe/Moscow' };
+  const subjects: [CheckSpec['kind'], CheckSpec['subject'], ReturnType<typeof range>][] = [
+    ['name-note', { type: 'notes', notes: 'natural' }, range('EA', 0, 12)],
+    ['name-note', { type: 'notes', notes: 'all' }, range('EADG', 0, 12)],
+    ['find-note', { type: 'notes', notes: 'all' }, range('EADG', 0, 12)],
+    ['find-all', { type: 'notes', notes: 'all' }, range('EADG', 0, 12)],
+    ['find-note', { type: 'chord-root', notes: 'all' }, range('EA', 0, 12)],
+    ['find-note', { type: 'roman-root', key: 'B♭' }, range('EA', 0, 12)],
+    ['name-degree', { type: 'degrees', scale: { root: 'A', degrees: ['1', '5', '6', 'b7'] }, targets: null }, range('EAD', 4, 7)],
+    ['find-degree', { type: 'degrees', scale: { root: 'C', degrees: ['1', '3', '5', 'b7', '7'] }, targets: ['b7', '7'] }, range('ADG', 2, 5)],
+  ];
+  it.each(subjects.map(item => [`${item[0]} ${item[1].type}`, ...item] as const))('%s: цели записи принимаются хранилищем', (_name, kind, subject, area) => {
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const spec = make({ kind, area, subject });
+      const series = checkSeries(spec, seed);
+      const answers = series.questions.map(question => ({ target: question.recordTarget!, outcome: 'correct' as const, errors: 0 }));
+      expect(() => makeCheckHistory({ exerciseKey: `check:${checkId(spec)}`, title: 'Проверь себя', check: spec, activeMs: 1000, answers }, meta), `seed ${seed}`).not.toThrow();
+    }
+  });
+  it('нота со знаком записывается одним именем (как CHROMATIC_NAMES), а не двойной подписью', () => {
+    const series = checkSeries(make({ kind: 'name-note', area: range('EADG', 0, 12), subject: { type: 'notes', notes: 'all' }, count: 12 }), 3);
+    expect(series.questions.every(question => !question.recordTarget!.includes('/'))).toBe(true);
+  });
+});
+
+describe('порядок целей и написание', () => {
+  it('«найди ноту», все ноты: пока целей хватает, цели не повторяются и знаковых не меньше трёх', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const quiz = checkSeries(make({ kind: 'name-note', area: range('E', 0, 12), subject: { type: 'notes', notes: 'all' } }), seed);
+      expect(new Set(quiz.questions.map(question => question.id)).size, `seed ${seed}`).toBe(6);
+    }
+  });
+  it('римская цифра пишется по мажору тональности: B♭ — IV это E♭, а не D♯', () => {
+    const series = checkSeries(make({ kind: 'find-note', area: range('EA', 0, 12), subject: { type: 'roman-root', key: 'B♭' }, count: 7 }), 2);
+    const name = (roman: string) => series.questions.find(question => question.recordTarget === roman)!.target.name;
+    expect([name('I'), name('IV'), name('V'), name('vii°')]).toEqual(['B♭', 'E♭', 'F', 'A']);
+  });
+  it('у цели нет позиции в области — отказ, цель не отбрасывается молча', () => {
+    expect(() => checkSeries(make({ kind: 'name-degree', area: range('E', 5, 5), subject: { type: 'degrees', scale: { root: 'A', degrees: ['1', '3', '5'] }, targets: ['3', '5'] } }), 1)).toThrow(RangeError);
+    expect(() => checkSeries(make({ kind: 'find-note', area: range('E', 0, 3), subject: { type: 'roman-root', key: 'C' } }), 1)).toThrow(RangeError);
   });
 });

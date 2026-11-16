@@ -4,7 +4,7 @@
  * Здесь — форма, строгая проверка полей и допустимых сочетаний; наличие целей вопроса в области
  * проверяет генератор серии.
  */
-import { validateExerciseSpec, type ExerciseSpec } from '../exercises';
+import { exerciseStructure, validateExerciseSpec, type ExerciseSpec } from '../exercises';
 import { parseNote, type StringId } from '../music';
 import { materialId } from './material';
 
@@ -41,6 +41,8 @@ export const CHECK_MAX_FRET = 24;
 const DEGREE_SEMITONES: Readonly<Record<string, number>> = Object.freeze({
   1: 0, b2: 1, 2: 2, b3: 3, 3: 4, 4: 5, '#4': 6, b5: 6, 5: 7, b6: 8, 6: 9, b7: 10, 7: 11,
 });
+/** Структуры, для которых есть слуховой вопрос (`src/ear`). */
+const EAR_STRUCTURES: readonly string[] = ['minor-pentatonic', 'major-pentatonic', 'major-triad', 'minor-triad'];
 const STRING_ORDER: readonly StringId[] = ['E', 'A', 'D', 'G'];
 const DEGREE_KINDS: ReadonlySet<CheckKind> = new Set(['find-degree', 'name-degree']);
 const NOTE_KINDS: ReadonlySet<CheckKind> = new Set(['find-note', 'name-note', 'find-all']);
@@ -139,6 +141,11 @@ export function validateCheckSpec(value: unknown): CheckSpec {
   if (subject.type === 'degrees') {
     if (!DEGREE_KINDS.has(kind)) throw new RangeError('Вопросы о ступенях — виды find-degree и name-degree.');
     if (area.type === 'exercise' && subject.scale !== null) throw new RangeError('У материала упражнения гамма берётся из его структуры.');
+    if (area.type === 'exercise') {
+      const structure = exerciseStructure(area.exercise);
+      if (!structure) throw new RangeError('В материале этого упражнения нет ступеней одной тоники — проверка ступеней недоступна.');
+      if (subject.targets && subject.targets.some(degree => !structure.notes.some(note => note.degree === degree))) throw new RangeError('Цели вопросов входят в ступени структуры материала.');
+    }
     if (area.type === 'range' && subject.scale === null) throw new RangeError('У диапазона грифа нужна гамма проверки.');
   } else {
     if (!NOTE_KINDS.has(kind)) throw new RangeError('Вопросы о нотах — виды find-note, name-note и find-all.');
@@ -149,6 +156,7 @@ export function validateCheckSpec(value: unknown): CheckSpec {
   if (raw.ear && !(subject.type === 'degrees' && area.type === 'exercise' && subject.targets === null)) {
     throw new RangeError('Слух — только у ступеней материала упражнения без ограничения целей.');
   }
+  if (raw.ear && area.type === 'exercise' && !EAR_STRUCTURES.includes(exerciseStructure(area.exercise)!.id)) throw new RangeError('Слух есть только у пентатоник и трезвучий.');
   return deepFreeze({ version: 'check-v2', kind, area, subject, count: raw.count as number, ear: raw.ear }) as CheckSpec;
 }
 

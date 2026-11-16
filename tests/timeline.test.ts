@@ -229,3 +229,12 @@ describe('контрольные шкалы A2.6 на настоящих шаб�
     if (tail) expect(shape(timeline).endsWith(tail)).toBe(true);
   });
 });
+
+describe('подход рисунка «арпеджио и подходы» звучит один раз', () => {
+  it('шестнадцатые: четырнадцатая атака — нота арпеджио, подход — только последняя', () => {
+    const approach = plan('progression', { root: 'C', pattern: 'approach' });
+    const ids = buildTimeline(approach, { pattern: 'sixteenths' }).steps.filter(step => step.bar === 0).map(step => approach.notes[step.note!].id);
+    // Тоника C — A:3, терция D:2, квинта D:5; арпеджио 1-3-5-3-1-3-5-3, каждая нота дважды; подход к F — A:7 на последней атаке.
+    expect(ids).toEqual(['A:3', 'A:3', 'D:2', 'D:2', 'D:5', 'D:5', 'D:2', 'D:2', 'A:3', 'A:3', 'D:2', 'D:2', 'D:5', 'D:5', 'D:2', 'A:7']);
+  });
+});

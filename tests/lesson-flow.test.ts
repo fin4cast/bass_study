@@ -9,7 +9,7 @@ import { difficulties, type PracticeRecord } from '../src/practice/results';
 import { MAX_EXERCISE_VIEWS, type ExerciseView, type PlayPreferences } from '../src/storage/model';
 import { backupFileName, backupVersion } from '../src/app/backup';
 import {
-  addToPlan, bpmForExercise, checkEntry, describeProgressRow, exerciseKey, fromPlayDefaults, hasPlayed, nextPlanStep, planAfterCheck, planAfterRating,
+  addToPlan, bpmForExercise, checkEntry, checkForKey, describeProgressRow, exerciseKey, fromPlayDefaults, hasPlayed, nextPlanStep, planAfterCheck, planAfterRating,
   planForToday, planStepInfo, playRatingEntry, plannedProgressIds, rememberExerciseSettings, EMPTY_EXERCISE_SETTINGS, playSettingsFor, repeatContent, specForKey, stepPosition, todayKey, toPlayDefaults, variantChange, viewForExercise,
 } from '../src/app/lesson-flow';
 import { difficultyId, progressRows } from '../src/ui/progress/model';
@@ -322,5 +322,16 @@ describe('P18-11: план нового дня собирает программ
   it('в плане не больше 12 шагов', () => {
     const many = Array.from({ length: 14 }, (_, index) => ({ id: `d${index + 1}`, content: composed[0].content, minutes: 2 }));
     expect(planForToday(null, TODAY, () => many).steps).toHaveLength(12);
+  });
+});
+
+describe('описание проверки по ключу записи', () => {
+  it('«Проверить снова» и «В план» строки проверки берут проверку из последней записи с этим ключом', () => {
+    const spec = checkSpec();
+    const key = `check:${checkId(spec)}`;
+    const older = checkEntry({ spec, userExercises: [], activeMs: 1000, answers: [{ target: '1', outcome: 'correct', errors: 0 }] }, { id: 'c1', occurredAt: '2026-11-10T10:00:00.000Z', timeZone: 'Europe/Moscow' })!;
+    expect(checkForKey(key, [older])).toEqual(spec);
+    expect(checkForKey('check:нет-такой', [older])).toBeNull();
+    expect(checkForKey(`builtin:${key}`, [older])).toBeNull();
   });
 });

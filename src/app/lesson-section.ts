@@ -24,7 +24,7 @@ import { mountPlay, type PlayHandle, type RateEvent } from '../ui/play/view';
 import { mountReference } from '../ui/reference/view';
 import {
   addToPlan, bpmAfterRating, checkEntry, exerciseKey, exerciseSettingsPatch, hasPlayed, nextPlanStep, planAfterCheck, planAfterNext, planAfterRating, planForToday, planStepInfo, variantChange,
-  playRatingEntry, playSettingsFor, plannedProgressIds, rememberExerciseSettings, repeatContent, specForKey, stepPosition, todayKey, viewForExercise,
+  checkForKey, playRatingEntry, playSettingsFor, plannedProgressIds, rememberExerciseSettings, repeatContent, specForKey, stepPosition, todayKey, viewForExercise,
 } from './lesson-flow';
 
 export type LessonScreen = 'home' | 'play' | 'check' | 'reference';
@@ -412,6 +412,13 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     stopReference() { reference.stopListening(); },
     /** Открыть упражнение по ключу (из «Прогресса»); `bpm` — темп строки прогресса. */
     openExercise(key: string, bpm: number | null) {
+      if (key.startsWith('check:')) {
+        // Строка проверки в «Прогрессе»: «Проверить снова» открывает ту же проверку по описанию из записи.
+        const again = checkForKey(key, options.history());
+        if (!again) { options.onFailure('Проверка не найдена в истории.'); return; }
+        openCheckFrom(again, 'progress');
+        return;
+      }
       const prefs = options.preferences();
       const spec = specForKey(key, { records: records(), history: options.history(), userExercises: user(), playFrom: prefs.lesson.playFrom });
       if (!spec) { options.onFailure('Упражнение не найдено в библиотеке.'); return; }
@@ -440,8 +447,9 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     addToPlan(target: Difficulty | string) {
       const prefs = options.preferences();
       const key = typeof target === 'string' ? target : target.exerciseKey;
-      const content = repeatContent(target, specForKey(key, { records: records(), history: options.history(), userExercises: user(), playFrom: prefs.lesson.playFrom }));
-      if (!content) { options.onFailure('Упражнение не найдено в библиотеке.'); return false; }
+      const again = typeof target === 'string' && target.startsWith('check:') ? checkForKey(target, options.history()) : null;
+      const content = again ? { kind: 'check' as const, spec: again } : repeatContent(target, specForKey(key, { records: records(), history: options.history(), userExercises: user(), playFrom: prefs.lesson.playFrom }));
+      if (!content) { options.onFailure(again === null && key.startsWith('check:') ? 'Проверка не найдена в истории.' : 'Упражнение не найдено в библиотеке.'); return false; }
       try {
         const plan = currentPlan();
         const next = addToPlan(plan, content, user());

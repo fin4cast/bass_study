@@ -36,7 +36,9 @@ describe('материал «Проверь себя» (контрольный �
     expect(modeFor(checkMaterial(spec('find-degree')))).toBe('board');
     expect(modeFor(checkMaterial(spec('name-degree')))).toBe('cards');
     expect(modeFor(checkMaterial(spec('find-degree', true)))).toBe('ear');
-    const major = checkMaterial(spec('name-degree', true, createExerciseSpec('scale-compact')));
+    // Описание со слухом у гаммы недопустимо (A9.1); без слуха у гаммы слуховой качества нет, ответ карточками.
+    expect(() => spec('name-degree', true, createExerciseSpec('scale-compact'))).toThrow(RangeError);
+    const major = checkMaterial(spec('name-degree', false, createExerciseSpec('scale-compact')));
     expect(major.earQuality).toBeNull();
     expect(modeFor(major)).toBe('cards');
   });
