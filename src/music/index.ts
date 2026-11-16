@@ -212,6 +212,30 @@ export function createStructure(root: string, id: StructureId): MusicalStructure
   });
 }
 
+const DEGREE_SEMITONES: Readonly<Record<string, number>> = Object.freeze({ 1: 0, b2: 1, 2: 2, b3: 3, 3: 4, 4: 5, '#4': 6, b5: 6, 5: 7, b6: 8, 6: 9, b7: 10, 7: 11 });
+
+/**
+ * Гамма из произвольного набора ступеней (проверка по диапазону, R-028 A9): написание нот — по правилу `createStructure`
+ * (буква = буква тоники + номер ступени − 1). Поле `id` у такой гаммы условное и в вычислениях не участвует.
+ */
+export function createScaleStructure(root: string, degrees: readonly string[]): MusicalStructure {
+  const tonic = parseNote(root);
+  const tonicLetter = LETTERS.indexOf(tonic.letter);
+  const notes = degrees.map((degree): StructureNote => {
+    if (!Object.hasOwn(DEGREE_SEMITONES, degree)) throw new RangeError('Неизвестная ступень.');
+    const semitones = DEGREE_SEMITONES[degree];
+    const letterOffset = tonicLetter + Number(degree.replace(/^[b#]+/, '')) - 1;
+    const letter = LETTERS[letterOffset % LETTERS.length];
+    const naturalInterval = NATURAL_PITCH[letter] + 12 * Math.floor(letterOffset / LETTERS.length) - NATURAL_PITCH[tonic.letter];
+    const accidental = tonic.accidental + semitones - naturalInterval;
+    return Object.freeze({ letter, accidental, pitchClass: modulo12(tonic.pitchClass + semitones), name: spellingName(letter, accidental), degree, semitones });
+  });
+  return Object.freeze({
+    root: tonic.name, rootPitchClass: tonic.pitchClass, id: 'major', name: 'Гамма проверки',
+    formula: degrees.map(degree => degree.replaceAll('b', '♭').replaceAll('#', '♯')).join(' – '), notes: Object.freeze(notes),
+  });
+}
+
 export function getPosition(string: StringId, fret: number): Position {
   const bassString = BASS_STRINGS.find(candidate => candidate.id === string);
   if (!bassString) throw new RangeError('Неизвестная струна: доступны E, A, D, G.');

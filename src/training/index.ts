@@ -16,7 +16,7 @@ export type QuizMode = 'name-note' | 'name-degree' | 'find-note' | 'find-all' | 
 export type TrainingScope = 'structure' | 'chromatic';
 export type SequencePattern = 'ascending' | 'descending' | 'round-trip' | 'groups-of-three';
 export type QuizAnswer = string | number;
-export type QuestionPolicy = 'random-v1' | 'triad-6-v1' | 'shape-6-v1';
+export type QuestionPolicy = 'random-v1' | 'triad-6-v1' | 'shape-6-v1' | 'spread-v1';
 
 export interface TrainingConfig {
   readonly box?: BoxSelection | null;
@@ -53,6 +53,8 @@ export interface Question {
   readonly expectedPositionIds: readonly string[];
   readonly choices: readonly { readonly id: string; readonly label: string; readonly pitchClass: number }[];
   readonly answerRule: 'pitch-class' | 'any-position' | 'all-positions' | 'exact-pitch';
+  /** Цель ответа для записи проверки `check-v2` (A1 F6): ступень, класс высоты, обозначение аккорда или цифра; у прежних серий нет. */
+  readonly recordTarget?: string;
 }
 
 export interface AnswerEvent {
@@ -145,6 +147,12 @@ export function startQuiz(config: QuizConfig, count = 10): QuizSession {
     kind: 'screen', questionPolicy, ...(config.routeRef ? { routeRef: { ...config.routeRef } } : {}), seed: config.seed, questions, questionIndex: 0, currentQuestion: questions[0],
     status: 'active', answerState: initialAnswer(), results: [],
   });
+}
+
+/** Сессия по готовым вопросам (серия проверки `check-v2` строит их сама, по правилу `spread-v1`). */
+export function startQuizFromQuestions(questions: readonly Question[], seed: number, questionPolicy: QuestionPolicy = 'spread-v1'): QuizSession {
+  if (!questions.length) throw new RangeError('В серии нет вопросов.');
+  return immutable({ kind: 'screen', questionPolicy, seed, questions: [...questions], questionIndex: 0, currentQuestion: questions[0], status: 'active', answerState: initialAnswer(), results: [] });
 }
 
 export function submitAnswer(session: QuizSession, answer: QuizAnswer, elapsedMs: number): QuizSession {

@@ -22,7 +22,7 @@ function validateSeed(seed: number): void {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) throw new RangeError('Seed должен быть целым числом от 0 до 4294967295.');
 }
 
-function randomUint32(seed: number): () => number {
+export function randomUint32(seed: number): () => number {
   let state = seed || 0x9e3779b9;
   return () => {
     state ^= state << 13;
