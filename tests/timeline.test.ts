@@ -59,14 +59,16 @@ describe('шкала: рисунки и эхо', () => {
     expect(timeline.steps.filter(step => step.bar === 1).every(step => step.echo && !step.audible)).toBe(true);
     expect(timeline.steps.filter(step => step.bar === 0).map(step => step.note)).toEqual(timeline.steps.filter(step => step.bar === 1).map(step => step.note));
   });
-  it('последовательность: такт — аккорд, рисунок только восьмые или шаффл; петля по тактам в шагах', () => {
+  it('последовательность: такт — аккорд; петля по тактам в шагах; рисунки из требований, а не только восьмые', () => {
     const progression = plan('progression');
-    const timeline = buildTimeline(progression, { pattern: 'quarters' });
+    const timeline = buildTimeline(progression);
     expect(timeline.pattern).toBe('eighths');
     expect(timeline.bars).toBe(4);
     expect(timeline.steps.filter(step => step.bar === 1).every(step => progression.notes[step.note!].segment === 1)).toBe(true);
     expect(barStepRange(timeline, 1, 3)).toEqual({ from: 8, toExclusive: 24 });
     expect(buildTimeline(progression, { pattern: 'shuffle' }).swing).toBe(66);
+    expect(buildTimeline(progression, { pattern: 'quarters' }).pattern).toBe('quarters');
+    expect(buildTimeline(progression, { pattern: 'quarters' }).bars).toBe(4);
   });
 });
 
@@ -159,7 +161,50 @@ describe('рисунки с паузами и лигами (A2)', () => {
     const tied = first.find(step => step.tie)!;
     expect(first[first.indexOf(tied) - 1].note).toBe(tied.note);
   });
-  it('последовательность аккордов пока играет только восьмые и шаффл', () => {
-    expect(buildTimeline(plan('progression'), { pattern: 'note-rest' }).pattern).toBe('eighths');
+});
+
+/* ---------- Ритм последовательности: формы Q и E, хвост (R-028, B3) ---------- */
+
+describe('ноты такта последовательности по правилу B3', () => {
+  const bar = (p: ReturnType<typeof plan>, pattern: Pattern, index = 0) => buildTimeline(p, { pattern }).steps.filter(step => step.bar === index)
+    .map(step => step.note === null ? 'п' : `${step.tie ? '~' : ''}${p.notes[step.note].name}`);
+  const row = (text: string) => text.split(' ');
+
+  // Таблица B3 (`C`, `I-IV-V`, такт 1: тоника A:3 (C2), квинта D:5 (G2)) — посчитана в требованиях вручную.
+  it.each<[Pattern, string, string]>([
+    ['quarters', 'C2 C2 C2 C2', 'C2 G2 C2 G2'],
+    ['eighths', 'C2 C2 C2 C2 C2 C2 C2 C2', 'C2 C2 G2 G2 C2 C2 G2 G2'],
+    ['shuffle', 'C2 C2 C2 C2 C2 C2 C2 C2', 'C2 C2 G2 G2 C2 C2 G2 G2'],
+    ['quarter-rest', 'C2 C2 C2 п', 'C2 G2 C2 п'],
+    ['syncopation', 'C2 C2 C2 C2 C2 C2', 'C2 C2 G2 C2 C2 G2'],
+    ['sixteenths', 'C2 C2 C2 C2 C2 C2 C2 C2 C2 C2 C2 C2 C2 C2 C2 C2', 'C2 C2 C2 C2 G2 G2 G2 G2 C2 C2 C2 C2 G2 G2 G2 G2'],
+  ])('%s: тоники и «тоника и квинта»', (pattern, roots, rootFifth) => {
+    expect(bar(plan('progression', { root: 'C' }), pattern)).toEqual(row(roots));
+    expect(bar(plan('progression', { root: 'C', pattern: 'root-fifth' }), pattern)).toEqual(row(rootFifth));
+  });
+
+  it('арпеджио: форма Q — первые четыре ноты, форма E — по восьмой; ступени не зависят от рисунка', () => {
+    const arpeggio = plan('progression', { root: 'C', pattern: 'arpeggio' });
+    expect(bar(arpeggio, 'quarters')).toEqual(row('C2 E2 G2 E2'));
+    expect(bar(arpeggio, 'eighths')).toEqual(row('C2 E2 G2 E2 C2 E2 G2 E2'));
+  });
+  it('подход ставится на последнюю атаку такта вместо ноты формы; первую атаку не заменяет', () => {
+    const approach = plan('progression', { root: 'C', pattern: 'approach' });
+    const ids = (pattern: Pattern) => buildTimeline(approach, { pattern }).steps.filter(step => step.bar === 0 && step.note !== null).map(step => approach.notes[step.note!].id);
+    // Тоника C — A:3, терция D:2, квинта D:5, подход к F (A:8) — A:7.
+    expect(ids('quarters')).toEqual(['A:3', 'D:2', 'D:5', 'A:7']);
+    expect(ids('eighths').at(-1)).toBe('A:7');
+    expect(ids('quarter-rest')).toEqual(['A:3', 'D:2', 'A:7']);
+    expect(ids('note-rest')).toEqual(['A:3', 'A:7']);
+  });
+  it('буги и октавы: форма Q берёт те же позиции, что форма E', () => {
+    expect(bar(plan('progression', { root: 'C', progression: 'blues-12', pattern: 'boogie' }), 'quarters').filter(name => name !== 'п')).toHaveLength(4);
+    const octaves = plan('progression', { root: 'C', pattern: 'octaves' });
+    expect(bar(octaves, 'quarters')).toEqual(row('C2 C3 C2 C3'));
+  });
+  it('лига рисунка в такте последовательности продолжает ноту без новой атаки, пауза не берёт ноту', () => {
+    const roots = plan('progression', { root: 'C', pattern: 'root-fifth' });
+    // Синкопа с лигой: атаки на 0, 4, 6, 10, 12 шестнадцатых → места формы E 0, 2, 3, 5, 6 (1 5 5 1 5); лига на 8-й продолжает ноту 6-й.
+    expect(bar(roots, 'tied-syncopation')).toEqual(row('C2 G2 G2 ~G2 C2 G2'));
   });
 });

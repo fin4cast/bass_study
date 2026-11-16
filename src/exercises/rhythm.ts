@@ -48,12 +48,11 @@ export const isRhythmPatternId = (value: unknown): value is RhythmPatternId => R
 export const rhythmPattern = (id: RhythmPatternId): RhythmPattern => RHYTHM_PATTERNS.find(pattern => pattern.id === id)!;
 
 /**
- * Рисунки, доступные материалу. У последовательности аккордов такт — это аккорд из восьми восьмых, поэтому
- * только ровные или свинговые восьмые; у фрагмента песни ритм задан партитурой.
+ * Рисунки, доступные материалу (A2.5). У последовательности аккордов любой рисунок на сетке шестнадцатых: ноты такта
+ * выбирает правило B3. У фрагмента песни ритм задан партитурой.
  */
 export function rhythmPatternsFor(plan: Pick<ExercisePlan, 'spec'> & Partial<Pick<ExercisePlan, 'timing'>>): readonly RhythmPatternId[] {
   if (plan.timing) return ['eighths'];
-  if (plan.spec.templateId === 'progression') return ['eighths', 'shuffle'];
   return RHYTHM_PATTERNS.map(pattern => pattern.id);
 }
 
@@ -108,7 +107,7 @@ function landingNote(plan: Pick<ExercisePlan, 'notes'>, last: number): number | 
   return best;
 }
 
-export function buildTimeline(plan: Pick<ExercisePlan, 'spec' | 'notes' | 'segments' | 'cadence'> & Partial<Pick<ExercisePlan, 'timing'>>, options: TimelineOptions = {}): Timeline {
+export function buildTimeline(plan: Pick<ExercisePlan, 'spec' | 'notes' | 'segments' | 'cadence'> & Partial<Pick<ExercisePlan, 'timing' | 'bars'>>, options: TimelineOptions = {}): Timeline {
   const allowed = rhythmPatternsFor(plan);
   const patternId = options.pattern && allowed.includes(options.pattern) ? options.pattern : allowed[0];
   const pattern = rhythmPattern(patternId);
@@ -118,13 +117,28 @@ export function buildTimeline(plan: Pick<ExercisePlan, 'spec' | 'notes' | 'segme
   if (plan.timing) {
     // Ритм из партитуры: шаги фрагмента песни как есть, такты по 16 шестнадцатых.
     for (const step of plan.timing) push(step.note, step.grids, false, step.tie === true);
-  } else if (plan.spec.templateId === 'progression') {
-    // Такт — аккорд: ноты сегмента заполняют свой такт, следующий аккорд начинается с «раз».
-    plan.notes.forEach((note, index) => {
-      push(index, pattern.cells[0].grids);
-      const nextSegment = plan.notes[index + 1]?.segment;
-      if (nextSegment !== note.segment && at % BAR) push(null, BAR - (at % BAR));
-    });
+  } else if (plan.bars) {
+    // Такт — аккорд (B3): один рисунок на все такты. Плотность: атаки только на долях — форма Q, иначе E; атака в
+    // шестнадцатой p берёт Q[p/4] или E[⌊p/2⌋]; хвост заменяет последние атаки такта, но не первую.
+    const cycle = Array.from({ length: BAR / pattern.cells.reduce((sum, cell) => sum + cell.grids, 0) }, () => pattern.cells).flat();
+    const attacks: number[] = [];
+    let place = 0;
+    for (const cell of cycle) { if (cell.kind === 'note') attacks.push(place); place += cell.grids; }
+    const quarterForm = attacks.every(attack => attack % 4 === 0);
+    for (const forms of plan.bars) {
+      const replaced = Math.min(forms.tail.length, attacks.length - 1);
+      const tail = forms.tail.slice(forms.tail.length - replaced);
+      let position = 0, attack = 0, held = -1;
+      for (const cell of cycle) {
+        if (cell.kind === 'note') {
+          const fromTail = attack - (attacks.length - replaced);
+          held = fromTail >= 0 ? tail[fromTail] : quarterForm ? forms.q[position / 4] : forms.e[Math.floor(position / 2)];
+          push(held, cell.grids); attack++;
+        } else if (cell.kind === 'tie') push(held, cell.grids, false, true);
+        else push(null, cell.grids);
+        position += cell.grids;
+      }
+    }
   } else {
     // A2.3: ячейки читаются по кругу; нота берёт следующую ноту очереди (плана, затем завершения тоникой),
     // лига — ту же ноту без атаки, пауза стоит только перед очередной нотой.

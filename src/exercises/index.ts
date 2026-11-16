@@ -120,7 +120,14 @@ export interface ExercisePlan {
    * `tie` — продолжение ноты прошлого шага (лига через тактовую черту), не новая нота.
    */
   readonly timing: readonly { readonly note: number | null; readonly grids: number; readonly tie?: boolean }[] | null;
+  /**
+   * Такты последовательности (R-028, B2.1, B3): на такт — форма Q (по ноте на долю), форма E (по ноте на восьмую)
+   * и хвост (подход, проходящие) — индексы нот плана. Какую форму и какие ноты звучит такт, решает ритм: `buildTimeline`.
+   */
+  readonly bars: readonly BarForms[] | null;
 }
+/** Индексы нот плана для одного такта: четыре ноты формы Q, восемь нот формы E, ноты хвоста (последние атаки такта). */
+export interface BarForms { readonly q: readonly number[]; readonly e: readonly number[]; readonly tail: readonly number[] }
 export interface ExerciseTemplate<Id extends ExerciseTemplateId = ExerciseTemplateId> {
   readonly id: Id; readonly category: ExerciseCategory; readonly title: string;
   readonly concepts: readonly ConceptId[]; readonly defaults: ExerciseParams[Id];
@@ -388,7 +395,7 @@ export function pluckOrder(strings: readonly StringId[], raking: boolean): ('i' 
 }
 
 type Built = { readonly drafts: readonly Draft[]; readonly segments: readonly string[]; readonly title?: string; readonly overlap?: 'shared' | 'none';
-  readonly timing?: readonly { readonly note: number | null; readonly grids: number; readonly tie?: boolean }[] };
+  readonly timing?: readonly { readonly note: number | null; readonly grids: number; readonly tie?: boolean }[]; readonly bars?: readonly BarForms[] };
 
 const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[Id]) => Built } = {
   'chromatic-position': ({ startFret }) => ({
@@ -630,7 +637,9 @@ function progressionPlan(root: string, progression: ProgressionId, pattern: Prog
     boxes.push(sorted[0]);
   }
   const drafts: Draft[] = [];
+  const bars: BarForms[] = [];
   boxes.forEach((box, index) => {
+    const base = drafts.length;
     const tones = [...box.positions].sort(byPitch);
     const rootPosition = tones[0];
     const byDegree = (pattern: RegExp, above = rootPosition.midi) => tones.find(tone => pattern.test(tone.degree ?? '') && tone.midi > above);
@@ -648,9 +657,12 @@ function progressionPlan(root: string, progression: ProgressionId, pattern: Prog
       if (pattern === 'approach') bar[7] = approachNote(boxes[(index + 1) % boxes.length], box, index);
     }
     drafts.push(...bar);
+    // Форма Q — по ноте на долю: те же позиции, что у формы E (`root-fifth` 1 5 1 5, `octaves` 1 8 1 8, остальные — первые четыре ноты).
+    const quarters = pattern === 'root-fifth' ? [0, 2, 0, 2] : pattern === 'octaves' ? [0, 1, 0, 1] : pattern === 'roots' ? [0, 0, 0, 0] : [0, 1, 2, 3];
+    bars.push({ q: quarters.map(offset => base + offset), e: Array.from({ length: 8 }, (_, step) => base + step), tail: pattern === 'approach' ? [base + 7] : [] });
   });
   return {
-    drafts, overlap: 'none',
+    drafts, overlap: 'none', bars,
     segments: chords.map(chord => `${chord.root}${CHORD_SYMBOL[chord.structureId] ?? ''} · ${chord.roman}`),
   };
 }
@@ -721,7 +733,7 @@ function buildPlan(spec: ExerciseSpec): ExercisePlan {
     segments: built.segments.map(label => ({ label })), task: TEMPLATE_TASKS[spec.templateId], notes, positions: built.drafts.map(draft => draft.position),
     overlap: built.overlap ?? 'shared',
     cadence: TONIC_CADENCE.has(spec.templateId) && notes.some(note => note.degree === '1') ? 'tonic' : 'none',
-    timing: built.timing ?? null,
+    timing: built.timing ?? null, bars: built.bars ?? null,
   });
 }
 /**

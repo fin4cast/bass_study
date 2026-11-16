@@ -704,7 +704,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     }
     const line = timeline;
     select.value = line?.pattern ?? settings.rhythm;
-    setText(at('[data-rhythm-note]'), plan?.timing ? 'Ритм из партитуры.' : plan?.spec.templateId === 'progression' ? 'Такт — аккорд: только восьмые или шаффл.' : settings.groove ? 'Свинг — от подложки.' : '');
+    setText(at('[data-rhythm-note]'), plan?.timing ? 'Ритм из партитуры.' : plan?.spec.templateId === 'progression' ? 'Рисунок один на все такты; ноты такта выбирает ритм.' : settings.groove ? 'Свинг — от подложки.' : '');
     setText(at('[data-rhythm-caption]'), plan?.timing ? 'ритм партитуры' : line ? rhythmPattern(line.pattern).label.toLowerCase() : 'восьмые');
   }
 
