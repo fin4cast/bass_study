@@ -24,6 +24,8 @@ export interface PathStep {
   readonly variants: readonly PathVariant[];
   /** Вариант, который откроется: выбранный или первый без «Чисто». */
   readonly selected: number;
+  /** Объём конструктора «Своей линии» для шага `line` (1 — `h1-line`, 2 — `h2-own`); у остальных шагов `null`. */
+  readonly builderVolume: 1 | 2 | null;
 }
 export interface PathBlock {
   readonly id: string;
@@ -57,7 +59,8 @@ export function pathModel(program: Program, state: ProgramState, skipped: Readon
     const picked = picks.get(step.id);
     const selected = picked !== undefined && picked >= 0 && picked < variants.length ? picked : Math.max(0, firstOpen);
     const label = status ? statusLabel(status) : STATE_LABELS.new;
-    return { id: step.id, kind: step.kind, title: step.title, state: stateName, label, review: status?.review ?? false, current: currentIds.has(step.id), variants, selected };
+    return { id: step.id, kind: step.kind, title: step.title, state: stateName, label, review: status?.review ?? false, current: currentIds.has(step.id), variants, selected,
+      builderVolume: step.kind === 'line' ? (step.rule === 'h1-line' ? 1 : step.rule === 'h2-own' ? 2 : null) : null };
   };
   const blockView = (block: Block): PathBlock => ({
     id: block.id, title: block.title, counts: countsLabel(state.blockCounts.get(block.id)!), skipped: skipped.has(block.id),

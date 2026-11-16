@@ -1591,7 +1591,8 @@ check('progress-shows-program-status-after-a-lesson-pass-and-reload', 'ui', asyn
   assert.equal(await row.locator('.pg-pstatus').innerText(), 'в работе');
   assert.match(await row.innerText(), /сыграно 1 из 4 · лучший чистый темп 200/);
   assert.equal(await progress.locator('.pg-pstep[data-step-id="h1-roots.eighths"] .pg-pstatus').innerText(), 'не начат');
-  assert.deepEqual(await progress.locator('.pg-pline > summary b').allInnerTexts(), ['Техника', 'Гриф', 'Аккорды и линии']);
+  // Два этапа программы, в каждом по три линии.
+  assert.deepEqual(await progress.locator('.pg-pline > summary b').allInnerTexts(), ['Техника', 'Гриф', 'Аккорды и линии', 'Техника', 'Гриф', 'Аккорды и линии']);
   return { status: await row.locator('.pg-pstatus').innerText() };
 });
 

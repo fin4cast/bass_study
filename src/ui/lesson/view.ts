@@ -337,7 +337,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
       `<button type="button" class="ls-vchip${index === step.selected ? ' is-on' : ''}${variant.clean ? ' is-clean' : ''}" data-act="path-variant" data-step-id="${e(step.id)}" data-value="${index}" data-key="pv:${e(step.id)}:${index}" aria-pressed="${index === step.selected}">${e(variant.label)}${variant.clean ? ' ✓' : ''}</button>`).join('')}</div>`
       : step.variants.length === 1 ? `<span class="ls-sub ls-vone">${e(step.variants[0].label)}</span>` : '';
     const build = step.kind === 'line'
-      ? `<button type="button" class="${step.current ? 'primary-button' : 'secondary-button'} button-compact" data-act="path-build" data-step-id="${e(step.id)}" data-key="path-build:${e(step.id)}" aria-label="${e(`Построить: ${step.title}`)}">▶ Построить</button>`
+      ? `<button type="button" class="${step.current ? 'primary-button' : 'secondary-button'} button-compact" data-act="path-build" data-step-id="${e(step.id)}" data-volume="${step.builderVolume ?? 1}" data-key="path-build:${e(step.id)}" aria-label="${e(`Построить: ${step.title}`)}">▶ Построить</button>`
       : step.kind === 'song' ? `<button type="button" class="secondary-button button-compact" data-act="path-song" data-step-id="${e(step.id)}" data-key="path-song:${e(step.id)}" aria-label="${e(`Своя песня: ${step.title}`)}">Фрагменты из «Песен»</button>` : '';
     const play = step.kind === 'play' || step.kind === 'check'
       ? `<button type="button" class="${step.current ? 'primary-button' : 'secondary-button'} button-compact" data-act="path-play" data-step-id="${e(step.id)}" data-key="path-play:${e(step.id)}" aria-label="${e(`${step.kind === 'check' ? 'Проверь себя' : 'Играть'}: ${step.title}`)}">${step.kind === 'check' ? '▶ Проверь себя' : '▶ Играть'}</button>` : '';
@@ -505,7 +505,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         case 'go-path': setBasicsView('path'); basicsMode = 'path'; selectTab('basics'); render(); container.querySelector<HTMLElement>('[data-key^="path-play:"]')?.focus(); break;
         case 'path-stage': pathStage = Number(target.dataset.value); render(); break;
         case 'path-variant': pathPicks.set(target.dataset.stepId!, Number(target.dataset.value)); render(); break;
-        case 'path-build': builder = toggleBuilder(builder, true); selectTab('library'); render(); container.querySelector<HTMLElement>('[data-key="builder-root"]')?.focus(); break;
+        case 'path-build': builder = builderVolume(toggleBuilder(builder, true), target.dataset.volume === '2' ? 2 : 1); selectTab('library'); render(); container.querySelector<HTMLElement>('[data-key="builder-root"]')?.focus(); break;
         case 'path-song': toast('Фрагменты своих песен сохраняются в разделе «Песни»: выбери такты партии и нажми «Разучить как упражнение».'); break;
         case 'builder-toggle': builder = toggleBuilder(builder); render(); break;
         case 'builder-volume': builder = builderVolume(builder, Number(target.dataset.value) === 2 ? 2 : 1); render(); break;

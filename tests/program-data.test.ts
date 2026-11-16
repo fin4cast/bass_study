@@ -27,10 +27,11 @@ const STAGE_1: readonly (readonly [string, string, string, number])[] = [
 
 describe('данные этапа 1 по таблице R-028', () => {
   const refs = stepRefs(PROGRAM);
+  const stage1 = refs.filter(ref => PROGRAM.stages[0].blocks.some(block => block.id === ref.block.id));
   const stepOf = (id: string) => refs.find(ref => ref.step.id === id)!.step;
 
   it('блоки и шаги по порядку таблицы, число вариантов каждого шага', () => {
-    expect(refs.map(ref => [ref.block.id, ref.step.id, ref.step.kind, ref.step.kind === 'play' ? ref.step.variants.length : 0])).toEqual(STAGE_1.map(row => [...row]));
+    expect(stage1.map(ref => [ref.block.id, ref.step.id, ref.step.kind, ref.step.kind === 'play' ? ref.step.variants.length : 0])).toEqual(STAGE_1.map(row => [...row]));
   });
   it('блоки по линиям: техника, гриф, аккорды и линии', () => {
     const lineOf = (block: string) => PROGRAM.stages[0].blocks.find(item => item.id === block)!.line;

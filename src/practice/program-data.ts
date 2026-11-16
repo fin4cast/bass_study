@@ -1,8 +1,8 @@
 /**
- * Данные программы обучения (R-028, D-051). Программа появляется по этапам: здесь этап 1 целиком по таблице R-028;
+ * Данные программы обучения (R-028, D-051). Программа появляется по этапам: здесь этапы 1 и 2 целиком по таблицам R-028;
  * следующие этапы добавляются своими заходами [P18](../../docs/PLAN.md#p18). Формы хранения после этапа 1 не меняются.
  */
-import { createExerciseSpec, type ExerciseSpec } from '../exercises';
+import { createExerciseSpec, type ExerciseSpec, type ProgressionId, type ProgressionPattern } from '../exercises';
 import { DEFAULT_PRACTICE, type PracticeOptions, type RhythmPatternId } from '../exercises/rhythm';
 import type { CheckSpec } from './check';
 import { PROGRAM_CHECK_COUNT } from './check';
@@ -23,22 +23,32 @@ const block = (id: string, title: string, line: LineId, cards: readonly string[]
 type String4 = 'E' | 'A' | 'D' | 'G';
 const OPEN_STRINGS: readonly String4[] = ['E', 'A', 'D', 'G'];
 const pulse = (string: String4, notes: 8 | 16 | 32 = 16) => createExerciseSpec('pulse-note', { string, fret: 0, notes });
-const naturals = (string: 'E' | 'A', fretMax: 5 | 12) => createExerciseSpec('string-naturals', { string, fretMax });
+const naturals = (string: String4, fretMax: 5 | 12) => createExerciseSpec('string-naturals', { string, fretMax });
 const crossing = (pattern: 'adjacent' | 'skip' | 'raking') => createExerciseSpec('string-crossing', { pattern });
 /** Хроматика «палец на лад» (1-2-3-4) или аппликатурой 1-2-4 на трёх ладах. */
 const chromatic = (startFret: number, fingering: '1234' | '124' = '1234') => createExerciseSpec('chromatic-position', { startFret, fingering });
 const shift = (startFret: number) => createExerciseSpec('chromatic-shift', { startFret });
 const octaves = (note: string) => createExerciseSpec('octaves', { note });
 const rootFiveEight = (root: string, string: 'E' | 'A') => createExerciseSpec('root-five-eight', { root, string });
-type Pattern = 'roots' | 'root-fifth' | 'octaves';
-const progression = (root: string, progressionId: 'I-IV-V' | 'blues-12', pattern: Pattern, position: 'closed' | 'low' | 'open') =>
+type Pattern = ProgressionPattern;
+const progression = (root: string, progressionId: ProgressionId, pattern: Pattern, position: 'closed' | 'low' | 'open') =>
   createExerciseSpec('progression', { root, progression: progressionId, pattern, position });
 /** Позиция в таблице не названа: каждая тональность в нижней позиции, затем каждая в закрытой (R-028). */
-const lowThenClosed = (roots: readonly string[], progressionId: 'I-IV-V' | 'blues-12', pattern: Pattern) =>
+const lowThenClosed = (roots: readonly string[], progressionId: ProgressionId, pattern: Pattern) =>
   [...roots.map(root => progression(root, progressionId, pattern, 'low')), ...roots.map(root => progression(root, progressionId, pattern, 'closed'))];
-const riff = (root: string) => createExerciseSpec('riff', { riff: 'rock-eighths', root });
+const riff = (root: string, id: 'rock-eighths' | 'approach-eighths' | 'disco-octaves' | 'penta-a' = 'rock-eighths') => createExerciseSpec('riff', { riff: id, root });
 const range = (strings: readonly String4[], fretMin: number, fretMax: number) => ({ type: 'range' as const, strings, fretMin, fretMax });
 const natural = { type: 'notes', notes: 'natural' } as const;
+const allNotes = { type: 'notes', notes: 'all' } as const;
+const longShort = (string: 'E' | 'A' | 'D') => createExerciseSpec('long-short', { string, fret: 5 });
+const spider = (startFret: number, pattern: '1234' | '1324' | '1243') => createExerciseSpec('spider', { startFret, pattern });
+const positionShift = (string: String4) => createExerciseSpec('position-shift', { string });
+const pentaForm = (root: string, template: 'pentatonic-form' | 'groups-of-three' = 'pentatonic-form') => createExerciseSpec(template, { root, structureId: 'minor-pentatonic', shapeId: 'penta-a' });
+const arpeggio = (root: string, structureId: 'major-triad' | 'minor-triad') => createExerciseSpec('arpeggio-1358', { root, structureId });
+/** Мажор и минор каждой тоники по очереди. */
+const triads = (roots: readonly string[]) => roots.flatMap(root => [arpeggio(root, 'major-triad'), arpeggio(root, 'minor-triad')]);
+const EIGHTH_REST = practice('eighth-rest');
+const SHUFFLE_UNDER_SHUFFLE = practice('shuffle', 'shuffle');
 
 const STAGE_1: readonly Block[] = [
   /* ---- Техника ---- */
@@ -89,8 +99,8 @@ const STAGE_1: readonly Block[] = [
     play('h1-fifth.root-five-eight', 'Root–5–8 четвертями', [rootFiveEight('G', 'E'), rootFiveEight('A', 'E'), rootFiveEight('C', 'A'), rootFiveEight('D', 'A')], QUARTERS),
     play('h1-fifth.root-fifth', 'I–IV–V рисунком «тоника и квинта»', lowThenClosed(['G', 'A', 'C', 'D'], 'I-IV-V', 'root-fifth')),
     play('h1-fifth.octaves', 'I–IV–V октавами', lowThenClosed(['G', 'A', 'C', 'D'], 'I-IV-V', 'octaves')),
-    play('h1-fifth.riff', 'Рифф «рок-восьмые»', ['G', 'A', 'C', 'D'].map(riff)),
-    play('h1-fifth.riff-rock', 'Рифф «рок-восьмые» под подложку «рок»', ['G', 'A', 'C', 'D'].map(riff), ROCK_EIGHTHS),
+    play('h1-fifth.riff', 'Рифф «рок-восьмые»', ['G', 'A', 'C', 'D'].map(root => riff(root))),
+    play('h1-fifth.riff-rock', 'Рифф «рок-восьмые» под подложку «рок»', ['G', 'A', 'C', 'D'].map(root => riff(root)), ROCK_EIGHTHS),
   ]),
   block('h1-line', 'Первая своя линия', 'chords', [], [
     own('h1-line.own', 'Своя линия объёма 1', 'h1-line'),
@@ -98,6 +108,72 @@ const STAGE_1: readonly Block[] = [
   ]),
 ];
 
+const STAGE_2: readonly Block[] = [
+  /* ---- Техника ---- */
+  block('t2-length', 'Длинные и короткие', 'technique', ['legato-staccato'], [
+    play('t2-length.quarters', 'Длинные и короткие ноты четвертями', (['E', 'A', 'D'] as const).map(longShort), QUARTERS),
+    play('t2-length.eighths', 'Длинные и короткие ноты восьмыми', (['E', 'A', 'D'] as const).map(longShort)),
+  ]),
+  block('t2-spider', 'Четыре пальца по грифу', 'technique', [], [
+    play('t2-spider.1234', 'Паук 1-2-3-4', [spider(5, '1234'), spider(7, '1234')]),
+    play('t2-spider.1324', 'Паук 1-3-2-4', [spider(5, '1324'), spider(7, '1324')]),
+    play('t2-spider.1243', 'Паук 1-2-4-3', [spider(5, '1243'), spider(7, '1243')]),
+    play('t2-spider.shift', 'Смена позиции по струне', OPEN_STRINGS.map(positionShift)),
+  ]),
+  /* ---- Гриф ---- */
+  block('f2-dg', 'Струны D и G', 'fretboard', [], [
+    play('f2-dg.naturals', 'Ноты на струне, лады 0–12, четвертями', [naturals('D', 12), naturals('G', 12)], QUARTERS),
+    check('f2-dg.name-note', 'Назови ноту: струны D и G, лады 0–12', { kind: 'name-note', area: range(['D', 'G'], 0, 12), subject: natural }),
+  ]),
+  block('f2-all', 'Нота на всём грифе', 'fretboard', ['accidentals', 'unison'], [
+    play('f2-all.note', 'Одна нота по всему грифу четвертями', ['C', 'G', 'D', 'A', 'F', 'B♭'].map(note => createExerciseSpec('note-all-positions', { note })), QUARTERS),
+    play('f2-all.fourths', 'Круг кварт на струне четвертями', (['E', 'A'] as const).map(string => createExerciseSpec('string-fourths', { string })), QUARTERS),
+    check('f2-all.find-all', 'Найди все позиции ноты: лады 0–12', { kind: 'find-all', area: range(['E', 'A', 'D', 'G'], 0, 12), subject: natural }),
+    check('f2-all.name-note', 'Назови ноту со знаками: все струны, лады 0–12', { kind: 'name-note', area: range(['E', 'A', 'D', 'G'], 0, 12), subject: allNotes }),
+  ]),
+  block('f2-penta', 'Первая форма', 'fretboard', ['degree', 'pentatonic'], [
+    play('f2-penta.form', 'Форма A минорной пентатоники вверх-вниз', ['A', 'B', 'G'].map(root => pentaForm(root))),
+    play('f2-penta.groups', 'Группы по три по форме A', ['A', 'B', 'G'].map(root => pentaForm(root, 'groups-of-three'))),
+    check('f2-penta.find-degree', 'Найди ступень по форме A', { kind: 'find-degree', area: { type: 'exercise', exercise: pentaForm('A') }, subject: { type: 'degrees', scale: null, targets: null } }),
+  ]),
+  /* ---- Аккорды и линии ---- */
+  block('h2-rhythm', 'Ритм с паузами', 'chords', ['durations-rests', 'tie-syncopation'], [
+    play('h2-rhythm.eighth-rest', 'I–IV–V тониками с восьмой паузой', lowThenClosed(['G', 'A', 'C'], 'I-IV-V', 'roots'), EIGHTH_REST),
+    play('h2-rhythm.tied', 'I–IV–V тониками с синкопой и лигой', lowThenClosed(['G', 'A', 'C'], 'I-IV-V', 'roots'), practice('tied-syncopation')),
+    play('h2-rhythm.shuffle', 'I–IV–V тониками шаффлом', lowThenClosed(['G', 'A', 'C'], 'I-IV-V', 'roots'), practice('shuffle')),
+  ]),
+  block('h2-blues', 'Блюз по ступеням', 'chords', [], [
+    play('h2-blues.root-fifth', '12 тактов рисунком «тоника и квинта»', lowThenClosed(['A', 'E', 'G'], 'blues-12', 'root-fifth')),
+    play('h2-blues.r5b78', '12 тактов рисунком «R–5–♭7–8»', lowThenClosed(['A', 'E', 'G'], 'blues-12', 'r5b78')),
+    play('h2-blues.r56', '12 тактов рисунком «R–5–6» шаффлом под подложку «шаффл»', lowThenClosed(['A', 'E', 'G'], 'blues-12', 'r56'), SHUFFLE_UNDER_SHUFFLE),
+    check('h2-blues.name-degree', 'Назови ступень: 1, 5, 6 и ♭7 от A', {
+      kind: 'name-degree', area: range(['E', 'A', 'D'], 4, 7), subject: { type: 'degrees', scale: { root: 'A', degrees: ['1', '5', '6', 'b7'] }, targets: null },
+    }),
+  ]),
+  block('h2-approach', 'Подход', 'chords', [], [
+    play('h2-approach.pop1', 'I–V–vi–IV тониками с подходом', lowThenClosed(['C', 'G', 'D'], 'I-V-vi-IV', 'roots-approach')),
+    play('h2-approach.pop2', 'I–vi–IV–V тониками с подходом', lowThenClosed(['C', 'G', 'D'], 'I-vi-IV-V', 'roots-approach')),
+    play('h2-approach.riff', 'Рифф «с подходом»', ['C', 'G', 'D'].map(root => riff(root, 'approach-eighths'))),
+    play('h2-approach.disco', 'Рифф «октавы диско»', ['C', 'G', 'D'].map(root => riff(root, 'disco-octaves'))),
+  ]),
+  block('h2-triad', 'Трезвучие', 'chords', ['triad'], [
+    play('h2-triad.quarters', 'Арпеджио 1–3–5–8 четвертями', triads(['C', 'G', 'A']), QUARTERS),
+    play('h2-triad.eighths', 'Арпеджио 1–3–5–8 восьмыми', triads(['C', 'G', 'A'])),
+    play('h2-triad.progression', 'I–IV–V рисунком «арпеджио»', lowThenClosed(['G', 'A', 'C'], 'I-IV-V', 'arpeggio')),
+    check('h2-triad.name-degree', 'Назови ступень: 1, 3, ♭3 и 5 от C', {
+      kind: 'name-degree', area: range(['A', 'D', 'G'], 1, 5), subject: { type: 'degrees', scale: { root: 'C', degrees: ['1', 'b3', '3', '5'] }, targets: null },
+    }),
+  ]),
+  block('h2-own', 'Своя последовательность', 'chords', [], [
+    play('h2-own.riff', 'Рифф в форме A пентатоники по i–iv–v', ['A', 'E', 'G'].map(root => riff(root, 'penta-a'))),
+    own('h2-own.own', 'Своя линия объёма 2', 'h2-own'),
+    song('h2-own.song', 'Фрагмент своей песни'),
+  ]),
+];
+
 export const PROGRAM: Program = Object.freeze({
-  stages: Object.freeze([Object.freeze({ number: 1, title: 'Пульс и опора', blocks: Object.freeze(STAGE_1) })]),
+  stages: Object.freeze([
+    Object.freeze({ number: 1, title: 'Пульс и опора', blocks: Object.freeze(STAGE_1) }),
+    Object.freeze({ number: 2, title: 'Паттерны и первая форма', blocks: Object.freeze(STAGE_2) }),
+  ]),
 });

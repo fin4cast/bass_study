@@ -408,6 +408,8 @@ const STEP_EXERCISE: Partial<Record<string, () => ExerciseSpec>> = {
   posture: () => createExerciseSpec('pulse-note', { string: 'A', fret: 0 }),
   'right-hand-basics': () => createExerciseSpec('pulse-note', { string: 'D', fret: 0 }),
   'left-hand-basics': () => createExerciseSpec('chromatic-position', { startFret: 7 }),
+  'durations-rests': () => createExerciseSpec('pulse-note', { string: 'G', fret: 0, notes: 8 }),
+  'tie-syncopation': () => createExerciseSpec('progression', { root: 'G' }),
 };
 const FORM_TEMPLATES: ReadonlySet<ExerciseTemplateId> = new Set(['pentatonic-form', 'connect-forms', 'pentatonic-neck', 'groups-of-three', 'pentatonic-relative']);
 
