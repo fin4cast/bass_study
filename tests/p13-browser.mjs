@@ -1228,6 +1228,53 @@ check('second-window-waits-for-writer-and-takes-over-after-first-closes', 'ui', 
   return { secondWindowTookOver: true };
 });
 
+/** Три строки задания видны во всех четырёх видах и вместе с остальным экраном помещаются в окно 1280×720 без прокрутки. */
+async function assertTaskLinesFit(page, label) {
+  await page.waitForFunction(() => document.querySelector('[data-lesson-screen="play"]:not([hidden]) [data-task="do"]')?.textContent);
+  for (const view of ['board', 'both', 'tab', 'memory']) {
+    await playScene(page).locator(`button[data-view="${view}"]`).click();
+    const shown = await playScene(page).evaluate(scene => ['do', 'notice', 'clean'].map(line => {
+      const node = scene.querySelector(`[data-task="${line}"]`);
+      return { line, text: node.textContent, visible: node.getClientRects().length > 0 };
+    }));
+    for (const item of shown) assert.ok(item.text.length > 20 && item.visible, `${label} · ${view}: строка «${item.line}» не видна`);
+    const size = await page.evaluate(() => ({ clientHeight: document.documentElement.clientHeight, scrollHeight: document.documentElement.scrollHeight,
+      clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
+    assert.ok(size.scrollHeight <= size.clientHeight + 1 && size.scrollWidth <= size.clientWidth + 1, `${label} · ${view}: прокрутка ${JSON.stringify(size)}`);
+  }
+}
+async function openLibraryPlay(page, title) {
+  await lessonTab(page, 'Библиотека');
+  const card = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+  await card.getByRole('button', { name: /^Играть/ }).click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+}
+
+check('play-task-lines-show-three-rows-in-all-views-and-fit-1280x720-on-the-longest-text', 'ui', async ({ page, origin }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openApp(page, origin);
+  await openLibraryPlay(page, 'Переход между струнами (правая рука)');
+  await assertTaskLinesFit(page, 'Переход между струнами');
+  const text = await playScene(page).locator('[data-task="do"]').innerText();
+  assert.match(text, /открытые струны/i, 'строка относится к этому шаблону');
+  return { text };
+});
+
+check('play-task-lines-fit-1280x720-for-every-library-template', 'ui', async ({ page, origin }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openApp(page, origin);
+  await lessonTab(page, 'Библиотека');
+  const titles = await home(page).locator('.ls-lib-card h3, .ls-lib-card h2').allInnerTexts();
+  assert.ok(titles.length >= 20, `в библиотеке ${titles.length} карточек`);
+  for (const title of titles) {
+    await openLibraryPlay(page, title.trim());
+    await assertTaskLinesFit(page, title.trim());
+    await playScene(page).locator('[data-back]').click();
+  }
+  return { templates: titles.length };
+});
+
+markFullOnly(checks, ['play-task-lines-fit-1280x720-for-every-library-template'], FULL_ONLY.smoke);
 markFullOnly(checks, ['native-real-hidden-tab-pauses-play-and-resumes-only-by-action'], FULL_ONLY.hiddenTab);
 markFullOnly(checks, ['live-play-sounds-reached-notes-on-audio-clock-and-pause-cancels-scheduled-voices'], FULL_ONLY.liveAudio);
 markFullOnly(checks, ['play-right-hand-echo-and-shuffle-groove-on-string-crossing-and-memory-pulse', 'play-approach-continues-until-rated-and-partial-first-pass-is-rated-not-whole',

@@ -127,6 +127,11 @@ const TEMPLATE = `
     <div class="pl-head-copy">
       <button type="button" class="pl-back" data-back></button>
       <div class="pl-title-row"><h1 class="pl-title" data-title></h1><span class="pl-sub" data-sub></span><span class="pl-chips" data-chips></span></div>
+      <dl class="pl-task" data-task-box aria-label="Задание" hidden>
+        <div><dt>Что делать</dt><dd data-task="do"></dd></div>
+        <div><dt>Обрати внимание</dt><dd data-task="notice"></dd></div>
+        <div><dt>Чисто, если</dt><dd data-task="clean"></dd></div>
+      </dl>
     </div>
     <div class="pl-head-tools">
       <button type="button" class="text-button pl-listen" data-listen aria-pressed="false" title="Эталон звучит до игры: один проход без отсчёта; пробел или Esc — остановить">♪ Сначала услышь</button>
@@ -306,6 +311,8 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     back.textContent = options.backLabel ?? '← Занятие';
     back.hidden = !options.onBack;
     at('[data-title]').textContent = plan?.title ?? 'Упражнение не выбрано';
+    at('[data-task-box]').hidden = !plan;
+    for (const line of ['do', 'notice', 'clean'] as const) at(`[data-task="${line}"]`).textContent = plan?.task[line] ?? '';
     renderSub();
     const chips = at('[data-chips]');
     chips.replaceChildren(...(plan?.concepts ?? []).map(id => {

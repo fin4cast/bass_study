@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildExercise, configureSpec, createExerciseSpec, EXERCISE_TEMPLATES, templateOptions, validateExerciseSpec, type ExerciseTemplateId } from '../src/exercises';
+import { buildExercise, configureSpec, createExerciseSpec, EXERCISE_TEMPLATES, TASK_LINE_MAX, TEMPLATE_TASKS, templateOptions, validateExerciseSpec, type ExerciseTemplateId } from '../src/exercises';
 import { createNotationPlan } from '../src/notation';
 
 /**
@@ -301,5 +301,32 @@ describe('настройка упражнения на карточке (D-049)'
     expect(boogie.params).toMatchObject({ progression: 'blues-12', pattern: 'boogie' });
     expect(configureSpec(boogie, 'progression', 'ii-V-I').params).toMatchObject({ progression: 'ii-V-I', pattern: 'roots' });
     expect(configureSpec(createExerciseSpec('spider'), 'positions', 12).params).toMatchObject({ startFret: 2, positions: 12 });
+  });
+});
+
+describe('P18-03: задание из трёх строк у каждого шаблона каталога', () => {
+  const ids = EXERCISE_TEMPLATES.map(template => template.id);
+  it('текст задан у каждого шаблона и только у них', () => {
+    expect(Object.keys(TEMPLATE_TASKS).sort()).toEqual([...ids].sort());
+  });
+  it('три непустые строки по правилу «что делать, на что обратить внимание, что считать чисто» умещаются в предел', () => {
+    for (const id of ids) {
+      const task = TEMPLATE_TASKS[id];
+      expect(Object.keys(task), id).toEqual(['do', 'notice', 'clean']);
+      for (const line of [task.do, task.notice, task.clean]) {
+        expect(line.trim(), id).toBe(line);
+        expect(line.length, `${id}: «${line}»`).toBeGreaterThan(20);
+        expect(line.length, `${id}: «${line}»`).toBeLessThanOrEqual(TASK_LINE_MAX);
+        expect(line, id).toMatch(/[.!]$/);
+      }
+      expect(Object.isFrozen(task) || Object.isFrozen(TEMPLATE_TASKS), id).toBe(true);
+    }
+  });
+  it('ни одна строка не повторяется у разных шаблонов, а «что делать» не совпадает с «чисто»', () => {
+    const lines = ids.flatMap(id => [TEMPLATE_TASKS[id].do, TEMPLATE_TASKS[id].notice, TEMPLATE_TASKS[id].clean]);
+    expect(new Set(lines).size).toBe(lines.length);
+  });
+  it('план упражнения несёт задание своего шаблона', () => {
+    for (const id of ids) expect(buildExercise(createExerciseSpec(id)).task, id).toBe(TEMPLATE_TASKS[id]);
   });
 });

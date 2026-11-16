@@ -10,6 +10,9 @@ import {
 import { getBoxCatalogue, getBoxOverlap, type BoxInstance, type BoxShapeId } from '../music/boxes';
 import { degreeFrom, parseChord } from '../music/chords';
 import { createSequence, type SequencePattern } from '../training';
+import { TEMPLATE_TASKS, type TemplateTask } from './tasks';
+
+export { TASK_LINE_MAX, TEMPLATE_TASKS, type TemplateTask } from './tasks';
 
 export type ExerciseCategory = 'warmup' | 'notes' | 'forms' | 'connections' | 'positions' | 'arpeggios' | 'sequences' | 'transposition' | 'progressions';
 export type ConceptId =
@@ -89,6 +92,8 @@ export interface ExercisePlan {
   readonly category: ExerciseCategory;
   readonly concepts: readonly ConceptId[];
   readonly segments: readonly { readonly label: string }[];
+  /** Задание из трёх строк (R-028); шаг программы может заменить его своим. */
+  readonly task: TemplateTask;
   readonly notes: readonly ExerciseNote[];
   /** Те же позиции в порядке плана — вход для createNotationPlan. */
   readonly positions: readonly AnnotatedPosition[];
@@ -705,7 +710,7 @@ function buildPlan(spec: ExerciseSpec): ExercisePlan {
   }));
   return deepFreeze({
     spec, title: built.title ?? template.title, category: template.category, concepts: template.concepts,
-    segments: built.segments.map(label => ({ label })), notes, positions: built.drafts.map(draft => draft.position),
+    segments: built.segments.map(label => ({ label })), task: TEMPLATE_TASKS[spec.templateId], notes, positions: built.drafts.map(draft => draft.position),
     overlap: built.overlap ?? 'shared',
     cadence: TONIC_CADENCE.has(spec.templateId) && notes.some(note => note.degree === '1') ? 'tonic' : 'none',
     timing: built.timing ?? null,

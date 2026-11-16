@@ -33,6 +33,11 @@
 .pl-title-row { display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; min-width: 0; }
 .pl-title { font-size: var(--text-page); font-weight: var(--weight-heading); letter-spacing: -1px; line-height: 1.2; }
 .pl-sub { color: var(--text-secondary); font-size: var(--text-s); }
+.pl-task { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 0; min-width: 0; font-size: var(--text-xs); line-height: 1.35; }
+.pl-task[hidden] { display: none; }
+.pl-task > div { display: flex; gap: 8px; min-width: 0; }
+.pl-task dt { flex: none; width: 8.5em; color: var(--text-secondary); font-weight: 600; }
+.pl-task dd { margin: 0; min-width: 0; color: var(--text-primary); }
 .pl-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; align-self: center; }
 .pl-chip {
   border: 1px solid transparent;
