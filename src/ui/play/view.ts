@@ -5,8 +5,9 @@
  * Модуль самостоятелен: не пишет в хранилище и не знает меню; запоминание настроек и запись самооценки —
  * у хоста через `onSettingsChange`, `onViewChange` и `onRate`.
  */
-import type { ConceptId, ExercisePlan, ExerciseSpec } from '../../exercises';
+import { templateOptions, type ConceptId, type ExercisePlan, type ExerciseSpec } from '../../exercises';
 import { rhythmPattern, rhythmPatternsFor, type RhythmPatternId, type Timeline } from '../../exercises/rhythm';
+import { STRUCTURE_LABELS, type StructureId } from '../../music';
 import { conceptForExerciseConcept, parseConceptText, type ReferenceConcept } from '../../practice/concepts';
 import { GROOVE_PRESETS, presetName, type RhythmPresetId } from '../../rhythm/model';
 import { allowsSceneKey, allowsTransportShortcut } from '../transport-shortcut';
@@ -46,7 +47,17 @@ export interface RateEvent {
 const HINT_VIEWS: readonly PlayView[] = ['memory', 'tab', 'both', 'board'];
 const HINT_RANK: Readonly<Record<PlayView, number>> = { memory: 0, tab: 1, both: 2, board: 3 };
 
+/** Ответ хоста на смену параметра материала (P18-04): новое упражнение с видом и настройками или причина отказа. */
+export type VariantResult =
+  | { readonly ok: true; readonly plan: ExercisePlan; readonly settings: Partial<PlaySettings>; readonly view: PlayView }
+  | { readonly ok: false; readonly error: string };
+
 export interface MountPlayOptions {
+  /**
+   * Вариант материала меняется на экране (P18-04): без обработчика переключателей в шапке нет. Хост строит новое
+   * упражнение и меняет своё состояние только в этом вызове; экран вызывает его, когда прежний подход оценён или отброшен.
+   */
+  readonly onVariantChange?: (param: string, value: string | number) => VariantResult;
   /** Порт звука; по умолчанию — `createEnginePort()`, который экран освобождает сам. */
   readonly port?: PlaybackPort;
   readonly initialView?: PlayView;
@@ -127,6 +138,7 @@ const TEMPLATE = `
     <div class="pl-head-copy">
       <button type="button" class="pl-back" data-back></button>
       <div class="pl-title-row"><h1 class="pl-title" data-title></h1><span class="pl-sub" data-sub></span><span class="pl-chips" data-chips></span></div>
+      <div class="pl-variant" data-variant-box hidden><span class="pl-variant-caption">Вариант</span><span class="pl-variant-fields" data-variant-fields></span><span class="pl-variant-error" role="alert" data-variant-error></span></div>
       <dl class="pl-task" data-task-box aria-label="Задание" hidden>
         <div><dt>Что делать</dt><dd data-task="do"></dd></div>
         <div><dt>Обрати внимание</dt><dd data-task="notice"></dd></div>
@@ -242,7 +254,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   rateEl.setAttribute('aria-label', 'Самооценка подхода');
   // После оценки мышью фокус — на группе: Enter открывает следующий шаг, пробел начинает игру.
   rateEl.tabIndex = -1;
-  rateEl.innerHTML = `<strong data-rate-title></strong><span>Как прошло?</span>${ASSESSMENTS.map(item => `<button type="button" class="secondary-button button-compact" data-rate="${escapeHtml(item.id)}" aria-pressed="false" aria-keyshortcuts="${item.key}">${escapeHtml(item.label)}<kbd aria-hidden="true">${item.key}</kbd></button>`).join('')}<span class="pl-suggest" data-suggest aria-live="polite"></span><span class="pl-next-actions" data-next-actions></span><button type="button" class="text-button button-compact pl-rate-close" data-rate-close aria-label="Скрыть самооценку">✕</button>`;
+  rateEl.innerHTML = `<strong data-rate-title></strong><span>Как прошло?</span>${ASSESSMENTS.map(item => `<button type="button" class="secondary-button button-compact" data-rate="${escapeHtml(item.id)}" aria-pressed="false" aria-keyshortcuts="${item.key}">${escapeHtml(item.label)}<kbd aria-hidden="true">${item.key}</kbd></button>`).join('')}<span class="pl-suggest" data-suggest aria-live="polite"></span><span class="pl-next-actions" data-next-actions></span><span class="pl-variant-note" data-variant-note aria-live="polite" hidden></span><button type="button" class="secondary-button button-compact" data-variant-skip hidden>Сменить без оценки</button><button type="button" class="text-button button-compact pl-rate-close" data-rate-close aria-label="Скрыть самооценку">✕</button>`;
 
   /* ---------- Состояние ---------- */
   let plan: ExercisePlan | null = null;
@@ -291,6 +303,9 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   let rated: { assessment: Assessment; bpm: number } | null = null;
   let sceneKey = '';
   let srKey = '';
+  /** Смена варианта ждёт оценки прежнего подхода (P18-04). */
+  let pendingVariant: { param: string; value: string | number } | null = null;
+  let variantError = '';
 
   const runActive = () => runSettings !== null;
   /** Игра запущена и не закончена: эталон в это время не включается, чтобы не потерять проход. */
@@ -311,6 +326,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     back.textContent = options.backLabel ?? '← Занятие';
     back.hidden = !options.onBack;
     at('[data-title]').textContent = plan?.title ?? 'Упражнение не выбрано';
+    renderVariants();
     at('[data-task-box]').hidden = !plan;
     for (const line of ['do', 'notice', 'clean'] as const) at(`[data-task="${line}"]`).textContent = plan?.task[line] ?? '';
     renderSub();
@@ -341,6 +357,69 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     }
     renderLegend();
     renderLabels();
+  }
+  /** Переключатели параметров шаблона (P18-04): те же списки, что у «Настроить» в библиотеке. */
+  function renderVariants() {
+    const box = at('[data-variant-box]');
+    const list = plan && options.onVariantChange ? templateOptions(plan.spec.templateId) : [];
+    box.hidden = list.length === 0;
+    at('[data-variant-error]').textContent = variantError;
+    const fields = at('[data-variant-fields]');
+    if (!plan || !list.length) { fields.replaceChildren(); return; }
+    const params = plan.spec.params as unknown as Record<string, unknown>;
+    fields.replaceChildren(...list.map(option => {
+      const label = document.createElement('label');
+      const name = document.createElement('span');
+      name.textContent = option.label;
+      const select = document.createElement('select');
+      select.dataset.variant = option.param;
+      select.setAttribute('aria-label', `Вариант: ${option.label}`);
+      option.values.forEach((item, index) => {
+        const entry = document.createElement('option');
+        entry.value = String(index);
+        entry.textContent = valueLabel(option.param, item);
+        entry.selected = item.value === params[option.param];
+        select.append(entry);
+      });
+      label.append(name, select);
+      return label;
+    }));
+  }
+  /** Подпись значения параметра: структуры названы по-русски, остальное — подпись списка шаблона. */
+  const valueLabel = (param: string, item: { value: string | number; label: string }) =>
+    param === 'structureId' ? STRUCTURE_LABELS[item.value as StructureId] ?? item.label : item.label;
+  const variantLabel = (param: string, value: string | number) => {
+    const item = templateOptions(plan!.spec.templateId).find(option => option.param === param)?.values.find(candidate => candidate.value === value);
+    return item ? valueLabel(param, item) : String(value);
+  };
+  function renderVariantNote() {
+    const note = at('[data-variant-note]');
+    const skip = at<HTMLButtonElement>('[data-variant-skip]');
+    note.hidden = skip.hidden = !pendingVariant;
+    note.textContent = pendingVariant && plan ? `После оценки вариант сменится: ${variantLabel(pendingVariant.param, pendingVariant.value)}.` : '';
+  }
+  /**
+   * Другой вариант материала: игра останавливается; если есть неоценённый подход, он сначала оценивается (или
+   * отбрасывается явно) — иначе сыгранное молча пропало бы или записалось на новый материал.
+   */
+  function requestVariant(param: string, value: string | number) {
+    if (!plan || !options.onVariantChange || disposed) return;
+    variantError = '';
+    toStart();
+    if (pendingTally && !rated) {
+      pendingVariant = { param, value };
+      renderVariantNote();
+      renderVariants();
+      return;
+    }
+    applyVariant(param, value);
+  }
+  function applyVariant(param: string, value: string | number) {
+    const result = options.onVariantChange?.(param, value);
+    if (!result) return;
+    if (!result.ok) { variantError = result.error; renderVariants(); return; }
+    loadExercise(result.plan, result.settings);
+    setView(result.view, false);
   }
   function renderSub() {
     const line = shownTimeline();
@@ -792,6 +871,8 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     scene.classList.remove('is-rated');
     pendingRate = null;
     pendingTally = null;
+    // Закрытая или начатая заново оценка отменяет ожидавшую смену варианта; выбор в списке возвращается к текущему.
+    if (pendingVariant) { pendingVariant = null; renderVariantNote(); renderVariants(); }
   }
   /**
    * Подход нового запуска: идущий (петля во время игры) или неоценённый (новый старт после остановки, продолжение
@@ -817,6 +898,13 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     renderSuggestion();
     options.onRate?.(event);
     renderNextActions();
+    // Подход оценён и записан на прежний материал — теперь можно сменить вариант.
+    if (pendingVariant) {
+      const { param, value } = pendingVariant;
+      pendingVariant = null;
+      renderVariantNote();
+      applyVariant(param, value);
+    }
   }
   /** После оценки: следующий шаг плана (Enter), ещё подход, отметить шаг выполненным. */
   function renderNextActions() {
@@ -1047,6 +1135,11 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     else if (data.rate) { rate(data.rate as Assessment); rateEl.focus({ preventScroll: true }); }
     else if (data.rateOpen !== undefined) offerRateNow();
     else if (data.rateClose !== undefined) closeRate();
+    else if (data.variantSkip !== undefined) {
+      const skipped = pendingVariant;
+      closeRate();
+      if (skipped) applyVariant(skipped.param, skipped.value);
+    }
     else if (data.after === 'next') options.onNextStep?.();
     else if (data.after === 'again') { closeRate(); at<HTMLButtonElement>('[data-play]').focus(); }
     else if (data.after === 'complete') { options.onCompleteStep?.(); button.disabled = true; }
@@ -1065,6 +1158,12 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
 
   scene.addEventListener('change', event => {
     const target = event.target;
+    if (target instanceof HTMLSelectElement && target.dataset.variant !== undefined && plan) {
+      const option = templateOptions(plan.spec.templateId).find(item => item.param === target.dataset.variant);
+      const chosen = option?.values[Number(target.value)];
+      if (option && chosen) requestVariant(option.param, chosen.value);
+      return;
+    }
     if (target instanceof HTMLInputElement && target.dataset.bpm !== undefined) { applyBpm(Number(target.value) || settings.bpm); notifySettings(['bpm']); return; }
     if (target instanceof HTMLInputElement && target.dataset.target !== undefined) { changeSettings({ targetBpm: clampBpm(Number(target.value) || settings.targetBpm) }); return; }
     if (target instanceof HTMLSelectElement && target.dataset.groove !== undefined) { changeSettings({ groove: (target.value || null) as RhythmPresetId | null }); return; }
@@ -1137,23 +1236,27 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   renderHeader();
   update();
 
+  /** Новое упражнение: игра останавливается, петля и самооценка сбрасываются. */
+  function loadExercise(nextPlan: ExercisePlan, nextSettings?: Partial<PlaySettings>) {
+    if (disposed) return;
+    try { port.stop(); } catch { /* порт уже остановлен */ }
+    plan = nextPlan;
+    listening = false; listenNote = '';
+    if (nextSettings) settings = initial(nextSettings);
+    settings = { ...settings, range: null };
+    timeline = timelineFor(nextPlan, settings);
+    events = tabEvents(nextPlan, timeline);
+    junctionList = junctions(nextPlan);
+    runSettings = null; runTimeline = null; approach = null; fromStart = false; shownStep = null; errorText = ''; sceneKey = ''; approachNote = '';
+    variantError = '';
+    closeRate();
+    applyVolumes();
+    renderHeader();
+    update();
+  }
+
   return {
-    setExercise(nextPlan, _spec, nextSettings) {
-      if (disposed) return;
-      try { port.stop(); } catch { /* порт уже остановлен */ }
-      plan = nextPlan;
-      listening = false; listenNote = '';
-      if (nextSettings) settings = initial(nextSettings);
-      settings = { ...settings, range: null };
-      timeline = timelineFor(nextPlan, settings);
-      events = tabEvents(nextPlan, timeline);
-      junctionList = junctions(nextPlan);
-      runSettings = null; runTimeline = null; approach = null; fromStart = false; shownStep = null; errorText = ''; sceneKey = ''; approachNote = '';
-      closeRate();
-      applyVolumes();
-      renderHeader();
-      update();
-    },
+    setExercise(nextPlan, _spec, nextSettings) { loadExercise(nextPlan, nextSettings); },
     setView(next) { if (!disposed) setView(next); },
     getView: () => view,
     getSettings: () => settings,

@@ -20,7 +20,7 @@ import { createEnginePort, type PlaybackPort } from '../ui/play/port';
 import { mountPlay, type PlayHandle, type RateEvent } from '../ui/play/view';
 import { mountReference } from '../ui/reference/view';
 import {
-  addToPlan, bpmAfterRating, checkEntry, exerciseKey, exerciseSettingsPatch, hasPlayed, nextPlanStep, planAfterCheck, planAfterNext, planAfterRating, planForToday, planStepInfo,
+  addToPlan, bpmAfterRating, checkEntry, exerciseKey, exerciseSettingsPatch, hasPlayed, nextPlanStep, planAfterCheck, planAfterNext, planAfterRating, planForToday, planStepInfo, variantChange,
   playRatingEntry, playSettingsFor, plannedProgressIds, rememberExerciseSettings, repeatContent, specForKey, stepPosition, todayKey, viewForExercise,
 } from './lesson-flow';
 
@@ -73,7 +73,8 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   let visible = !container.hidden;
   let homeStale = true;
   let disposed = false;
-  let play: { handle: PlayHandle; port: PlaybackPort; spec: ExerciseSpec; key: string; stepId: string | null } | null = null;
+  /** `keys` — все варианты материала, открытые на этом экране: таймер шага не обнуляется при смене лада (P18-04). */
+  let play: { handle: PlayHandle; port: PlaybackPort; spec: ExerciseSpec; key: string; keys: readonly string[]; stepId: string | null; practice: PracticeOptions | null } | null = null;
   let check: { spec: CheckSpec | null; stepId: string | null; origin: LessonOrigin | null } | null = null;
 
   const today = () => todayKey();
@@ -230,16 +231,29 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
       onBack: () => leave(origin),
       onBeforeStart: () => options.claimAudio('play'),
       onRate: event => rate(event),
+      // Материал экрана может смениться (P18-04): ключ берётся из текущего состояния, а не из открытия.
       onViewChange(next) {
         const lesson = lessonPreferences();
-        options.savePreferences({ lesson: { ...lesson, exerciseSettings: rememberExerciseSettings(lesson.exerciseSettings, key, { view: next }) } });
+        options.savePreferences({ lesson: { ...lesson, exerciseSettings: rememberExerciseSettings(lesson.exerciseSettings, play?.key ?? key, { view: next }) } });
+      },
+      // Свои упражнения варианта не меняют: смена параметра дала бы материал вне сохранённого.
+      onVariantChange: key.startsWith('user:') ? undefined : (param, value) => {
+        const current = play;
+        if (!current) return { ok: false, error: 'Экран игры закрыт.' };
+        const prefs = options.preferences();
+        const change = variantChange(current.spec, param, value, { lesson: prefs.lesson, play: prefs.play, records: records(), userExercises: user(), practice });
+        if (!change.ok) return change;
+        // Состояние меняется здесь, после того как экран оценил или отбросил прежний подход.
+        play = { ...current, spec: change.spec, key: change.key, keys: current.keys.includes(change.key) ? current.keys : [...current.keys, change.key] };
+        refreshPlanStep();
+        return { ok: true, plan: change.plan, settings: change.settings, view: change.view };
       },
       // Темп, цель, ритм и подложка — упражнения (только то, что менялось); эталон, метроном, громкости, отсчёт
       // и подписи — общие умолчания. «Как играть» шага цели — свойство шага: ритм и подложка не запоминаются.
       onSettingsChange(next, labels, changed) {
         const prefs = options.preferences();
         options.savePreferences({
-          lesson: { ...prefs.lesson, exerciseSettings: rememberExerciseSettings(prefs.lesson.exerciseSettings, key, exerciseSettingsPatch(next, changed, practice !== null)) },
+          lesson: { ...prefs.lesson, exerciseSettings: rememberExerciseSettings(prefs.lesson.exerciseSettings, play?.key ?? key, exerciseSettingsPatch(next, changed, practice !== null)) },
           // «Пр. рука» есть не у всех упражнений — умолчанием подписей не становится.
           play: { ...prefs.play, countInBars: next.countInBars, reference: next.reference, metronome: next.metronome, click: next.click, grooveVolume: next.grooveVolume, labels: labels === 'pluck' ? prefs.play.labels : labels },
         });
@@ -254,7 +268,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
       },
     });
     handle.setExercise(exercise, spec);
-    play = { handle, port, spec, key, stepId };
+    play = { handle, port, spec, key, keys: [key], stepId, practice };
     refreshPlanStep();
     if (!visible) handle.setVisible(false);
     const heading = playHost.querySelector<HTMLElement>('h1');
@@ -282,7 +296,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   /** Таймер шага и кнопки «Следующий шаг» / «Отметить выполненным» на экране игры. */
   function refreshPlanStep() {
     if (!play) return;
-    play.handle.setPlanStep(planStepInfo(currentPlan(), play.stepId, play.key, records()));
+    play.handle.setPlanStep(planStepInfo(currentPlan(), play.stepId, play.keys, records()));
   }
 
   /** «Следующий шаг плана →»: текущий шаг выполнен, открывается следующий невыполненный шаг. */

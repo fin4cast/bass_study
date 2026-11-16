@@ -33,6 +33,15 @@
 .pl-title-row { display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; min-width: 0; }
 .pl-title { font-size: var(--text-page); font-weight: var(--weight-heading); letter-spacing: -1px; line-height: 1.2; }
 .pl-sub { color: var(--text-secondary); font-size: var(--text-s); }
+.pl-variant { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; min-width: 0; font-size: var(--text-xs); color: var(--text-secondary); }
+.pl-variant[hidden] { display: none; }
+.pl-variant-caption { font-weight: 600; }
+.pl-variant-fields { display: inline-flex; flex-wrap: wrap; gap: 2px 12px; }
+.pl-variant-fields label { display: inline-flex; align-items: center; gap: 6px; }
+.pl-variant select { height: 26px; border: 1px solid var(--border-strong); border-radius: var(--radius-m); background: var(--surface-input); color: var(--text-primary); font: inherit; font-size: var(--text-xs); }
+.pl-variant-error { color: var(--danger-text); font-weight: 600; }
+.pl-variant-error:empty { display: none; }
+.pl-variant-note { color: var(--text-secondary); }
 .pl-task { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 0; min-width: 0; font-size: var(--text-xs); line-height: 1.35; }
 .pl-task[hidden] { display: none; }
 .pl-task > div { display: flex; gap: 8px; min-width: 0; }

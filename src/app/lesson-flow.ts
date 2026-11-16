@@ -3,7 +3,7 @@
  * обновление плана после самооценки и «Проверь себя», записи истории и умолчания экрана игры.
  * Без DOM, звука и хранилища: координатор `lesson-section.ts` только применяет результат.
  */
-import { targetBpmFor, type ExerciseSpec } from '../exercises';
+import { buildExercise, configureSpec, targetBpmFor, type ExercisePlan, type ExerciseSpec } from '../exercises';
 import { DEFAULT_PRACTICE, type PracticeOptions } from '../exercises/rhythm';
 import { builtinLibrary, type UserExercise } from '../practice/library';
 import { builtinTemplateOf } from '../practice/material';
@@ -121,6 +121,31 @@ export function exerciseSettingsPatch(settings: Pick<PlaySettings, 'bpm' | 'targ
 
 export const hasPlayed = (key: string, records: readonly PracticeRecord[]) => records.some(record => record.kind === 'play' && record.exerciseKey === key);
 
+/** Результат смены параметра материала на экране игры (P18-04). */
+export type VariantChange =
+  | { readonly ok: true; readonly spec: ExerciseSpec; readonly key: string; readonly plan: ExercisePlan; readonly view: ExerciseView; readonly settings: Partial<PlaySettings> }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * Другой вариант того же шаблона: параметр меняется по правилам карточки библиотеки (`configureSpec`), вид и темп берутся
+ * для нового материала. «Как играть» шага (ритм, эхо, подложка) не меняется. Несовместимое сочетание — ошибка, материал прежний.
+ */
+export function variantChange(spec: ExerciseSpec, param: string, value: string | number, sources: {
+  readonly lesson: Pick<LessonPreferences, 'exerciseSettings'>; readonly play: PlayPreferences; readonly records: readonly PracticeRecord[];
+  readonly userExercises: readonly UserExercise[]; readonly practice: PracticeOptions | null;
+}): VariantChange {
+  try {
+    const next = configureSpec(spec, param, value);
+    const plan = buildExercise(next);
+    const key = exerciseKey(next, sources.userExercises);
+    const view = viewForExercise(key, hasPlayed(key, sources.records), sources.lesson, sources.play);
+    const settings = playSettingsFor(next, key, { lesson: sources.lesson, play: sources.play, records: sources.records, practice: sources.practice });
+    return { ok: true, spec: next, key, plan, view, settings };
+  } catch (failure) {
+    return { ok: false, error: failure instanceof Error ? failure.message : String(failure) };
+  }
+}
+
 function completeIfOpen(plan: DayPlan, stepId: string | null): DayPlan {
   if (!stepId) return plan;
   const step = plan.steps.find(candidate => candidate.id === stepId);
@@ -147,10 +172,12 @@ export function nextPlanStep(plan: DayPlan): { readonly stepId: string; readonly
  * Шаг плана для экрана игры (D-050): плановое время, уже сыгранное сегодня этим материалом (сумма активного
  * времени проходов за дату плана), есть ли другой невыполненный шаг и выполнен ли этот.
  */
-export function planStepInfo(plan: DayPlan, stepId: string | null, key: string, records: readonly PracticeRecord[]) {
+export function planStepInfo(plan: DayPlan, stepId: string | null, keys: string | readonly string[], records: readonly PracticeRecord[]) {
   const step = stepId ? plan.steps.find(candidate => candidate.id === stepId) : undefined;
   if (!step) return null;
-  const doneMs = records.reduce((sum, record) => record.kind === 'play' && record.exerciseKey === key && record.localDate === plan.localDate ? sum + record.activeMs : sum, 0);
+  // Ключи — все варианты материала, открытые на этом шаге (P18-04): смена лада не обнуляет таймер шага.
+  const own = new Set(typeof keys === 'string' ? [keys] : keys);
+  const doneMs = records.reduce((sum, record) => record.kind === 'play' && own.has(record.exerciseKey) && record.localDate === plan.localDate ? sum + record.activeMs : sum, 0);
   return { plannedMs: step.minutes * 60_000, doneMs, hasNext: plan.steps.some(candidate => candidate.id !== step.id && candidate.status !== 'done'), done: step.status === 'done' };
 }
 

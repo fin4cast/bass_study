@@ -13,6 +13,21 @@ export type StructureId =
   | 'minor-seventh'
   | 'half-diminished-seventh'
   | 'blues';
+/** Русские названия структур для интерфейса. */
+export const STRUCTURE_LABELS: Readonly<Record<StructureId, string>> = Object.freeze({
+  'minor-pentatonic': 'минорная пентатоника',
+  'major-pentatonic': 'мажорная пентатоника',
+  major: 'мажор',
+  'natural-minor': 'натуральный минор',
+  'major-triad': 'мажорное трезвучие',
+  'minor-triad': 'минорное трезвучие',
+  'diminished-triad': 'уменьшённое трезвучие',
+  'major-seventh': 'большой мажорный септаккорд',
+  'dominant-seventh': 'доминантсептаккорд',
+  'minor-seventh': 'малый минорный септаккорд',
+  'half-diminished-seventh': 'полууменьшённый септаккорд',
+  blues: 'блюзовая гамма',
+});
 export type LabelMode = 'notes' | 'degrees' | 'hidden';
 export type NoteLetter = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B';
 

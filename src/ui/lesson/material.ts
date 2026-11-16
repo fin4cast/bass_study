@@ -3,7 +3,7 @@
  * Чистый модуль: без DOM, звука и хранилища. Позиции в тексте — `E/8`.
  */
 import { buildExercise, type ConceptId, type ExercisePlan, type ExerciseSpec, type ExerciseTemplateId } from '../../exercises';
-import { createStructure, formatDegree, parseNote, type MusicalStructure, type StructureId } from '../../music';
+import { createStructure, formatDegree, parseNote, STRUCTURE_LABELS, type MusicalStructure, type StructureId } from '../../music';
 
 /** `E:8` → `E/8`. */
 export const formatPosition = (id: string) => id.replace(':', '/');
@@ -35,20 +35,7 @@ export const CONCEPT_LABELS: Readonly<Record<ConceptId, string>> = Object.freeze
   'right-hand': 'правая рука',
 });
 
-export const STRUCTURE_LABELS: Readonly<Record<StructureId, string>> = Object.freeze({
-  'minor-pentatonic': 'минорная пентатоника',
-  'major-pentatonic': 'мажорная пентатоника',
-  major: 'мажор',
-  'natural-minor': 'натуральный минор',
-  'major-triad': 'мажорное трезвучие',
-  'minor-triad': 'минорное трезвучие',
-  'diminished-triad': 'уменьшённое трезвучие',
-  'major-seventh': 'большой мажорный септаккорд',
-  'dominant-seventh': 'доминантсептаккорд',
-  'minor-seventh': 'малый минорный септаккорд',
-  'half-diminished-seventh': 'полууменьшённый септаккорд',
-  blues: 'блюзовая гамма',
-});
+export { STRUCTURE_LABELS };
 
 export const PROGRESSION_LABELS: Readonly<Record<string, string>> = { 'I-IV-V': 'I–IV–V', 'ii-V-I': 'ii–V–I', 'blues-12': 'блюз 12 тактов' };
 export const PATTERN_LABELS: Readonly<Record<string, string>> = { roots: 'тоники', 'root-fifth': 'тоника и квинта', octaves: 'октавы', arpeggio: 'арпеджио', approach: 'арпеджио и подходы', boogie: 'буги' };

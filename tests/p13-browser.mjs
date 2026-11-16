@@ -1228,6 +1228,38 @@ check('second-window-waits-for-writer-and-takes-over-after-first-closes', 'ui', 
   return { secondWindowTookOver: true };
 });
 
+/** Проход в петле на 200 BPM, чтобы подход набрался быстро; панель оценки открывается после остановки. */
+async function playOneLoopedPass(page) {
+  const loop = playScene(page).locator('[data-flag="loop"]');
+  if (await loop.getAttribute('aria-pressed') === 'true') await loop.click();
+  await playScene(page).locator('[data-bpm]').fill('200'); await playScene(page).locator('[data-bpm]').press('Enter');
+  await focusPlayTitle(page); await page.keyboard.press('Space');
+  await playScene(page).getByRole('group', { name: 'Самооценка подхода' }).waitFor({ timeout: 20000 });
+}
+const variantSelect = (page, param) => playScene(page).locator(`[data-variant="${param}"]`);
+const selectedText = locator => locator.locator('option:checked').innerText();
+
+check('play-variant-chromatic-fret-5-to-7-keeps-step-and-rates-the-new-material', 'ui', async ({ page, origin }) => {
+  // P18-04: лад меняется на экране игры без возврата в библиотеку; история пишется на новый материал, шаг плана остаётся тем же.
+  await openApp(page, origin);
+  await openPlanStep(page, FIRST_RUN_PLAN[2]);
+  assert.equal(await selectedText(variantSelect(page, 'startFret')), '5');
+  await variantSelect(page, 'startFret').selectOption({ label: '7' });
+  assert.equal(await selectedText(variantSelect(page, 'startFret')), '7');
+  assert.equal(await playScene(page).locator('[data-title]').innerText(), FIRST_RUN_PLAN[2], 'шаг плана тот же');
+  await playScene(page).locator('[data-flag="loop"]').click();
+  await playScene(page).locator('[data-bpm]').fill('200'); await playScene(page).locator('[data-bpm]').press('Enter');
+  await focusPlayTitle(page); await page.keyboard.press('Space');
+  await playScene(page).getByRole('group', { name: 'Самооценка подхода' }).waitFor({ timeout: 20000 });
+  await page.keyboard.press('KeyZ');
+  const db = await waitDb(page, db => db.history.some(entry => entry.result?.assessment === 'clean'), '«Чисто» в истории');
+  const entry = db.history.find(item => item.result?.assessment === 'clean');
+  assert.match(entry.result.material.key, /^builtin:chromatic-position\.7/, 'проход записан на материал с 7-го лада');
+  assert.equal(entry.result.material.spec.params.startFret, 7);
+  assert.equal(db.preferences.lesson.plan.steps[2].status, 'done', 'оценка нового материала закрыла тот же шаг плана');
+  return { key: entry.result.material.key };
+});
+
 /** Три строки задания видны во всех четырёх видах и вместе с остальным экраном помещаются в окно 1280×720 без прокрутки. */
 async function assertTaskLinesFit(page, label) {
   await page.waitForFunction(() => document.querySelector('[data-lesson-screen="play"]:not([hidden]) [data-task="do"]')?.textContent);
@@ -1274,6 +1306,53 @@ check('play-task-lines-fit-1280x720-for-every-library-template', 'ui', async ({ 
   return { templates: titles.length };
 });
 
+check('play-variant-unrated-approach-is-rated-first-or-dropped-explicitly-and-own-exercise-has-no-selectors', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await openPlanStep(page, FIRST_RUN_PLAN[2]);
+  const rate = playScene(page).getByRole('group', { name: 'Самооценка подхода' });
+  // Идущий подход: смена варианта останавливает игру и сначала просит оценку прежнего материала.
+  await playOneLoopedPass(page);
+  await variantSelect(page, 'startFret').selectOption({ label: '9' });
+  await rate.waitFor({ timeout: 10000 });
+  assert.match(await playScene(page).locator('[data-variant-note]').innerText(), /После оценки вариант сменится: 9/);
+  assert.equal(await selectedText(variantSelect(page, 'startFret')), '5', 'до оценки выбран прежний вариант');
+  await rate.getByRole('button', { name: /^С ошибками/ }).click();
+  await page.waitForFunction(() => document.querySelector('[data-lesson-screen="play"] [data-variant="startFret"] option:checked')?.textContent === '9');
+  let db = await waitDb(page, db => db.history.length === 1, 'подход записан');
+  assert.match(db.history[0].result.material.key, /^builtin:chromatic-position\.5/, 'подход записан на прежний материал');
+  assert.equal(db.preferences.lesson.plan.steps[2].status, 'current', '«С ошибками» шаг не закрывает');
+  const timerText = await playScene(page).locator('[data-timer]').innerText();
+  assert.match(timerText, /^шаг: 0:0[1-9] из \d+ мин$/, `таймер шага не обнулился: ${timerText}`);
+  // «Сменить без оценки»: подход отброшен, в историю ничего не добавлено.
+  await playOneLoopedPass(page);
+  await variantSelect(page, 'startFret').selectOption({ label: '3' });
+  await rate.waitFor({ timeout: 10000 });
+  await rate.getByRole('button', { name: 'Сменить без оценки' }).click();
+  await page.waitForFunction(() => document.querySelector('[data-lesson-screen="play"] [data-variant="startFret"] option:checked')?.textContent === '3');
+  db = await readDb(page);
+  assert.equal(db.history.length, 1, 'отброшенный подход не записан');
+  // Закрытие панели оценки отменяет смену варианта.
+  await playOneLoopedPass(page);
+  await variantSelect(page, 'startFret').selectOption({ label: '4' });
+  await rate.waitFor({ timeout: 10000 });
+  await playScene(page).locator('[data-rate-close]').click();
+  assert.equal(await selectedText(variantSelect(page, 'startFret')), '3', 'смена отменена');
+  assert.equal(await playScene(page).locator('[data-variant-note]').isVisible(), false);
+  // Свои упражнения варианта не меняют.
+  await playScene(page).locator('[data-back]').click();
+  await lessonTab(page, 'Библиотека');
+  const card = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: 'Форма пентатоники вверх-вниз', exact: true }) });
+  await card.locator('[data-act="save-start"]').click();
+  await card.locator('[data-save-name]').fill('Моя форма');
+  await card.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  const own = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: 'Моя форма', exact: true }) });
+  await own.getByRole('button', { name: /^Играть/ }).click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  assert.equal(await playScene(page).locator('[data-variant-box]').isVisible(), false, 'у своего упражнения переключателей варианта нет');
+  return { history: db.history.length };
+});
+
+markFullOnly(checks, ['play-variant-unrated-approach-is-rated-first-or-dropped-explicitly-and-own-exercise-has-no-selectors'], FULL_ONLY.smoke);
 markFullOnly(checks, ['play-task-lines-fit-1280x720-for-every-library-template'], FULL_ONLY.smoke);
 markFullOnly(checks, ['native-real-hidden-tab-pauses-play-and-resumes-only-by-action'], FULL_ONLY.hiddenTab);
 markFullOnly(checks, ['live-play-sounds-reached-notes-on-audio-clock-and-pause-cancels-scheduled-voices'], FULL_ONLY.liveAudio);

@@ -9,7 +9,7 @@ import { MAX_EXERCISE_VIEWS, type ExerciseView, type PlayPreferences } from '../
 import { backupFileName, backupVersion } from '../src/app/backup';
 import {
   addToPlan, bpmForExercise, checkEntry, describeProgressRow, exerciseKey, fromPlayDefaults, hasPlayed, nextPlanStep, planAfterCheck, planAfterRating,
-  planForToday, playRatingEntry, plannedProgressIds, rememberExerciseSettings, EMPTY_EXERCISE_SETTINGS, playSettingsFor, repeatContent, specForKey, stepPosition, todayKey, toPlayDefaults, viewForExercise,
+  planForToday, planStepInfo, playRatingEntry, plannedProgressIds, rememberExerciseSettings, EMPTY_EXERCISE_SETTINGS, playSettingsFor, repeatContent, specForKey, stepPosition, todayKey, toPlayDefaults, variantChange, viewForExercise,
 } from '../src/app/lesson-flow';
 import { difficultyId, progressRows } from '../src/ui/progress/model';
 import { DEFAULT_PREFERENCES } from '../src/storage/model';
@@ -220,5 +220,63 @@ describe('умолчания экрана игры и копия', () => {
     expect(backupVersion('[1,2]')).toBeUndefined();
     expect(backupVersion('{oops')).toBeUndefined();
     expect(backupFileName('bass-study-backup', new Date(2026, 10, 2))).toBe('bass-study-backup-2026-11-02.json');
+  });
+});
+
+describe('P18-04: вариант материала на экране игры', () => {
+  const chromatic5 = createExerciseSpec('chromatic-position');
+  const sources = (over: Partial<{ records: PracticeRecord[]; lesson: typeof DEFAULT_PREFERENCES.lesson }> = {}) => ({
+    lesson: over.lesson ?? DEFAULT_PREFERENCES.lesson, play: DEFAULT_PREFERENCES.play, records: over.records ?? [], userExercises: [] as UserExercise[], practice: null,
+  });
+
+  it('смена лада даёт новый материал, ключ, план и настройки нового материала; прежний спек не меняется', () => {
+    const change = variantChange(chromatic5, 'startFret', 7, sources());
+    expect(change.ok).toBe(true);
+    if (!change.ok) return;
+    expect(change.spec.params).toMatchObject({ startFret: 7 });
+    expect(chromatic5.params).toMatchObject({ startFret: 5 });
+    expect(change.key).toBe(exerciseKey(change.spec));
+    expect(change.key).not.toBe(exerciseKey(chromatic5));
+    expect(change.plan.notes[0].id).toBe('E:7');
+    expect(change.plan.spec).toEqual(change.spec);
+    expect(change.settings.targetBpm).toBe(100);
+  });
+
+  it('вид и темп берутся для нового материала: запомненные — его, иначе темп последнего прохода того же шаблона', () => {
+    const seven = createExerciseSpec('chromatic-position', { startFret: 7 });
+    const lesson = { ...DEFAULT_PREFERENCES.lesson, exerciseSettings: { [exerciseKey(seven)]: { view: 'memory' as ExerciseView, bpm: 52, targetBpm: null, rhythm: 'eighths' as const, groove: null } } };
+    const remembered = variantChange(chromatic5, 'startFret', 7, sources({ lesson }));
+    expect(remembered.ok && remembered.view).toBe('memory');
+    expect(remembered.ok && remembered.settings.bpm).toBe(52);
+    const records = [playRecord(exerciseKey(chromatic5), 88, '2026-11-12T10:00:00.000Z', 'clean', chromatic5)];
+    const inherited = variantChange(chromatic5, 'startFret', 9, sources({ records }));
+    expect(inherited.ok && inherited.settings.bpm).toBe(88);
+  });
+
+  it('несуществующий параметр и значение вне списка — понятная ошибка, а не исключение', () => {
+    const wrongParam = variantChange(chromatic5, 'nope', 7, sources());
+    expect(wrongParam.ok).toBe(false);
+    expect(!wrongParam.ok && wrongParam.error.length).toBeGreaterThan(5);
+    const wrongValue = variantChange(chromatic5, 'startFret', 99, sources());
+    expect(wrongValue.ok).toBe(false);
+  });
+
+  it('«как играть» шага и ритм остаются при смене варианта', () => {
+    const practice = { rhythm: 'shuffle' as const, echo: false, groove: null };
+    const change = variantChange(chromatic5, 'startFret', 7, { ...sources(), practice });
+    expect(change.ok && change.settings.rhythm).toBe('shuffle');
+  });
+
+  it('таймер шага считает время всех вариантов, открытых на этом шаге, и не чужих материалов', () => {
+    const five = exerciseKey(chromatic5);
+    const seven = exerciseKey(createExerciseSpec('chromatic-position', { startFret: 7 }));
+    const records = [
+      playRecord(five, 80, `${TODAY}T10:00:00.000Z`, 'clean', chromatic5),
+      playRecord(seven, 80, `${TODAY}T10:05:00.000Z`, 'clean', createExerciseSpec('chromatic-position', { startFret: 7 })),
+      playRecord(exerciseKey(arpeggio), 80, `${TODAY}T10:10:00.000Z`),
+    ];
+    const plan = createPlan(TODAY, [{ id: 'step-a', content: { kind: 'exercise', spec: chromatic5 }, minutes: 3 }]);
+    expect(planStepInfo(plan, 'step-a', [five], records)?.doneMs).toBe(60000);
+    expect(planStepInfo(plan, 'step-a', [five, seven], records)?.doneMs).toBe(120000);
   });
 });
