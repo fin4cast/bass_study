@@ -157,6 +157,19 @@ export function checkFacts(records: readonly PracticeRecord[]): CheckFact[] {
 
 /* ---------- Статусы ---------- */
 
+/** Слова статуса едины для программы (R-028). */
+export const STATE_LABELS: Readonly<Record<StepState, string>> = Object.freeze({
+  new: 'не начат', progress: 'в работе', passed: 'пройден', mastered: 'освоен', skipped: 'пропущен',
+});
+/** «пройдено 5 · пропущено 2 · освоено 1 из 9» (и «повторить N», если есть). */
+export function countsLabel(counts: Counts): string {
+  return `пройдено ${counts.passed} · пропущено ${counts.skipped} · освоено ${counts.mastered}${counts.review ? ` · повторить ${counts.review}` : ''} из ${counts.total}`;
+}
+/** Статус шага словами: «освоен · 84» — с лучшим чистым темпом. */
+export function statusLabel(status: StepStatus): string {
+  return status.state === 'mastered' && status.bestCleanBpm ? `${STATE_LABELS.mastered} · ${status.bestCleanBpm}` : STATE_LABELS[status.state];
+}
+
 export type StepState = 'new' | 'progress' | 'passed' | 'mastered' | 'skipped';
 export interface StepStatus {
   readonly state: StepState;

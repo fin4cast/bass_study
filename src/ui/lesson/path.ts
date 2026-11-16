@@ -5,18 +5,11 @@
 import { checkExercise } from '../../practice/check';
 import { getConcept } from '../../practice/concepts';
 import {
-  LINES, isDone, type Block, type Counts, type LineId, type Program, type ProgramState, type Step, type StepState,
+  LINES, STATE_LABELS, countsLabel, isDone, statusLabel, type Block, type Counts, type LineId, type Program, type ProgramState, type Step, type StepState,
 } from '../../practice/program';
 import { materialLabel } from './material';
 
-export const STATE_LABELS: Readonly<Record<StepState, string>> = Object.freeze({
-  new: 'не начат', progress: 'в работе', passed: 'пройден', mastered: 'освоен', skipped: 'пропущен',
-});
-
-/** «пройдено 5 · пропущено 2 · освоено 1 из 9» (и «повторить N», если есть). */
-export function countsLabel(counts: Counts): string {
-  return `пройдено ${counts.passed} · пропущено ${counts.skipped} · освоено ${counts.mastered}${counts.review ? ` · повторить ${counts.review}` : ''} из ${counts.total}`;
-}
+export { STATE_LABELS, countsLabel };
 
 export interface PathVariant { readonly label: string; readonly clean: boolean }
 export interface PathStep {
@@ -63,7 +56,7 @@ export function pathModel(program: Program, state: ProgramState, skipped: Readon
     const firstOpen = variants.findIndex(variant => !variant.clean);
     const picked = picks.get(step.id);
     const selected = picked !== undefined && picked >= 0 && picked < variants.length ? picked : Math.max(0, firstOpen);
-    const label = stateName === 'mastered' && status?.bestCleanBpm ? `${STATE_LABELS.mastered} · ${status.bestCleanBpm}` : STATE_LABELS[stateName];
+    const label = status ? statusLabel(status) : STATE_LABELS.new;
     return { id: step.id, kind: step.kind, title: step.title, state: stateName, label, review: status?.review ?? false, current: currentIds.has(step.id), variants, selected };
   };
   const blockView = (block: Block): PathBlock => ({

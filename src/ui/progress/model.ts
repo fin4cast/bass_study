@@ -10,6 +10,7 @@ import {
   type Assessment, type CheckOutcome, type CheckRecord, type Difficulty, type ManualArea, type ManualRecord, type PlayRecord, type PracticeRecord, type SourceFilter,
 } from '../../practice/results';
 import type { FretboardReview } from '../../practice/history';
+import { countsLabel, LINES, statusLabel, type Program, type ProgramState, type Step, type StepState } from '../../practice/program';
 
 export const DAY_MS = 86_400_000;
 const DATE_KEY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -363,3 +364,38 @@ export function datePeriod(records: readonly PracticeRecord[], today: string) {
 
 export { ASSESSMENT_LABELS };
 export type { Assessment, Difficulty, ManualArea, ManualRecord, PracticeRecord, SourceFilter };
+
+/* ---------- Программа обучения (R-028) ---------- */
+
+export interface ProgramStepRow {
+  readonly id: string;
+  readonly title: string;
+  readonly state: StepState;
+  /** «освоен · 84», «в работе», «пропущен». */
+  readonly label: string;
+  readonly review: boolean;
+  /** «сыграно 1 из 3»; у проверки — «серия сыграна» или «серии нет». */
+  readonly played: string;
+  readonly bestBpm: number | null;
+}
+export interface ProgramLineRow { readonly id: string; readonly title: string; readonly counts: string; readonly steps: readonly ProgramStepRow[] }
+export interface ProgramStageRow { readonly number: number; readonly title: string; readonly counts: string; readonly lines: readonly ProgramLineRow[] }
+
+/** Программа для «Прогресса»: этапы и линии со счётчиками, у шага — статус, сыгранные варианты и лучший чистый темп. */
+export function programOverview(program: Program, state: ProgramState): readonly ProgramStageRow[] {
+  const stepRow = (step: Step): ProgramStepRow | null => {
+    const status = state.statuses.get(step.id);
+    if (!status || step.kind === 'song') return null;
+    const total = step.kind === 'play' ? step.variants.length : 1;
+    const seen = status.variantLast.filter(Boolean).length;
+    const played = step.kind === 'check' ? (seen ? 'серия сыграна' : 'серии нет') : step.kind === 'line' ? (seen ? 'линия сыграна' : 'линий нет') : `сыграно ${seen} из ${total}`;
+    return { id: step.id, title: step.title, state: status.state, label: statusLabel(status), review: status.review, played, bestBpm: status.bestCleanBpm };
+  };
+  return program.stages.map(stage => ({
+    number: stage.number, title: stage.title, counts: countsLabel(state.stageCounts.get(stage.number)!),
+    lines: LINES.map(line => ({
+      id: line.id, title: line.title, counts: countsLabel(state.lineCounts.get(`${stage.number}:${line.id}`)!),
+      steps: stage.blocks.filter(block => block.line === line.id).flatMap(block => block.steps.map(stepRow).filter((row): row is ProgramStepRow => row !== null)),
+    })),
+  }));
+}

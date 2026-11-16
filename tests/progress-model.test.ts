@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createExerciseSpec } from '../src/exercises';
 import type { CheckRecord, PlayRecord, PracticeRecord } from '../src/practice/results';
+import { materialId } from '../src/practice/material';
+import { PROGRAM } from '../src/practice/program-data';
+import { evaluateProgram, type PlayFact, type ProgramFacts } from '../src/practice/program';
 import {
   addDays, calendarWeeks, checkTally, datePeriod, dayRecords, defaultDay, describeDifficulty, difficultyViews, formatActive, formatLongDate,
-  formatShortDate, intensityLevel, joinDates, missedDegrees, mondayOf, plural, progressGroups, progressRows, tallyText, weekRangeLabel, weekSummary,
+  formatShortDate, intensityLevel, joinDates, missedDegrees, mondayOf, plural, programOverview, progressGroups, progressRows, tallyText, weekRangeLabel, weekSummary,
 } from '../src/ui/progress/model';
 import { dateTicks, markerSvg, placeByDate, sparkSvg, sparkText, tempoChartSvg, tempoScale } from '../src/ui/progress/charts';
 
@@ -193,5 +196,37 @@ describe('графики', () => {
     expect(spark).toContain('pg-b-skipped');
     expect(spark).not.toContain('pg-m-clean');
     expect(sparkText(row)).toBe('Самостоятельно по датам: 28 окт — 1 из 3; 6 ноя — 1 из 3');
+  });
+});
+
+describe('программа обучения в «Прогрессе» (R-028)', () => {
+  const facts = (over: Partial<ProgramFacts> = {}): ProgramFacts => ({ plays: [], checks: [], lines: [], skippedBlocks: new Set(), today: '2026-11-16', ...over });
+  const fact = (spec: ReturnType<typeof createExerciseSpec>, over: Partial<PlayFact> = {}): PlayFact =>
+    ({ materialId: materialId(spec), practice: { rhythm: 'eighths', echo: false, groove: null }, assessment: 'clean', wholePass: true, bpm: 84, localDate: '2026-11-16', view: 'both', ...over });
+  const rows = (input: ProgramFacts) => programOverview(PROGRAM, evaluateProgram(PROGRAM, input));
+  const step = (stages: ReturnType<typeof rows>, id: string) => stages.flatMap(stage => stage.lines.flatMap(line => line.steps)).find(item => item.id === id)!;
+
+  it('этап и линии со счётчиками, шаги в порядке программы', () => {
+    const stages = rows(facts());
+    expect(stages).toHaveLength(1);
+    expect(stages[0].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 11');
+    expect(stages[0].lines.map(line => [line.title, line.steps.length])).toEqual([['Техника', 4], ['Гриф', 2], ['Аккорды и линии', 5]]);
+    expect(stages[0].lines[0].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 4');
+    expect(step(stages, 't1-left.quarters')).toMatchObject({ state: 'new', label: 'не начат', played: 'сыграно 0 из 3', bestBpm: null });
+  });
+
+  it('у шага — статус, сыгранные варианты и лучший чистый темп', () => {
+    const adjacent = createExerciseSpec('string-crossing', { pattern: 'adjacent' });
+    const stages = rows(facts({ plays: [fact(adjacent)] }));
+    expect(step(stages, 't1-crossing.eighths')).toMatchObject({ state: 'progress', label: 'в работе', played: 'сыграно 1 из 2', bestBpm: 84 });
+    const done = rows(facts({ plays: [fact(adjacent), fact(createExerciseSpec('string-crossing', { pattern: 'skip' }), { bpm: 70 })] }));
+    expect(step(done, 't1-crossing.eighths')).toMatchObject({ state: 'passed', label: 'пройден', played: 'сыграно 2 из 2', bestBpm: 84 });
+    expect(done[0].lines[0].counts).toBe('пройдено 1 · пропущено 0 · освоено 0 из 4');
+  });
+
+  it('проверка: «серия сыграна»; пропущенный блок — «пропущен»', () => {
+    const skipped = rows(facts({ skippedBlocks: new Set(['f1-octave']) }));
+    expect(step(skipped, 'f1-octave.degrees')).toMatchObject({ state: 'skipped', label: 'пропущен', played: 'серии нет' });
+    expect(skipped[0].lines[1].counts).toBe('пройдено 0 · пропущено 2 · освоено 0 из 2');
   });
 });

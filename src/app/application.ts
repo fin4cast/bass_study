@@ -32,7 +32,9 @@ import { createPracticeDrafts } from './practice-drafts';
 import { createPracticeContext, rhythmPracticeBinding } from './practice-context';
 import { createSectionAudio, type AppSections } from './sections';
 import { createLessonSection } from './lesson-section';
-import { describeProgressRow, fromPlayDefaults, toPlayDefaults } from './lesson-flow';
+import { describeProgressRow, fromPlayDefaults, programStateFor, todayKey, toPlayDefaults } from './lesson-flow';
+import { PROGRAM } from '../practice/program-data';
+import { programOverview } from '../ui/progress/model';
 import { draftEditBpm, draftViews, reviewView, withoutHistoryEntry } from './progress-flow';
 import { acquireWriterLease } from './writer-lock';
 
@@ -408,11 +410,13 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
 
   /* ---------- «Прогресс» ---------- */
   const currentDraftViews = () => draftViews(drafts.all(), progressDraftId, draftErrors);
+  /** Программа сверху «Прогресса»: статусы по истории и отметкам «Уже умею». */
+  const currentProgram = () => programOverview(PROGRAM, programStateFor(records, preferences.value.lesson.skipped, todayKey()));
   function refreshProgress() {
     if (!progressView) return;
     if (activeModule !== 'progress') { progressStale = true; return; }
     progressStale = false;
-    progressView.update({ records, plan: sections.lesson?.plannedProgressIds() ?? [], drafts: currentDraftViews(), review: reviewView(currentReview()) });
+    progressView.update({ records, plan: sections.lesson?.plannedProgressIds() ?? [], drafts: currentDraftViews(), review: reviewView(currentReview()), program: currentProgram() });
   }
   /** Ввод в поля черновика обновляет только блок «Не сохранено». */
   function refreshDrafts() {
@@ -460,7 +464,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     progressView?.dispose();
     const lesson = preferences.value.lesson;
     progressView = mountProgress(byId('progress-mount'), {
-      records, plan: sections.lesson?.plannedProgressIds() ?? [], drafts: currentDraftViews(), review: reviewView(currentReview()),
+      records, plan: sections.lesson?.plannedProgressIds() ?? [], drafts: currentDraftViews(), review: reviewView(currentReview()), program: currentProgram(),
       initialTab: lesson.progressTab, initialSource: lesson.progressSource,
       describe: row => describeProgressRow(row, historyEntries),
       onRepeat(target) { if (!sections.lesson?.addToPlan(target)) { progressStale = true; refreshProgress(); } },

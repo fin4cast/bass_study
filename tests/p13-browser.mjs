@@ -1425,6 +1425,26 @@ check('basics-path-two-variants-pass-the-step-and-two-days-master-it', 'ui', asy
   return { status: await pathStatus(page, 't1-left.quarters') };
 });
 
+check('progress-shows-program-status-after-a-lesson-pass-and-reload', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await home(page).locator('[data-key="hero-play"]').click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  await playOneLoopedPass(page);
+  await page.keyboard.press('KeyZ');
+  await waitDb(page, db => db.history.length === 1, 'проход записан');
+  await page.reload(); await ready(page);
+  await page.locator('.site-header [data-app-module="progress"]').click();
+  const progress = page.locator('[data-page-frame="progress"]');
+  const row = progress.locator('.pg-pstep[data-step-id="t1-crossing.eighths"]');
+  await row.waitFor();
+  assert.match(await progress.locator('.pg-stage-head').first().innerText(), /Этап 1 · Пульс и опора\s+пройдено 0 · пропущено 0 · освоено 0 из 11/);
+  assert.equal(await row.locator('.pg-pstatus').innerText(), 'в работе');
+  assert.match(await row.innerText(), /сыграно 1 из 2 · лучший чистый темп 200/);
+  assert.equal(await progress.locator('.pg-pstep[data-step-id="h1-roots.eighths"] .pg-pstatus').innerText(), 'не начат');
+  assert.deepEqual(await progress.locator('.pg-pline > summary b').allInnerTexts(), ['Техника', 'Гриф', 'Аккорды и линии']);
+  return { status: await row.locator('.pg-pstatus').innerText() };
+});
+
 markFullOnly(checks, ['basics-path-two-variants-pass-the-step-and-two-days-master-it', 'today-next-day-offers-next-variant-and-keeps-manual-steps-and-long-break-recalls',
   'today-start-runs-the-lesson-from-first-to-last-step-without-choosing-parameters'], FULL_ONLY.smoke);
 markFullOnly(checks, ['play-variant-unrated-approach-is-rated-first-or-dropped-explicitly-and-own-exercise-has-no-selectors'], FULL_ONLY.smoke);

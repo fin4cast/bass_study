@@ -11,7 +11,7 @@ import {
   MANUAL_LABELS, MARK_LABELS, OUTCOME_LABELS, OUTCOME_ORDER, SOURCE_FILTER_LABELS, SOURCE_LABELS, WEEK_HEADER,
   addDays, calendarWeeks, countWord, datePeriod, dayRecords, defaultDay, difficultyViews, formatActive, formatDraftTime, formatLongDate,
   formatShortDate, isDateKey, localDateKey, matchesSource, mondayOf, parseTempo, progressGroups, progressRows, showsFretboardReview, tallyText, weekSummary, checkTally, missedDegrees,
-  type Assessment, type CheckRow, type Difficulty, type DraftView, type FretboardReviewView, type PlayRow, type PracticeRecord, type ProgressGroup, type ProgressRow, type SourceFilter,
+  type ProgramStageRow, type Assessment, type CheckRow, type Difficulty, type DraftView, type FretboardReviewView, type PlayRow, type PracticeRecord, type ProgressGroup, type ProgressRow, type SourceFilter,
 } from './model';
 
 export type ProgressTab = 'exercises' | 'calendar';
@@ -25,6 +25,8 @@ export interface ProgressData {
   readonly drafts?: readonly DraftView[];
   /** Карточка «Задания на грифе» с позициями для повтора; без поля — прежняя карточка. */
   readonly review?: FretboardReviewView | null;
+  /** Программа обучения сверху (R-028): этапы, линии, статусы шагов; без поля блока нет. */
+  readonly program?: readonly ProgramStageRow[];
 }
 /** Результат действия: `{ error }` — показать отказ; ничего — успех. */
 export type ProgressActionResult = void | { readonly error: string };
@@ -67,6 +69,7 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
     records: [...(options.records ?? [])] as PracticeRecord[],
     drafts: [...(options.drafts ?? [])] as DraftView[],
     review: (options.review ?? null) as FretboardReviewView | null,
+    program: [...(options.program ?? [])] as ProgramStageRow[],
     planned: new Set<string>(options.plan ?? []),
     today: isDateKey(options.today) ? options.today : localDateKey(),
     fixedToday: isDateKey(options.today),
@@ -96,6 +99,7 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
       </div>`,
     })}
     <p class="pg-note" data-note></p>
+    <section class="pg-program" data-program aria-label="Программа обучения" hidden></section>
     <div class="pg-panel" role="tabpanel" id="${uid}-panel-exercises" aria-labelledby="${uid}-tab-exercises" data-panel="exercises">
       <div class="pg-grid-a">
         <div class="pg-main-a" data-exercises></div>
@@ -528,9 +532,20 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
     }).join('')}</ul>`;
   }
 
+  /** Программа сверху: этапы и линии со счётчиками, у шага — статус, сыгранные варианты и лучший чистый темп. */
+  function renderProgram() {
+    const box = $('[data-program]')!;
+    box.hidden = state.program.length === 0;
+    box.innerHTML = state.program.map(stage => `<div class="pg-stage"><div class="pg-stage-head"><h2>Этап ${escapeHtml(stage.number)} · ${escapeHtml(stage.title)}</h2><span class="pg-sub">${escapeHtml(stage.counts)}</span></div>
+      ${stage.lines.map(line => `<details class="pg-pline" data-line="${escapeHtml(stage.number)}:${escapeHtml(line.id)}" open><summary><b>${escapeHtml(line.title)}</b> <span class="pg-sub">${escapeHtml(line.counts)}</span></summary>
+        <ul class="pg-psteps">${line.steps.map(step => `<li class="pg-pstep is-${escapeHtml(step.state)}" data-step-id="${escapeHtml(step.id)}"><span class="pg-pstep-title">${escapeHtml(step.title)}</span>
+          <span class="pg-pstatus" data-status="${escapeHtml(step.state)}">${escapeHtml(step.label)}</span>${step.review ? '<span class="pg-preview">пора повторить</span>' : ''}
+          <span class="pg-sub">${escapeHtml(step.played)}${step.bestBpm ? ` · лучший чистый темп ${escapeHtml(step.bestBpm)}` : ''}</span></li>`).join('')}</ul></details>`).join('')}</div>`).join('');
+  }
+
   function renderAll() {
     if (state.disposed) return;
-    renderNote(); renderTabs(); renderDrafts(); renderHard(); renderExercises(); renderWeek(); renderCalendar(); renderDay(); renderBest();
+    renderProgram(); renderNote(); renderTabs(); renderDrafts(); renderHard(); renderExercises(); renderWeek(); renderCalendar(); renderDay(); renderBest();
   }
 
   /* ---------- События ---------- */
@@ -646,6 +661,7 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
       if (state.disposed) return;
       state.records = [...(data.records ?? [])];
       if (data.drafts !== undefined) state.drafts = [...data.drafts];
+      if (data.program !== undefined) state.program = [...data.program];
       if (data.review !== undefined) state.review = data.review;
       if (data.plan !== undefined) state.planned = new Set(data.plan);
       if (isDateKey(data.today)) { state.today = data.today; state.fixedToday = true; }

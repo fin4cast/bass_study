@@ -9,7 +9,8 @@ import { builtinLibrary, type UserExercise } from '../practice/library';
 import { builtinTemplateOf } from '../practice/material';
 import { addStep, completeStep, contentExerciseOf, createPlan, currentStep, MAX_PLAN_STEPS, type DayPlan, type NewPlanStep, type PlanStepContent } from '../practice/plan';
 import { checkExercise, type CheckSpec } from '../practice/check';
-import { BASE_BPM } from '../practice/program';
+import { BASE_BPM, checkFacts, evaluateProgram, playFacts, type ProgramState } from '../practice/program';
+import { PROGRAM } from '../practice/program-data';
 import { difficulties, type Assessment, type Difficulty, type PracticeRecord } from '../practice/results';
 import {
   makeCheckHistory, makeManualHistory, MAX_CHECK_ACTIVE_MS, MAX_EXERCISE_VIEWS,
@@ -305,4 +306,9 @@ export function fromPlayDefaults(defaults: PlayDefaults, current: Pick<PlayPrefe
   return { defaultView: VIEW_FROM_SETTINGS[defaults.view], newExerciseView: defaults.newExerciseView === null ? null : VIEW_FROM_SETTINGS[defaults.newExerciseView], countInBars: defaults.countInBars,
     labels: LABELS_FROM_SETTINGS[defaults.labels], bpm: defaults.bpm, reference: defaults.reference, metronome: defaults.metronome, click: current.click, grooveVolume: current.grooveVolume,
     accompaniment: current.accompaniment, accompanimentVolume: current.accompanimentVolume };
+}
+
+/** Статусы программы по истории, отметкам «Уже умею» и дате (R-028): вычисляются, нигде не хранятся. */
+export function programStateFor(records: readonly PracticeRecord[], skipped: readonly string[], today: string): ProgramState {
+  return evaluateProgram(PROGRAM, { plays: playFacts(records), checks: checkFacts(records), lines: [], skippedBlocks: new Set(skipped), today });
 }
