@@ -112,6 +112,8 @@ export interface PlayHandle {
   getView(): PlayView;
   getSettings(): PlaySettings;
   setPlanStep(info: PlanStepInfo | null): void;
+  /** Правило зачёта шага программы под заданием (R-028); `null` — убрать. */
+  setRule(text: string | null): void;
   /** Экран скрыт хостом: игра ставится на паузу, клавиши не обрабатываются. Продолжение — только действием. */
   setVisible(visible: boolean): void;
   /** Пауза по требованию хоста (другой владелец звука, уход из раздела); продолжение — только действием. */
@@ -144,6 +146,7 @@ const TEMPLATE = `
         <div><dt>Обрати внимание</dt><dd data-task="notice"></dd></div>
         <div><dt>Чисто, если</dt><dd data-task="clean"></dd></div>
       </dl>
+      <p class="pl-rule" data-rule hidden></p>
     </div>
     <div class="pl-head-tools">
       <button type="button" class="text-button pl-listen" data-listen aria-pressed="false" title="Эталон звучит до игры: один проход без отсчёта; пробел или Esc — остановить">♪ Сначала услышь</button>
@@ -1261,6 +1264,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     getView: () => view,
     getSettings: () => settings,
     setPlanStep(info) { planStep = info; renderNextActions(); if (!disposed) renderTransport(); },
+    setRule(text) { if (disposed) return; const rule = at('[data-rule]'); rule.textContent = text ?? ''; rule.hidden = !text; },
     setVisible(next) {
       if (disposed || next === visible) return;
       visible = next;

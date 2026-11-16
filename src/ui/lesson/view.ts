@@ -17,9 +17,10 @@ import {
   basicsBadge, basicsCourse, basicsStepPosition, checkContent, contentMinutes, currentBasicsStep, DEFAULT_LIBRARY, exerciseBoard, heroModel,
   configuredItems, LIBRARY_CONCEPTS, LIBRARY_STRUCTURES, libraryItems, libraryModel, nextExerciseStep, pendingMatches, planRows, planStrip,
   searchBasics, setStepMinutes, stepMaterial, stepTitle, togglePlanContent, toggleStepEar,
-  type BasicsLevel, type BasicsStep, type LessonState, type LessonTab, type LibraryCategory, type LibraryControls,
+  type BasicsLevel, type BasicsStep, type BasicsView, type LessonState, type LessonTab, type LibraryCategory, type LibraryControls,
 } from './model';
 import { CATEGORY_ORDER, CATEGORY_TITLES } from '../../practice/library';
+import { pathBadge, pathModel, type PathStep } from './path';
 
 export type { LessonState, LessonTab } from './model';
 
@@ -34,6 +35,12 @@ export interface LessonOptions {
   /** Карточка понятия справочника R-027 по её идентификатору. */
   readonly onOpenConcept: (id: string) => void;
   readonly onSaveExercise?: (spec: ExerciseSpec, name: string) => void;
+  /** «Путь | Знания» в «Основах»; выбор запоминается. */
+  readonly onBasicsViewChange?: (view: BasicsView) => void;
+  /** «▶ Играть» у шага программы: ID шага и индекс варианта. */
+  readonly onPlayStep?: (stepId: string, variant: number) => void;
+  /** «Уже умею» у блока: включить или снять отметку. */
+  readonly onSkipBlock?: (blockId: string, skipped: boolean) => void;
   readonly state?: LessonState;
 }
 
@@ -61,6 +68,10 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
   let library: LibraryControls = DEFAULT_LIBRARY;
   let basicsLevel: string | null = null;
   let basicsStep: string | null = null;
+  /** Вид «Основ» до подтверждения настройки и выбор на пути: этап и варианты шагов. */
+  let basicsMode: BasicsView | null = null;
+  let pathStage: number | null = null;
+  const pathPicks = new Map<string, number>();
   let saveDraft: { key: string; name: string } | null = null;
   /** Материал, настроенный на встроенных карточках библиотеки (по id карточки), и открытая строка настройки. */
   let cardSpecs = new Map<string, ExerciseSpec>();
@@ -298,7 +309,47 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     }).join('');
   }
 
+  const basicsViewOf = (current: LessonState): BasicsView => basicsMode ?? current.basicsView;
+  function setBasicsView(view: BasicsView) {
+    if (state && basicsViewOf(state) === view) return;
+    basicsMode = view;
+    try { options.onBasicsViewChange?.(view); } catch (failure) { toast(failure instanceof Error ? failure.message : String(failure)); }
+  }
+  const basicsToggle = (view: BasicsView) => `<div class="ls-seg ls-basics-toggle" role="group" aria-label="Вид «Основ»">${([['path', 'Путь'], ['knowledge', 'Знания']] as const).map(([value, label]) => `<button type="button" data-act="basics-view" data-value="${value}" data-key="bv:${value}" aria-pressed="${view === value}">${label}</button>`).join('')}</div>`;
+
+  /* ---------- Путь программы ---------- */
+
+  function pathStepMarkup(step: PathStep) {
+    const chips = step.variants.length > 1 ? `<div class="ls-vchips" role="group" aria-label="Варианты шага: ${e(step.title)}">${step.variants.map((variant, index) =>
+      `<button type="button" class="ls-vchip${index === step.selected ? ' is-on' : ''}${variant.clean ? ' is-clean' : ''}" data-act="path-variant" data-step-id="${e(step.id)}" data-value="${index}" data-key="pv:${e(step.id)}:${index}" aria-pressed="${index === step.selected}">${e(variant.label)}${variant.clean ? ' ✓' : ''}</button>`).join('')}</div>`
+      : step.variants.length === 1 ? `<span class="ls-sub ls-vone">${e(step.variants[0].label)}</span>` : '';
+    const play = step.kind === 'play' || step.kind === 'check'
+      ? `<button type="button" class="${step.current ? 'primary-button' : 'secondary-button'} button-compact" data-act="path-play" data-step-id="${e(step.id)}" data-key="path-play:${e(step.id)}" aria-label="${e(`${step.kind === 'check' ? 'Проверь себя' : 'Играть'}: ${step.title}`)}">${step.kind === 'check' ? '▶ Проверь себя' : '▶ Играть'}</button>` : '';
+    return `<li class="ls-pstep is-${step.state}${step.current ? ' is-current' : ''}" data-step-id="${e(step.id)}">
+      <div class="ls-pstep-main"><b>${e(step.title)}</b><span class="ls-chip ls-chip-status" data-status="${e(step.state)}">${e(step.label)}</span>${step.review ? '<span class="ls-chip ls-chip-review">пора повторить</span>' : ''}${step.current ? '<span class="ls-chip ls-chip-concept">сейчас</span>' : ''}</div>
+      <div class="ls-pstep-side">${chips}${play}</div></li>`;
+  }
+  function renderPath(current: LessonState) {
+    const stages = pathModel(current.program, current.programState, new Set(current.skipped), pathPicks);
+    const stage = stages.find(item => item.number === pathStage) ?? stages[0];
+    const tabs = stages.length > 1 ? `<div class="ls-seg ls-stage-tabs" role="group" aria-label="Этапы">${stages.map(item => `<button type="button" data-act="path-stage" data-value="${item.number}" data-key="ps:${item.number}" aria-pressed="${item.number === stage.number}">Этап ${item.number}</button>`).join('')}</div>` : '';
+    const lines = stage.lines.map(line => `<section class="ls-pline${line.done ? ' is-done' : ''}" aria-label="${e(line.title)}"><div class="ls-pline-head"><h3>${e(line.title)}</h3><span class="ls-sub">${e(line.counts)}</span></div>
+      ${line.blocks.map(block => `<article class="ls-pblock${block.skipped ? ' is-skipped' : ''}" data-block="${e(block.id)}">
+        <header><h4>${e(block.title)}</h4><span class="ls-sub">${e(block.counts)}</span>
+          <button type="button" class="ls-opt" data-act="path-skip" data-block="${e(block.id)}" data-key="skip:${e(block.id)}" aria-pressed="${block.skipped}" title="Отметить блок без игры; отметку можно снять">Уже умею</button></header>
+        ${block.cards.length ? `<p class="ls-pcards">Сначала прочитай: ${block.cards.map(card => `<button type="button" class="ls-link" data-act="concept" data-concept="${e(card.id)}" data-key="pcard:${e(block.id)}:${e(card.id)}">${e(card.title)}</button>`).join(', ')}</p>` : ''}
+        <ol class="ls-psteps">${block.steps.map(pathStepMarkup).join('')}</ol></article>`).join('')}</section>`).join('');
+    regions.basics.innerHTML = `${basicsToggle('path')}<section class="ls-card ls-pathview" aria-label="Путь программы">
+      <div class="ls-path-head"><h2>Этап ${e(stage.number)} · ${e(stage.title)}</h2><span class="ls-sub">${e(stage.counts)}</span>${tabs}</div>
+      <p class="ls-path-note">Линии идут параллельно: у каждой свой текущий шаг. Любой шаг открывается сразу; отметки «Чисто / С ошибками / Не успевал» ставишь ты.</p>
+      ${lines}</section>`;
+  }
+
   function renderBasics(current: LessonState) {
+    if (basicsViewOf(current) === 'path') renderPath(current); else renderKnowledge(current);
+  }
+
+  function renderKnowledge(current: LessonState) {
     const levels = basicsCourse(current.records, current.userExercises);
     const level = selectedLevel(levels);
     const step = level.steps.find(item => item.key === basicsStep) ?? currentBasicsStep(level);
@@ -315,7 +366,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         <button type="button" class="ls-st-btn" data-act="basics-step" data-value="${e(item.key)}" data-key="st:${e(item.key)}" aria-current="${item.key === step.key ? 'step' : 'false'}"><small>${KIND_LABEL[item.kind]}${item.done ? ' ✓' : ''}</small><span>${e(item.title)}</span>${item.kind === 'exercise' && item.content ? `<em class="ls-st-mat">${e(stepMaterial(item.content))}</em>` : ''}</button>
         ${canAdd ? `<button type="button" class="ls-mini ls-st-add" data-act="toggle-plan" data-ref="${ref(item.content!)}" data-key="st-add:${e(item.key)}" aria-pressed="${on}" aria-label="${e(`${on ? 'Убрать из плана' : 'Добавить в план'}: ${item.title}`)}" title="${on ? 'В плане «Сегодня» — нажми, чтобы убрать' : `В план «Сегодня» · ${contentMinutes(item.content!)} мин`}">${on ? '✓' : '+'}</button>` : ''}</li>`;
     }).join('');
-    regions.basics.innerHTML = `<div class="ls-basics-grid">
+    regions.basics.innerHTML = `${basicsToggle('knowledge')}<div class="ls-basics-grid">
         <section class="ls-card ls-path" aria-label="Путь уровней">
           <div class="ls-lanes"><div><div class="ls-lane-title">Гриф и теория</div><ol class="ls-lane">${levels.filter(item => item.lane === 'main').map(levelItem).join('')}</ol></div>
             <div class="ls-side"><div class="ls-lane-title">Параллельно</div><ol class="ls-lane is-side">${levels.filter(item => item.lane === 'side').map(levelItem).join('')}</ol></div></div>
@@ -384,7 +435,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const badges: Record<LessonTab, string> = {
       today: `${plannedMinutes(state.plan)} мин`,
       library: String(libraryItems(state.playFrom, state.userExercises).length),
-      basics: state.firstRun ? 'ур. 0' : basicsBadge(levels),
+      basics: basicsViewOf(state) === 'path' ? pathBadge(state.programState) : state.firstRun ? 'ур. 0' : basicsBadge(levels),
     };
     for (const item of TABS) container.querySelector<HTMLElement>(`[data-badge="${item.key}"]`)!.textContent = badges[item.key];
     renderToday(state);
@@ -434,9 +485,24 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         }
         case 'save-start': if (content?.kind === 'exercise') { saveDraft = { key: target.dataset.card!, name: `${exercisePlan(content.spec).title} · ${materialLabel(content.spec)}`.slice(0, 80).trim() }; render(); container.querySelector<HTMLInputElement>('[data-save-name]')?.select(); } break;
         case 'save-cancel': { const key = saveDraft?.key; saveDraft = null; render(); if (key) container.querySelector<HTMLElement>(`[data-key="save:${CSS.escape(key)}"]`)?.focus(); break; }
+        case 'basics-view': setBasicsView(target.dataset.value as BasicsView); basicsMode = target.dataset.value as BasicsView; render(); break;
+        case 'path-stage': pathStage = Number(target.dataset.value); render(); break;
+        case 'path-variant': pathPicks.set(target.dataset.stepId!, Number(target.dataset.value)); render(); break;
+        case 'path-play': {
+          const id = target.dataset.stepId!;
+          const stages = pathModel(state.program, state.programState, new Set(state.skipped), pathPicks);
+          const found = stages.flatMap(item => item.lines.flatMap(line => line.blocks.flatMap(block => block.steps))).find(item => item.id === id);
+          if (found) options.onPlayStep?.(id, found.selected);
+          break;
+        }
+        case 'path-skip': {
+          const block = target.dataset.block!;
+          options.onSkipBlock?.(block, !state.skipped.includes(block));
+          break;
+        }
         case 'level': basicsLevel = target.dataset.value ?? null; basicsStep = null; render(); break;
         case 'basics-step': basicsStep = target.dataset.value ?? null; render(); break;
-        case 'search-concept': basicsLevel = target.dataset.level ?? null; basicsStep = target.dataset.value ?? null; searchInput.value = ''; renderSearch(); render(); container.querySelector<HTMLElement>('.ls-focus h2')?.scrollIntoView?.({ block: 'nearest' }); break;
+        case 'search-concept': setBasicsView('knowledge'); basicsLevel = target.dataset.level ?? null; basicsStep = target.dataset.value ?? null; searchInput.value = ''; renderSearch(); render(); container.querySelector<HTMLElement>('.ls-focus h2')?.scrollIntoView?.({ block: 'nearest' }); break;
       }
     } catch (failure) { toast(failure instanceof Error ? failure.message : String(failure)); }
   }, listen);

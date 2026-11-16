@@ -46,6 +46,8 @@
 .pl-task[hidden] { display: none; }
 .pl-task > div { display: flex; gap: 8px; min-width: 0; }
 .pl-task dt { flex: none; width: 8.5em; color: var(--text-secondary); font-weight: 600; }
+.pl-rule { margin: 2px 0 0; font-size: var(--text-xs); color: var(--text-secondary); border-left: 3px solid var(--accent); padding-left: 8px; }
+.pl-rule[hidden] { display: none; }
 .pl-task dd { margin: 0; min-width: 0; color: var(--text-primary); }
 .pl-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; align-self: center; }
 .pl-chip {

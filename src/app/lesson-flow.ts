@@ -9,6 +9,7 @@ import { builtinLibrary, type UserExercise } from '../practice/library';
 import { builtinTemplateOf } from '../practice/material';
 import { addStep, completeStep, contentExerciseOf, createPlan, currentStep, type DayPlan, type PlanStepContent } from '../practice/plan';
 import { checkExercise, type CheckSpec } from '../practice/check';
+import { BASE_BPM } from '../practice/program';
 import { difficulties, type Assessment, type Difficulty, type PracticeRecord } from '../practice/results';
 import {
   makeCheckHistory, makeManualHistory, MAX_CHECK_ACTIVE_MS, MAX_EXERCISE_VIEWS,
@@ -69,11 +70,13 @@ export function rememberExerciseSettings(all: Readonly<Record<string, ExerciseSe
 export function playSettingsFor(spec: ExerciseSpec, key: string, sources: {
   readonly lesson: Pick<LessonPreferences, 'exerciseSettings'>; readonly play: PlayPreferences; readonly records: readonly PracticeRecord[];
   readonly practice?: PracticeOptions | null; readonly bpm?: number;
+  /** Шаг программы (R-028): темп — запомненный для этого материала, иначе базовый 60 BPM, без наследования от соседа по шаблону. */
+  readonly baseBpm?: boolean;
 }): Partial<PlaySettings> {
   const saved = Object.hasOwn(sources.lesson.exerciseSettings, key) ? sources.lesson.exerciseSettings[key] : EMPTY_EXERCISE_SETTINGS;
   const practice = sources.practice ?? null;
   return {
-    bpm: sources.bpm ?? saved.bpm ?? bpmForExercise(key, sources.records, sources.play.bpm),
+    bpm: sources.bpm ?? saved.bpm ?? (sources.baseBpm ? bpmForExercise(key, sources.records, BASE_BPM, false) : bpmForExercise(key, sources.records, sources.play.bpm)),
     targetBpm: saved.targetBpm ?? targetBpmFor(spec),
     rhythm: practice?.rhythm ?? saved.rhythm,
     groove: (practice ? practice.groove : saved.groove) as PlaySettings['groove'],
@@ -87,8 +90,8 @@ export function playSettingsFor(spec: ExerciseSpec, key: string, sources: {
  * Темп: последний проход этого материала, иначе последний проход того же шаблона (другая форма или тоника),
  * иначе запасной. После «Не успевал» темп не повышается: предлагается на 4 BPM ниже отмеченного.
  */
-export function bpmForExercise(key: string, records: readonly PracticeRecord[], fallback: number): number {
-  const template = builtinTemplateOf(key);
+export function bpmForExercise(key: string, records: readonly PracticeRecord[], fallback: number, inherit = true): number {
+  const template = inherit ? builtinTemplateOf(key) : null;
   let last: { bpm: number; occurredAt: string; assessment: Assessment } | null = null;
   let sameTemplate: { bpm: number; occurredAt: string; assessment: Assessment } | null = null;
   for (const record of records) {
@@ -132,14 +135,14 @@ export type VariantChange =
  */
 export function variantChange(spec: ExerciseSpec, param: string, value: string | number, sources: {
   readonly lesson: Pick<LessonPreferences, 'exerciseSettings'>; readonly play: PlayPreferences; readonly records: readonly PracticeRecord[];
-  readonly userExercises: readonly UserExercise[]; readonly practice: PracticeOptions | null;
+  readonly userExercises: readonly UserExercise[]; readonly practice: PracticeOptions | null; readonly baseBpm?: boolean;
 }): VariantChange {
   try {
     const next = configureSpec(spec, param, value);
     const plan = buildExercise(next);
     const key = exerciseKey(next, sources.userExercises);
     const view = viewForExercise(key, hasPlayed(key, sources.records), sources.lesson, sources.play);
-    const settings = playSettingsFor(next, key, { lesson: sources.lesson, play: sources.play, records: sources.records, practice: sources.practice });
+    const settings = playSettingsFor(next, key, { lesson: sources.lesson, play: sources.play, records: sources.records, practice: sources.practice, baseBpm: sources.baseBpm });
     return { ok: true, spec: next, key, plan, view, settings };
   } catch (failure) {
     return { ok: false, error: failure instanceof Error ? failure.message : String(failure) };

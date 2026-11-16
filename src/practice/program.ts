@@ -406,3 +406,24 @@ export function composeDay(program: Program, facts: ProgramFacts, state: Program
   }
   return { mode: 'normal', items, minutes: total(items) };
 }
+
+const GROOVE_TITLES: Readonly<Record<string, string>> = { rock: 'рок', funk: 'фанк', shuffle: 'шаффл', blues: 'блюзовый пульс', latin: 'латина', disco: 'диско' };
+const RHYTHM_TITLES: Readonly<Record<string, string>> = { eighths: 'восьмые', quarters: 'четверти', sixteenths: 'шестнадцатые', syncopation: 'синкопа', shuffle: 'шаффл' };
+
+/**
+ * Правило зачёта шага словами для экрана игры (R-028): как играть, что значит «пройден» и «освоен».
+ * `variantCounts` — материал открытого варианта входит в варианты шага; иначе проход шагу не засчитается.
+ */
+export function stepRuleText(step: PlayStep, status: StepStatus, variantCounts = true): string {
+  const how = [RHYTHM_TITLES[step.practice.rhythm] ?? step.practice.rhythm, step.practice.echo ? 'эхо' : '',
+    step.practice.groove ? `подложка «${GROOVE_TITLES[step.practice.groove] ?? step.practice.groove}»` : ''].filter(Boolean).join(', ');
+  const need = Math.min(REQUIRED_VARIANTS, step.variants.length);
+  const memory = step.variants.some(variant => MEMORY_TEMPLATE_IDS.has(variant.templateId));
+  const done = Math.min(status.cleanVariants.length, need);
+  const lines = [
+    `Зачёт шага: ${how}; «Чисто» целиком в ${need === 1 ? 'одном варианте' : `${need} вариантах`} — сыграно ${done} из ${need}.`,
+    `Освоен: то же в темпе не ниже ${BASE_BPM} BPM в ${MASTERY_DAYS} разных дня${memory ? ', в виде «По памяти»' : ''}.`,
+  ];
+  if (!variantCounts) lines.unshift('Этот вариант шагу не засчитается — выбери вариант шага.');
+  return lines.join(' ');
+}

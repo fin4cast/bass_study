@@ -15,6 +15,9 @@ import type { QuestionContext, QuizSession } from '../training';
 import { reviewMaterial } from '../ui/check/session';
 import { mountCheck } from '../ui/check/view';
 import { mountLesson } from '../ui/lesson/view';
+import { PROGRAM } from '../practice/program-data';
+import { checkFacts, evaluateProgram, playContent, playFacts, stepRefs, stepRuleText, stepStatus, type Block, type PlayStep, type ProgramFacts } from '../practice/program';
+import { materialId } from '../practice/material';
 import { stepTitle } from '../ui/lesson/model';
 import { createEnginePort, type PlaybackPort } from '../ui/play/port';
 import { mountPlay, type PlayHandle, type RateEvent } from '../ui/play/view';
@@ -74,7 +77,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   let homeStale = true;
   let disposed = false;
   /** `keys` — все варианты материала, открытые на этом экране: таймер шага не обнуляется при смене лада (P18-04). */
-  let play: { handle: PlayHandle; port: PlaybackPort; spec: ExerciseSpec; key: string; keys: readonly string[]; stepId: string | null; practice: PracticeOptions | null } | null = null;
+  let play: { handle: PlayHandle; port: PlaybackPort; spec: ExerciseSpec; key: string; keys: readonly string[]; stepId: string | null; practice: PracticeOptions | null; program: { step: PlayStep; block: Block } | null } | null = null;
   let check: { spec: CheckSpec | null; stepId: string | null; origin: LessonOrigin | null } | null = null;
 
   const today = () => todayKey();
@@ -106,6 +109,14 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     },
     onOpenConcept(id) { openConcept(id); },
     onSaveExercise(spec, name) { options.saveExercise(spec, name); },
+    onBasicsViewChange(basicsView) { options.savePreferences({ lesson: { ...lessonPreferences(), basicsView } }); },
+    onPlayStep(stepId, variant) { openProgramStep(stepId, variant); },
+    onSkipBlock(blockId, skipped) {
+      const lesson = lessonPreferences();
+      const list = skipped ? [...lesson.skipped.filter(id => id !== blockId), blockId] : lesson.skipped.filter(id => id !== blockId);
+      if (!options.savePreferences({ lesson: { ...lesson, skipped: list } })) throw new Error('Отметка не сохранена: эта вкладка сейчас не может записывать.');
+      renderHome();
+    },
   });
 
   const checkView = mountCheck(host('check'), {
@@ -145,9 +156,17 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   });
   reference.setVisible(false);
 
+  /** Факты программы по истории и отметкам «Уже умею» (статусы нигде не хранятся). */
+  function programFacts(): ProgramFacts {
+    const all = records();
+    return { plays: playFacts(all), checks: checkFacts(all), lines: [], skippedBlocks: new Set(lessonPreferences().skipped), today: today() };
+  }
   function homeState() {
     const prefs = options.preferences();
-    return { plan: ensurePlan(), records: records(), userExercises: user(), firstRun: records().length === 0, playFrom: prefs.lesson.playFrom, tab: prefs.lesson.tab };
+    return {
+      plan: ensurePlan(), records: records(), userExercises: user(), firstRun: records().length === 0, playFrom: prefs.lesson.playFrom, tab: prefs.lesson.tab,
+      basicsView: prefs.lesson.basicsView, program: PROGRAM, programState: evaluateProgram(PROGRAM, programFacts()), skipped: prefs.lesson.skipped,
+    };
   }
   function renderHome() {
     if (disposed) return;
@@ -206,7 +225,15 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     return position ? `шаг ${position.index} из ${position.total}` : null;
   }
 
-  function openPlay(spec: ExerciseSpec, stepId: string | null, bpmOverride?: number, origin: LessonOrigin | null = null, practice: PracticeOptions | null = null) {
+  /** «▶ Играть» у шага пути: вариант шага со своим «как играть» и базовым темпом; проверка — серия из шести вопросов. */
+  function openProgramStep(stepId: string, variant: number) {
+    const ref = stepRefs(PROGRAM).find(item => item.step.id === stepId);
+    if (!ref) return;
+    if (ref.step.kind === 'play') openPlay(playContent(ref.step, variant).spec, null, undefined, null, ref.step.practice, { step: ref.step, block: ref.block });
+    else if (ref.step.kind === 'check') openCheck(ref.step.check, null);
+  }
+
+  function openPlay(spec: ExerciseSpec, stepId: string | null, bpmOverride?: number, origin: LessonOrigin | null = null, practice: PracticeOptions | null = null, program: { step: PlayStep; block: Block } | null = null) {
     let exercise;
     try { exercise = buildExercise(spec); }
     catch (failure) { options.onFailure(`Упражнение не открылось: ${message(failure)}`); return; }
@@ -214,7 +241,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     const key = exerciseKey(spec, user());
     const played = hasPlayed(key, records());
     const view = viewForExercise(key, played, prefs.lesson, prefs.play);
-    const settings = playSettingsFor(spec, key, { lesson: prefs.lesson, play: prefs.play, records: records(), practice, bpm: bpmOverride });
+    const settings = playSettingsFor(spec, key, { lesson: prefs.lesson, play: prefs.play, records: records(), practice, bpm: bpmOverride, baseBpm: program !== null });
     const label = stepLabel(stepId);
     if (screen !== 'play') setScreen('play');
     else disposePlay();
@@ -235,12 +262,12 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
         const current = play;
         if (!current) return { ok: false, error: 'Экран игры закрыт.' };
         const prefs = options.preferences();
-        const change = variantChange(current.spec, param, value, { lesson: prefs.lesson, play: prefs.play, records: records(), userExercises: user(), practice });
+        const change = variantChange(current.spec, param, value, { lesson: prefs.lesson, play: prefs.play, records: records(), userExercises: user(), practice, baseBpm: program !== null });
         if (!change.ok) return change;
         // Состояние меняется здесь, после того как экран оценил или отбросил прежний подход.
         play = { ...current, spec: change.spec, key: change.key, keys: current.keys.includes(change.key) ? current.keys : [...current.keys, change.key] };
         refreshPlanStep();
-        return { ok: true, plan: change.plan, settings: change.settings, view: change.view };
+        return { ok: true, plan: program?.step.task ? { ...change.plan, task: program.step.task } : change.plan, settings: change.settings, view: change.view };
       },
       // Темп, цель, ритм и подложка — упражнения (только то, что менялось); эталон, метроном, громкости, отсчёт
       // и подписи — общие умолчания. «Как играть» шага цели — свойство шага: ритм и подложка не запоминаются.
@@ -261,8 +288,8 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
         refreshPlanStep();
       },
     });
-    handle.setExercise(exercise, spec);
-    play = { handle, port, spec, key, keys: [key], stepId, practice };
+    handle.setExercise(program?.step.task ? { ...exercise, task: program.step.task } : exercise, spec);
+    play = { handle, port, spec, key, keys: [key], stepId, practice, program };
     refreshPlanStep();
     if (!visible) handle.setVisible(false);
     const heading = playHost.querySelector<HTMLElement>('h1');
@@ -288,8 +315,18 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   }
 
   /** Таймер шага и кнопки «Следующий шаг» / «Отметить выполненным» на экране игры. */
+  function refreshRule() {
+    const current = play;
+    if (!current?.program) return;
+    const { step, block } = current.program;
+    const status = stepStatus(step, block, programFacts());
+    const counts = step.variants.some(variant => materialId(variant) === materialId(current.spec));
+    current.handle.setRule(status ? stepRuleText(step, status, counts) : null);
+  }
+
   function refreshPlanStep() {
     if (!play) return;
+    refreshRule();
     play.handle.setPlanStep(planStepInfo(currentPlan(), play.stepId, play.keys, records()));
   }
 

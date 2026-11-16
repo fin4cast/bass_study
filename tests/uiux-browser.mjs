@@ -319,7 +319,7 @@ check('sections-errors-and-empty-states-have-computed-light-and-dark-contrast', 
     // «Основы»: уровни и карточка текущего шага.
     const lessonHome = page.locator('[data-lesson-screen="home"]');
     await lessonHome.getByRole('tab', { name: /^Основы/ }).click();
-    await lessonHome.locator('section[aria-label="Текущий шаг"]').waitFor(); evidence.push(await contrast(page, `${choice}:lesson-basics-step`));
+    await lessonHome.locator('section[aria-label="Путь программы"]').waitFor(); evidence.push(await contrast(page, `${choice}:lesson-basics-path`));
     await lessonHome.getByRole('tab', { name: /^Сегодня/ }).click();
     await module(page, 'foundation'); evidence.push(await contrast(page, `${choice}:fretboard-atlas`));
     await page.locator('#atlas-check').click(); await page.locator('[data-lesson-screen="check"] [data-ck-title]').waitFor();
@@ -508,7 +508,7 @@ check('laptop-widths-show-board-by-500px-and-narrow-layout-uses-local-scroll', a
     await module(page, 'lesson');
     const lessonHome = page.locator('[data-lesson-screen="home"]');
     await lessonHome.getByRole('tab', { name: /^Основы/ }).click();
-    await lessonHome.locator('section[aria-label="Текущий шаг"]').waitFor();
+    await lessonHome.locator('section[aria-label="Путь программы"]').waitFor();
     const basics = await page.evaluate(() => ({ width: innerWidth, page: document.documentElement.scrollWidth }));
     assert.ok(basics.page <= width + 2, `«Основы»: ${JSON.stringify(basics)}`);
     await page.screenshot({ path: join(resultDir, `p8-uiux-basics-${width}.png`), fullPage: true }); evidence.push({ basics });

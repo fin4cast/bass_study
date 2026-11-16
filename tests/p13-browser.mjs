@@ -798,6 +798,9 @@ check('play-memory-junction-without-positions-tab-anchors-without-tonic-and-righ
 
 async function basicsLevels(page) {
   await lessonTab(page, 'Основы');
+  const toggle = home(page).locator('[data-act="basics-view"][data-value="knowledge"]');
+  await toggle.click();
+  await assertAttribute(toggle, 'aria-pressed', 'true');
 }
 
 async function openBasicsCheck(page, level, step) {
@@ -1256,6 +1259,103 @@ check('play-variant-unrated-approach-is-rated-first-or-dropped-explicitly-and-ow
   return { history: db.history.length };
 });
 
+/* ---------- «Основы»: путь программы (P18-05) ---------- */
+
+const pathStep = (page, id) => home(page).locator(`.ls-pstep[data-step-id="${id}"]`);
+const pathStatus = (page, id) => pathStep(page, id).locator('.ls-chip-status').innerText();
+
+check('basics-path-opens-step-on-base-tempo-with-rule-and-rated-variant-shows-in-status', 'ui', async ({ page, origin }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openApp(page, origin);
+  await lessonTab(page, 'Основы');
+  assert.equal(await home(page).locator('[data-act="basics-view"][data-value="path"]').getAttribute('aria-pressed'), 'true', 'по умолчанию — путь');
+  assert.deepEqual(await home(page).locator('.ls-pline h3').allInnerTexts(), ['Техника', 'Гриф', 'Аккорды и линии']);
+  assert.match(await home(page).locator('.ls-path-head .ls-sub').first().innerText(), /пройдено 0 · пропущено 0 · освоено 0 из 11/);
+  assert.equal(await pathStatus(page, 't1-left.quarters'), 'не начат');
+  // Текущие шаги трёх линий отмечены.
+  assert.deepEqual(await home(page).locator('.ls-pstep.is-current').evaluateAll(items => items.map(item => item.dataset.stepId)), ['t1-crossing.eighths', 'f1-octave.quarters', 'h1-roots.eighths']);
+  // Шаг открывается на базовом темпе 60, с «как играть» шага и правилом зачёта.
+  await pathStep(page, 't1-left.quarters').getByRole('button', { name: /^Играть/ }).click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  assert.equal(await playScene(page).locator('[data-bpm]').inputValue(), '60');
+  assert.match(await playScene(page).locator('[data-sub]').innerText(), /четверти/);
+  const rule = await playScene(page).locator('[data-rule]').innerText();
+  assert.match(rule, /Зачёт шага: четверти; «Чисто» целиком в 2 вариантах — сыграно 0 из 2/);
+  assert.match(rule, /не ниже 60 BPM/);
+  await assertTaskLinesFit(page, 'шаг пути с правилом зачёта');
+  await playOneLoopedPass(page);
+  await page.keyboard.press('KeyZ');
+  const db = await waitDb(page, db => db.history.some(entry => entry.result?.assessment === 'clean'), '«Чисто» в истории');
+  const entry = db.history.find(item => item.result?.assessment === 'clean');
+  assert.match(entry.result.material.key, /^builtin:chromatic-position\.5\.1234\.up$/);
+  assert.equal(entry.result.material.practice.rhythm, 'quarters');
+  await page.waitForFunction(() => /сыграно 1 из 2/.test(document.querySelector('[data-lesson-screen="play"] [data-rule]')?.textContent ?? ''));
+  await playScene(page).locator('[data-back]').click();
+  await lessonTab(page, 'Основы');
+  assert.equal(await pathStatus(page, 't1-left.quarters'), 'в работе');
+  assert.deepEqual(await pathStep(page, 't1-left.quarters').locator('.ls-vchip').evaluateAll(chips => chips.map(chip => [chip.classList.contains('is-clean'), chip.classList.contains('is-on')])), [[true, false], [false, true], [false, false]]);
+  assert.equal(await pathStatus(page, 't1-left.eighths'), 'не начат', 'другой ритм — другой шаг');
+  return { key: entry.result.material.key };
+});
+
+check('basics-path-already-know-marks-block-persists-and-is-removable', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await lessonTab(page, 'Основы');
+  const skip = home(page).locator('[data-act="path-skip"][data-block="f1-octave"]');
+  await skip.click();
+  await assertAttribute(home(page).locator('[data-act="path-skip"][data-block="f1-octave"]'), 'aria-pressed', 'true');
+  assert.equal(await pathStatus(page, 'f1-octave.quarters'), 'пропущен');
+  assert.match(await home(page).locator('.ls-pblock[data-block="f1-octave"] header .ls-sub').innerText(), /пропущено 2/);
+  let db = await waitDb(page, db => db.preferences.lesson.skipped?.includes('f1-octave'), 'отметка сохранена');
+  assert.deepEqual(db.preferences.lesson.skipped, ['f1-octave']);
+  await page.reload(); await ready(page);
+  await lessonTab(page, 'Основы');
+  assert.equal(await pathStatus(page, 'f1-octave.degrees'), 'пропущен', 'отметка пережила перезагрузку');
+  assert.equal(await home(page).locator('.ls-pstep.is-current').evaluateAll(items => items.map(item => item.dataset.stepId)).then(ids => ids.includes('f1-octave.quarters')), false, 'линия «Гриф» ушла дальше блока');
+  await home(page).locator('[data-act="path-skip"][data-block="f1-octave"]').click();
+  db = await waitDb(page, db => Array.isArray(db.preferences.lesson.skipped) && db.preferences.lesson.skipped.length === 0, 'отметка снята');
+  assert.equal(await pathStatus(page, 'f1-octave.quarters'), 'не начат');
+  // «Знания» остаются: прежние уровни как справочная линия карточек.
+  await home(page).locator('[data-act="basics-view"][data-value="knowledge"]').click();
+  await home(page).locator('.ls-basics-grid').waitFor();
+  assert.equal((await readDb(page)).preferences.lesson.basicsView, 'knowledge');
+  return { skipped: db.preferences.lesson.skipped };
+});
+
+check('basics-path-two-variants-pass-the-step-and-two-days-master-it', 'ui', async ({ page, origin }) => {
+  // «Пройден» — «Чисто» в двух вариантах; «освоен» — те же два варианта не ниже 60 BPM в два разных дня (часы страницы фиксируются).
+  await page.clock.setFixedTime(new Date('2026-11-16T10:00:00'));
+  await openApp(page, origin);
+  const playVariant = async index => {
+    await lessonTab(page, 'Основы');
+    await pathStep(page, 't1-left.quarters').locator('.ls-vchip').nth(index).click();
+    await pathStep(page, 't1-left.quarters').getByRole('button', { name: /^Играть/ }).click();
+    await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+    await playOneLoopedPass(page);
+    await page.keyboard.press('KeyZ');
+    await waitDb(page, db => db.history.length >= playVariant.count + 1, 'проход записан');
+    playVariant.count += 1;
+    await playScene(page).locator('[data-back]').click();
+  };
+  playVariant.count = 0;
+  await playVariant(0);
+  await lessonTab(page, 'Основы');
+  assert.equal(await pathStatus(page, 't1-left.quarters'), 'в работе');
+  await playVariant(1);
+  await lessonTab(page, 'Основы');
+  assert.equal(await pathStatus(page, 't1-left.quarters'), 'пройден');
+  assert.match(await home(page).locator('.ls-pblock[data-block="t1-left"] header .ls-sub').innerText(), /пройдено 1 · пропущено 0 · освоено 0 из 2/);
+  await page.clock.setFixedTime(new Date('2026-11-17T10:00:00'));
+  await page.reload(); await ready(page);
+  await playVariant(0);
+  await playVariant(1);
+  await lessonTab(page, 'Основы');
+  assert.match(await pathStatus(page, 't1-left.quarters'), /^освоен · \d+$/);
+  assert.match(await home(page).locator('.ls-pblock[data-block="t1-left"] header .ls-sub').innerText(), /пройдено 1 · пропущено 0 · освоено 1 из 2/);
+  return { status: await pathStatus(page, 't1-left.quarters') };
+});
+
+markFullOnly(checks, ['basics-path-two-variants-pass-the-step-and-two-days-master-it'], FULL_ONLY.smoke);
 markFullOnly(checks, ['play-variant-unrated-approach-is-rated-first-or-dropped-explicitly-and-own-exercise-has-no-selectors'], FULL_ONLY.smoke);
 markFullOnly(checks, ['play-task-lines-fit-1280x720-for-every-library-template'], FULL_ONLY.smoke);
 markFullOnly(checks, ['native-real-hidden-tab-pauses-play-and-resumes-only-by-action'], FULL_ONLY.hiddenTab);

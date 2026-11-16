@@ -32,6 +32,8 @@
     import { mountLesson } from '/src/ui/lesson/view.ts';
     import { completeStep, createPlan } from '/src/practice/plan.ts';
     import { degreeCheck } from '/src/practice/check.ts';
+    import { PROGRAM } from '/src/practice/program-data.ts';
+    import { evaluateProgram } from '/src/practice/program.ts';
     import { createExerciseSpec } from '/src/exercises/index.ts';
     import { exerciseKey } from '/src/practice/material.ts';
 
@@ -72,7 +74,9 @@
       empty: () => ({ plan: createPlan(today), records: demoRecords, userExercises: [], firstRun: false, playFrom: null }),
     };
     const initialTab = ['today', 'library', 'basics'].includes(params.get('tab')) ? params.get('tab') : 'today';
-    let state = { ...demos[demos[params.get('demo')] ? params.get('demo') : 'continue'](), tab: initialTab };
+    const programFields = { basicsView: params.get('view') === 'path' ? 'path' : 'knowledge', program: PROGRAM, skipped: [],
+      programState: evaluateProgram(PROGRAM, { plays: [], checks: [], lines: [], skippedBlocks: new Set(), today }) };
+    let state = { ...demos[demos[params.get('demo')] ? params.get('demo') : 'continue'](), ...programFields, tab: initialTab };
     /** Журнал действий фикстуры: только намерения пользователя, без правильных ответов. */
     window.lessonLog = [];
     const view = mountLesson(document.getElementById('lesson'), {

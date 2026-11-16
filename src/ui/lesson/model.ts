@@ -14,6 +14,7 @@ import { ASSESSMENT_LABELS, exerciseProgress, playedKeys, type Assessment, type 
 import { DEFAULT_PRACTICE, rhythmPattern, samePractice } from '../../exercises/rhythm';
 import { conceptForExerciseConcept, REFERENCE_CONCEPTS, REFERENCE_LEVELS, type ReferenceConcept, type ReferenceLevel } from '../../practice/concepts';
 import { annotatePositions, getPosition, type StructureId } from '../../music';
+import type { Program, ProgramState } from '../../practice/program';
 import type { BoardNote } from './mini-board';
 import {
   CHECK_COUNT, CHECK_MINUTES, CONCEPT_LABELS, exercisePlan, exerciseStructure, formatDegree, materialLabel, TEMPLATE_MINUTES,
@@ -27,7 +28,14 @@ export interface LessonState {
   readonly firstRun: boolean;
   readonly playFrom: string | null;
   readonly tab: LessonTab;
+  /** Вид «Основ»: путь программы или справочная линия карточек. */
+  readonly basicsView: BasicsView;
+  /** Программа обучения, её статусы по истории и отметки «Уже умею» (R-028). */
+  readonly program: Program;
+  readonly programState: ProgramState;
+  readonly skipped: readonly string[];
 }
+export type BasicsView = 'path' | 'knowledge';
 
 /* ---------- Ключи и подписи шагов ---------- */
 

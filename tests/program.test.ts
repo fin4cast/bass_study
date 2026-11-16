@@ -6,7 +6,7 @@ import { getConcept } from '../src/practice/concepts';
 import { materialId } from '../src/practice/material';
 import { PROGRAM } from '../src/practice/program-data';
 import {
-  BASE_BPM, checkFacts, composeDay, daysBetween, evaluateProgram, isDone, isRequired, MEMORY_TEMPLATE_IDS, playContent, playFacts, stepMinutes, stepRefs,
+  BASE_BPM, checkFacts, composeDay, daysBetween, evaluateProgram, isDone, isRequired, MEMORY_TEMPLATE_IDS, playContent, playFacts, stepMinutes, stepRefs, stepRuleText,
   type Block, type CheckFact, type LineFact, type PlayFact, type PlayStep, type Program, type ProgramFacts, type Step,
 } from '../src/practice/program';
 import type { PlayRecord } from '../src/practice/results';
@@ -418,5 +418,34 @@ describe('факты из записей «Проверь себя»', () => {
     expect(fact).toMatchObject({ firstTry: 4, count: 6, localDate: TODAY });
     const status = evaluateProgram(PROGRAM, facts({ checks: [{ ...fact, firstTry: 5 }] })).statuses.get('f1-octave.degrees');
     expect(status?.state).toBe('passed');
+  });
+});
+
+describe('правило зачёта шага словами', () => {
+  const step = (variants: ExerciseSpec[], practice: PracticeOptions = DEFAULT_PRACTICE) => playStep('b.x', variants, practice);
+  const status = (plays: PlayFact[], variants: ExerciseSpec[], practice: PracticeOptions = DEFAULT_PRACTICE) =>
+    stateOf(program(block('b', 'technique', [step(variants, practice)])), 'b.x', facts({ plays }));
+
+  it('называет как играть, сколько вариантов сыграно и условие «освоен»', () => {
+    const variants = [chromatic(5), chromatic(7)];
+    const text = stepRuleText(step(variants, QUARTERS), status([fact(chromatic(5), { practice: QUARTERS })], variants, QUARTERS));
+    expect(text).toContain('четверти');
+    expect(text).toContain('в 2 вариантах — сыграно 1 из 2');
+    expect(text).toContain('не ниже 60 BPM');
+    expect(text).not.toContain('По памяти');
+  });
+
+  it('у шага с одним вариантом — «в одном варианте»; у «по памяти» — вид; подложка названа', () => {
+    const one = [octaves('G')];
+    expect(stepRuleText(step(one), status([], one))).toContain('в одном варианте — сыграно 0 из 1');
+    expect(stepRuleText(step(one), status([], one))).toContain('«По памяти»');
+    const rock = { rhythm: 'eighths' as const, echo: false, groove: 'rock' as const };
+    expect(stepRuleText(step([chromatic(5)], rock), status([], [chromatic(5)], rock))).toContain('подложка «рок»');
+  });
+
+  it('вариант вне списка шага не засчитается — это сказано первым', () => {
+    const variants = [chromatic(5), chromatic(7)];
+    const text = stepRuleText(step(variants), status([], variants), false);
+    expect(text.startsWith('Этот вариант шагу не засчитается')).toBe(true);
   });
 });

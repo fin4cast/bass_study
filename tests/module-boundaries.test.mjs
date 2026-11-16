@@ -11,7 +11,7 @@ const sections = {
   tracks: ['studio', 'music-bank', 'tracks'],
   input: ['input'],
   // «Проверь себя» — шаг занятия (D-043): общий мини-гриф и подписи материала.
-  lesson: ['lesson/material', 'lesson/mini-board', 'lesson/model', 'lesson/view', 'check/session', 'check/view'],
+  lesson: ['lesson/material', 'lesson/mini-board', 'lesson/model', 'lesson/path', 'lesson/view', 'check/session', 'check/view'],
   play: ['play/board', 'play/model', 'play/port', 'play/tab', 'play/view'],
   progress: ['progress/charts', 'progress/model', 'progress/view'],
   settings: ['settings/model', 'settings/view'],

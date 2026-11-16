@@ -59,8 +59,9 @@ export async function runTracksBrowserChecks(allChecks, suite = {}) {
     let nativeEdge;
     try {
       nativeEdge = await launchIsolatedEdge({ executablePath, userDataDir: join(temporary, nativeProfile), args: ['--mute-audio'] });
+      // Отдельный процесс Edge на раннере CI стартует дольше обычного: право записи достаётся новой вкладке не сразу (было 6 с — таймаут на CI).
       const context = nativeEdge.context; await isolate(context);
-      const page = nativeEdge.page; page.setDefaultTimeout(6000); page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
+      const page = nativeEdge.page; page.setDefaultTimeout(15000); page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
       page.on('pageerror', error => report.pageErrors.push(error.message));
       await page.goto(origin);
       await page.waitForFunction(() => document.querySelector('.site-header [data-app-module="tracks"]'), undefined, { polling: 100 });

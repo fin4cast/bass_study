@@ -191,6 +191,34 @@
 .lesson-view .ls-finger { display: inline-block; padding: 0 3px; border: 1px solid var(--border-strong); border-radius: 4px; font-size: var(--text-2xs); font-weight: 700; vertical-align: 1px; }
 .lesson-view .ls-play-text { font-size: var(--text-xs); }
 
+/* «Основы» · путь программы (R-028) */
+.lesson-view .ls-pathview { display: flex; flex-direction: column; gap: 14px; }
+.lesson-view .ls-path-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.lesson-view .ls-path-head h2 { font-size: var(--text-l); font-weight: var(--weight-heading); }
+.lesson-view .ls-stage-tabs { margin-left: auto; }
+.lesson-view .ls-pline { display: flex; flex-direction: column; gap: 8px; }
+.lesson-view .ls-pline-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+.lesson-view .ls-pline-head h3 { font-size: var(--text-m); font-weight: var(--weight-heading); }
+.lesson-view .ls-pline.is-done .ls-pline-head h3::after { content: ' ✓'; color: var(--accent-text); }
+.lesson-view .ls-pblock { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-l); padding: 10px 12px; }
+.lesson-view .ls-pblock.is-skipped { border-style: dashed; opacity: .85; }
+.lesson-view .ls-pblock > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.lesson-view .ls-pblock > header h4 { font-size: var(--text-s); font-weight: var(--weight-heading); }
+.lesson-view .ls-pblock > header .ls-opt { margin-left: auto; }
+.lesson-view .ls-pcards { font-size: var(--text-xs); color: var(--text-secondary); }
+.lesson-view .ls-psteps { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.lesson-view .ls-pstep { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 6px 8px; border-radius: var(--radius-m); }
+.lesson-view .ls-pstep.is-current { background: var(--accent-soft); }
+.lesson-view .ls-pstep-main { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.lesson-view .ls-pstep-side { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.lesson-view .ls-chip-status { border-color: var(--border-strong); color: var(--text-secondary); }
+.lesson-view .ls-pstep.is-passed .ls-chip-status, .lesson-view .ls-pstep.is-mastered .ls-chip-status { border-color: var(--accent); color: var(--accent-text); background: var(--accent-soft); }
+.lesson-view .ls-chip-review { border-color: var(--warning-text); color: var(--warning-text); }
+.lesson-view .ls-vchips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.lesson-view .ls-vchip { border: 1px solid var(--border-strong); border-radius: var(--radius-pill); background: none; color: var(--text-secondary); padding: 1px 9px; font-size: var(--text-2xs); cursor: pointer; }
+.lesson-view .ls-vchip.is-on { border-color: var(--accent); color: var(--text-primary); background: var(--accent-soft); font-weight: 600; }
+.lesson-view .ls-vone { font-size: var(--text-2xs); }
+
 @media (max-width: 1180px) {
   .lesson-view .ls-lib-body { grid-template-columns: 176px minmax(0, 1fr); }
 }
