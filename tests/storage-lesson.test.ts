@@ -333,3 +333,16 @@ describe('упражнения и история в снимке и времен
     expect(skipped).toEqual([{ store: 'exercises', id: 'broken', reason: expect.stringMatching(/^Упражнение: /) }]);
   });
 });
+
+describe('линия на 16 тактов в истории (R-028, B5.5)', () => {
+  it('проход «Своей линии» записывается и читается: ключ builtin:line.… укладывается в предел', async () => {
+    const { materialId } = await import('../src/practice/material');
+    const spec = createExerciseSpec('line', { bars: Array.from({ length: 16 }, (_, index) => ({ step: [0, 5, 7][index % 3], chord: 'major-triad', pattern: 'arpeggio', rhythm: 'eighths' })) } as never);
+    const key = `builtin:${materialId(spec)}`;
+    expect(key.length).toBeLessThanOrEqual(168);
+    const entry = makeManualHistory(createManualPracticeResult({ context: null, comfortableBpm: 80, durationMs: 60000, note: '', assessment: 'clean',
+      material: material({ key, title: 'Своя линия', spec } as never) }), { ...metadata, id: 'line-pass' });
+    expect(validateHistoryEntry(clone(entry))).toEqual(entry);
+    expect(validateHistoryEntry(clone(entry), 'stored')).toEqual(entry);
+  });
+});

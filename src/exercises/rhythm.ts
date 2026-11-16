@@ -3,7 +3,7 @@
  * и добивается паузой до целого такта, поэтому каждый проход начинается с «раз». Чистые вычисления:
  * шкалу читают звук (`PlaybackConfig.steps`), TAB, строка ритма и подсветка экрана игры.
  */
-import type { ExercisePlan } from './index';
+import type { BarForms, ExercisePlan } from './index';
 
 export type RhythmPatternId =
   | 'eighths' | 'quarters' | 'sixteenths' | 'syncopation' | 'shuffle'
@@ -111,6 +111,33 @@ function landingNote(plan: Pick<ExercisePlan, 'notes'>, last: number): number | 
   return best;
 }
 
+/**
+ * Раскладка одного такта последовательности по рисунку (R-028, B3). Плотность: атаки только на долях — форма Q, иначе E;
+ * атака в шестнадцатой p берёт Q[p/4] или E[⌊p/2⌋]; хвост заменяет последние атаки такта, но не первую; пауза и лига нот не берут.
+ * Индексы нот — из `BarForms` (индексы нот плана).
+ */
+export function barLayout(pattern: RhythmPattern, forms: BarForms): { note: number | null; grids: number; tie: boolean }[] {
+  const cycle = Array.from({ length: BAR / pattern.cells.reduce((sum, cell) => sum + cell.grids, 0) }, () => pattern.cells).flat();
+  const attacks: number[] = [];
+  let place = 0;
+  for (const cell of cycle) { if (cell.kind === 'note') attacks.push(place); place += cell.grids; }
+  const quarterForm = attacks.every(attack => attack % 4 === 0);
+  const replaced = Math.min(forms.tail.length, attacks.length - 1);
+  const tail = forms.tail.slice(forms.tail.length - replaced);
+  const steps: { note: number | null; grids: number; tie: boolean }[] = [];
+  let position = 0, attack = 0, held = -1;
+  for (const cell of cycle) {
+    if (cell.kind === 'note') {
+      const fromTail = attack - (attacks.length - replaced);
+      held = fromTail >= 0 ? tail[fromTail] : quarterForm ? forms.q[position / 4] : forms.e[Math.floor(position / 2)];
+      steps.push({ note: held, grids: cell.grids, tie: false }); attack++;
+    } else if (cell.kind === 'tie') steps.push({ note: held, grids: cell.grids, tie: true });
+    else steps.push({ note: null, grids: cell.grids, tie: false });
+    position += cell.grids;
+  }
+  return steps;
+}
+
 export function buildTimeline(plan: Pick<ExercisePlan, 'spec' | 'notes' | 'segments' | 'cadence'> & Partial<Pick<ExercisePlan, 'timing' | 'bars'>>, options: TimelineOptions = {}): Timeline {
   const allowed = rhythmPatternsFor(plan);
   const patternId = options.pattern && allowed.includes(options.pattern) ? options.pattern : allowed[0];
@@ -122,27 +149,8 @@ export function buildTimeline(plan: Pick<ExercisePlan, 'spec' | 'notes' | 'segme
     // Ритм из партитуры: шаги фрагмента песни как есть, такты по 16 шестнадцатых.
     for (const step of plan.timing) push(step.note, step.grids, false, step.tie === true);
   } else if (plan.bars) {
-    // Такт — аккорд (B3): один рисунок на все такты. Плотность: атаки только на долях — форма Q, иначе E; атака в
-    // шестнадцатой p берёт Q[p/4] или E[⌊p/2⌋]; хвост заменяет последние атаки такта, но не первую.
-    const cycle = Array.from({ length: BAR / pattern.cells.reduce((sum, cell) => sum + cell.grids, 0) }, () => pattern.cells).flat();
-    const attacks: number[] = [];
-    let place = 0;
-    for (const cell of cycle) { if (cell.kind === 'note') attacks.push(place); place += cell.grids; }
-    const quarterForm = attacks.every(attack => attack % 4 === 0);
-    for (const forms of plan.bars) {
-      const replaced = Math.min(forms.tail.length, attacks.length - 1);
-      const tail = forms.tail.slice(forms.tail.length - replaced);
-      let position = 0, attack = 0, held = -1;
-      for (const cell of cycle) {
-        if (cell.kind === 'note') {
-          const fromTail = attack - (attacks.length - replaced);
-          held = fromTail >= 0 ? tail[fromTail] : quarterForm ? forms.q[position / 4] : forms.e[Math.floor(position / 2)];
-          push(held, cell.grids); attack++;
-        } else if (cell.kind === 'tie') push(held, cell.grids, false, true);
-        else push(null, cell.grids);
-        position += cell.grids;
-      }
-    }
+    // Такт — аккорд (B3): один рисунок на все такты.
+    for (const forms of plan.bars) for (const step of barLayout(pattern, forms)) push(step.note, step.grids, false, step.tie);
   } else {
     // A2.3: ячейки читаются по кругу; нота берёт следующую ноту очереди (плана, затем завершения тоникой),
     // лига — ту же ноту без атаки, пауза стоит только перед очередной нотой.

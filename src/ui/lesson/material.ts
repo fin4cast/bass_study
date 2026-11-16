@@ -48,7 +48,7 @@ export const TEMPLATE_MINUTES: Readonly<Record<ExerciseTemplateId, number>> = Ob
   'pentatonic-relative': 4, 'scale-compact': 4, 'connect-forms': 5, 'pentatonic-neck': 5, 'scale-one-string': 3,
   'scale-position': 4, 'arpeggio-1358': 4, 'root-five-eight': 3, 'groups-of-three': 4, thirds: 4, 'form-transpose': 3, 'cycle-fourths': 4,
   'pulse-note': 2, 'chromatic-shift': 4, 'string-naturals': 3,
-  riff: 4, spider: 4, 'blues-scale': 3, 'arpeggio-seventh': 4, 'arpeggio-inversion': 3, progression: 4, 'string-crossing': 3, 'song-fragment': 4,
+  line: 5, riff: 4, spider: 4, 'blues-scale': 3, 'arpeggio-seventh': 4, 'arpeggio-inversion': 3, progression: 4, 'string-crossing': 3, 'song-fragment': 4,
 });
 export const CHECK_MINUTES = 3;
 export const CHECK_COUNT = 6;
@@ -122,6 +122,7 @@ export function materialLabel(spec: ExerciseSpec): string {
     case 'blues-scale': return `${note(spec.params.root)} · блюзовая гамма · от ${formatPosition(first.id)}`;
     case 'arpeggio-seventh': return `${keyName(createStructure(spec.params.root, spec.params.structureId))} · от ${formatPosition(first.id)}`;
     case 'arpeggio-inversion': return `${keyName(createStructure(spec.params.root, spec.params.structureId))} · ${spec.params.inversion}-е обращение · от ${formatPosition(first.id)}`;
+    case 'line': return `${note(spec.params.root)} ${spec.params.mode === 'major' ? 'мажор' : 'минор'} · своя линия · ${spec.params.bars.length} ${spec.params.bars.length % 10 === 1 && spec.params.bars.length !== 11 ? 'такт' : spec.params.bars.length % 10 >= 2 && spec.params.bars.length % 10 <= 4 && (spec.params.bars.length < 12 || spec.params.bars.length > 14) ? 'такта' : 'тактов'}${spec.params.position === 'low' ? ' · нижняя' : ''}`;
     case 'riff': return `${note(spec.params.root)} · рифф «${RIFF_TITLES[spec.params.riff]}»`;
     case 'progression': return `${note(spec.params.root)} · ${PROGRESSION_LABELS[spec.params.progression]} · ${PATTERN_LABELS[spec.params.pattern]}${spec.params.position === 'closed' ? '' : ` · ${POSITION_NAMES[spec.params.position]}`}`;
   }

@@ -21,9 +21,26 @@ export function materialId(spec: ExerciseSpec): string {
     const { sha256, trackIndex, fromBar, toBar } = spec.params.source;
     return `song-fragment.${sha256.slice(0, 16)}.${trackIndex}.${fromBar}-${toBar}`;
   }
+  // «Своя линия»: состав тактов входит в ключ хешем, чтобы ключ не зависел от числа тактов и укладывался в предел (B5.5).
+  if (spec.templateId === 'line') {
+    const { root, mode, position, bars } = spec.params;
+    return ['line', token(root), mode, position, fnv1a64(lineBarsText(bars))].join('.');
+  }
   const params = spec.params as Readonly<Record<string, unknown>>;
   const order = Object.keys(getExerciseTemplate(spec.templateId).defaults);
   return [spec.templateId, ...order.map(key => token(params[key]))].join('.');
+}
+
+const LINE_CHORD_CODES: Readonly<Record<string, string>> = { 'major-triad': 'M', 'minor-triad': 'm', 'dominant-seventh': '7', 'minor-seventh': 'm7', 'major-seventh': 'M7' };
+/** Каноническая строка состава тактов: такты через точку, такт — `<step><код>_<рисунок>_<ритм>`; в полях нет `_` и `.`, строка инъективна. */
+export function lineBarsText(bars: readonly { readonly step: number; readonly chord: string; readonly pattern: string; readonly rhythm: string }[]): string {
+  return bars.map(bar => `${bar.step}${LINE_CHORD_CODES[bar.chord]}_${bar.pattern}_${bar.rhythm}`).join('.');
+}
+/** FNV-1a, 64 бита, по байтам UTF-8; шестнадцатеричная запись из 16 знаков. */
+export function fnv1a64(text: string): string {
+  let hash = 0xcbf29ce484222325n;
+  for (const byte of new TextEncoder().encode(text)) hash = ((hash ^ BigInt(byte)) * 0x100000001b3n) & 0xffffffffffffffffn;
+  return hash.toString(16).padStart(16, '0');
 }
 
 export const sameSpec = (a: ExerciseSpec, b: ExerciseSpec): boolean => JSON.stringify(a) === JSON.stringify(b);

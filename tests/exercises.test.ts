@@ -82,6 +82,12 @@ const CONTROL: Record<ExerciseTemplateId, { ids: string; names?: string; degrees
     degrees: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1',
     fingers: '2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2', segments: '8 8 8 8',
   },
+  // B5.1: «Своя линия» по умолчанию — G, такты 0, 5, 7, 0 (G, C, D, G) рисунком «тоники» восьмыми.
+  line: {
+    ids: [...Array(8).fill('E:3'), ...Array(8).fill('A:3'), ...Array(8).fill('A:5'), ...Array(8).fill('E:3')].join(' '),
+    names: [...Array(8).fill('G1'), ...Array(8).fill('C2'), ...Array(8).fill('D2'), ...Array(8).fill('G1')].join(' '),
+    degrees: Array(32).fill('1').join(' '), fingers: Array(32).fill('2').join(' '), segments: '8 8 8 8',
+  },
   // B4: рок-восьмые в G. Тоники: G — E:3, C — A:3, D — A:5, G — E:3; такты 1–3: шесть тоник и две квинты, такт 4: четыре восьмых и четверть тоники.
   riff: {
     ids: [...Array(6).fill('E:3'), 'A:5', 'A:5', ...Array(6).fill('A:3'), 'D:5', 'D:5', ...Array(6).fill('A:5'), 'D:7', 'D:7', ...Array(5).fill('E:3')].join(' '),
@@ -582,5 +588,97 @@ describe('рифф «Рок-восьмые» (R-028, B4)', () => {
   it('параметры строгие: неизвестный рифф и лишние поля отклоняются', () => {
     expect(() => createExerciseSpec('riff', { riff: 'unknown' as never })).toThrow(RangeError);
     expect(() => validateExerciseSpec({ version: 'exercise-v1', templateId: 'riff', params: { riff: 'rock-eighths', root: 'G', position: 'low' } })).toThrow(RangeError);
+  });
+});
+
+describe('«Своя линия» (R-028, B5)', () => {
+  const bar = (step: number, pattern: string, extra: Record<string, unknown> = {}) => ({ step, chord: 'major-triad', pattern, rhythm: 'eighths', ...extra });
+  const g = (params: Record<string, unknown> = {}) => createExerciseSpec('line', { bars: [bar(0, 'roots'), bar(5, 'root-fifth'), bar(7, 'octaves'), bar(0, 'roots')], ...params } as never);
+
+  it('контрольный пример B5.6: G, тоники G, C, D, G; рисунки тоники, тоника и квинта, октавы, тоники', () => {
+    const plan = buildExercise(g());
+    const ids = (index: number) => plan.notes.filter(note => note.segment === index);
+    expect(ids(0).map(note => note.id).join(' ')).toBe(Array(8).fill('E:3').join(' '));
+    expect(ids(1).map(note => note.id).join(' ')).toBe('A:3 A:3 D:5 D:5 A:3 A:3 D:5 D:5');
+    expect(ids(1).map(note => note.finger).join(' ')).toBe('2 2 4 4 2 2 4 4');
+    expect(ids(2).map(note => note.id).join(' ')).toBe('A:5 G:7 A:5 G:7 A:5 G:7 A:5 G:7');
+    expect(ids(2).map(note => note.finger).join(' ')).toBe('2 4 2 4 2 4 2 4');
+    expect(ids(3).map(note => note.id).join(' ')).toBe(Array(8).fill('E:3').join(' '));
+    expect(plan.segments.map(segment => segment.label)).toEqual(['G · I', 'C · IV', 'D · V', 'G · I']);
+  });
+  it('перенос в A: те же ступени, рисунки и ритм, позиции тоник пересчитаны (E:5, A:5, A:7, E:5)', () => {
+    const plan = buildExercise(g({ root: 'A' }));
+    expect(plan.notes.filter(note => note.segment === 1).map(note => note.id).join(' ')).toBe('A:5 A:5 D:7 D:7 A:5 A:5 D:7 D:7');
+    expect(plan.notes.filter(note => note.segment === 2).map(note => `${note.id} ${note.name}`).slice(0, 2)).toEqual(['A:7 E2', 'G:9 E3']);
+    expect(plan.notes.filter(note => note.segment === 0).every(note => note.id === 'E:5')).toBe(true);
+  });
+  it('подписи: цифра по ладу, строчная у минорных, суффикс 7 и maj7; написание тоники по ступени от тоники линии', () => {
+    const label = (root: string, mode: string, step: number, chord: string) => buildExercise(createExerciseSpec('line', { root, mode, bars: [bar(step, 'roots', { chord }), bar(0, 'roots')] } as never)).segments[0].label;
+    expect(label('A', 'minor', 10, 'major-triad')).toBe('G · VII');
+    expect(label('C', 'major', 9, 'minor-triad')).toBe('Am · vi');
+    expect(label('C', 'major', 6, 'major-triad')).toBe('G♭ · ♭V');
+    expect(label('C', 'major', 7, 'dominant-seventh')).toBe('G7 · V7');
+    expect(label('C', 'major', 2, 'minor-seventh')).toBe('Dm7 · ii7');
+    expect(label('C', 'major', 0, 'major-seventh')).toBe('Cmaj7 · Imaj7');
+    expect(label('A', 'minor', 4, 'major-triad')).toBe('C♯ · ♯III');
+  });
+  it('ритм такта своё: рисунок каждого такта задаёт шкалу; сумма — такт, пауза и лига попадают в шаги', () => {
+    const plan = buildExercise(g({ bars: [bar(0, 'roots', { rhythm: 'quarters' }), bar(5, 'root-fifth', { rhythm: 'quarter-rest' }), bar(7, 'octaves', { rhythm: 'tied-syncopation' }), bar(0, 'roots', { rhythm: 'sixteenths' })] }));
+    const timeline = buildTimeline(plan);
+    expect(timeline.bars).toBe(4);
+    expect(timeline.steps.filter(step => step.bar === 0).map(step => step.grids)).toEqual([4, 4, 4, 4]);
+    expect(timeline.steps.filter(step => step.bar === 1).map(step => (step.note === null ? 'п' : plan.notes[step.note].id))).toEqual(['A:3', 'D:5', 'A:3', 'п']);
+    expect(timeline.steps.filter(step => step.bar === 2).some(step => step.tie)).toBe(true);
+    expect(timeline.steps.filter(step => step.bar === 3)).toHaveLength(16);
+    for (let index = 0; index < 4; index++) expect(timeline.steps.filter(step => step.bar === index).reduce((sum, step) => sum + step.grids, 0)).toBe(16);
+  });
+  it('нижняя позиция строит ту же линию с тониками у порожка', () => {
+    // C, тоники C, F, G, C рисунком «тоники»: нижняя — A:3, E:1, E:3, A:3 (1-й лад разрешён, у закрытой позиции его нет).
+    const roots = [0, 5, 7, 0].map(step => bar(step, 'roots'));
+    const low = buildExercise(g({ root: 'C', position: 'low', bars: roots }));
+    expect([0, 1, 2, 3].map(index => low.notes.find(note => note.segment === index)!.id)).toEqual(['A:3', 'E:1', 'E:3', 'A:3']);
+    expect(buildExercise(g({ root: 'C', bars: roots })).notes.filter(note => note.segment === 1)[0].id).toBe('A:8');
+  });
+  it('строгая проверка: число тактов, ступень, вид аккорда, буги, ритм, лишние поля и лад', () => {
+    const base = g();
+    const bad = (patch: Record<string, unknown>) => () => validateExerciseSpec({ ...base, params: { ...base.params, ...patch } });
+    expect(bad({ bars: [bar(0, 'roots')] })).toThrow(RangeError);
+    expect(bad({ bars: Array.from({ length: 17 }, () => bar(0, 'roots')) })).toThrow(RangeError);
+    expect(bad({ bars: [bar(12, 'roots'), bar(0, 'roots')] })).toThrow(RangeError);
+    expect(bad({ bars: [bar(0, 'roots', { chord: 'diminished-triad' }), bar(0, 'roots')] })).toThrow(RangeError);
+    expect(bad({ bars: [bar(0, 'boogie', { chord: 'minor-triad' }), bar(0, 'roots')] })).toThrow(RangeError);
+    expect(bad({ bars: [bar(0, 'roots', { rhythm: 'shuffle' }), bar(0, 'roots')] })).toThrow(RangeError);
+    expect(bad({ bars: [bar(0, 'roots', { extra: 1 }), bar(0, 'roots')] })).toThrow(RangeError);
+    expect(bad({ position: 'open' })).toThrow(RangeError);
+    expect(bad({ mode: 'dorian' })).toThrow(RangeError);
+    expect(bad({ extra: true })).toThrow(RangeError);
+    expect(bad({ bars: [bar(0, 'boogie', { chord: 'dominant-seventh' }), bar(0, 'roots')] })).not.toThrow();
+  });
+  it('шаблон только для своих упражнений: в библиотеке его нет, строка материала называет число тактов', async () => {
+    expect(EXERCISE_TEMPLATES.find(template => template.id === 'line')!.userOnly).toBe(true);
+    const { materialLabel } = await import('../src/ui/lesson/material');
+    expect(materialLabel(g())).toBe('G мажор · своя линия · 4 такта');
+  });
+});
+
+describe('ключ «Своей линии» (R-028, B5.5)', () => {
+  const bars = [0, 5, 7, 0].map((step, index) => ({ step, chord: 'major-triad', pattern: ['roots', 'root-fifth', 'octaves', 'roots'][index], rhythm: 'eighths' }));
+  it('FNV-1a 64 бита: известные векторы, независимые от реализации', async () => {
+    const { fnv1a64 } = await import('../src/practice/material');
+    expect(fnv1a64('')).toBe('cbf29ce484222325');
+    expect(fnv1a64('a')).toBe('af63dc4c8601ec8c');
+    expect(fnv1a64('foobar')).toBe('85944171f73967e8');
+  });
+  it('каноническая строка и materialId: line.<root>.<mode>.<position>.<h16>; длина ключа от числа тактов не зависит', async () => {
+    const { fnv1a64, lineBarsText, materialId } = await import('../src/practice/material');
+    const spec = createExerciseSpec('line', { bars } as never);
+    expect(lineBarsText(spec.templateId === 'line' ? spec.params.bars : [])).toBe('0M_roots_eighths.5M_root-fifth_eighths.7M_octaves_eighths.0M_roots_eighths');
+    expect(materialId(spec)).toBe(`line.G.major.closed.${fnv1a64('0M_roots_eighths.5M_root-fifth_eighths.7M_octaves_eighths.0M_roots_eighths')}`);
+    expect(materialId(spec)).toMatch(/^line[.]G[.]major[.]closed[.][0-9a-f]{16}$/);
+    const long = createExerciseSpec('line', { bars: Array.from({ length: 16 }, () => ({ step: 7, chord: 'minor-seventh', pattern: 'arpeggio', rhythm: 'tied-syncopation' })) } as never);
+    expect(materialId(long).length).toBe(materialId(spec).length);
+    // Разный состав — разный ключ; перенос в другую тональность — другой ключ с тем же хешем тела.
+    expect(materialId(createExerciseSpec('line', { bars: [...bars].reverse() } as never))).not.toBe(materialId(spec));
+    expect(materialId(createExerciseSpec('line', { bars, root: 'A' } as never)).split('.').at(-1)).toBe(materialId(spec).split('.').at(-1));
   });
 });
