@@ -54,7 +54,7 @@ describe('план на сегодня', () => {
 describe('библиотека', () => {
   /** Встроенные шаблоны библиотеки — все, кроме «только своих» (фрагмент песни). */
   const BUILTIN = EXERCISE_TEMPLATES.filter(template => !template.userOnly).length;
-  it('все встроенные шаблоны в 9 категориях; «Играть от» меняет тонику только у шаблонов с тоникой', () => {
+  it('все встроенные шаблоны по категориям; «Играть от» меняет тонику только у шаблонов с тоникой', () => {
     const items = builtinLibrary('E');
     expect(items).toHaveLength(BUILTIN);
     expect(Object.values(countByCategory(items)).reduce((a, b) => a + b, 0)).toBe(BUILTIN);

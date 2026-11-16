@@ -19,6 +19,7 @@ export const CATEGORY_TITLES: Readonly<Record<ExerciseCategory, string>> = Objec
   sequences: 'Секвенции',
   transposition: 'Транспонирование',
   progressions: 'Последовательности аккордов',
+  riffs: 'Риффы',
 });
 export const CATEGORY_ORDER = Object.keys(CATEGORY_TITLES) as readonly ExerciseCategory[];
 
@@ -72,7 +73,7 @@ const ROOT_PARAM: Partial<Record<ExerciseTemplateId, 'root' | 'minorRoot' | 'not
   'note-all-positions': 'note', octaves: 'note', 'pentatonic-form': 'root', 'pentatonic-relative': 'minorRoot', 'scale-compact': 'root',
   'connect-forms': 'root', 'pentatonic-neck': 'root', 'scale-one-string': 'root', 'scale-position': 'root', 'arpeggio-1358': 'root',
   'root-five-eight': 'root', 'groups-of-three': 'root', thirds: 'root', 'cycle-fourths': 'root',
-  'blues-scale': 'root', 'arpeggio-seventh': 'root', 'arpeggio-inversion': 'root', progression: 'root',
+  'blues-scale': 'root', 'arpeggio-seventh': 'root', 'arpeggio-inversion': 'root', progression: 'root', riff: 'root',
 };
 
 /**

@@ -238,3 +238,21 @@ describe('подход рисунка «арпеджио и подходы» з�
     expect(ids).toEqual(['A:3', 'A:3', 'D:2', 'D:2', 'D:5', 'D:5', 'D:2', 'D:2', 'A:3', 'A:3', 'D:2', 'D:2', 'D:5', 'D:5', 'D:2', 'A:7']);
   });
 });
+
+describe('рифф: ритм задан материалом (R-028, B4)', () => {
+  it('рок-восьмые: четыре такта; в последнем такте четвертная нота и четвертная пауза', () => {
+    const riff = plan('riff');
+    const timeline = buildTimeline(riff);
+    expect(timeline.bars).toBe(4);
+    const last = timeline.steps.filter(step => step.bar === 3).map(step => [step.note === null ? null : 'нота', step.start % 16, step.grids]);
+    expect(last).toEqual([['нота', 0, 2], ['нота', 2, 2], ['нота', 4, 2], ['нота', 6, 2], ['нота', 8, 4], [null, 12, 4]]);
+    expect(timeline.steps.filter(step => step.bar === 0).map(step => step.grids)).toEqual([2, 2, 2, 2, 2, 2, 2, 2]);
+  });
+  it('доступные рисунки: восьмые и шаффл (все события чётны); у фрагмента песни — только ритм партитуры', async () => {
+    const { rhythmPatternsFor } = await import('../src/exercises/rhythm');
+    expect(rhythmPatternsFor(plan('riff'))).toEqual(['eighths', 'shuffle']);
+    expect(buildTimeline(plan('riff'), { pattern: 'shuffle' }).swing).toBe(66);
+    expect(buildTimeline(plan('riff'), { pattern: 'quarters' }).pattern).toBe('eighths');
+    expect(rhythmPatternsFor(plan('song-fragment'))).toEqual(['eighths']);
+  });
+});

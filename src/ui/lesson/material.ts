@@ -39,6 +39,7 @@ export { STRUCTURE_LABELS };
 
 export const PROGRESSION_LABELS: Readonly<Record<string, string>> = { 'I-IV-V': 'I–IV–V', 'ii-V-I': 'ii–V–I', 'blues-12': 'блюз 12 тактов' };
 export const PATTERN_LABELS: Readonly<Record<string, string>> = { roots: 'тоники', 'root-fifth': 'тоника и квинта', octaves: 'октавы', arpeggio: 'арпеджио', approach: 'арпеджио и подходы', boogie: 'буги' };
+export const RIFF_TITLES: Readonly<Record<string, string>> = { 'rock-eighths': 'Рок-восьмые' };
 export const CROSSING_LABELS: Readonly<Record<string, string>> = { adjacent: 'соседние струны', skip: 'через струну', raking: 'рейкинг' };
 
 /** Плановое время шага по шаблону (VIS-10 r2), минуты. */
@@ -47,7 +48,7 @@ export const TEMPLATE_MINUTES: Readonly<Record<ExerciseTemplateId, number>> = Ob
   'pentatonic-relative': 4, 'scale-compact': 4, 'connect-forms': 5, 'pentatonic-neck': 5, 'scale-one-string': 3,
   'scale-position': 4, 'arpeggio-1358': 4, 'root-five-eight': 3, 'groups-of-three': 4, thirds: 4, 'form-transpose': 3, 'cycle-fourths': 4,
   'pulse-note': 2, 'chromatic-shift': 4, 'string-naturals': 3,
-  spider: 4, 'blues-scale': 3, 'arpeggio-seventh': 4, 'arpeggio-inversion': 3, progression: 4, 'string-crossing': 3, 'song-fragment': 4,
+  riff: 4, spider: 4, 'blues-scale': 3, 'arpeggio-seventh': 4, 'arpeggio-inversion': 3, progression: 4, 'string-crossing': 3, 'song-fragment': 4,
 });
 export const CHECK_MINUTES = 3;
 export const CHECK_COUNT = 6;
@@ -121,6 +122,7 @@ export function materialLabel(spec: ExerciseSpec): string {
     case 'blues-scale': return `${note(spec.params.root)} · блюзовая гамма · от ${formatPosition(first.id)}`;
     case 'arpeggio-seventh': return `${keyName(createStructure(spec.params.root, spec.params.structureId))} · от ${formatPosition(first.id)}`;
     case 'arpeggio-inversion': return `${keyName(createStructure(spec.params.root, spec.params.structureId))} · ${spec.params.inversion}-е обращение · от ${formatPosition(first.id)}`;
+    case 'riff': return `${note(spec.params.root)} · рифф «${RIFF_TITLES[spec.params.riff]}»`;
     case 'progression': return `${note(spec.params.root)} · ${PROGRESSION_LABELS[spec.params.progression]} · ${PATTERN_LABELS[spec.params.pattern]}${spec.params.position === 'closed' ? '' : ` · ${POSITION_NAMES[spec.params.position]}`}`;
   }
 }

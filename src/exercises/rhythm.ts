@@ -52,7 +52,11 @@ export const rhythmPattern = (id: RhythmPatternId): RhythmPattern => RHYTHM_PATT
  * выбирает правило B3. У фрагмента песни ритм задан партитурой.
  */
 export function rhythmPatternsFor(plan: Pick<ExercisePlan, 'spec'> & Partial<Pick<ExercisePlan, 'timing'>>): readonly RhythmPatternId[] {
-  if (plan.timing) return ['eighths'];
+  if (plan.timing) {
+    // Фрагмент песни играет ритм партитуры; рифф — шаффл допустим, только если все события чётны по шестнадцатым (A2.5).
+    const even = plan.spec.templateId !== 'song-fragment' && plan.timing.every(step => step.grids % 2 === 0);
+    return even ? ['eighths', 'shuffle'] : ['eighths'];
+  }
   return RHYTHM_PATTERNS.map(pattern => pattern.id);
 }
 

@@ -427,7 +427,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   function renderSub() {
     const line = shownTimeline();
     const n = noteSteps(line);
-    const pattern = plan?.timing ? 'ритм партитуры' : line ? rhythmPattern(line.pattern).label.toLowerCase() : '';
+    const pattern = plan?.timing ? (plan.spec.templateId === 'song-fragment' ? 'ритм партитуры' : 'ритм риффа') : line ? rhythmPattern(line.pattern).label.toLowerCase() : '';
     at('[data-sub]').textContent = plan && line ? `${n} ${plural(n, 'нота', 'ноты', 'нот')} · ${pattern} · ${line.bars} ${plural(line.bars, 'такт', 'такта', 'тактов')}${line.echo ? ' · эхо' : ''}` : '';
   }
 
@@ -449,7 +449,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     const segments = plan?.segments ?? [];
     if (segments.length <= 2) segments.forEach((segment, index) => items.push({ cls: index % 2 ? 'is-b' : 'is-a', text: segment.label }));
     else {
-      const part = plan?.spec.templateId === 'progression' ? 'Такты' : 'Сегменты';
+      const part = plan?.spec.templateId === 'progression' || plan?.spec.templateId === 'riff' ? 'Такты' : 'Сегменты';
       items.push({ cls: 'is-a', text: `${part} 1, 3, 5…` }, { cls: 'is-b', text: `${part} 2, 4…` });
     }
     if (plan && boardNotesFromPlan(plan).some(note => note.kind === 'shared')) items.push({ cls: 'is-shared', text: 'Общие позиции' });
@@ -704,8 +704,8 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     }
     const line = timeline;
     select.value = line?.pattern ?? settings.rhythm;
-    setText(at('[data-rhythm-note]'), plan?.timing ? 'Ритм из партитуры.' : plan?.spec.templateId === 'progression' ? 'Рисунок один на все такты; ноты такта выбирает ритм.' : settings.groove ? 'Свинг — от подложки.' : '');
-    setText(at('[data-rhythm-caption]'), plan?.timing ? 'ритм партитуры' : line ? rhythmPattern(line.pattern).label.toLowerCase() : 'восьмые');
+    setText(at('[data-rhythm-note]'), plan?.timing ? (plan.spec.templateId === 'song-fragment' ? 'Ритм из партитуры.' : 'Ритм задан риффом.') : plan?.spec.templateId === 'progression' ? 'Рисунок один на все такты; ноты такта выбирает ритм.' : settings.groove ? 'Свинг — от подложки.' : '');
+    setText(at('[data-rhythm-caption]'), plan?.timing ? (plan.spec.templateId === 'song-fragment' ? 'ритм партитуры' : 'ритм риффа') : line ? rhythmPattern(line.pattern).label.toLowerCase() : 'восьмые');
   }
 
   /* ---------- Транспорт ---------- */

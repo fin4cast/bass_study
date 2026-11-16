@@ -82,6 +82,14 @@ const CONTROL: Record<ExerciseTemplateId, { ids: string; names?: string; degrees
     degrees: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1',
     fingers: '2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2', segments: '8 8 8 8',
   },
+  // B4: рок-восьмые в G. Тоники: G — E:3, C — A:3, D — A:5, G — E:3; такты 1–3: шесть тоник и две квинты, такт 4: четыре восьмых и четверть тоники.
+  riff: {
+    ids: [...Array(6).fill('E:3'), 'A:5', 'A:5', ...Array(6).fill('A:3'), 'D:5', 'D:5', ...Array(6).fill('A:5'), 'D:7', 'D:7', ...Array(5).fill('E:3')].join(' '),
+    names: [...Array(6).fill('G1'), 'D2', 'D2', ...Array(6).fill('C2'), 'G2', 'G2', ...Array(6).fill('D2'), 'A2', 'A2', ...Array(5).fill('G1')].join(' '),
+    degrees: [...Array(6).fill('1'), '5', '5', ...Array(6).fill('1'), '5', '5', ...Array(6).fill('1'), '5', '5', ...Array(5).fill('1')].join(' '),
+    fingers: [...Array(6).fill('2'), '4', '4', ...Array(6).fill('2'), '4', '4', ...Array(6).fill('2'), '4', '4', ...Array(5).fill('2')].join(' '),
+    segments: '8 8 8 5',
+  },
   // A5: шестнадцать нот E:0, пальцы левой руки и ступени не назначаются.
   'pulse-note': { ids: Array(16).fill('E:0').join(' '), names: Array(16).fill('E1').join(' '), fingers: Array(16).fill('-').join(' '), segments: '16' },
   // A6.1: натуральные ноты струны E на ладах 0–5 и обратно: E F G A G F.
@@ -559,5 +567,20 @@ describe('позиции последовательности low и open', () =
     expect(materialLabel(open)).toBe('A · блюз 12 тактов · тоники · открытые струны');
     expect(materialLabel(createExerciseSpec('progression', { position: 'low' }))).toBe('C · I–IV–V · тоники · нижняя');
     expect(materialLabel(createExerciseSpec('progression'))).toBe('C · I–IV–V · тоники');
+  });
+});
+
+describe('рифф «Рок-восьмые» (R-028, B4)', () => {
+  it('идентификатор материала, категория, тональность A (тоники E:5, A:5, A:7, E:5)', async () => {
+    const { materialId } = await import('../src/practice/material');
+    expect(materialId(createExerciseSpec('riff'))).toBe('riff.rock-eighths.G');
+    const plan = buildExercise(createExerciseSpec('riff', { root: 'A' }));
+    expect(plan).toMatchObject({ category: 'riffs', cadence: 'none', overlap: 'none', title: 'Рифф «Рок-восьмые»' });
+    expect(plan.notes.slice(0, 8).map(note => note.id)).toEqual([...Array(6).fill('E:5'), 'A:7', 'A:7']);
+    expect(plan.segments.map(segment => segment.label)).toEqual(['A · I', 'D · IV', 'E · V', 'A · I']);
+  });
+  it('параметры строгие: неизвестный рифф и лишние поля отклоняются', () => {
+    expect(() => createExerciseSpec('riff', { riff: 'unknown' as never })).toThrow(RangeError);
+    expect(() => validateExerciseSpec({ version: 'exercise-v1', templateId: 'riff', params: { riff: 'rock-eighths', root: 'G', position: 'low' } })).toThrow(RangeError);
   });
 });

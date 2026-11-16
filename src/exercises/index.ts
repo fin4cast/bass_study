@@ -11,11 +11,11 @@ import { getBoxCatalogue, getBoxOverlap, type BoxInstance, type BoxShapeId } fro
 import { degreeFrom, parseChord } from '../music/chords';
 import { createSequence, type SequencePattern } from '../training';
 import { TEMPLATE_TASKS, type TemplateTask } from './tasks';
-import { approachFret, barTones, chordFamily, lowTonic, openTonic, placeTones, type Tonic } from './bars';
+import { approachFret, barTones, chordFamily, lowTonic, openTonic, placeTones, type Tone, type Tonic } from './bars';
 
 export { TASK_LINE_MAX, TEMPLATE_TASKS, type TemplateTask } from './tasks';
 
-export type ExerciseCategory = 'warmup' | 'notes' | 'forms' | 'connections' | 'positions' | 'arpeggios' | 'sequences' | 'transposition' | 'progressions';
+export type ExerciseCategory = 'warmup' | 'notes' | 'forms' | 'connections' | 'positions' | 'arpeggios' | 'sequences' | 'transposition' | 'progressions' | 'riffs';
 export type ConceptId =
   | 'finger-per-fret' | 'position-shift' | 'semitone' | 'octave' | 'unison' | 'degrees' | 'pentatonic' | 'relative-keys'
   | 'scale-formula' | 'shared-notes' | 'form-system' | 'triad' | 'fifth' | 'sequence' | 'third' | 'transposition' | 'circle-of-fifths'
@@ -52,6 +52,9 @@ export type ProgressionPosition = 'closed' | 'low' | 'open';
 export const FINGERINGS: readonly Fingering[] = ['1234', '124'];
 export const DIRECTIONS: readonly Direction[] = ['up', 'up-down'];
 /** Число нот «Пульса на одной ноте»: 16 — четыре такта четвертями, 8 — «нота — пауза», 32 — два такта шестнадцатыми (A5). */
+/** Риффы (R-028, B4): типовые стилевые фигуры без привязки к песне; список дополняется без повышения версии. */
+export type RiffId = 'rock-eighths';
+export const RIFF_IDS: readonly RiffId[] = ['rock-eighths'];
 export type PulseNotes = 8 | 16 | 32;
 export const PULSE_NOTES: readonly PulseNotes[] = [8, 16, 32];
 /** Натуральные ноты струны: до 5-го лада у порожка или до 12-го (A6.1). */
@@ -89,6 +92,8 @@ export interface ExerciseParams {
   readonly 'form-transpose': { readonly structureId: Pentatonic; readonly shapeId: PentaShape; readonly roots: readonly string[] };
   readonly 'cycle-fourths': { readonly root: string; readonly count: number };
   readonly progression: { readonly root: string; readonly progression: ProgressionId; readonly pattern: ProgressionPattern; readonly position: ProgressionPosition };
+  /** Рифф: фигура такта по аккордам последовательности, ритм задан материалом (B4). */
+  readonly riff: { readonly riff: RiffId; readonly root: string };
   /** Фрагмент басовой партии из «Песен» (P14-04): снимок нот, файл для игры не нужен. Только своё упражнение. */
   readonly 'song-fragment': { readonly title: string; readonly source: SongSource; readonly bpm: number; readonly key: string | null; readonly bars: readonly SongBar[] };
 }
@@ -188,6 +193,7 @@ export const EXERCISE_TEMPLATES: readonly ExerciseTemplate[] = deepFreeze([
     title: 'Фрагмент', source: { sha256: '0'.repeat(64), size: 1, trackIndex: 0, trackName: 'Бас', fromBar: 1, toBar: 1 }, bpm: 90, key: null,
     bars: [{ chord: 'C', events: [['A', 3, 0, 4], ['A', 3, 4, 4], ['E', 3, 8, 4], [null, null, 12, 4]] }],
   } },
+  { id: 'riff', category: 'riffs', title: 'Рифф', concepts: ['progression', 'degrees'], defaults: { riff: 'rock-eighths', root: 'G' } },
   { id: 'cycle-fourths', category: 'transposition', title: 'Паттерн по квинтовому кругу', concepts: ['circle-of-fifths', 'fifth', 'transposition'], defaults: { root: 'C', count: 4 } },
 ] satisfies readonly ExerciseTemplate[]);
 
@@ -277,6 +283,7 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
     return { structureId: oneOf(raw.structureId, ['minor-pentatonic', 'major-pentatonic'], 'Структура'), shapeId: oneOf(raw.shapeId, PENTA_SHAPES, 'Форма'), roots: raw.roots.map((root, index) => noteName(root, `Тоника ${index + 1}`)) };
   },
   'cycle-fourths': raw => ({ root: noteName(raw.root, 'Тоника'), count: integer(raw.count, 2, 12, 'Число тоник') }),
+  riff: raw => ({ riff: oneOf(raw.riff, RIFF_IDS, 'Рифф'), root: noteName(raw.root, 'Тональность') }),
   'song-fragment': raw => {
     const text = (value: unknown, label: string, max: number) => {
       if (typeof value !== 'string' || !value.trim() || value.length > max) throw new RangeError(`${label}: нужен текст до ${max} символов.`);
@@ -640,6 +647,7 @@ const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[I
     return { drafts, segments };
   },
   progression: ({ root, progression, pattern, position }) => progressionPlan(root, progression, pattern, position),
+  riff: ({ riff, root }) => riffPlan(riff, root),
 };
 
 /**
@@ -779,6 +787,42 @@ function positionedProgressionPlan(key: MusicalStructure, progression: Progressi
   return { drafts, overlap: 'none', bars, segments: chords.map(chord => `${chord.root}${CHORD_SYMBOL[chord.structureId] ?? ''} · ${chord.roman}`) };
 }
 
+/** Событие фигуры такта: начало и длина в шестнадцатых; `null` вместо тона — пауза. */
+interface RiffEvent { readonly start: number; readonly grids: number; readonly tone: Tone | null }
+const eighths = (tone: Tone, from: number, count: number): RiffEvent[] => Array.from({ length: count }, (_, step) => ({ start: from + step * 2, grids: 2, tone }));
+
+/** Фигуры такта по B4: на каждом такте последовательности — своя функция; ритм входит в фигуру. */
+const RIFFS: Readonly<Record<RiffId, { readonly title: string; readonly progression: ProgressionId; readonly bar: (index: number) => readonly RiffEvent[] }>> = {
+  'rock-eighths': {
+    title: 'Рок-восьмые', progression: 'I-IV-V',
+    // Такты 1–3: шесть восьмых тоники и две восьмых квинты; такт 4: четыре восьмых, тоника четвертью и четвертная пауза.
+    bar: index => index < 3
+      ? [...eighths('1', 0, 6), ...eighths('5', 12, 2)]
+      : [...eighths('1', 0, 4), { start: 8, grids: 4, tone: '1' }, { start: 12, grids: 4, tone: null }],
+  },
+};
+
+/** Рифф по аккордам последовательности: позиция тоники — `closed` (B0.1), тоны — клетки B0.2, ритм задан материалом (`timing`). */
+function riffPlan(riff: RiffId, root: string): Built {
+  const figure = RIFFS[riff];
+  const key = createStructure(root, 'major');
+  const base = progressionPlan(root, figure.progression, 'roots', 'closed');
+  const chords = PROGRESSION_CHORDS[figure.progression].map(([degree, structureId]) => ({ root: key.notes[degree - 1].name, structureId }));
+  const drafts: Draft[] = [];
+  const timing: { note: number | null; grids: number }[] = [];
+  chords.forEach((chord, bar) => {
+    const tonic = base.drafts[bar * 8].position;
+    const structure = createStructure(chord.root, chord.structureId);
+    for (const event of figure.bar(bar)) {
+      if (event.tone === null) { timing.push({ note: null, grids: event.grids }); continue; }
+      const [placed] = placeTones({ string: tonic.string, fret: tonic.fret }, [event.tone], chordFamily(chord.structureId))!;
+      drafts.push({ position: annotate([[placed.string, placed.fret]], structure)[0], finger: placed.finger, segment: bar, degree: event.tone === '8' ? '1' : event.tone });
+      timing.push({ note: drafts.length - 1, grids: event.grids });
+    }
+  });
+  return { drafts, timing, overlap: 'none', title: `Рифф «${figure.title}»`, segments: base.segments };
+}
+
 /** Хроматический подход: полутон снизу к тонике следующего аккорда на её струне (на 1-м ладу — сверху); без пальца и ступени. */
 function approachNote(next: BoxInstance, current: BoxInstance, segment: number): Draft {
   const { anchorString, anchorFret } = next.selection;
@@ -857,7 +901,7 @@ export const TEMPLATE_TARGET_BPM: Readonly<Record<ExerciseTemplateId, number>> =
   'pentatonic-form': 96, 'pentatonic-relative': 92, 'scale-compact': 96, 'blues-scale': 96, 'connect-forms': 92, 'pentatonic-neck': 88,
   'scale-one-string': 88, 'scale-position': 92, 'arpeggio-1358': 96, 'arpeggio-seventh': 92, 'arpeggio-inversion': 88, 'root-five-eight': 100,
   'groups-of-three': 88, thirds: 88, 'form-transpose': 88, 'cycle-fourths': 84, progression: 100, 'song-fragment': 0,
-  'pulse-note': 100, 'chromatic-shift': 96, 'string-naturals': 80,
+  'pulse-note': 100, 'chromatic-shift': 96, 'string-naturals': 80, riff: 96,
 });
 /** Цель темпа материала: у фрагмента песни — темп партитуры, у остальных — цель шаблона. */
 export const targetBpmFor = (spec: ExerciseSpec): number => spec.templateId === 'song-fragment' ? spec.params.bpm : TEMPLATE_TARGET_BPM[spec.templateId];
@@ -952,6 +996,7 @@ const OPTIONS: { readonly [Id in ExerciseTemplateId]: readonly TemplateOption[] 
   'form-transpose': [structures(PENTA_STRUCTURES), pentaShape],
   'cycle-fourths': [notes('root'), option('count', 'Тоник', range(2, 12))],
   'song-fragment': [],
+  riff: [option('riff', 'Рифф', RIFF_IDS, id => RIFFS[id].title), notes('root', 'Тональность')],
   progression: [
     notes('root', 'Тональность'), option('progression', 'Последовательность', PROGRESSION_IDS, id => PROGRESSION_NAMES[id]), option('pattern', 'Рисунок', PROGRESSION_PATTERNS, id => PATTERN_NAMES[id]),
     option('position', 'Позиция', PROGRESSION_POSITIONS, id => POSITION_NAMES[id]),

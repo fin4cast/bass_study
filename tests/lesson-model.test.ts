@@ -148,12 +148,12 @@ describe('библиотека', () => {
   /** Встроенные шаблоны библиотеки — все, кроме «только своих» (фрагмент песни). */
   const BUILTIN = EXERCISE_TEMPLATES.filter(template => !template.userOnly).length;
   const state = { plan: continuePlan(), records, userExercises: [] as UserExercise[], playFrom: null };
-  it('все встроенные шаблоны в 9 категориях; рекомендуемое — первым', () => {
+  it('все встроенные шаблоны по категориям; рекомендуемое — первым', () => {
     const model = libraryModel(state, DEFAULT_LIBRARY);
     expect(model.cards).toHaveLength(BUILTIN);
     expect(model.categories[0]).toMatchObject({ id: 'all', count: BUILTIN });
     expect(model.categories.slice(1).reduce((sum, category) => sum + category.count, 0)).toBe(BUILTIN);
-    expect(model.categories).toHaveLength(10);
+    expect(model.categories).toHaveLength(new Set(EXERCISE_TEMPLATES.filter(template => !template.userOnly).map(template => template.category)).size + 1);
     expect(model.cards[0]).toMatchObject({ id: 'tpl:pentatonic-relative', featured: true });
     expect(model.cards.find(card => card.id === 'tpl:connect-forms')).toMatchObject({ inPlan: true, played: true, minutes: 5 });
     expect(model.cards.find(card => card.id === 'tpl:chromatic-position')).toMatchObject({ inPlan: false, playedToday: true, bestBpm: 84 });
