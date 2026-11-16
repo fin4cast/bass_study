@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildExercise, createExerciseSpec, type ExerciseSpec } from '../src/exercises';
 import { DEFAULT_PRACTICE, GROOVE_IDS, rhythmPatternsFor, type PracticeOptions } from '../src/exercises/rhythm';
-import { checkId, validateCheckSpec, type CheckSpec } from '../src/practice/check';
+import { checkId, degreeCheck, validateCheckSpec, type CheckSpec } from '../src/practice/check';
 import { getConcept } from '../src/practice/concepts';
 import { materialId } from '../src/practice/material';
 import { PROGRAM } from '../src/practice/program-data';
@@ -407,11 +407,11 @@ describe('факты из записей «Проверь себя»', () => {
   it('проверка по материалу превращается в факт с тем же checkId, что у шага программы', () => {
     const exercise = createExerciseSpec('root-five-eight', { root: 'C', string: 'A' });
     const answers = [
-      { degree: '1', outcome: 'correct' as const, errors: 0 }, { degree: '5', outcome: 'corrected' as const, errors: 1 },
-      { degree: '1', outcome: 'revealed' as const, errors: 0 }, { degree: '5', outcome: 'correct' as const, errors: 0 },
-      { degree: '1', outcome: 'correct' as const, errors: 0 }, { degree: '5', outcome: 'correct' as const, errors: 0 },
+      { target: '1', outcome: 'correct' as const, errors: 0 }, { target: '5', outcome: 'corrected' as const, errors: 1 },
+      { target: '1', outcome: 'revealed' as const, errors: 0 }, { target: '5', outcome: 'correct' as const, errors: 0 },
+      { target: '1', outcome: 'correct' as const, errors: 0 }, { target: '5', outcome: 'correct' as const, errors: 0 },
     ];
-    const record = { kind: 'check' as const, id: 'c1', exerciseKey: 'builtin:x', title: 'Октава', spec: exercise, checkKind: 'find-degree' as const, ear: false, activeMs: 1, localDate: TODAY, occurredAt: `${TODAY}T10:00:00.000Z`, answers };
+    const record = { kind: 'check' as const, id: 'c1', exerciseKey: 'builtin:x', title: 'Октава', check: degreeCheck(exercise, 'find-degree', 6), activeMs: 1, localDate: TODAY, occurredAt: `${TODAY}T10:00:00.000Z`, answers };
     const [fact] = checkFacts([record]);
     const step = stepRefs(PROGRAM).map(ref => ref.step).find(item => item.kind === 'check');
     expect(step?.kind === 'check' && fact.checkId === checkId(step.check)).toBe(true);

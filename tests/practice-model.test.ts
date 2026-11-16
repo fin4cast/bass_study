@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createExerciseSpec, EXERCISE_TEMPLATES } from '../src/exercises';
+import { degreeCheck } from '../src/practice/check';
 import {
   addStep, completeStep, createPlan, currentStep, doneMinutes, moveStep, plannedMinutes, removeStep, selectStep, validatePlan,
 } from '../src/practice/plan';
@@ -80,14 +81,14 @@ describe('библиотека', () => {
 
 const play = (date: string, assessment: 'clean' | 'errors' | 'slow', bpm: number, key = 'builtin:connect-forms', spec = connect): PracticeRecord =>
   ({ kind: 'play', id: `play-${date}-${key}-${bpm}`, exerciseKey: key, title: key === 'builtin:connect-forms' ? 'Связка соседних форм' : 'Хроматика 1-2-3-4 в позиции', spec, assessment, bpm, activeMs: 300000, localDate: date, occurredAt: `${date}T18:00:00.000Z`, view: 'both', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null } });
-const check = (date: string, answers: { degree: string; outcome: 'correct' | 'corrected' | 'revealed' | 'skipped' | 'unanswered'; errors: number }[]): PracticeRecord =>
-  ({ kind: 'check', id: `check-${date}`, exerciseKey: 'builtin:pentatonic-form', title: 'Ступени формы B', spec: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), checkKind: 'name-degree', ear: false, activeMs: 120000, localDate: date, occurredAt: `${date}T18:10:00.000Z`, answers });
+const check = (date: string, answers: { target: string; outcome: 'correct' | 'corrected' | 'revealed' | 'skipped' | 'unanswered'; errors: number }[]): PracticeRecord =>
+  ({ kind: 'check', id: `check-${date}`, exerciseKey: 'builtin:pentatonic-form', title: 'Ступени формы B', check: degreeCheck(createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), 'name-degree', 6), activeMs: 120000, localDate: date, occurredAt: `${date}T18:10:00.000Z`, answers });
 
 const history: PracticeRecord[] = [
   play('2026-11-01', 'clean', 60), play('2026-11-04', 'errors', 72), play('2026-11-06', 'clean', 72), play('2026-11-10', 'errors', 76), play('2026-11-11', 'clean', 76),
   play('2026-11-03', 'clean', 84, 'builtin:chromatic-position', chromatic), play('2026-11-08', 'slow', 88, 'builtin:chromatic-position', chromatic),
-  check('2026-10-28', [{ degree: 'b7', outcome: 'corrected', errors: 1 }, { degree: '1', outcome: 'correct', errors: 0 }]),
-  check('2026-11-06', [{ degree: 'b7', outcome: 'revealed', errors: 0 }, { degree: '5', outcome: 'correct', errors: 0 }, { degree: '4', outcome: 'skipped', errors: 0 }]),
+  check('2026-10-28', [{ target: 'b7', outcome: 'corrected', errors: 1 }, { target: '1', outcome: 'correct', errors: 0 }]),
+  check('2026-11-06', [{ target: 'b7', outcome: 'revealed', errors: 0 }, { target: '5', outcome: 'correct', errors: 0 }, { target: '4', outcome: 'skipped', errors: 0 }]),
 ];
 
 describe('прогресс', () => {
@@ -104,7 +105,7 @@ describe('прогресс', () => {
     expect(difficulties(history)).toEqual([
       { kind: 'errors', exerciseKey: 'builtin:connect-forms', title: 'Связка соседних форм', count: 2, dates: ['2026-11-04', '2026-11-10'] },
       { kind: 'slow', exerciseKey: 'builtin:chromatic-position', title: 'Хроматика 1-2-3-4 в позиции', bpm: 88, bestCleanBpm: 84, dates: ['2026-11-08'] },
-      { kind: 'degree', exerciseKey: 'builtin:pentatonic-form', title: 'Ступени формы B', degree: 'b7', count: 2, dates: ['2026-10-28', '2026-11-06'] },
+      { kind: 'target', exerciseKey: 'builtin:pentatonic-form', title: 'Ступени формы B', target: 'b7', check: degreeCheck(createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), 'name-degree', 6), count: 2, dates: ['2026-10-28', '2026-11-06'] },
     ]);
   });
   it('«Не успевал» на темпе не выше лучшего «Чисто» не считается трудным местом', () => {

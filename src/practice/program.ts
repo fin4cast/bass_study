@@ -140,15 +140,15 @@ export function playFacts(records: readonly PracticeRecord[]): PlayFact[] {
 }
 
 /**
- * Факты из записей «Проверь себя»: описание проверки восстанавливается из материала, вида вопроса и слуха записи
- * (проверка по материалу упражнения), число вопросов — по числу ответов; верные с первой попытки — без ошибок и показа.
+ * Факты из записей «Проверь себя»: тождество проверки — из описания записи, число вопросов — по числу ответов;
+ * верные с первой попытки — без ошибок и показа.
  */
 export function checkFacts(records: readonly PracticeRecord[]): CheckFact[] {
   const facts: CheckFact[] = [];
   for (const record of records) {
     if (record.kind !== 'check') continue;
     try {
-      const id = checkId(degreeCheck(record.spec, record.checkKind as 'find-degree' | 'name-degree', record.answers.length, record.ear));
+      const id = checkId({ ...record.check, count: record.answers.length });
       facts.push({ checkId: id, firstTry: record.answers.filter(answer => answer.outcome === 'correct' && answer.errors === 0).length, count: record.answers.length, localDate: record.localDate });
     } catch { /* запись с описанием, которое не строится, шагу не засчитывается */ }
   }

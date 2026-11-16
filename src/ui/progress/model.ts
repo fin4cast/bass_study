@@ -106,12 +106,14 @@ export function checkTally(record: CheckRecord): CheckTally {
 }
 /** «самостоятельно 3 · с исправлением 2 · показано 1» — только ненулевые исходы. */
 export const tallyText = (tally: CheckTally) => OUTCOME_ORDER.filter(group => tally[group]).map(group => `${OUTCOME_LABELS[group]} ${tally[group]}`).join(' · ');
+/** Подпись цели ответа: ступень — со знаками «♭» и «♯», нота, аккорд и римская цифра — как записаны. */
+export const targetLabel = (check: CheckRecord['check'], target: string) => (check.subject.type === 'degrees' ? degreeLabel(target) : target);
 /**
- * Ступени, где были ошибки, показ или пропуск. Вопросы «без ответа» (досрочное завершение, прерванный сигнал слуха)
+ * Цели, где были ошибки, показ или пропуск. Вопросы «без ответа» (досрочное завершение, прерванный сигнал слуха)
  * не входят: их цель не была открыта и в «Прогрессе» не раскрывается (R-016), как и в `difficulties`.
  */
-export const missedDegrees = (record: CheckRecord) =>
-  [...new Set(record.answers.filter(answer => answer.errors > 0 || answer.outcome === 'corrected' || answer.outcome === 'revealed' || answer.outcome === 'skipped').map(answer => degreeLabel(answer.degree)))];
+export const missedTargets = (record: CheckRecord) =>
+  [...new Set(record.answers.filter(answer => answer.errors > 0 || answer.outcome === 'corrected' || answer.outcome === 'revealed' || answer.outcome === 'skipped').map(answer => targetLabel(record.check, answer.target)))];
 
 /* ---------- Строки упражнений (A) ---------- */
 
@@ -157,7 +159,7 @@ export function progressRows(records: readonly PracticeRecord[], source: SourceF
     const groups = new Map<string, CheckRecord[]>();
     for (const record of checks) groups.set(record.exerciseKey, [...(groups.get(record.exerciseKey) ?? []), record]);
     for (const [key, group] of groups) {
-      const passes = group.map(record => Object.freeze({ id: record.id, localDate: record.localDate, occurredAt: record.occurredAt, tally: checkTally(record), missed: Object.freeze(missedDegrees(record)), activeMs: record.activeMs }));
+      const passes = group.map(record => Object.freeze({ id: record.id, localDate: record.localDate, occurredAt: record.occurredAt, tally: checkTally(record), missed: Object.freeze(missedTargets(record)), activeMs: record.activeMs }));
       const best = passes.reduce((top, pass) => (pass.tally.self >= top.tally.self ? pass : top), passes[0]).tally;
       rows.push(Object.freeze({ kind: 'check', key, title: group.at(-1)!.title, passes: Object.freeze(passes), best, last: passes.at(-1)! }));
     }
@@ -203,7 +205,9 @@ export interface DifficultyView {
   readonly difficulty: Difficulty;
 }
 export const difficultyId = (difficulty: Difficulty) =>
-  difficulty.kind === 'degree' ? `degree|${difficulty.exerciseKey}|${difficulty.degree}` : `${difficulty.kind}|${difficulty.exerciseKey}`;
+  difficulty.kind === 'target' ? `target|${difficulty.exerciseKey}|${difficulty.target}` : `${difficulty.kind}|${difficulty.exerciseKey}`;
+
+const TARGET_WORDS = { degrees: 'Ступень', notes: 'Нота', 'chord-root': 'Аккорд', 'roman-root': 'Аккорд' } as const;
 
 export function describeDifficulty(difficulty: Difficulty): DifficultyView {
   const id = difficultyId(difficulty);
@@ -216,7 +220,7 @@ export function describeDifficulty(difficulty: Difficulty): DifficultyView {
     detail: `«Не успевал» · ${joinDates(difficulty.dates)} · ${difficulty.bestCleanBpm === null ? '«Чисто» ещё не было' : `чисто — ${difficulty.bestCleanBpm}`}`,
   });
   return Object.freeze({
-    id, difficulty, source: 'check', title: `Ступень ${degreeLabel(difficulty.degree)} в «${difficulty.title}»`,
+    id, difficulty, source: 'check', title: `${TARGET_WORDS[difficulty.check.subject.type]} ${targetLabel(difficulty.check, difficulty.target)} в «${difficulty.title}»`,
     detail: `${countWord(difficulty.count, 'ошибка', 'ошибки', 'ошибок')} или подсказки в ответах · ${joinDates(difficulty.dates)}`,
   });
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import backupJson from './fixtures/backup.json?raw';
 import { createExerciseSpec } from '../src/exercises';
 import { createPlan } from '../src/practice/plan';
-import { degreeCheck } from '../src/practice/check';
+import { checkId, degreeCheck, validateCheckSpec, type CheckSpec } from '../src/practice/check';
 import { REFERENCE_CONCEPTS } from '../src/practice/concepts';
 import { materialId } from '../src/practice/material';
 import { annotatePositions, createStructure, getPosition, parseNote } from '../src/music';
@@ -23,12 +23,16 @@ const material = (patch: Partial<ExercisePracticeMaterial> = {}): ExercisePracti
 const pass = (id = 'exercise-pass', assessment: 'clean' | 'errors' | 'slow' = 'clean', bpm = 84) =>
   makeManualHistory(createManualPracticeResult({ context: null, comfortableBpm: bpm, durationMs: 120000, note: '', assessment, material: material() }), { ...metadata, id });
 const checkResult = () => ({
-  exerciseKey: `builtin:${materialId(pentaB)}`, title: 'Форма пентатоники вверх-вниз', activeMs: 90000,
-  spec: degreeCheck(pentaB, 'name-degree', 4),
-  answers: [{ degree: 'b3', outcome: 'correct' as const, errors: 0 }, { degree: 'b7', outcome: 'corrected' as const, errors: 1 },
-    { degree: '4', outcome: 'revealed' as const, errors: 2 }, { degree: '1', outcome: 'unanswered' as const, errors: 0 }],
+  exerciseKey: `check:${checkId(degreeCheck(pentaB, 'name-degree', 4))}`, title: 'Форма пентатоники вверх-вниз', activeMs: 90000,
+  check: degreeCheck(pentaB, 'name-degree', 4),
+  answers: [{ target: 'b3', outcome: 'correct' as const, errors: 0 }, { target: 'b7', outcome: 'corrected' as const, errors: 1 },
+    { target: '4', outcome: 'revealed' as const, errors: 2 }, { target: '1', outcome: 'unanswered' as const, errors: 0 }],
 });
 const check = (id = 'check-entry') => makeCheckHistory(checkResult(), { ...metadata, id })!;
+/** Проверка по диапазону струн E и A, лады 0–5 (шаг `f1-ea5`). */
+const degreeCheckRange = (kind: 'name-note' | 'find-note', subject: CheckSpec['subject']): CheckSpec =>
+  validateCheckSpec({ version: 'check-v2', kind, area: { type: 'range', strings: ['E', 'A'], fretMin: 0, fretMax: 5 }, subject, count: 6, ear: false });
+
 function invalid(operation: () => unknown) {
   let failure: unknown;
   try { operation(); } catch (error) { failure = error; }
@@ -192,22 +196,39 @@ describe('«Проверь себя» в истории', () => {
   });
 
   it('пентатоника и трезвучия: ступени — только из структуры упражнения', () => {
-    const minorTriad = { ...checkResult(), exerciseKey: 'user:arpeggio', spec: degreeCheck(createExerciseSpec('arpeggio-1358', { structureId: 'minor-triad' }), 'name-degree', 4),
-      answers: [{ degree: 'b3', outcome: 'correct' as const, errors: 0 }, { degree: '5', outcome: 'skipped' as const, errors: 0 }] };
+    const minorTriad = { ...checkResult(), exerciseKey: `check:${checkId(degreeCheck(createExerciseSpec('arpeggio-1358', { structureId: 'minor-triad' }), 'name-degree', 4))}`, check: degreeCheck(createExerciseSpec('arpeggio-1358', { structureId: 'minor-triad' }), 'name-degree', 4),
+      answers: [{ target: 'b3', outcome: 'correct' as const, errors: 0 }, { target: '5', outcome: 'skipped' as const, errors: 0 }] };
     expect(makeCheckHistory(minorTriad, { ...metadata, id: 'triad' })!.result.answers).toHaveLength(2);
-    invalid(() => makeCheckHistory({ ...minorTriad, answers: [{ degree: '4', outcome: 'correct', errors: 0 }] }, { ...metadata, id: 'triad' }));
+    invalid(() => makeCheckHistory({ ...minorTriad, answers: [{ target: '4', outcome: 'correct', errors: 0 }] }, { ...metadata, id: 'triad' }));
+  });
+
+  const rangeCheck = (kind: 'name-note' | 'find-note', subject: CheckSpec['subject']) => degreeCheckRange(kind, subject);
+  it('проверка по диапазону: ключ — check:<checkId>, цели — ноты, аккорды и римские цифры, а не ступени', () => {
+    const cases: [CheckSpec, string[]][] = [
+      [rangeCheck('name-note', { type: 'notes', notes: 'natural' }), ['E', 'A', 'C♯']],
+      [rangeCheck('find-note', { type: 'chord-root', notes: 'natural' }), ['Am', 'G7', 'F']],
+      [rangeCheck('find-note', { type: 'roman-root', key: 'C' }), ['I', 'vii°', 'vi']],
+    ];
+    for (const [spec, targets] of cases) {
+      const entry = makeCheckHistory({ exerciseKey: `check:${checkId(spec)}`, title: 'Проверь себя: диапазон', check: spec, activeMs: 5000,
+        answers: targets.map(target => ({ target, outcome: 'correct' as const, errors: 0 })) }, { ...metadata, id: 'range-check' })!;
+      expect(validateHistoryEntry(clone(entry))).toEqual(entry);
+      expect(entry.result.kind === 'check' && entry.result.exerciseKey).toBe(`check:${checkId(spec)}`);
+    }
+    // Ключ обязан совпадать с описанием: чужой ключ не принимается.
+    invalid(() => makeCheckHistory({ exerciseKey: 'check:name-note.EA-0-12.notes-natural', title: 'x', check: cases[0][0], activeMs: 1, answers: [{ target: 'E', outcome: 'correct', errors: 0 }] }, { ...metadata, id: 'bad-key' }));
   });
 
   it.each([
-    ['ступень вне структуры', (x: any) => { x.result.answers[0].degree = '3'; }],
-    ['ступень юникодом', (x: any) => { x.result.answers[0].degree = '♭3'; }],
+    ['ступень вне структуры', (x: any) => { x.result.answers[0].target = '3'; }],
+    ['ступень юникодом', (x: any) => { x.result.answers[0].target = '♭3'; }],
     ['исход', (x: any) => { x.result.answers[0].outcome = 'interrupted'; }],
     ['«верно» с ошибками', (x: any) => { x.result.answers[0].errors = 1; }],
     ['«исправлено» без ошибок', (x: any) => { x.result.answers[1].errors = 0; }],
     ['21 ошибка', (x: any) => { x.result.answers[2].errors = 21; }],
     ['дробные ошибки', (x: any) => { x.result.answers[2].errors = 1.5; }],
     ['нет ответов', (x: any) => { x.result.answers = []; }],
-    ['21 ответ', (x: any) => { x.result.answers = Array.from({ length: 21 }, () => ({ degree: '1', outcome: 'correct', errors: 0 })); }],
+    ['21 ответ', (x: any) => { x.result.answers = Array.from({ length: 21 }, () => ({ target: '1', outcome: 'correct', errors: 0 })); }],
     ['лишнее поле ответа', (x: any) => { x.result.answers[0].positionId = 'E:5'; }],
     ['активное время больше 6 ч', (x: any) => { x.result.activeMs = MAX_CHECK_ACTIVE_MS + 1; }],
     ['дробное активное время', (x: any) => { x.result.activeMs = 10.5; }],
@@ -216,12 +237,15 @@ describe('«Проверь себя» в истории', () => {
     ['ключ', (x: any) => { x.result.exerciseKey = 'pentatonic-form'; }],
     ['чужой шаблон встроенного ключа', (x: any) => { x.result.exerciseKey = 'builtin:octaves'; }],
     ['пустое название', (x: any) => { x.result.title = ''; }],
-    ['версия проверки', (x: any) => { x.result.spec.version = 'check-v1'; }],
-    ['проверка по диапазону — P18-12', (x: any) => { x.result.spec.area = { type: 'range', strings: ['E', 'A'], fretMin: 0, fretMax: 5 }; x.result.spec.subject = { type: 'notes', notes: 'natural' }; x.result.spec.kind = 'name-note'; }],
-    ['проверка с ограничением целей', (x: any) => { x.result.spec.subject.targets = ['b3']; }],
-    ['число вопросов', (x: any) => { x.result.spec.count = 2; }],
-    ['хроматика без одной структуры', (x: any) => { x.result.spec.area.exercise = clone(createExerciseSpec('chromatic-position')); x.result.exerciseKey = 'user:chromatic'; }],
-    ['транспонирование без одной структуры', (x: any) => { x.result.spec.area.exercise = clone(createExerciseSpec('form-transpose')); x.result.exerciseKey = 'user:transpose'; }],
+    ['версия проверки', (x: any) => { x.result.check.version = 'check-v1'; }],
+    ['проверка по диапазону без смены ключа', (x: any) => { x.result.check.area = { type: 'range', strings: ['E', 'A'], fretMin: 0, fretMax: 5 }; x.result.check.subject = { type: 'notes', notes: 'natural' }; x.result.check.kind = 'name-note'; }],
+    ['ступень вместо ноты у проверки нот', (x: any) => { x.result.check = clone(rangeCheck('name-note', { type: 'notes', notes: 'natural' })); x.result.exerciseKey = `check:${checkId(x.result.check)}`; x.result.answers[0].target = 'b3'; }],
+    ['обозначение аккорда не из вида', (x: any) => { x.result.check = clone(rangeCheck('find-note', { type: 'chord-root', notes: 'natural' })); x.result.exerciseKey = `check:${checkId(x.result.check)}`; x.result.answers[0].target = 'Hm'; }],
+    ['римская цифра не из мажора', (x: any) => { x.result.check = clone(rangeCheck('find-note', { type: 'roman-root', key: 'C' })); x.result.exerciseKey = `check:${checkId(x.result.check)}`; x.result.answers[0].target = 'VIII'; }],
+    ['проверка с ограничением целей', (x: any) => { x.result.check.subject.targets = ['b3']; }],
+    ['число вопросов', (x: any) => { x.result.check.count = 2; }],
+    ['хроматика без одной структуры', (x: any) => { x.result.check.area.exercise = clone(createExerciseSpec('chromatic-position')); x.result.exerciseKey = 'user:chromatic'; }],
+    ['транспонирование без одной структуры', (x: any) => { x.result.check.area.exercise = clone(createExerciseSpec('form-transpose')); x.result.exerciseKey = 'user:transpose'; }],
     ['маршрут', (x: any) => { x.routeRef = { routeId: 'route-1', step: 'ear' }; }],
     ['лишнее поле', (x: any) => { x.result.seed = 1; }],
   ])('отклоняет: %s', (_name, change) => {
@@ -276,7 +300,7 @@ describe('упражнения и история в снимке и времен
     await store.saveExercise(exercise('b-second') as never); await store.saveExercise(exercise('a-first') as never);
     await store.addHistory(pass()); await store.addHistory(check());
     await expect(store.saveExercise({ ...exercise('bad'), extra: true } as never)).rejects.toMatchObject({ code: 'INVALID_DATA' });
-    await expect(store.addHistory({ ...check('bad-check'), result: { ...check().result, answers: [{ degree: '2', outcome: 'correct', errors: 0 }] } } as CheckHistoryEntry)).rejects.toMatchObject({ code: 'INVALID_DATA' });
+    await expect(store.addHistory({ ...check('bad-check'), result: { ...check().result, answers: [{ target: '2', outcome: 'correct', errors: 0 }] } } as CheckHistoryEntry)).rejects.toMatchObject({ code: 'INVALID_DATA' });
     const snapshot = await store.readSnapshot();
     expect(snapshot.exercises.map(item => item.id)).toEqual(['a-first', 'b-second']);
     expect(snapshot.history.map(item => item.result.kind)).toEqual(['check', 'manual']);

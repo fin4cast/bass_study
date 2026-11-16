@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import backupJson from './fixtures/backup.json?raw';
 import { createExerciseSpec } from '../src/exercises';
-import { degreeCheck } from '../src/practice/check';
+import { checkId, degreeCheck } from '../src/practice/check';
 import { practiceRecords } from '../src/practice/history';
 import { exerciseProgress, checkProgress, minutesByDay, difficulties } from '../src/practice/results';
 import { createManualPracticeResult } from '../src/training/results';
@@ -18,7 +18,7 @@ describe('записи «Прогресса» из истории', () => {
     const history = parseBackup(backupJson).history;
     const records = practiceRecords(history);
     expect(records).toEqual([
-      { kind: 'check', id: 'fixture-check-history', exerciseKey: 'builtin:pentatonic-form.A.minor-pentatonic.penta-b', title: 'Форма пентатоники вверх-вниз', spec: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), checkKind: 'name-degree', ear: false, activeMs: 95000, localDate: '2026-11-09', occurredAt: '2026-11-08T22:45:00.000Z',
+      { kind: 'check', id: 'fixture-check-history', exerciseKey: 'check:name-degree.ex-pentatonic-form.A.minor-pentatonic.penta-b.deg', title: 'Форма пентатоники вверх-вниз', check: degreeCheck(createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), 'name-degree', 6), activeMs: 95000, localDate: '2026-11-09', occurredAt: '2026-11-08T22:45:00.000Z',
         answers: history.find(entry => entry.result.kind === 'check')!.result.kind === 'check' ? (history.find(entry => entry.result.kind === 'check')!.result as { answers: unknown }).answers : [] },
       { kind: 'play', id: 'fixture-exercise-history', exerciseKey: 'user:fixture-penta', title: 'Am пентатоника, форма B', spec: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), assessment: 'clean',
         bpm: 84, activeMs: 180000, localDate: '2026-11-09', occurredAt: '2026-11-08T22:40:00.000Z', view: 'both', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null } },
@@ -35,8 +35,8 @@ describe('записи «Прогресса» из истории', () => {
       play('p1', '2026-11-08T20:30:00.000Z', 'clean', 80),
       play('p2', '2026-11-08T21:30:00.000Z', 'errors', 92),
       play('p3', '2026-11-09T09:00:00.000Z', 'errors', 92),
-      makeCheckHistory({ exerciseKey: 'user:arp', title: 'Моё арпеджио', activeMs: 120000, spec: degreeCheck(spec, 'find-degree', 3),
-        answers: [{ degree: '3', outcome: 'revealed', errors: 1 }, { degree: '5', outcome: 'correct', errors: 0 }, { degree: '1', outcome: 'correct', errors: 0 }] }, { id: 'c1', occurredAt: '2026-11-09T10:00:00.000Z', timeZone: 'Europe/Moscow' })!,
+      makeCheckHistory({ exerciseKey: `check:${checkId(degreeCheck(spec, 'find-degree', 3))}`, title: 'Моё арпеджио', activeMs: 120000, check: degreeCheck(spec, 'find-degree', 3),
+        answers: [{ target: '3', outcome: 'revealed', errors: 1 }, { target: '5', outcome: 'correct', errors: 0 }, { target: '1', outcome: 'correct', errors: 0 }] }, { id: 'c1', occurredAt: '2026-11-09T10:00:00.000Z', timeZone: 'Europe/Moscow' })!,
     ];
     const records = practiceRecords(history);
     expect(exerciseProgress(records)).toEqual([expect.objectContaining({ exerciseKey: 'user:arp', passes: 3, bestCleanBpm: 80, firstBpm: 80, last: { localDate: '2026-11-09', bpm: 92, assessment: 'errors' } })]);
@@ -45,6 +45,6 @@ describe('записи «Прогресса» из истории', () => {
     expect(records.map(record => record.localDate)).toEqual(['2026-11-08', '2026-11-09', '2026-11-09', '2026-11-09']);
     expect([...minutesByDay(records, 'play')]).toEqual([['2026-11-08', 1], ['2026-11-09', 2]]);
     expect([...minutesByDay(records, 'check')]).toEqual([['2026-11-09', 2]]);
-    expect(difficulties(records).map(item => item.kind).sort()).toEqual(['degree', 'errors']);
+    expect(difficulties(records).map(item => item.kind).sort()).toEqual(['errors', 'target']);
   });
 });

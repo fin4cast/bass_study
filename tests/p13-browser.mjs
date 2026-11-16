@@ -348,7 +348,7 @@ check('today-first-day-is-composed-by-program-with-one-start-button', 'ui', asyn
   assert.deepEqual(await planTitles(page), PROGRAM_DAY_ONE);
   assert.equal((await home(page).locator('[data-stage-line]').innerText()).trim(), 'Этап 1 · пройдено 0 · освоено 0');
   const db = await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'занятие первого дня');
-  assert.equal(db.version, 15);
+  assert.equal(db.version, 16);
   assert.deepEqual(db.preferences.lesson.plan.steps.map(step => [step.id, step.programStep, step.status]), [
     ['d1', 't1-crossing.eighths', 'current'], ['d2', 'f1-octave.quarters', 'pending'], ['d3', 'h1-roots.eighths', 'pending'],
   ]);
@@ -950,7 +950,7 @@ check('check-cards-answer-hidden-then-error-correction-reveal-skip-and-summary-s
   assert.equal(entry.result.source, 'screen-check');
   assert.deepEqual(entry.result.answers.map(answer => answer.outcome), ['correct', 'corrected', 'revealed', 'skipped', 'unanswered', 'unanswered']);
   assert.deepEqual(entry.result.answers.map(answer => answer.errors), [0, 1, 0, 0, 0, 0]);
-  assert.deepEqual(entry.result.answers.slice(0, 4).map(answer => normalizeDegree(answer.degree)), questions.map(item => item.expected), 'Сохранённые ступени совпадают с независимым расчётом');
+  assert.deepEqual(entry.result.answers.slice(0, 4).map(answer => normalizeDegree(answer.target)), questions.map(item => item.expected), 'Сохранённые ступени совпадают с независимым расчётом');
   return { questions: questions.map(({ root, position, expected, outcome, phrase }) => ({ root, position, expected, outcome, phrase })), tiles, statuses, history: { id: entry.id, title: entry.result.title, answers: entry.result.answers } };
 });
 
@@ -986,8 +986,8 @@ check('check-board-answer-positions-hidden-then-correction-and-reveal-match-inde
   await host.locator('[data-ck-summary]').waitFor();
   const db = await waitDb(page, db => db.history.some(entry => entry.result?.kind === 'check'), 'итог «Проверь себя» в истории');
   const entry = db.history.find(item => item.result?.kind === 'check');
-  assert.deepEqual(entry.result.answers.slice(0, 2).map(answer => [normalizeDegree(answer.degree), answer.outcome]), [[first.target, 'corrected'], [question.target, 'revealed']]);
-  assert.equal(entry.result.spec.kind, 'find-degree');
+  assert.deepEqual(entry.result.answers.slice(0, 2).map(answer => [normalizeDegree(answer.target), answer.outcome]), [[first.target, 'corrected'], [question.target, 'revealed']]);
+  assert.equal(entry.result.check.kind, 'find-degree');
   return { first: { root: first.root, target: first.target, answers: first.answers, wrong: first.wrong[0], phrase: first.phrase }, second: { target: question.target, answers: question.answers, shown }, answers: entry.result.answers };
 });
 

@@ -1,6 +1,6 @@
 {
   "format": "bass-study-backup",
-  "schemaVersion": 15,
+  "schemaVersion": 16,
   "preferences": {
     "activeModule": "harmony",
     "lesson": {
@@ -318,9 +318,9 @@
       "result": {
         "kind": "check",
         "source": "screen-check",
-        "exerciseKey": "builtin:pentatonic-form.A.minor-pentatonic.penta-b",
+        "exerciseKey": "check:name-degree.ex-pentatonic-form.A.minor-pentatonic.penta-b.deg",
         "title": "Форма пентатоники вверх-вниз",
-        "spec": {
+        "check": {
           "version": "check-v2",
           "kind": "name-degree",
           "area": {
@@ -346,32 +346,32 @@
         "activeMs": 95000,
         "answers": [
           {
-            "degree": "b3",
+            "target": "b3",
             "outcome": "correct",
             "errors": 0
           },
           {
-            "degree": "b7",
+            "target": "b7",
             "outcome": "corrected",
             "errors": 2
           },
           {
-            "degree": "4",
+            "target": "4",
             "outcome": "revealed",
             "errors": 1
           },
           {
-            "degree": "1",
+            "target": "1",
             "outcome": "skipped",
             "errors": 0
           },
           {
-            "degree": "5",
+            "target": "5",
             "outcome": "correct",
             "errors": 0
           },
           {
-            "degree": "5",
+            "target": "5",
             "outcome": "unanswered",
             "errors": 0
           }

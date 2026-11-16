@@ -48,8 +48,7 @@ export function practiceRecords(history: readonly HistoryEntry[]): readonly Prac
       records.push(Object.freeze(manual));
     } else if (result.kind === 'check') {
       const check: CheckRecord = {
-        kind: 'check', id: entry.id, exerciseKey: result.exerciseKey, title: result.title, spec: checkExercise(result.spec)!,
-        checkKind: result.spec.kind, ear: result.spec.ear, activeMs: result.activeMs,
+        kind: 'check', id: entry.id, exerciseKey: result.exerciseKey, title: result.title, check: result.check, activeMs: result.activeMs,
         localDate: entry.localDate, occurredAt: entry.occurredAt, answers: result.answers,
       };
       records.push(Object.freeze(check));

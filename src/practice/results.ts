@@ -6,7 +6,7 @@
 import type { PracticeOptions } from '../exercises/rhythm';
 import type { ExerciseSpec } from '../exercises';
 import type { ExerciseView } from '../training/results';
-import type { CheckKind } from './plan';
+import type { CheckSpec } from './check';
 
 export type Assessment = 'clean' | 'errors' | 'slow';
 export const ASSESSMENT_LABELS: Readonly<Record<Assessment, string>> = Object.freeze({ clean: 'Чисто', errors: 'С ошибками', slow: 'Не успевал' });
@@ -37,15 +37,13 @@ export interface CheckRecord {
   readonly id: string;
   readonly exerciseKey: string;
   readonly title: string;
-  /** Материал проверки и её вид: освоение шага-проверки считается по виду и материалу. */
-  readonly spec: ExerciseSpec;
-  readonly checkKind: CheckKind;
-  readonly ear: boolean;
+  /** Описание проверки: освоение шага-проверки считается по её тождеству `checkId`. */
+  readonly check: CheckSpec;
   readonly activeMs: number;
   readonly localDate: string;
   readonly occurredAt: string;
-  /** Ступень вопроса (например, «b7») и исход; ошибки — число неверных ответов до верного. */
-  readonly answers: readonly { readonly degree: string; readonly outcome: CheckOutcome; readonly errors: number }[];
+  /** Цель вопроса (ступень «b7», нота «C♯», аккорд «Am», цифра «vii°») и исход; ошибки — число неверных ответов до верного. */
+  readonly answers: readonly { readonly target: string; readonly outcome: CheckOutcome; readonly errors: number }[];
 }
 /** Где сделана ручная отметка без упражнения: «Гриф» (изучение, последовательность) или «Ритм». */
 export type ManualArea = 'fretboard' | 'rhythm';
@@ -89,7 +87,7 @@ export interface CheckProgress {
 export type Difficulty =
   | { readonly kind: 'errors'; readonly exerciseKey: string; readonly title: string; readonly count: number; readonly dates: readonly string[] }
   | { readonly kind: 'slow'; readonly exerciseKey: string; readonly title: string; readonly bpm: number; readonly bestCleanBpm: number | null; readonly dates: readonly string[] }
-  | { readonly kind: 'degree'; readonly exerciseKey: string; readonly title: string; readonly degree: string; readonly count: number; readonly dates: readonly string[] };
+  | { readonly kind: 'target'; readonly exerciseKey: string; readonly title: string; readonly target: string; readonly check: CheckSpec; readonly count: number; readonly dates: readonly string[] };
 
 const chronological = <T extends { occurredAt: string }>(records: readonly T[]) => [...records].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
 const unique = (values: readonly string[]) => [...new Set(values)];
@@ -127,7 +125,7 @@ export function checkProgress(records: readonly PracticeRecord[]): readonly Chec
  * Трудные места (VIS-08):
  * - упражнение с двумя и более отметками «С ошибками»;
  * - «Не успевал» на темпе выше лучшего «Чисто» (или без «Чисто» вообще);
- * - ступень, на которой в «Проверь себя» было две и более ошибки, показа или пропуска.
+ * - цель вопроса («Проверь себя»: ступень, нота, аккорд), на которой было две и более ошибки, показа или пропуска.
  */
 export function difficulties(records: readonly PracticeRecord[]): readonly Difficulty[] {
   const result: Difficulty[] = [];
@@ -142,17 +140,17 @@ export function difficulties(records: readonly PracticeRecord[]): readonly Diffi
     const slow = group.filter(record => record.assessment === 'slow' && (best === null || record.bpm > best));
     if (slow.length) result.push({ kind: 'slow', exerciseKey: key, title: group[0].title, bpm: Math.min(...slow.map(record => record.bpm)), bestCleanBpm: best, dates: unique(slow.map(record => record.localDate)) });
   }
-  const misses = new Map<string, { exerciseKey: string; title: string; degree: string; count: number; dates: string[] }>();
+  const misses = new Map<string, { exerciseKey: string; title: string; target: string; check: CheckSpec; count: number; dates: string[] }>();
   for (const record of chronological(records.filter((item): item is CheckRecord => item.kind === 'check'))) {
     for (const answer of record.answers) {
       const missed = answer.errors + (answer.outcome === 'revealed' || answer.outcome === 'skipped' ? 1 : 0);
       if (!missed) continue;
-      const id = `${record.exerciseKey}|${answer.degree}`;
-      const entry = misses.get(id) ?? { exerciseKey: record.exerciseKey, title: record.title, degree: answer.degree, count: 0, dates: [] };
+      const id = `${record.exerciseKey}|${answer.target}`;
+      const entry = misses.get(id) ?? { exerciseKey: record.exerciseKey, title: record.title, target: answer.target, check: record.check, count: 0, dates: [] };
       entry.count += missed; entry.dates.push(record.localDate); misses.set(id, entry);
     }
   }
-  for (const entry of misses.values()) if (entry.count >= 2) result.push({ kind: 'degree', ...entry, dates: unique(entry.dates) });
+  for (const entry of misses.values()) if (entry.count >= 2) result.push({ kind: 'target', ...entry, dates: unique(entry.dates) });
   return Object.freeze(result.map(item => Object.freeze(item)));
 }
 

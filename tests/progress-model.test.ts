@@ -3,10 +3,11 @@ import { createExerciseSpec } from '../src/exercises';
 import type { CheckRecord, PlayRecord, PracticeRecord } from '../src/practice/results';
 import { materialId } from '../src/practice/material';
 import { PROGRAM } from '../src/practice/program-data';
+import { degreeCheck } from '../src/practice/check';
 import { evaluateProgram, type PlayFact, type ProgramFacts } from '../src/practice/program';
 import {
   addDays, calendarWeeks, checkTally, datePeriod, dayRecords, defaultDay, describeDifficulty, difficultyViews, formatActive, formatLongDate,
-  formatShortDate, intensityLevel, joinDates, missedDegrees, mondayOf, plural, programOverview, progressGroups, progressRows, tallyText, weekRangeLabel, weekSummary,
+  formatShortDate, intensityLevel, joinDates, missedTargets, mondayOf, plural, programOverview, progressGroups, progressRows, tallyText, weekRangeLabel, weekSummary,
 } from '../src/ui/progress/model';
 import { dateTicks, markerSvg, placeByDate, sparkSvg, sparkText, tempoChartSvg, tempoScale } from '../src/ui/progress/charts';
 
@@ -16,7 +17,7 @@ const play = (localDate: string, exerciseKey: string, bpm: number, assessment: P
   kind: 'play', id: `p${clock}`, exerciseKey, title, spec, assessment, bpm, activeMs: minutes * 60_000, localDate, occurredAt: `${localDate}T10:00:${String(clock++ % 60).padStart(2, '0')}.000Z`, view: 'both', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null },
 });
 const check = (localDate: string, exerciseKey: string, answers: CheckRecord['answers'], minutes = 4, title = exerciseKey): CheckRecord => ({
-  kind: 'check', id: `c${clock}`, exerciseKey, title, spec, checkKind: 'name-degree', ear: false, answers, activeMs: minutes * 60_000, localDate, occurredAt: `${localDate}T12:00:${String(clock++ % 60).padStart(2, '0')}.000Z`,
+  kind: 'check', id: `c${clock}`, exerciseKey, title, check: degreeCheck(spec, 'name-degree', 6), answers, activeMs: minutes * 60_000, localDate, occurredAt: `${localDate}T12:00:${String(clock++ % 60).padStart(2, '0')}.000Z`,
 });
 const TODAY = '2026-11-12';
 const records: PracticeRecord[] = [
@@ -26,8 +27,8 @@ const records: PracticeRecord[] = [
   play('2026-11-11', 'builtin:connect-forms', 76, 'clean', 7, 'Связка соседних форм'),
   play('2026-11-03', 'builtin:chromatic-position', 84, 'clean', 4, 'Хроматика'),
   play('2026-11-03', 'builtin:chromatic-position', 88, 'slow', 3, 'Хроматика'),
-  check('2026-10-28', 'check:penta-b', [{ degree: 'b7', outcome: 'corrected', errors: 1 }, { degree: '1', outcome: 'correct', errors: 0 }, { degree: '4', outcome: 'revealed', errors: 0 }], 4, 'Ступени формы B'),
-  check('2026-11-06', 'check:penta-b', [{ degree: 'b7', outcome: 'corrected', errors: 1 }, { degree: '1', outcome: 'correct', errors: 0 }, { degree: '5', outcome: 'skipped', errors: 0 }], 4, 'Ступени формы B'),
+  check('2026-10-28', 'check:penta-b', [{ target: 'b7', outcome: 'corrected', errors: 1 }, { target: '1', outcome: 'correct', errors: 0 }, { target: '4', outcome: 'revealed', errors: 0 }], 4, 'Ступени формы B'),
+  check('2026-11-06', 'check:penta-b', [{ target: 'b7', outcome: 'corrected', errors: 1 }, { target: '1', outcome: 'correct', errors: 0 }, { target: '5', outcome: 'skipped', errors: 0 }], 4, 'Ступени формы B'),
 ];
 
 describe('даты «Прогресса»', () => {
@@ -59,7 +60,7 @@ describe('строки упражнений', () => {
       play('2026-11-11', 'builtin:pentatonic-form.A.minor-pentatonic.penta-b', 92, 'clean'),
       play('2026-11-11', 'user:mine', 70, 'clean', 5, 'Моя форма'),
       play('2026-11-09', 'builtin:octaves.G', 60, 'errors'),
-      check('2026-11-11', 'builtin:pentatonic-form.A.minor-pentatonic.penta-a', [{ degree: '1', outcome: 'correct', errors: 0 }]),
+      check('2026-11-11', 'builtin:pentatonic-form.A.minor-pentatonic.penta-a', [{ target: '1', outcome: 'correct', errors: 0 }]),
     ], 'all');
     // Порядок групп — по самой недавней записи группы.
     const groups = progressGroups(rows);
@@ -87,9 +88,9 @@ describe('строки упражнений', () => {
     expect(row.last.tally).toMatchObject({ self: 1, fixed: 1, shown: 0, skipped: 1, total: 3 });
     expect(row.last.missed).toEqual(['♭7', '5']);
     expect(tallyText(row.last.tally)).toBe('самостоятельно 1 · с исправлением 1 · пропущено 1');
-    expect(checkTally(check(TODAY, 'x', [{ degree: '1', outcome: 'unanswered', errors: 0 }])).unanswered).toBe(1);
+    expect(checkTally(check(TODAY, 'x', [{ target: '1', outcome: 'unanswered', errors: 0 }])).unanswered).toBe(1);
     // Цель вопроса без ответа (досрочное завершение, прерванный сигнал слуха) не раскрывается как «трудная» (R-016).
-    expect(missedDegrees(check(TODAY, 'x', [{ degree: '1', outcome: 'correct', errors: 0 }, { degree: 'b7', outcome: 'unanswered', errors: 0 }]))).toEqual([]);
+    expect(missedTargets(check(TODAY, 'x', [{ target: '1', outcome: 'correct', errors: 0 }, { target: 'b7', outcome: 'unanswered', errors: 0 }]))).toEqual([]);
   });
 });
 

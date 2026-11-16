@@ -10,7 +10,7 @@ import { checkIcon, markIcon, outcomeIcon, sparkSvg, sparkText, tallyStack, temp
 import {
   MANUAL_LABELS, MARK_LABELS, OUTCOME_LABELS, OUTCOME_ORDER, SOURCE_FILTER_LABELS, SOURCE_LABELS, WEEK_HEADER,
   addDays, calendarWeeks, countWord, datePeriod, dayRecords, defaultDay, difficultyViews, formatActive, formatDraftTime, formatLongDate,
-  formatShortDate, isDateKey, localDateKey, matchesSource, mondayOf, parseTempo, progressGroups, progressRows, showsFretboardReview, tallyText, weekSummary, checkTally, missedDegrees,
+  formatShortDate, isDateKey, localDateKey, matchesSource, mondayOf, parseTempo, progressGroups, progressRows, showsFretboardReview, tallyText, weekSummary, checkTally, missedTargets,
   type ProgramStageRow, type Assessment, type CheckRow, type Difficulty, type DraftView, type FretboardReviewView, type PlayRow, type PracticeRecord, type ProgressGroup, type ProgressRow, type SourceFilter,
 } from './model';
 
@@ -510,7 +510,7 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
       const remove = deleteButton(record, record.title, record.localDate);
       if (record.kind === 'check') {
         const tally = checkTally(record);
-        const missed = missedDegrees(record);
+        const missed = missedTargets(record);
         return `<li class="pg-entry is-check"><div>${sourceTag('check')}<b>${escapeHtml(record.title)}</b><span class="pg-res">${tallyStack(tally)}${escapeHtml(tallyText(tally))}${missed.length ? ` · трудные: ${escapeHtml(missed.join(', '))}` : ''}</span></div><span>${checkChip(tally.self, tally.total)}</span><span class="pg-min">${escapeHtml(formatActive(record.activeMs))}</span>${remove}</li>`;
       }
       if (record.kind === 'manual') {

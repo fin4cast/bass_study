@@ -11,7 +11,7 @@ import { createManualPracticeResult, manualTempoBounds, EXERCISE_VIEWS, type Exe
 import { collectEarResults, createEarQuestionV1, createEarQuestionsV1, isEarQuality, replayEarResultV1,
   type EarAnswerEvent, type EarListenEvent, type EarQuality, type EarSession, type SavedEarResult } from '../ear/rules-v1';
 import { exerciseStructure, validateExerciseSpec } from '../exercises';
-import { checkExercise, validateCheckSpec, type CheckSpec } from '../practice/check';
+import { checkExercise, checkId, validateCheckSpec, type CheckSpec } from '../practice/check';
 import { validatePlan, type DayPlan } from '../practice/plan';
 import { validateUserExercise, type UserExercise } from '../practice/library';
 import { materialId } from '../practice/material';
@@ -107,12 +107,16 @@ export interface EarHistoryResult {
 }
 export interface EarHistoryEntry extends HistoryEnvelope { readonly result: EarHistoryResult }
 export interface RouteHistoryEntry extends HistoryEnvelope { readonly result: RouteResult }
-/** Ответ «Проверь себя»: ступень вопроса и исход; ошибки — неверные ответы до верного. */
-export interface CheckAnswer { readonly degree: string; readonly outcome: CheckOutcome; readonly errors: number }
-/** Итог «Проверь себя» (R-026): экранные ответы по ступеням материала упражнения, отдельно от самооценки игры. */
+/**
+ * Ответ «Проверь себя»: цель вопроса и исход; ошибки — неверные ответы до верного. Цель — ступень (`b7`), класс высоты
+ * (`C♯`), обозначение аккорда (`Am`, `G7`) или римская цифра (`vii°`) — по предмету проверки (R-028, A1 F6).
+ */
+export interface CheckAnswer { readonly target: string; readonly outcome: CheckOutcome; readonly errors: number }
+/** Итог «Проверь себя» (R-026, R-028): экранные ответы по описанию проверки `check-v2`, отдельно от самооценки игры. */
 export interface CheckHistoryResult {
   readonly kind: 'check'; readonly source: 'screen-check';
-  readonly exerciseKey: string; readonly title: string; readonly spec: CheckSpec;
+  /** `check:<checkId>`: тождество проверки (A9.6). */
+  readonly exerciseKey: string; readonly title: string; readonly check: CheckSpec;
   readonly activeMs: number; readonly answers: readonly CheckAnswer[];
 }
 export interface CheckHistoryEntry extends HistoryEnvelope { readonly result: CheckHistoryResult }
@@ -129,7 +133,7 @@ export class StudyStorageError extends Error {
 }
 export const MAX_BACKUP_BYTES = 67_108_864;
 /** Version of the IndexedDB schema and the backup format. Raising it starts every older database empty (no migrations). */
-export const STUDY_SCHEMA_VERSION = 15;
+export const STUDY_SCHEMA_VERSION = 16;
 
 const ROOT_IDS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const MODES: readonly QuizMode[] = ['name-note', 'name-degree', 'find-note', 'find-all', 'find-degree', 'find-pitch', 'find-interval'];
@@ -632,33 +636,50 @@ function manualAssessment(value: unknown, material: PracticeMaterial): ManualPra
   return oneOf(value, ASSESSMENTS, 'Самооценка прохода');
 }
 
+/** Допустимые цели ответов: классы высоты как `CHROMATIC_NAMES`, римские цифры мажора. */
+const NOTE_TARGETS: readonly string[] = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+const ROMAN_TARGETS: readonly string[] = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
+
+/** Проверка цели ответа по предмету описания: ступени принадлежат структуре материала или гамме проверки. */
+function checkTargetRule(check: CheckSpec): (target: string) => boolean {
+  const subject = check.subject;
+  if (subject.type === 'degrees') {
+    let degrees: readonly string[];
+    if (subject.scale) degrees = subject.scale.degrees;
+    else {
+      const structure = exerciseStructure(checkExercise(check)!);
+      if (!structure) invalid('В материале этого упражнения нет ступеней одной структуры — проверка ступеней недоступна.');
+      degrees = structure.notes.map(note => note.degree);
+    }
+    return target => degrees.includes(target);
+  }
+  if (subject.type === 'notes') return target => NOTE_TARGETS.includes(target);
+  if (subject.type === 'chord-root') return target => /^[A-G][♯♭]?(m|7)?$/.test(target);
+  return target => ROMAN_TARGETS.includes(target);
+}
+
 /**
- * Итог «Проверь себя». Ступени ответов принадлежат структуре материала: у упражнения без одной структуры
- * (хроматика, транспонирование и т. п.) проверки ступеней нет, и такая запись отклоняется.
+ * Итог «Проверь себя»: описание `check-v2` целиком, ключ — его тождество `check:<checkId>`, цели ответов — по предмету.
+ * Ступени принадлежат структуре материала: у упражнения без одной структуры проверки ступеней нет, и запись отклоняется.
  */
 function validateCheckHistory(value: unknown): CheckHistoryResult {
-  const raw = object(value, ['kind', 'source', 'exerciseKey', 'title', 'spec', 'activeMs', 'answers'], '«Проверь себя»');
+  const raw = object(value, ['kind', 'source', 'exerciseKey', 'title', 'check', 'activeMs', 'answers'], '«Проверь себя»');
   if (raw.source !== 'screen-check') invalid('Итог «Проверь себя» должен иметь источник screen-check.');
-  const key = exerciseKey(raw.exerciseKey, 'Ключ упражнения проверки');
-  const spec = rhythmData('Описание проверки', () => validateCheckSpec(raw.spec));
-  // Пока экран проверок умеет только ступени материала упражнения; диапазон и ноты записываются с P18-12.
-  const material = checkExercise(spec);
-  if (!material || spec.subject.type !== 'degrees' || spec.subject.targets !== null) invalid('Проверки по диапазону, нотам и целям записываются позже (P18-12).');
-  if (key.startsWith('builtin:') && key !== `builtin:${materialId(material)}`) invalid('Ключ встроенного упражнения не соответствует его материалу.');
-  const structure = exerciseStructure(material);
-  if (!structure) invalid('В материале этого упражнения нет ступеней одной структуры — проверка ступеней недоступна.');
-  const degrees = new Set(structure.notes.map(note => note.degree));
+  const check = rhythmData('Описание проверки', () => validateCheckSpec(raw.check));
+  const key = text(raw.exerciseKey, 'Ключ проверки', 200);
+  if (key !== `check:${checkId(check)}`) invalid('Ключ проверки не соответствует её описанию.');
+  const known = checkTargetRule(check);
   const answers = array(raw.answers, 20, 'Ответы проверки').map((item): CheckAnswer => {
-    const answer = object(item, ['degree', 'outcome', 'errors'], 'Ответ проверки');
-    const degree = text(answer.degree, 'Ступень ответа', 4);
-    if (!degrees.has(degree)) invalid('Ступень ответа не принадлежит структуре упражнения.');
+    const answer = object(item, ['target', 'outcome', 'errors'], 'Ответ проверки');
+    const target = text(answer.target, 'Цель ответа', 12);
+    if (!known(target)) invalid('Цель ответа не относится к предмету проверки.');
     const outcome = oneOf(answer.outcome, CHECK_OUTCOMES, 'Исход ответа');
     const errors = number(answer.errors, 0, 20, 'Ошибки ответа');
     if (outcome === 'correct' ? errors !== 0 : outcome === 'corrected' && errors === 0) invalid('Исход ответа не соответствует числу ошибок.');
-    return { degree, outcome, errors };
+    return { target, outcome, errors };
   });
   if (!answers.length) invalid('Итог «Проверь себя» должен содержать хотя бы один ответ.');
-  return immutable({ kind: 'check', source: 'screen-check', exerciseKey: key, title: exerciseTitle(raw.title), spec,
+  return immutable({ kind: 'check', source: 'screen-check', exerciseKey: key, title: exerciseTitle(raw.title), check,
     activeMs: number(raw.activeMs, 0, MAX_CHECK_ACTIVE_MS, 'Активное время проверки'), answers });
 }
 
@@ -877,7 +898,7 @@ export function makeEarHistory(session: EarSession, metadata: HistoryMetadata): 
 export function makeCheckHistory(result: Omit<CheckHistoryResult, 'kind' | 'source'>, metadata: HistoryMetadata): CheckHistoryEntry | null {
   if (!result.answers.length) return null;
   return validateHistoryEntry({ ...envelope(metadata), result: { kind: 'check', source: 'screen-check', exerciseKey: result.exerciseKey, title: result.title,
-    spec: result.spec, activeMs: result.activeMs, answers: result.answers } }) as CheckHistoryEntry;
+    check: result.check, activeMs: result.activeMs, answers: result.answers } }) as CheckHistoryEntry;
 }
 
 export function makeRouteHistory(session: RouteResult, metadata: HistoryMetadata): RouteHistoryEntry | null {

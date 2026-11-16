@@ -34,7 +34,7 @@ export interface CheckFinishSummary extends CheckSummary {
 }
 export interface CheckOptions {
   /** Итог вопросов о ступенях по шагу плана — запись «Проверь себя» в истории. */
-  readonly onFinish: (summary: CheckFinishSummary, answers: readonly { readonly degree: string; readonly outcome: CheckOutcome; readonly errors: number }[]) => void;
+  readonly onFinish: (summary: CheckFinishSummary, answers: readonly { readonly target: string; readonly outcome: CheckOutcome; readonly errors: number }[]) => void;
   /**
    * Серия прочих видов вопросов (ноты, все позиции, высота, интервал, повтор ошибок) — экранное задание R-006.
    * Вызывается после каждого закрытого ответа и в итоге с тем же объектом вопросов: одна запись на серию.

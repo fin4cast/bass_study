@@ -196,7 +196,7 @@ check('ui-check-ear-answers-locked-until-actual-cue-end-and-first-correct-is-ind
   const db = await waitCheckRecord(page);
   const answers = db.records[0].result.answers;
   assert.equal(answers.length, 6);
-  assert.deepEqual({ ...answers[0], degree: normalizeDegree(answers[0].degree) }, { degree: oracle.degree, outcome: 'correct', errors: 0 });
+  assert.deepEqual({ ...answers[0], target: normalizeDegree(answers[0].target) }, { target: oracle.degree, outcome: 'correct', errors: 0 });
   assert.ok(answers.slice(1).every(answer => answer.outcome === 'unanswered'));
   return { oracle, tiles, record: { id: db.records[0].id, title: db.records[0].result.title, answers }, databaseVersion: db.version };
 });
@@ -232,7 +232,7 @@ check('ui-check-ear-replay-error-reveal-and-skip-stay-distinct-outcomes', 'ui', 
   const answers = db.records[0].result.answers;
   assert.deepEqual(answers.map(answer => answer.outcome), ['correct', 'corrected', 'revealed', 'skipped', 'unanswered', 'unanswered']);
   assert.deepEqual(answers.map(answer => answer.errors), [0, 1, 0, 0, 0, 0], 'Повтор прослушивания не стал ошибкой');
-  assert.deepEqual(answers.slice(0, 2).map(answer => normalizeDegree(answer.degree)), [first.degree, second.degree]);
+  assert.deepEqual(answers.slice(0, 2).map(answer => normalizeDegree(answer.target)), [first.degree, second.degree]);
   return { first: first.degree, second: second.degree, tiles, answers };
 });
 
@@ -287,7 +287,7 @@ check('native-hidden-tab-cancels-check-cue-and-requires-new-complete-listen', 'n
   await checkHost(page).locator(`[data-choice="${oracle.index}"]`).click();
   await finishEarly(page);
   const db = await waitCheckRecord(page);
-  assert.deepEqual({ ...db.records[0].result.answers[0], degree: normalizeDegree(db.records[0].result.answers[0].degree) }, { degree: oracle.degree, outcome: 'correct', errors: 0 });
+  assert.deepEqual({ ...db.records[0].result.answers[0], degree: normalizeDegree(db.records[0].result.answers[0].target) }, { degree: oracle.degree, outcome: 'correct', errors: 0 });
   await other.close();
   return { oracle, actualDocumentHidden: true, newFullListenRequired: true, databaseVersion: db.version, method: 'Separate Edge/CDP noDefaults:true, real tab activation; readonly native IndexedDB; no synthetic visibility event' };
 }));

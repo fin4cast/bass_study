@@ -3,7 +3,7 @@ import { createExerciseSpec } from '../src/exercises';
 import { builtinLibrary, type UserExercise } from '../src/practice/library';
 import { materialId } from '../src/practice/material';
 import { createPlan, completeStep } from '../src/practice/plan';
-import { degreeCheck, type CheckSpec } from '../src/practice/check';
+import { checkId, degreeCheck, type CheckSpec } from '../src/practice/check';
 import { practiceRecords } from '../src/practice/history';
 import { difficulties, type PracticeRecord } from '../src/practice/results';
 import { MAX_EXERCISE_VIEWS, type ExerciseView, type PlayPreferences } from '../src/storage/model';
@@ -144,8 +144,10 @@ describe('план после самооценки и проверки', () => {
 
 describe('«Повторить» и «В план» из «Прогресса»', () => {
   it('трудная ступень добавляет проверку, остальное — упражнение; без описания — ничего', () => {
-    const degree = { kind: 'degree' as const, exerciseKey: 'builtin:pentatonic-form', title: 'Форма', degree: 'b7', count: 2, dates: [TODAY] };
-    expect(repeatContent(degree, penta)).toEqual({ kind: 'check', spec: degreeCheck(penta, 'name-degree', 6) });
+    const target = { kind: 'target' as const, exerciseKey: `check:${checkId(degreeCheck(penta, 'name-degree', 6))}`, title: 'Форма', target: 'b7', check: degreeCheck(penta, 'name-degree', 6), count: 2, dates: [TODAY] };
+    expect(repeatContent(target, penta)).toEqual({ kind: 'check', spec: degreeCheck(penta, 'name-degree', 6) });
+    // Трудная цель повторяется той же проверкой и без описания упражнения (проверка по диапазону его не имеет).
+    expect(repeatContent(target, null)).toEqual({ kind: 'check', spec: degreeCheck(penta, 'name-degree', 6) });
     expect(repeatContent('builtin:pentatonic-form', penta)).toEqual({ kind: 'exercise', spec: penta });
     expect(repeatContent({ kind: 'errors', exerciseKey: 'builtin:pentatonic-form', title: 'Форма', count: 2, dates: [TODAY] }, penta)).toEqual({ kind: 'exercise', spec: penta });
     expect(repeatContent('builtin:pentatonic-form', null)).toBeNull();
@@ -168,8 +170,8 @@ describe('«Повторить» и «В план» из «Прогресса»'
     const records = [
       playRecord(exerciseKey(arpeggio), 70, '2026-11-11T10:00:00.000Z', 'errors'),
       playRecord(exerciseKey(arpeggio), 70, '2026-11-12T10:00:00.000Z', 'errors'),
-      { kind: 'check', id: 'check-1', exerciseKey: exerciseKey(penta), title: 'Проверь себя', spec: penta, checkKind: 'name-degree', ear: false, activeMs: 1000, localDate: TODAY, occurredAt: '2026-11-12T11:00:00.000Z',
-        answers: [{ degree: 'b7', outcome: 'revealed', errors: 0 }, { degree: 'b7', outcome: 'skipped', errors: 0 }] },
+      { kind: 'check', id: 'check-1', exerciseKey: `check:${checkId(checkSpec())}`, title: 'Проверь себя', check: checkSpec(), activeMs: 1000, localDate: TODAY, occurredAt: '2026-11-12T11:00:00.000Z',
+        answers: [{ target: 'b7', outcome: 'revealed', errors: 0 }, { target: 'b7', outcome: 'skipped', errors: 0 }] },
     ] satisfies PracticeRecord[];
     const [errors, degree] = difficulties(records);
     const plan = addToPlan(createPlan(TODAY), { kind: 'exercise', spec: arpeggio });
@@ -201,11 +203,11 @@ describe('записи истории занятия', () => {
 
   it('итог «Проверь себя» без ответов не пишется; активное время ограничено', () => {
     expect(checkEntry({ spec: checkSpec(), userExercises: [], activeMs: 1000, answers: [] }, meta('check-0'))).toBeNull();
-    const entry = checkEntry({ spec: checkSpec(), userExercises: [], activeMs: 10 * 60 * 60 * 1000, answers: [{ degree: '1', outcome: 'correct', errors: 0 }] }, meta('check-1'))!;
-    expect(entry.result).toMatchObject({ kind: 'check', source: 'screen-check', exerciseKey: exerciseKey(penta), activeMs: 6 * 60 * 60 * 1000 });
+    const entry = checkEntry({ spec: checkSpec(), userExercises: [], activeMs: 10 * 60 * 60 * 1000, answers: [{ target: '1', outcome: 'correct', errors: 0 }] }, meta('check-1'))!;
+    expect(entry.result).toMatchObject({ kind: 'check', source: 'screen-check', exerciseKey: `check:${checkId(checkSpec())}`, activeMs: 6 * 60 * 60 * 1000 });
     expect(entry.result.kind === 'check' && entry.result.title).toMatch(/^Проверь себя: /);
     const records = practiceRecords([entry]);
-    expect(records).toEqual([expect.objectContaining({ kind: 'check', exerciseKey: exerciseKey(penta), checkKind: 'name-degree', ear: false })]);
+    expect(records).toEqual([expect.objectContaining({ kind: 'check', exerciseKey: `check:${checkId(checkSpec())}`, check: checkSpec() })]);
     const [row] = progressRows(records, 'check');
     expect(describeProgressRow(row, [entry])).toMatch(/6 вопросов$/);
   });

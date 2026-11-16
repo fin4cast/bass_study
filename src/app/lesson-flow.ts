@@ -8,7 +8,7 @@ import { DEFAULT_PRACTICE, type PracticeOptions } from '../exercises/rhythm';
 import { builtinLibrary, type UserExercise } from '../practice/library';
 import { builtinTemplateOf } from '../practice/material';
 import { addStep, completeStep, contentExerciseOf, createPlan, currentStep, MAX_PLAN_STEPS, type DayPlan, type NewPlanStep, type PlanStepContent } from '../practice/plan';
-import { checkExercise, type CheckSpec } from '../practice/check';
+import { checkExercise, checkId, type CheckSpec } from '../practice/check';
 import { BASE_BPM, checkFacts, evaluateProgram, playFacts, type ProgramState } from '../practice/program';
 import { PROGRAM } from '../practice/program-data';
 import { difficulties, type Assessment, type Difficulty, type PracticeRecord } from '../practice/results';
@@ -206,19 +206,14 @@ export function specForKey(key: string, sources: { readonly records: readonly Pr
     if (record.kind === 'play' && record.exerciseKey === key && (!found || record.occurredAt >= found.occurredAt)) found = { spec: record.spec, occurredAt: record.occurredAt };
   }
   if (found) return found.spec;
-  for (const entry of sources.history) {
-    const material = entry.result.kind === 'check' ? checkExercise(entry.result.spec) : null;
-    if (entry.result.kind === 'check' && material && entry.result.exerciseKey === key && (!found || entry.occurredAt >= found.occurredAt)) found = { spec: material, occurredAt: entry.occurredAt };
-  }
-  if (found) return found.spec;
   if (key.startsWith('user:')) return sources.userExercises.find(exercise => `user:${exercise.id}` === key)?.spec ?? null;
   return builtinLibrary(sources.playFrom).find(item => item.key === key)?.spec ?? null;
 }
 
-/** Что добавить в план по «Повторить» / «В план» «Прогресса»: трудная ступень — проверка, остальное — упражнение. */
+/** Что добавить в план по «Повторить» / «В план» «Прогресса»: трудная цель — та же проверка, остальное — упражнение. */
 export function repeatContent(target: Difficulty | string, spec: ExerciseSpec | null): PlanStepContent | null {
+  if (typeof target !== 'string' && target.kind === 'target') return { kind: 'check', spec: target.check };
   if (!spec) return null;
-  if (typeof target !== 'string' && target.kind === 'degree') return checkContent(spec, 'name-degree') ?? { kind: 'exercise', spec };
   return { kind: 'exercise', spec };
 }
 
@@ -235,14 +230,14 @@ export function plannedProgressIds(plan: DayPlan, records: readonly PracticeReco
   const checks = new Set<string>();
   for (const step of plan.steps) {
     if (step.status === 'done') continue;
+    if (step.content.kind === 'check') { checks.add(`check:${checkId(step.content.spec)}`); continue; }
     const material = contentExercise(step.content);
     if (!material) continue;
-    const key = exerciseKey(material, userExercises);
-    (step.content.kind === 'exercise' ? exercises : checks).add(key);
+    exercises.add(exerciseKey(material, userExercises));
   }
   const ids = new Set<string>([...exercises, ...checks]);
   for (const difficulty of difficulties(records)) {
-    if ((difficulty.kind === 'degree' ? checks : exercises).has(difficulty.exerciseKey)) ids.add(difficultyId(difficulty));
+    if ((difficulty.kind === 'target' ? checks : exercises).has(difficulty.exerciseKey)) ids.add(difficultyId(difficulty));
   }
   return ids;
 }
@@ -269,11 +264,10 @@ export function checkEntry(input: {
   readonly spec: CheckSpec; readonly userExercises: readonly UserExercise[]; readonly activeMs: number; readonly answers: readonly CheckAnswer[];
 }, metadata: HistoryMetadata): CheckHistoryEntry | null {
   const exercise = checkExercise(input.spec);
-  if (!exercise) throw new RangeError('Проверки по диапазону записываются позже (P18-12).');
   return makeCheckHistory({
-    exerciseKey: exerciseKey(exercise, input.userExercises),
-    title: `Проверь себя: ${exerciseTitle(exercise, input.userExercises)}`.slice(0, 120),
-    spec: input.spec,
+    exerciseKey: `check:${checkId(input.spec)}`,
+    title: `Проверь себя: ${exercise ? exerciseTitle(exercise, input.userExercises) : stepMaterial({ kind: 'check', spec: input.spec })}`.slice(0, 120),
+    check: input.spec,
     activeMs: Math.min(MAX_CHECK_ACTIVE_MS, Math.max(0, Math.round(Number.isFinite(input.activeMs) ? input.activeMs : 0))),
     answers: input.answers,
   }, metadata);
@@ -284,7 +278,7 @@ export function describeProgressRow(row: ProgressRow, history: readonly HistoryE
   if (row.kind === 'play') return stepMaterial({ kind: 'exercise', spec: row.spec });
   let last: { spec: CheckSpec; occurredAt: string } | null = null;
   for (const entry of history) {
-    if (entry.result.kind === 'check' && entry.result.exerciseKey === row.key && (!last || entry.occurredAt >= last.occurredAt)) last = { spec: entry.result.spec, occurredAt: entry.occurredAt };
+    if (entry.result.kind === 'check' && entry.result.exerciseKey === row.key && (!last || entry.occurredAt >= last.occurredAt)) last = { spec: entry.result.check, occurredAt: entry.occurredAt };
   }
   return last ? stepMaterial({ kind: 'check', spec: last.spec }) : '';
 }

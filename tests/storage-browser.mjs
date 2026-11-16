@@ -175,7 +175,7 @@ check('native-route-manual-drain-rolls-back-child-draft-and-parent', async ({ pa
 });
 
 check('native-indexeddb-schema-preferences-exercises-and-distinct-results', async ({ page }) => {
-  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 15); assert.deepEqual(empty.exercises, []); assert.deepEqual(empty.history, []);
+  const empty = await snapshot(page); assert.equal(empty.schemaVersion, 16); assert.deepEqual(empty.exercises, []); assert.deepEqual(empty.history, []);
   assert.deepEqual(empty.rhythmProjects, []); assert.equal(empty.activeRhythmProjectId, null);
   const state = await seed(page);
   assert.equal(state.format, 'bass-study-backup'); assert.equal(state.preferences.play.bpm, 96);
@@ -191,7 +191,7 @@ check('native-indexeddb-schema-preferences-exercises-and-distinct-results', asyn
     request.onerror = () => reject(request.error);
     request.onsuccess = () => { const db = request.result; const result = { name: db.name, version: db.version, stores: [...db.objectStoreNames] }; db.close(); resolve(result); };
   }));
-  assert.deepEqual(schema, { name: 'bass-study', version: 15, stores: ['exercises', 'history', 'practiceDrafts', 'preferences', 'profile', 'rhythmProjects'] });
+  assert.deepEqual(schema, { name: 'bass-study', version: 16, stores: ['exercises', 'history', 'practiceDrafts', 'preferences', 'profile', 'rhythmProjects'] });
   return { schema, state };
 });
 
@@ -249,13 +249,13 @@ check('native-cancel-and-validation-refusals-never-change-existing-data', async 
       ['broken-json', '{broken', 'INVALID_BACKUP'],
       ['unknown-format', JSON.stringify({ ...clone(), format: 'another-app' }), 'UNSUPPORTED_FORMAT'],
       ['previous-version', JSON.stringify({ ...clone(), schemaVersion: 10 }), 'UNSUPPORTED_VERSION'],
-      ['future-version', JSON.stringify({ ...clone(), schemaVersion: 16 }), 'UNSUPPORTED_VERSION'],
+      ['future-version', JSON.stringify({ ...clone(), schemaVersion: 17 }), 'UNSUPPORTED_VERSION'],
       ['wrong-bpm-type', (() => { const value = clone(); value.preferences.play.bpm = '96'; return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['duplicate-exercises', (() => { const value = clone(); value.exercises.push(value.exercises[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['exercise-extra-field', (() => { const value = clone(); value.exercises[0].preferences = {}; return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['legacy-presets-field', (() => { const value = clone(); value.presets = []; return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['exercise-pass-without-assessment', (() => { const value = clone(); value.history.push({ ...window.p5.exercisePass(), result: { ...window.p5.exercisePass().result, assessment: null } }); return JSON.stringify(value); })(), 'INVALID_DATA'],
-      ['check-foreign-degree', (() => { const value = clone(); const entry = structuredClone(window.p5.check()); entry.result.answers[0].degree = '3'; value.history.push(entry); return JSON.stringify(value); })(), 'INVALID_DATA'],
+      ['check-foreign-degree', (() => { const value = clone(); const entry = structuredClone(window.p5.check()); entry.result.answers[0].target = '3'; value.history.push(entry); return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['duplicate-history', (() => { const value = clone(); value.history.push(value.history[0]); return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['dishonest-screen-score', (() => { const value = clone(); value.history.find(entry => entry.result.kind === 'screen').result.questions[0].independentCorrect = true; return JSON.stringify(value); })(), 'INVALID_DATA'],
       ['corrupt-context-position', (() => { const value = clone(); value.history[0].result.context.positionIds = ['E:25']; return JSON.stringify(value); })(), 'INVALID_DATA'],
@@ -442,7 +442,7 @@ check('native-exercise-and-check-writes-abort-after-put-then-export-restore-roun
     const refusals = [];
     for (const write of [
       () => store.saveExercise({ ...exercise('extra-field'), preferences: {} }),
-      () => store.addHistory({ ...check('foreign-degree'), result: { ...check('foreign-degree').result, answers: [{ degree: '3', outcome: 'correct', errors: 0 }] } }),
+      () => store.addHistory({ ...check('foreign-degree'), result: { ...check('foreign-degree').result, answers: [{ target: '3', outcome: 'correct', errors: 0 }] } }),
       () => store.addHistory({ ...exercisePass('no-assessment'), result: { ...exercisePass('no-assessment').result, assessment: null } }),
     ]) { try { await write(); refusals.push(null); } catch (error) { refusals.push(error.code); } }
     const afterRefusals = await readRaw();
@@ -639,7 +639,7 @@ check('ui-settings-reload-and-download-export', async ({ page }) => {
   await settings.locator('[data-set="labels"][data-value="degrees"]').click();
   await go(page, 'foundation'); await page.locator('[data-label-mode="degrees"]').click();
   const exported = await exportUi(page);
-  assert.equal(exported.schemaVersion, 15); assert.deepEqual(exported.exercises, []);
+  assert.equal(exported.schemaVersion, 16); assert.deepEqual(exported.exercises, []);
   assert.deepEqual(exported.preferences.play, { ...exported.preferences.play, countInBars: 0, bpm, labels: 'degree' });
   assert.equal(exported.preferences.study.labelMode, 'degrees');
   const raw = await rawSnapshot(page);
@@ -873,7 +873,7 @@ check('ui-invalid-import-shows-error-and-preserves-valid-data', async ({ page, f
   const mutations = [
     ['broken.json', '{broken', 'Это не копия тренажёра'],
     ['previous.json', JSON.stringify({ ...incoming, schemaVersion: 10 }), 'Эта копия не подходит'],
-    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 16 }), 'Эта копия не подходит'],
+    ['future.json', JSON.stringify({ ...incoming, schemaVersion: 17 }), 'Эта копия не подходит'],
     ['corrupt.json', (() => { const value = structuredClone(incoming); value.history.find(entry => entry.result.kind === 'screen').result.questions[0].errors = 0; return JSON.stringify(value); })(), 'Это не копия тренажёра'],
   ];
   const errors = [];

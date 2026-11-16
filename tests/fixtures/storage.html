@@ -6,7 +6,7 @@
   <h1>Изолированная проверка IndexedDB</h1>
   <script type="module">
     import { createStudyStore, DEFAULT_PREFERENCES, emptySnapshot, makeCheckHistory, makeManualHistory, makeRouteHistory, makeScreenHistory, previewImport, validateSnapshot } from '/src/storage/index.ts';
-    import { degreeCheck } from '/src/practice/check.ts';
+    import { checkId, degreeCheck } from '/src/practice/check.ts';
     import { annotatePositions, createStructure, getPosition } from '/src/music/index.ts';
     import { createManualPracticeResult, nextQuestion, startQuiz, submitAnswer } from '/src/training/index.ts';
     import { advanceRouteSession, createRouteMaterial, startRouteSession } from '/src/route/index.ts';
@@ -33,9 +33,9 @@
         material: { kind: 'exercise', key: 'user:fixture-exercise-a', title: 'Нижняя форма', spec: pentatonic('penta-a'), view: 'both', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null } } }), { ...metadata, id });
     }
     function check(id = 'fixture-check') {
-      return makeCheckHistory({ exerciseKey: 'builtin:pentatonic-form.A.minor-pentatonic.penta-b', title: 'Форма пентатоники вверх-вниз', activeMs: 95000,
-        spec: degreeCheck(pentatonic('penta-b'), 'name-degree', 3),
-        answers: [{ degree: 'b3', outcome: 'correct', errors: 0 }, { degree: 'b7', outcome: 'corrected', errors: 2 }, { degree: '4', outcome: 'unanswered', errors: 0 }] }, { ...metadata, id });
+      return makeCheckHistory({ exerciseKey: `check:${checkId(degreeCheck(pentatonic('penta-b'), 'name-degree', 3))}`, title: 'Форма пентатоники вверх-вниз', activeMs: 95000,
+        check: degreeCheck(pentatonic('penta-b'), 'name-degree', 3),
+        answers: [{ target: 'b3', outcome: 'correct', errors: 0 }, { target: 'b7', outcome: 'corrected', errors: 2 }, { target: '4', outcome: 'unanswered', errors: 0 }] }, { ...metadata, id });
     }
     function route(id, atMs = 2500) {
       const session = startRouteSession({ id: `session-${id}`, material: createRouteMaterial() });

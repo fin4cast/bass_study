@@ -356,6 +356,8 @@ export interface CheckEntry {
   readonly index: number;
   /** Ступень вопроса, например `b7`; до итога хранится только в модели. */
   readonly degree: string;
+  /** Цель ответа для записи (A1 F6): ступень, класс высоты, обозначение аккорда или римская цифра. */
+  readonly target: string;
   readonly outcome: CheckOutcome | 'pending';
   readonly errors: number;
   readonly listens: number;
@@ -377,25 +379,25 @@ function closedOutcome(run: CheckRun): CheckOutcome | null {
 export function entries(run: CheckRun): readonly CheckEntry[] {
   const list: CheckEntry[] = [];
   if (run.mode === 'ear') {
-    run.ear.results.forEach((result, index) => list.push({ index, degree: result.question.targetDegree, outcome: result.outcome, errors: result.errors, listens: result.listensCompleted, positionId: null }));
+    run.ear.results.forEach((result, index) => list.push({ index, degree: result.question.targetDegree, target: result.question.targetDegree, outcome: result.outcome, errors: result.errors, listens: result.listensCompleted, positionId: null }));
     const state = run.ear.answerState;
     run.ear.questions.slice(run.ear.results.length).forEach((question, offset) => {
       const current = offset === 0 && run.ear.status !== 'finished';
-      list.push({ index: run.ear.results.length + offset, degree: question.targetDegree, outcome: current ? closedOutcome(run) ?? 'pending' : 'pending', errors: current ? state.errors : 0, listens: current ? state.listensCompleted : 0, positionId: null });
+      list.push({ index: run.ear.results.length + offset, degree: question.targetDegree, target: question.targetDegree, outcome: current ? closedOutcome(run) ?? 'pending' : 'pending', errors: current ? state.errors : 0, listens: current ? state.listensCompleted : 0, positionId: null });
     });
     return list;
   }
-  run.quiz.results.forEach((result, index) => list.push({ index, degree: result.target.degree ?? '', outcome: result.outcome, errors: result.errors, listens: 0, positionId: run.quiz.questions[index].targetPositionId ?? null }));
+  run.quiz.results.forEach((result, index) => list.push({ index, degree: result.target.degree ?? '', target: run.quiz.questions[index].recordTarget ?? result.target.degree ?? '', outcome: result.outcome, errors: result.errors, listens: 0, positionId: run.quiz.questions[index].targetPositionId ?? null }));
   run.quiz.questions.slice(run.quiz.results.length).forEach((question, offset) => {
     const current = offset === 0 && run.quiz.status !== 'finished';
-    list.push({ index: run.quiz.results.length + offset, degree: question.target.degree ?? '', outcome: current ? closedOutcome(run) ?? 'pending' : 'pending', errors: current ? run.quiz.answerState.errors : 0, listens: 0, positionId: question.targetPositionId ?? null });
+    list.push({ index: run.quiz.results.length + offset, degree: question.target.degree ?? '', target: question.recordTarget ?? question.target.degree ?? '', outcome: current ? closedOutcome(run) ?? 'pending' : 'pending', errors: current ? run.quiz.answerState.errors : 0, listens: 0, positionId: question.targetPositionId ?? null });
   });
   return list;
 }
 
 /** Ответы для `CheckRecord`: незаданные и незакрытые вопросы — «без ответа», ошибки сохраняются. */
-export function recordAnswers(list: readonly CheckEntry[]): readonly { readonly degree: string; readonly outcome: CheckOutcome; readonly errors: number }[] {
-  return Object.freeze(list.map(entry => Object.freeze({ degree: entry.degree, outcome: entry.outcome === 'pending' ? 'unanswered' as const : entry.outcome, errors: entry.errors })));
+export function recordAnswers(list: readonly CheckEntry[]): readonly { readonly target: string; readonly outcome: CheckOutcome; readonly errors: number }[] {
+  return Object.freeze(list.map(entry => Object.freeze({ target: entry.target, outcome: entry.outcome === 'pending' ? 'unanswered' as const : entry.outcome, errors: entry.errors })));
 }
 
 export interface CheckSummary {
