@@ -8,7 +8,7 @@ import { buildTimeline, samePractice, type PracticeOptions } from '../exercises/
 import type { TemplateTask } from '../exercises/tasks';
 import { checkId, degreeCheck, type CheckSpec } from './check';
 import { materialId } from './material';
-import type { PlanStepContent } from './plan';
+import type { NewPlanStep, PlanStepContent } from './plan';
 import type { PlayRecord, PracticeRecord } from './results';
 
 /** Базовый темп программы: с него открывается шаг и по нему считается «освоен». */
@@ -405,6 +405,22 @@ export function composeDay(program: Program, facts: ProgramFacts, state: Program
     items.push(item(ref, reinforceVariant(state.statuses.get(ref.step.id)!, variantCount(ref.step)), reason));
   }
   return { mode: 'normal', items, minutes: total(items) };
+}
+
+/**
+ * Занятие как шаги плана дня: упражнение — вариант и «как играть» шага, проверка — описание шага; шаг программы связан с планом
+ * через `programStep`. ID шагов: `d<n>` — обычное занятие, `r<n>` — «Вспомнить» после перерыва (по ним экран отличает занятие).
+ * «Своя линия» без шаблона в план не попадает.
+ */
+export function dayPlanSteps(day: DayComposition): NewPlanStep[] {
+  const prefix = day.mode === 'recall' ? 'r' : 'd';
+  const steps: NewPlanStep[] = [];
+  for (const item of day.items) {
+    const id = `${prefix}${steps.length + 1}`;
+    if (item.step.kind === 'play') steps.push({ id, content: playContent(item.step, item.variant), minutes: item.minutes, programStep: item.step.id });
+    else if (item.step.kind === 'check') steps.push({ id, content: { kind: 'check', spec: item.step.check }, minutes: item.minutes, programStep: item.step.id });
+  }
+  return steps;
 }
 
 const GROOVE_TITLES: Readonly<Record<string, string>> = { rock: 'рок', funk: 'фанк', shuffle: 'шаффл', blues: 'блюзовый пульс', latin: 'латина', disco: 'диско' };

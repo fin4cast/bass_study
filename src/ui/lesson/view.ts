@@ -20,7 +20,7 @@ import {
   type BasicsLevel, type BasicsStep, type BasicsView, type LessonState, type LessonTab, type LibraryCategory, type LibraryControls,
 } from './model';
 import { CATEGORY_ORDER, CATEGORY_TITLES } from '../../practice/library';
-import { pathBadge, pathModel, type PathStep } from './path';
+import { pathBadge, pathModel, stageLine, type PathStep } from './path';
 
 export type { LessonState, LessonTab } from './model';
 
@@ -174,13 +174,19 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
 
   function renderToday(current: LessonState) {
     const hero = heroModel(current);
+    const stage = stageLine(current.programState);
     const rows = planRows(current.plan, current.records, current.userExercises);
     const total = plannedMinutes(current.plan);
     const done = rows.filter(row => row.status === 'done').reduce((sum, row) => sum + row.minutes, 0);
     const items = libraryItems(current.playFrom, current.userExercises);
 
     let heroMarkup: string;
-    if (hero.mode === 'empty') {
+    if (hero.mode === 'first-run') {
+      const content = hero.content!;
+      heroMarkup = `<div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
+        <div class="ls-actions"><button type="button" class="primary-button button-large" data-act="play" data-ref="${ref(content)}" data-step="${e(hero.stepId ?? '')}" data-key="hero-play">Начать</button>
+          <button type="button" class="ls-link" data-act="go-path" data-key="hero-path">Уже умею: выбрать, с чего начать</button></div>`;
+    } else if (hero.mode === 'empty') {
       heroMarkup = `<div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
         <div class="ls-actions"><button type="button" class="secondary-button" data-act="go-library" data-key="hero-library">Открыть библиотеку →</button></div>`;
     } else {
@@ -211,7 +217,8 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
       <div class="ls-plan-tools">${rows.length ? `<button type="button" class="secondary-button button-compact" data-act="edit" data-key="edit" aria-pressed="${editing}">${editing ? 'Готово' : 'Изменить план'}</button>` : ''}<button type="button" class="secondary-button button-compact" data-act="go-library" data-key="plan-library">+ из библиотеки</button></div>`;
 
     regions.today.innerHTML = `<div class="ls-today-grid">
-        <div class="ls-col"><section class="ls-card ls-hero feature-panel" aria-label="Главное действие">${heroMarkup}</section></div>
+        <div class="ls-col"><section class="ls-card ls-hero feature-panel" aria-label="Главное действие">${heroMarkup}</section>
+          ${stage ? `<p class="ls-stage-line" data-stage-line>${e(stage)}</p>` : ''}</div>
         <section class="ls-card ls-plan${editing ? ' is-editing' : ''}" aria-label="План на сегодня">${planMarkup}</section>
       </div>
       <section class="ls-card ls-libstrip" aria-label="Библиотека"><strong>Библиотека</strong><span class="ls-sub">${e(items.length)} ${plural(items.length, 'упражнение', 'упражнения', 'упражнений')} · ${CATEGORY_ORDER.length} категорий</span>
@@ -486,6 +493,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         case 'save-start': if (content?.kind === 'exercise') { saveDraft = { key: target.dataset.card!, name: `${exercisePlan(content.spec).title} · ${materialLabel(content.spec)}`.slice(0, 80).trim() }; render(); container.querySelector<HTMLInputElement>('[data-save-name]')?.select(); } break;
         case 'save-cancel': { const key = saveDraft?.key; saveDraft = null; render(); if (key) container.querySelector<HTMLElement>(`[data-key="save:${CSS.escape(key)}"]`)?.focus(); break; }
         case 'basics-view': setBasicsView(target.dataset.value as BasicsView); basicsMode = target.dataset.value as BasicsView; render(); break;
+        case 'go-path': setBasicsView('path'); basicsMode = 'path'; selectTab('basics'); render(); container.querySelector<HTMLElement>('[data-key^="path-play:"]')?.focus(); break;
         case 'path-stage': pathStage = Number(target.dataset.value); render(); break;
         case 'path-variant': pathPicks.set(target.dataset.stepId!, Number(target.dataset.value)); render(); break;
         case 'path-play': {

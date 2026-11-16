@@ -7,7 +7,7 @@ import { buildExercise, configureSpec, targetBpmFor, type ExercisePlan, type Exe
 import { DEFAULT_PRACTICE, type PracticeOptions } from '../exercises/rhythm';
 import { builtinLibrary, type UserExercise } from '../practice/library';
 import { builtinTemplateOf } from '../practice/material';
-import { addStep, completeStep, contentExerciseOf, createPlan, currentStep, type DayPlan, type PlanStepContent } from '../practice/plan';
+import { addStep, completeStep, contentExerciseOf, createPlan, currentStep, MAX_PLAN_STEPS, type DayPlan, type NewPlanStep, type PlanStepContent } from '../practice/plan';
 import { checkExercise, type CheckSpec } from '../practice/check';
 import { BASE_BPM } from '../practice/program';
 import { difficulties, type Assessment, type Difficulty, type PracticeRecord } from '../practice/results';
@@ -30,13 +30,15 @@ export function todayKey(now: Date = new Date()): string {
 }
 
 /**
- * План на сегодня из сохранённого. План другого дня переносит незавершённые шаги в новый день;
- * без сохранённого плана — пустой план (занятие собирает программа, R-028).
+ * План на сегодня: сохранённый или собранный для нового дня. Новый день собирает программа (`compose`, R-028); из плана
+ * прошлого дня переносятся только шаги, добавленные вручную (без `programStep`) и не выполненные. В течение дня план
+ * не пересобирается. Всего не больше `MAX_PLAN_STEPS` шагов.
  */
-export function planForToday(stored: DayPlan | null, today: string): DayPlan {
+export function planForToday(stored: DayPlan | null, today: string, compose: () => readonly NewPlanStep[] = () => []): DayPlan {
   if (stored?.localDate === today) return stored;
-  const carried = stored ? stored.steps.filter(step => step.status !== 'done') : [];
-  return createPlan(today, carried.map(({ id, content, minutes }) => ({ id, content, minutes })));
+  const carried = stored ? stored.steps.filter(step => step.status !== 'done' && step.programStep === undefined) : [];
+  const steps = [...compose(), ...carried.map(({ id, content, minutes }) => ({ id, content, minutes }))].slice(0, MAX_PLAN_STEPS);
+  return createPlan(today, steps);
 }
 
 export const contentExercise = contentExerciseOf;

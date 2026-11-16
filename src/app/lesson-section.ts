@@ -16,7 +16,7 @@ import { reviewMaterial } from '../ui/check/session';
 import { mountCheck } from '../ui/check/view';
 import { mountLesson } from '../ui/lesson/view';
 import { PROGRAM } from '../practice/program-data';
-import { checkFacts, evaluateProgram, playContent, playFacts, stepRefs, stepRuleText, stepStatus, type Block, type PlayStep, type ProgramFacts } from '../practice/program';
+import { checkFacts, composeDay, dayPlanSteps, evaluateProgram, playContent, playFacts, stepRefs, stepRuleText, stepStatus, type Block, type PlayStep, type ProgramFacts } from '../practice/program';
 import { materialId } from '../practice/material';
 import { stepTitle } from '../ui/lesson/model';
 import { createEnginePort, type PlaybackPort } from '../ui/play/port';
@@ -85,7 +85,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   const user = () => options.userExercises();
   const lessonPreferences = () => options.preferences().lesson;
   /** План на сегодня: сохранённый или выведенный для нового дня. */
-  const currentPlan = () => planForToday(lessonPreferences().plan, today());
+  const currentPlan = () => planForToday(lessonPreferences().plan, today(), () => dayPlanSteps(composeDay(PROGRAM, programFacts())));
   function savePlan(plan: DayPlan) {
     return options.savePreferences({ lesson: { ...lessonPreferences(), plan } });
   }
@@ -214,9 +214,16 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     savePlan(selectStep(plan, stepId));
   }
 
+  /** Шаг программы, с которым связан шаг плана: темп открытия — базовый, под заданием виден зачёт (R-028). */
+  function programOf(stepId: string | null): { step: PlayStep; block: Block } | null {
+    const linked = stepId ? currentPlan().steps.find(item => item.id === stepId)?.programStep : undefined;
+    const ref = linked ? stepRefs(PROGRAM).find(item => item.step.id === linked) : undefined;
+    return ref && ref.step.kind === 'play' ? { step: ref.step, block: ref.block } : null;
+  }
+
   function open(content: PlanStepContent, stepId: string | null, bpm?: number) {
     selectFromPlan(stepId);
-    if (content.kind === 'exercise') openPlay(content.spec, stepId, bpm, null, content.practice ?? null);
+    if (content.kind === 'exercise') openPlay(content.spec, stepId, bpm, null, content.practice ?? null, programOf(stepId));
     else openCheck(content.spec, stepId);
   }
 

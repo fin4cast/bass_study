@@ -4,7 +4,7 @@ import { DEFAULT_PRACTICE } from '../src/exercises/rhythm';
 import { materialId } from '../src/practice/material';
 import { PROGRAM } from '../src/practice/program-data';
 import { evaluateProgram, type PlayFact, type ProgramFacts } from '../src/practice/program';
-import { countsLabel, pathBadge, pathModel, STATE_LABELS } from '../src/ui/lesson/path';
+import { countsLabel, pathBadge, pathModel, stageLine, STATE_LABELS } from '../src/ui/lesson/path';
 
 const TODAY = '2026-11-16';
 const day = (offset: number) => new Date(Date.UTC(2026, 10, 16 + offset)).toISOString().slice(0, 10);
@@ -70,5 +70,14 @@ describe('путь программы для «Основ»', () => {
     expect(check.kind).toBe('check');
     expect(check.variants).toHaveLength(1);
     expect(check.variants[0].label).toContain('C');
+  });
+});
+
+describe('строка этапа под «Сегодня»', () => {
+  it('«Этап 1 · пройдено N · освоено M» по этапу текущих шагов; у пройденной программы строки нет', () => {
+    expect(stageLine(evaluateProgram(PROGRAM, facts()))).toBe('Этап 1 · пройдено 0 · освоено 0');
+    const plays = [createExerciseSpec('string-crossing', { pattern: 'adjacent' }), createExerciseSpec('string-crossing', { pattern: 'skip' })].map(spec => clean(spec));
+    expect(stageLine(evaluateProgram(PROGRAM, facts({ plays })))).toBe('Этап 1 · пройдено 1 · освоено 0');
+    expect(stageLine(evaluateProgram(PROGRAM, facts({ skippedBlocks: new Set(PROGRAM.stages[0].blocks.map(block => block.id)) })))).toBeNull();
   });
 });

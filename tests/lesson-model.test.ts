@@ -272,3 +272,31 @@ describe('«Основы»', () => {
     expect(searchMatches('мажорную', 'минорная')).toBe(false);
   });
 });
+
+describe('P18-11: «Сегодня» — первое занятие, «Вспомнить», строка этапа', () => {
+  const programStep = (id: string, programId: string, spec = createExerciseSpec('chromatic-position')) => ({ id, content: { kind: 'exercise' as const, spec }, minutes: 3, programStep: programId });
+
+  it('первый запуск: одна кнопка «Начать» на текущем шаге, названия шагов и время в описании', () => {
+    const plan = createPlan(today, [programStep('d1', 't1-left.quarters'), programStep('d2', 'f1-octave.quarters', createExerciseSpec('octaves'))]);
+    const hero = heroModel({ plan, records: [], userExercises: [], firstRun: true });
+    expect(hero).toMatchObject({ mode: 'first-run', eyebrow: 'Первое занятие', title: 'Занятие 1', stepId: 'd1' });
+    expect(hero.meta).toContain(' → ');
+    expect(hero.meta).toContain('около 6 мин');
+  });
+
+  it('первый запуск без шагов программы или после первого проведённого шага — обычное «Продолжить»', () => {
+    const manual = createPlan(today, [{ id: 'step-1', content: { kind: 'exercise', spec: createExerciseSpec('chromatic-position') }, minutes: 3 }]);
+    expect(heroModel({ plan: manual, records: [], userExercises: [], firstRun: true }).mode).toBe('continue');
+    const started = completeStep(createPlan(today, [programStep('d1', 't1-left.quarters'), programStep('d2', 'f1-octave.quarters')]), 'd1');
+    expect(heroModel({ plan: started, records: [], userExercises: [], firstRun: true }).mode).toBe('continue');
+  });
+
+  it('занятие после перерыва (шаги r<n>) подписано «Вспомнить»', () => {
+    const plan = createPlan(today, [programStep('r1', 't1-left.quarters'), programStep('r2', 'f1-octave.quarters')]);
+    const hero = heroModel({ plan, records, userExercises: [], firstRun: false });
+    expect(hero.recall).toBe(true);
+    expect(hero.eyebrow).toBe('Вспомнить · шаг 1 из 2');
+    const normal = heroModel({ plan: createPlan(today, [programStep('d1', 't1-left.quarters')]), records, userExercises: [], firstRun: false });
+    expect(normal.recall).toBe(false);
+  });
+});

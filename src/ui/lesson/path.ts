@@ -80,6 +80,15 @@ export function pathModel(program: Program, state: ProgramState, skipped: Readon
   }));
 }
 
+/** Строка этапа под «Сегодня»: «Этап 1 · пройдено 3 · освоено 1»; этап — тот, где сейчас текущий шаг ближайшей линии. */
+export function stageLine(state: ProgramState): string | null {
+  const stages = Object.values(state.current).filter(Boolean).map(ref => ref!.stage);
+  if (!stages.length) return null;
+  const number = Math.min(...stages);
+  const counts = state.stageCounts.get(number);
+  return counts ? `Этап ${number} · пройдено ${counts.passed} · освоено ${counts.mastered}` : null;
+}
+
 /** Бейдж вкладки «Основы»: сколько обязательных шагов пройдено или пропущено из всех. */
 export function pathBadge(state: ProgramState): string {
   let done = 0;

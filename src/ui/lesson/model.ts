@@ -173,7 +173,9 @@ export function planRows(plan: DayPlan, records: readonly PracticeRecord[], user
 }
 
 export interface HeroModel {
-  readonly mode: 'continue' | 'empty';
+  /** `first-run` — первое занятие программы с одной кнопкой «Начать»; `recall` — занятие «Вспомнить» после перерыва. */
+  readonly mode: 'continue' | 'empty' | 'first-run';
+  readonly recall?: boolean;
   readonly eyebrow: string;
   readonly title: string;
   readonly meta: string;
@@ -183,8 +185,14 @@ export interface HeroModel {
   readonly stats: readonly { readonly value: string; readonly label: string }[];
 }
 
-export function heroModel(state: Pick<LessonState, 'plan' | 'records' | 'userExercises'>): HeroModel {
+export function heroModel(state: Pick<LessonState, 'plan' | 'records' | 'userExercises'> & { readonly firstRun?: boolean }): HeroModel {
   const step = currentStep(state.plan);
+  // Первое занятие: план собран программой, ничего не сыграно — одно действие «Начать».
+  if (state.firstRun && step?.programStep && state.plan.steps.every(item => item.status !== 'done')) {
+    const titles = state.plan.steps.map(item => stepTitle(item.content, state.userExercises));
+    return { mode: 'first-run', eyebrow: 'Первое занятие', title: 'Занятие 1', meta: `${titles.join(' → ')} · около ${plannedMinutes(state.plan)} мин`,
+      content: step.content, stepId: step.id, concepts: [], stats: [] };
+  }
   let content: PlanStepContent | null = step?.content ?? null;
   let eyebrow = step ? `Продолжить · шаг ${state.plan.steps.indexOf(step) + 1} из ${state.plan.steps.length} плана` : '';
   if (!content) {
@@ -199,7 +207,7 @@ export function heroModel(state: Pick<LessonState, 'plan' | 'records' | 'userExe
   if (progress?.bestCleanBpm) stats.push({ value: String(progress.bestCleanBpm), label: 'лучший удобный темп' });
   if (progress) stats.push({ value: String(progress.last.bpm), label: 'темп в прошлый раз' }, { value: ASSESSMENT_LABELS[progress.last.assessment], label: 'твоя отметка' });
   return {
-    mode: 'continue', eyebrow, title: stepTitle(content, state.userExercises), meta: stepMaterial(content),
+    mode: 'continue', recall: step?.id.startsWith('r') === true && step.programStep !== undefined, eyebrow: step?.id.startsWith('r') && step.programStep ? `Вспомнить · шаг ${state.plan.steps.indexOf(step) + 1} из ${state.plan.steps.length}` : eyebrow, title: stepTitle(content, state.userExercises), meta: stepMaterial(content),
     content, stepId: step && step.content === content ? step.id : null,
     concepts: exercise ? exercisePlan(exercise).concepts.slice(0, 3).map(concept => CONCEPT_LABELS[concept]) : [], stats,
   };

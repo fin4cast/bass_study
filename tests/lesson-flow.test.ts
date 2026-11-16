@@ -286,3 +286,39 @@ describe('P18-04: вариант материала на экране игры',
     expect(planStepInfo(plan, 'step-a', [five, seven], records)?.doneMs).toBe(120000);
   });
 });
+
+describe('P18-11: план нового дня собирает программа', () => {
+  const composed = [
+    { id: 'd1', content: { kind: 'exercise' as const, spec: createExerciseSpec('chromatic-position') }, minutes: 2, programStep: 't1-left.quarters' },
+    { id: 'd2', content: { kind: 'exercise' as const, spec: createExerciseSpec('octaves') }, minutes: 3, programStep: 'f1-octave.quarters' },
+  ];
+
+  it('новый день — шаги программы со связью programStep, первый — текущий', () => {
+    const plan = planForToday(null, TODAY, () => composed);
+    expect(plan.steps.map(step => [step.id, step.programStep, step.status])).toEqual([['d1', 't1-left.quarters', 'current'], ['d2', 'f1-octave.quarters', 'pending']]);
+  });
+
+  it('план этого дня не пересобирается в течение дня', () => {
+    const stored = planForToday(null, TODAY, () => composed);
+    let calls = 0;
+    expect(planForToday(stored, TODAY, () => { calls += 1; return []; })).toBe(stored);
+    expect(calls).toBe(0);
+  });
+
+  it('со вчера переносятся только невыполненные шаги, добавленные вручную; шаги программы пересобираются', () => {
+    const yesterday = createPlan('2026-11-11', [
+      { id: 'd1', content: composed[0].content, minutes: 2, programStep: 't1-left.quarters' },
+      { id: 'step-5', content: { kind: 'exercise', spec: arpeggio }, minutes: 4 },
+      { id: 'step-6', content: { kind: 'exercise', spec: penta }, minutes: 3 },
+    ]);
+    const done = completeStep(yesterday, 'step-6');
+    const today = planForToday(done, TODAY, () => composed);
+    expect(today.steps.map(step => step.id)).toEqual(['d1', 'd2', 'step-5']);
+    expect(today.steps.map(step => step.programStep)).toEqual(['t1-left.quarters', 'f1-octave.quarters', undefined]);
+  });
+
+  it('в плане не больше 12 шагов', () => {
+    const many = Array.from({ length: 14 }, (_, index) => ({ id: `d${index + 1}`, content: composed[0].content, minutes: 2 }));
+    expect(planForToday(null, TODAY, () => many).steps).toHaveLength(12);
+  });
+});

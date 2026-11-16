@@ -16,6 +16,8 @@ const check = (name, scope, run) => checks.push({ name, scope, run });
 const SECTIONS = [
   ['lesson', 'Занятие'], ['foundation', 'Гриф'], ['harmony', 'Ритм'], ['tracks', 'Песни'], ['progress', 'Прогресс'], ['settings', 'Настройки'],
 ];
+/** Первое занятие, собранное программой (R-028): текущие шаги трёх линий этапа 1. */
+const PROGRAM_DAY_ONE = ['Переход между струнами (правая рука)', 'Октавы: +2 струны, +2 лада', 'Игра по последовательности аккордов'];
 const FIRST_RUN_PLAN = ['Одна нота по всему грифу', 'Октавы: +2 струны, +2 лада', 'Хроматика 1-2-3-4 в позиции'];
 
 async function ready(page) {
@@ -86,7 +88,7 @@ const planTitles = page => home(page).locator('.ls-plan .ls-step-title').allInne
 
 check('library-card-configure-form-b-keeps-form-a-in-plan-and-star-saves-configured-material', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
-  await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 0, 'пустой план первого запуска');
+  await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'занятие первого дня');
   await lessonTab(page, 'Библиотека');
   const card = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: 'Форма пентатоники вверх-вниз', exact: true }) });
   await card.locator('[data-act="toggle-plan"]').click();
@@ -102,7 +104,7 @@ check('library-card-configure-form-b-keeps-form-a-in-plan-and-star-saves-configu
   assert.match(await card.locator('.ls-meta').innerText(), /Em · минорная пентатоника · форма B/);
   assert.equal(await card.locator('[data-act="toggle-plan"]').getAttribute('aria-pressed'), 'false', 'Форма B — другой материал, форма A остаётся в плане');
   await card.locator('[data-act="toggle-plan"]').click();
-  const plan = await waitDb(page, db => db.preferences.lesson.plan.steps.length === 2, 'обе формы в плане');
+  const plan = await waitDb(page, db => db.preferences.lesson.plan.steps.length === 5, 'обе формы в плане');
   const shapes = plan.preferences.lesson.plan.steps.filter(step => step.content.spec?.templateId === 'pentatonic-form').map(step => `${step.content.spec.params.root}:${step.content.spec.params.shapeId}`);
   assert.deepEqual(shapes, ['A:penta-a', 'E:penta-b']);
   await card.locator('[data-act="save-start"]').click();
@@ -335,24 +337,91 @@ check('shell-menu-names-and-navigation-label-are-readable-russian', 'ui', async 
 
 /* ---------- «Сегодня» и план ---------- */
 
-check('today-first-run-shows-empty-plan-with-library-hint-and-saves-it', 'ui', async ({ page, origin }) => {
+check('today-first-day-is-composed-by-program-with-one-start-button', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
   const tab = home(page).getByRole('tab', { name: /^Сегодня/ });
   assert.equal(await tab.getAttribute('aria-selected'), 'true');
-  assert.match(await home(page).locator('.ls-hero').innerText(), /План пуст[\s\S]*Открыть библиотеку/i);
-  assert.equal(await home(page).locator('.ls-goal-choose, [data-act="goal-start"], [data-act="template"]').count(), 0, 'целей и шаблонов планов нет');
-  assert.deepEqual(await planTitles(page), []);
-  assert.match(await home(page).locator('.ls-plan h2').innerText(), /^План на сегодня · 0 мин$/);
-  const db = await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 0, 'пустой план первого запуска');
+  const hero = await home(page).locator('.ls-hero').innerText();
+  assert.match(hero, /Первое занятие[\s\S]*Занятие 1[\s\S]*Начать[\s\S]*Уже умею: выбрать, с чего начать/i);
+  assert.equal(await home(page).locator('.ls-hero [data-act="play"]').count(), 1, 'одна кнопка действия');
+  assert.equal(await home(page).locator('.ls-goal-choose, [data-act="goal-start"], [data-act="template"], .ls-recs').count(), 0, 'целей, шаблонов и рекомендаций нет');
+  assert.deepEqual(await planTitles(page), PROGRAM_DAY_ONE);
+  assert.equal((await home(page).locator('[data-stage-line]').innerText()).trim(), 'Этап 1 · пройдено 0 · освоено 0');
+  const db = await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'занятие первого дня');
   assert.equal(db.version, 15);
-  assert.equal(db.preferences.lesson.basicsView, 'path');
-  assert.deepEqual(db.preferences.lesson.skipped, []);
-  return { plan: db.preferences.lesson.plan };
+  assert.deepEqual(db.preferences.lesson.plan.steps.map(step => [step.id, step.programStep, step.status]), [
+    ['d1', 't1-crossing.eighths', 'current'], ['d2', 'f1-octave.quarters', 'pending'], ['d3', 'h1-roots.eighths', 'pending'],
+  ]);
+  // «Начать» открывает первый шаг занятия на базовом темпе, без выбора параметров.
+  await home(page).locator('[data-key="hero-play"]').click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  assert.equal(await playScene(page).locator('[data-title]').innerText(), PROGRAM_DAY_ONE[0]);
+  assert.equal(await playScene(page).locator('[data-bpm]').inputValue(), '60');
+  await playScene(page).locator('[data-back]').click();
+  // «Уже умею: выбрать, с чего начать» ведёт в путь «Основ».
+  await home(page).locator('[data-act="go-path"]').click();
+  assert.equal(await home(page).getByRole('tab', { name: /^Основы/ }).getAttribute('aria-selected'), 'true');
+  await home(page).locator('.ls-pathview').waitFor();
+  return { plan: db.preferences.lesson.plan.steps.map(step => step.programStep) };
+});
+
+check('today-start-runs-the-lesson-from-first-to-last-step-without-choosing-parameters', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await home(page).locator('[data-key="hero-play"]').click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  const titles = [];
+  for (let index = 0; index < PROGRAM_DAY_ONE.length; index++) {
+    titles.push(await playScene(page).locator('[data-title]').innerText());
+    await playOneLoopedPass(page);
+    await page.keyboard.press('KeyZ');
+    if (index < PROGRAM_DAY_ONE.length - 1) {
+      await playScene(page).getByRole('group', { name: 'Самооценка подхода' }).getByRole('button', { name: 'Следующий шаг плана →' }).waitFor();
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(title => document.querySelector('[data-lesson-screen="play"] [data-title]')?.textContent === title, PROGRAM_DAY_ONE[index + 1]);
+    }
+  }
+  assert.deepEqual(titles, PROGRAM_DAY_ONE);
+  const db = await waitDb(page, db => db.preferences.lesson.plan.steps.slice(0, 2).every(step => step.status === 'done') && db.history.length >= 3, 'три прохода записаны');
+  assert.equal(db.preferences.lesson.plan.steps[0].status, 'done');
+  assert.ok(db.history.every(entry => entry.result?.assessment === 'clean'));
+  return { steps: db.preferences.lesson.plan.steps.map(step => step.status) };
+});
+
+check('today-next-day-offers-next-variant-and-keeps-manual-steps-and-long-break-recalls', 'ui', async ({ page, origin }) => {
+  await page.clock.setFixedTime(new Date('2026-11-16T10:00:00'));
+  await openApp(page, origin);
+  // Ручной шаг из библиотеки переносится на следующий день, шаги программы пересобираются.
+  await lessonTab(page, 'Библиотека');
+  const card = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: 'Смена позиции по струне', exact: true }) });
+  await card.locator('[data-act="toggle-plan"]').click();
+  await lessonTab(page, 'Сегодня');
+  await home(page).locator('.ls-plan').getByRole('button', { name: 'Играть: ' + PROGRAM_DAY_ONE[0], exact: true }).click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  await playOneLoopedPass(page);
+  await page.keyboard.press('KeyZ');
+  await waitDb(page, db => db.history.length === 1, 'проход записан');
+  assert.equal((await readDb(page)).history[0].result.material.spec.params.pattern, 'adjacent');
+  await playScene(page).locator('[data-back]').click();
+  await page.clock.setFixedTime(new Date('2026-11-17T10:00:00'));
+  await page.reload(); await ready(page);
+  let db = await waitDb(page, db => db.preferences.lesson.plan?.localDate === '2026-11-17', 'план нового дня');
+  const first = db.preferences.lesson.plan.steps[0];
+  assert.equal(first.programStep, 't1-crossing.eighths');
+  assert.equal(first.content.spec.params.pattern, 'skip', 'вариант подставлен: после «Чисто» в первом — второй');
+  assert.deepEqual(db.preferences.lesson.plan.steps.map(step => step.programStep), ['t1-crossing.eighths', 'f1-octave.quarters', 'h1-roots.eighths', undefined]);
+  assert.match((await home(page).locator('.ls-hero').innerText()), /Продолжить/i);
+  // Перерыв больше 14 дней: «Вспомнить».
+  await page.clock.setFixedTime(new Date('2026-12-20T10:00:00'));
+  await page.reload(); await ready(page);
+  db = await waitDb(page, db => db.preferences.lesson.plan?.localDate === '2026-12-20', 'план после перерыва');
+  assert.deepEqual(db.preferences.lesson.plan.steps.filter(step => step.programStep).map(step => step.id), ['r1', 'r2', 'r3']);
+  assert.match(await home(page).locator('.ls-hero').innerText(), /Вспомнить/i);
+  return { recall: db.preferences.lesson.plan.steps.map(step => step.id) };
 });
 
 check('library-add-to-plan-appears-in-today-and-survives-reload', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
-  await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 0, 'пустой план первого запуска');
+  await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'занятие первого дня');
   await lessonTab(page, 'Библиотека');
   const title = 'Смена позиции по струне';
   const card = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
@@ -362,17 +431,18 @@ check('library-add-to-plan-appears-in-today-and-survives-reload', 'ui', async ({
   await assertAttribute(card.locator('[data-act="toggle-plan"]'), 'aria-pressed', 'true');
   assert.equal((await card.locator('[data-act="toggle-plan"]').innerText()).trim(), '✓ в плане');
   assert.match(await home(page).locator('[data-toast]').innerText(), new RegExp(`Добавлено в план «Сегодня»: ${title}`));
-  assert.match(await home(page).locator('.ls-planbar').innerText(), new RegExp(`1 шаг[\\s\\S]*${title}`));
+  assert.match(await home(page).locator('.ls-planbar').innerText(), new RegExp(`4 шага[\\s\\S]*${title}`));
   await lessonTab(page, 'Сегодня');
-  assert.deepEqual(await planTitles(page), [title]);
-  const db = await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 1, 'шаг из библиотеки в плане');
+  assert.deepEqual(await planTitles(page), [...PROGRAM_DAY_ONE, title]);
+  const db = await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 4, 'шаг из библиотеки в плане');
   const added = db.preferences.lesson.plan.steps.at(-1);
   assert.equal(added.content.kind, 'exercise');
-  assert.equal(added.status, 'current', 'первый шаг пустого плана становится текущим');
+  assert.equal(added.status, 'pending');
+  assert.equal(added.programStep, undefined, 'шаг из библиотеки не связан с программой');
   await page.reload();
   await ready(page);
   await lessonTab(page, 'Сегодня');
-  assert.deepEqual(await planTitles(page), [title], 'План после перезагрузки');
+  assert.deepEqual(await planTitles(page), [...PROGRAM_DAY_ONE, title], 'План после перезагрузки');
   const after = await readDb(page);
   assert.deepEqual(after.preferences.lesson.plan, db.preferences.lesson.plan, 'Перезагрузка не переписывает план');
   return { added: { id: added.id, templateId: added.content.spec.templateId, minutes: added.minutes }, afterReload: await planTitles(page) };
@@ -1355,7 +1425,8 @@ check('basics-path-two-variants-pass-the-step-and-two-days-master-it', 'ui', asy
   return { status: await pathStatus(page, 't1-left.quarters') };
 });
 
-markFullOnly(checks, ['basics-path-two-variants-pass-the-step-and-two-days-master-it'], FULL_ONLY.smoke);
+markFullOnly(checks, ['basics-path-two-variants-pass-the-step-and-two-days-master-it', 'today-next-day-offers-next-variant-and-keeps-manual-steps-and-long-break-recalls',
+  'today-start-runs-the-lesson-from-first-to-last-step-without-choosing-parameters'], FULL_ONLY.smoke);
 markFullOnly(checks, ['play-variant-unrated-approach-is-rated-first-or-dropped-explicitly-and-own-exercise-has-no-selectors'], FULL_ONLY.smoke);
 markFullOnly(checks, ['play-task-lines-fit-1280x720-for-every-library-template'], FULL_ONLY.smoke);
 markFullOnly(checks, ['native-real-hidden-tab-pauses-play-and-resumes-only-by-action'], FULL_ONLY.hiddenTab);

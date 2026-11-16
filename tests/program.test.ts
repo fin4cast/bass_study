@@ -6,7 +6,7 @@ import { getConcept } from '../src/practice/concepts';
 import { materialId } from '../src/practice/material';
 import { PROGRAM } from '../src/practice/program-data';
 import {
-  BASE_BPM, checkFacts, composeDay, daysBetween, evaluateProgram, isDone, isRequired, MEMORY_TEMPLATE_IDS, playContent, playFacts, stepMinutes, stepRefs, stepRuleText,
+  BASE_BPM, checkFacts, composeDay, daysBetween, evaluateProgram, isDone, isRequired, MEMORY_TEMPLATE_IDS, playContent, playFacts, stepMinutes, stepRefs, stepRuleText, dayPlanSteps,
   type Block, type CheckFact, type LineFact, type PlayFact, type PlayStep, type Program, type ProgramFacts, type Step,
 } from '../src/practice/program';
 import type { PlayRecord } from '../src/practice/results';
@@ -447,5 +447,26 @@ describe('правило зачёта шага словами', () => {
     const variants = [chromatic(5), chromatic(7)];
     const text = stepRuleText(step(variants), status([], variants), false);
     expect(text.startsWith('Этот вариант шагу не засчитается')).toBe(true);
+  });
+});
+
+describe('занятие как шаги плана', () => {
+  it('обычный день: ID d<n>, программный шаг, вариант и «как играть» в содержимом, проверка — описанием шага', () => {
+    const day = composeDay(PROGRAM, facts());
+    const steps = dayPlanSteps(day);
+    expect(steps.map(step => [step.id, step.programStep])).toEqual([['d1', 't1-crossing.eighths'], ['d2', 'f1-octave.quarters'], ['d3', 'h1-roots.eighths']]);
+    expect(steps[1].content).toMatchObject({ kind: 'exercise', practice: { rhythm: 'quarters' } });
+    expect(steps.every(step => step.minutes >= 2 && step.minutes <= 5)).toBe(true);
+    const withCheck = composeDay(PROGRAM, facts({ plays: ['G', 'A'].map(note => fact(createExerciseSpec('octaves', { note }), { practice: QUARTERS, bpm: 80 })) }));
+    const check = dayPlanSteps(withCheck).find(step => step.programStep === 'f1-octave.degrees');
+    expect(check?.content.kind).toBe('check');
+    expect(check?.minutes).toBe(2);
+  });
+
+  it('после перерыва: ID r<n> — «Вспомнить»', () => {
+    const plays = [createExerciseSpec('string-crossing', { pattern: 'adjacent' }), createExerciseSpec('string-crossing', { pattern: 'skip' })].map(spec => fact(spec, { localDate: day(-30) }));
+    const recall = composeDay(PROGRAM, facts({ plays }));
+    expect(recall.mode).toBe('recall');
+    expect(dayPlanSteps(recall).map(step => [step.id, step.programStep])).toEqual([['r1', 't1-crossing.eighths'], ['r2', 'f1-octave.quarters'], ['r3', 'h1-roots.eighths']]);
   });
 });
