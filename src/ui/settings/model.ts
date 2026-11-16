@@ -3,13 +3,14 @@
  * Состояние приходит от приложения; модуль только описывает его словами и готовит следующие значения.
  */
 
-import { COUNT_IN_CHOICES, METRONOME_CHOICES, REFERENCE_MODES } from '../sound-options';
+import { ACCOMPANIMENT_CHOICES, COUNT_IN_CHOICES, METRONOME_CHOICES, REFERENCE_MODES } from '../sound-options';
 
 export type ThemeChoice = 'light' | 'dark';
 export type PlayView = 'board' | 'tabBoard' | 'tab' | 'memory';
 export type BoardLabels = 'notes' | 'degrees' | 'fingers';
 export type ReferenceChoice = 'auto' | 'on' | 'quiet' | 'off';
 export type MetronomeDefault = 'beats' | 'eighths' | 'two-four' | 'gap' | 'off';
+export type AccompanimentDefault = 'off' | 'hold' | 'beats';
 export interface PlayDefaults {
   /** С какого вида открываются упражнения. */
   readonly view: PlayView;
@@ -23,6 +24,8 @@ export interface PlayDefaults {
   /** Эталонный бас и метроном экрана игры (D-050). */
   readonly reference: ReferenceChoice;
   readonly metronome: MetronomeDefault;
+  /** Аккорды такта под линию (R-028, B6); громкость задаётся на экране игры. */
+  readonly accompaniment: AccompanimentDefault;
 }
 export type SaveStatus = 'saved' | 'saving' | { readonly error: string };
 export type WriterState = 'owner' | 'other-tab';
@@ -88,6 +91,7 @@ export const SECTIONS: readonly SectionInfo[] = Object.freeze(([
 export const VIEW_LABELS: Readonly<Record<PlayView, string>> = Object.freeze({ board: 'Гриф', tabBoard: 'Таб + гриф', tab: 'Таб', memory: 'По памяти' });
 /** Подписи эталона, метронома и отсчёта — те же, что в панели «Звук и ритм» экрана игры. */
 export const REFERENCE_LABELS: Readonly<Record<ReferenceChoice, string>> = Object.freeze(Object.fromEntries(REFERENCE_MODES.map(item => [item.id, item.label])) as Record<ReferenceChoice, string>);
+export const ACCOMPANIMENT_LABELS: Readonly<Record<AccompanimentDefault, string>> = Object.freeze(Object.fromEntries(ACCOMPANIMENT_CHOICES.map(item => [item.id, item.label])) as Record<AccompanimentDefault, string>);
 export const METRONOME_LABELS: Readonly<Record<MetronomeDefault, string>> = Object.freeze(Object.fromEntries(METRONOME_CHOICES.map(item => [item.id, item.label])) as Record<MetronomeDefault, string>);
 export const COUNT_IN_LABELS: Readonly<Record<'0' | '1' | '2', string>> = Object.freeze(Object.fromEntries(COUNT_IN_CHOICES.map(item => [String(item.bars), item.label])) as Record<'0' | '1' | '2', string>);
 export const LABEL_LABELS: Readonly<Record<BoardLabels, string>> = Object.freeze({ notes: 'Ноты', degrees: 'Ступени', fingers: 'Пальцы' });
@@ -122,6 +126,7 @@ export function withDefaults(defaults: PlayDefaults, patch: Partial<PlayDefaults
   if (!(next.labels in LABEL_LABELS)) throw new RangeError('Неизвестные подписи на грифе.');
   if (!(next.reference in REFERENCE_LABELS)) throw new RangeError('Неизвестный режим эталона.');
   if (!(next.metronome in METRONOME_LABELS)) throw new RangeError('Неизвестный режим метронома.');
+  if (!(next.accompaniment in ACCOMPANIMENT_LABELS)) throw new RangeError('Неизвестный режим аккордов.');
   if (![0, 1, 2].includes(next.countInBars)) throw new RangeError('Отсчёт — 0, 1 или 2 такта.');
   return Object.freeze({ ...next, bpm: clampBpm(next.bpm) });
 }

@@ -4,7 +4,7 @@ import {
   type PlayDefaults, type SettingsState,
 } from '../src/ui/settings/model';
 
-const defaults: PlayDefaults = { view: 'tabBoard', newExerciseView: 'board', countInBars: 1, labels: 'notes', bpm: 60, reference: 'auto', metronome: 'beats' };
+const defaults: PlayDefaults = { view: 'tabBoard', newExerciseView: 'board', countInBars: 1, labels: 'notes', bpm: 60, reference: 'auto', metronome: 'beats', accompaniment: 'off' };
 const state: SettingsState = { theme: 'light', playDefaults: defaults, saveStatus: 'saved', writer: 'owner', version: '1.4.0', dataVersion: 11 };
 
 describe('разделы настроек (вариант B)', () => {

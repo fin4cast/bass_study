@@ -4,16 +4,16 @@ import { createPlaybackPlan, eventAtGrid, finiteDurationSeconds, validateBpm, ty
 import { checkSchedule, createTicker, scheduleHorizon } from './scheduler';
 import { createRhythmNoise, describeRhythmHit, scheduleRhythmVoice, type RhythmVoice } from './rhythm-synth';
 
-export type { PlaybackConfig, PlaybackStep, GrooveHit, NoteDuration, RepeatMode, MetronomeMode } from './plan';
+export type { PlaybackConfig, PlaybackStep, GrooveHit, NoteDuration, RepeatMode, MetronomeMode, AccompanimentMode, ChordTrack } from './plan';
 export { buildTempoLadder, createPlaybackPlan, eventAtGrid, finiteDurationSeconds } from './plan';
 
 /** Громкости шин: эталонный бас, клик метронома, подложка-грув (0–1). */
-export interface PlayerVolumes { readonly bass: number; readonly click: number; readonly groove: number }
+export interface PlayerVolumes { readonly bass: number; readonly click: number; readonly groove: number; readonly chords?: number }
 export type PlayerState = 'stopped' | 'starting' | 'running' | 'paused' | 'finishing' | 'finished';
 export interface AudioTraceEvent {
   readonly runId: number;
   readonly epoch: number;
-  readonly type: 'start' | 'count-in' | 'note' | 'click' | 'loop' | 'tempo' | 'pause' | 'resume' | 'finish' | 'stop';
+  readonly type: 'start' | 'count-in' | 'note' | 'click' | 'chord' | 'loop' | 'tempo' | 'pause' | 'resume' | 'finish' | 'stop';
   readonly time: number;
   readonly absoluteGrid: number;
   readonly noteIndex: number | null;
@@ -68,6 +68,9 @@ const dbToGain = (db: number) => 10 ** (db / 20);
 
 interface Envelope { readonly attack: number; readonly decay: number; readonly sustain: number; readonly release: number }
 const BASS_VOICE = { waveform: BASS_TIMBRE.waveform, level: dbToGain(-12), envelope: { attack: 0.003, decay: 0.008, sustain: 0.65, release: 0.006 } } as const;
+/** Аккорд аккомпанемента: мягкий тон без резкой атаки, тише эталона баса. */
+const CHORD_VOICE = { waveform: 'triangle', level: dbToGain(-20), envelope: { attack: 0.02, decay: 0.12, sustain: 0.7, release: 0.06 } } as const;
+const midiHz = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
 const CLICK_VOICE = { waveform: 'triangle', level: dbToGain(-18), envelope: { attack: 0.001, decay: 0.004, sustain: 0.3, release: 0.003 } } as const;
 /** Постоянная экспоненциального спада, при которой значение почти доходит до цели за rampTime. */
 const approachConstant = (rampTime: number) => Math.log(rampTime + 1) / Math.log(200);
@@ -80,9 +83,10 @@ function createGraph(context: BaseAudioContext, separateChannels: boolean) {
   const bassBus = context.createGain(); bassBus.gain.value = 0.65;
   const clickBus = context.createGain(); clickBus.gain.value = 0.45;
   const grooveBus = context.createGain(); grooveBus.gain.value = 0.6;
-  const merger = separateChannels ? context.createChannelMerger(3) : null;
-  if (merger) { bassBus.connect(merger, 0, 0); clickBus.connect(merger, 0, 1); grooveBus.connect(merger, 0, 2); merger.connect(master); }
-  else { bassBus.connect(master); clickBus.connect(master); grooveBus.connect(master); }
+  const chordBus = context.createGain(); chordBus.gain.value = 0.35;
+  const merger = separateChannels ? context.createChannelMerger(4) : null;
+  if (merger) { bassBus.connect(merger, 0, 0); clickBus.connect(merger, 0, 1); grooveBus.connect(merger, 0, 2); chordBus.connect(merger, 0, 3); merger.connect(master); }
+  else { bassBus.connect(master); clickBus.connect(master); grooveBus.connect(master); chordBus.connect(master); }
   const samples = new Float32Array(analyser.fftSize);
   let voices: Voice[] = [];
   /** Удары подложки — голоса «Ритма» (`rhythm-synth.ts`) на своей шине; шум создаётся по первому удару. */
@@ -140,6 +144,10 @@ function createGraph(context: BaseAudioContext, separateChannels: boolean) {
     click(accent: boolean, time: number) {
       voice(clickBus, CLICK_VOICE.waveform, accent ? 2093.004522 : 1046.502261, CLICK_VOICE.level * (accent ? 1 : 0.7), CLICK_VOICE.envelope, time, 0.018);
     },
+    /** Аккорд: по голосу на каждую высоту окна G3–F♯4; «Держать» держит весь такт, «Доли» играет коротко. */
+    chord(midis: readonly number[], duration: number, time: number) {
+      for (const midi of midis) voice(chordBus, CHORD_VOICE.waveform, midiHz(midi), CHORD_VOICE.level, CHORD_VOICE.envelope, time, duration);
+    },
     groove(hits: readonly GrooveHit[], time: number) {
       if (!hits.length) return;
       noise ??= createRhythmNoise(context);
@@ -160,7 +168,7 @@ function createGraph(context: BaseAudioContext, separateChannels: boolean) {
     },
     setVolumes(volumes: PlayerVolumes) {
       const now = context.currentTime;
-      for (const [bus, value] of [[bassBus, volumes.bass], [clickBus, volumes.click], [grooveBus, volumes.groove]] as const) {
+      for (const [bus, value] of [[bassBus, volumes.bass], [clickBus, volumes.click], [grooveBus, volumes.groove], [chordBus, volumes.chords ?? 0.35]] as const) {
         bus.gain.cancelScheduledValues(now); bus.gain.setValueAtTime(value, now);
       }
     },
@@ -175,7 +183,7 @@ function createGraph(context: BaseAudioContext, separateChannels: boolean) {
     dispose() {
       voices.forEach(voice => release(voice, context.currentTime)); voices = [];
       drums.forEach(voice => voice.cancel(context.currentTime)); drums = [];
-      bassBus.disconnect(); clickBus.disconnect(); grooveBus.disconnect(); merger?.disconnect(); master.disconnect(); analyser.disconnect();
+      bassBus.disconnect(); clickBus.disconnect(); grooveBus.disconnect(); chordBus.disconnect(); merger?.disconnect(); master.disconnect(); analyser.disconnect();
     },
   };
 }
@@ -230,7 +238,7 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
   let disposed = false; let offlineRendering = false;
   let manualBpm = 80;
   let pendingTempo: { bpm: number; requestedAt: number } | null = null;
-  let volumes: PlayerVolumes = { bass: 0.65, click: 0.45, groove: 0.6 };
+  let volumes: PlayerVolumes = { bass: 0.65, click: 0.45, groove: 0.6, chords: 0.35 };
   let frames: Frame[] = [];
   const trace: AudioTraceEvent[] = [];
 
@@ -324,6 +332,12 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
       record(event.click.countIn ? 'count-in' : 'click', sound, event, { bpm, audible: event.click.audible && volumes.click > 0 });
     }
     if (event.groove.length) graph.groove(event.groove, sound);
+    if (event.chord) {
+      // Свинг на аккорды не действует: время сетки, не сдвинутое. «Держать» снимается перед следующим тактом.
+      const span = event.chord.grids * gridSeconds(bpm);
+      graph.chord(event.chord.midis, event.chord.mode === 'hold' ? Math.max(0.05, span - 0.04) : Math.min(span * 0.5, 0.3), time);
+      record('chord', time, event, { bpm, audible: (volumes.chords ?? 0.35) > 0 });
+    }
     nextGrid = grid + 1;
     nextAt = time + gridSeconds(bpm);
   }
@@ -490,6 +504,7 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
         bass: analysePcm(buffer.getChannelData(0), buffer.sampleRate),
         click: analysePcm(buffer.getChannelData(1), buffer.sampleRate),
         groove: analysePcm(buffer.getChannelData(2), buffer.sampleRate),
+        chords: analysePcm(buffer.getChannelData(3), buffer.sampleRate),
         trace: offlineTrace,
       };
     } finally { offlineRendering = false; }
@@ -498,13 +513,13 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
 }
 
 /**
- * Настоящий PCM продуктового проигрывателя: канал 0 — бас, канал 1 — клик, канал 2 — подложка. Тот же план, голоса
+ * Настоящий PCM продуктового проигрывателя: канал 0 — бас, канал 1 — клик, канал 2 — подложка, канал 3 — аккорды. Тот же план, голоса
  * и сетка, что у живого проигрывания, но все события сразу ставятся на часы OfflineAudioContext.
  */
 export async function renderSequenceOffline(config: PlaybackConfig, options: { durationSeconds: number; volumes?: Partial<PlayerVolumes> }) {
   const duration = options.durationSeconds;
   validateOfflineDuration(duration);
-  const context = new OfflineAudioContext(3, Math.ceil(duration * OFFLINE_SAMPLE_RATE), OFFLINE_SAMPLE_RATE);
+  const context = new OfflineAudioContext(4, Math.ceil(duration * OFFLINE_SAMPLE_RATE), OFFLINE_SAMPLE_RATE);
   const player = createInternalPlayer(context, true, duration);
   try {
     if (options.volumes) player.setVolumes(options.volumes);

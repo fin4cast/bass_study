@@ -27,6 +27,10 @@ export interface PlaybackStep {
 /** Удар подложки-грува на шестнадцатой такта. */
 export interface GrooveHit { readonly sound: RhythmSound; readonly velocity: number }
 
+/** Аккомпанемент аккордами (R-028, B6): «Держать» — аккорд на такт, «Доли» — четыре коротких; голоса (MIDI) на каждый такт прохода. */
+export type AccompanimentMode = 'hold' | 'beats';
+export interface ChordTrack { readonly mode: AccompanimentMode; readonly bars: readonly (readonly number[] | null)[] }
+
 export interface PlaybackConfig {
   readonly notes: readonly AnnotatedPosition[];
   /**
@@ -44,6 +48,8 @@ export interface PlaybackConfig {
   readonly swing?: number;
   /** Подложка: удары на 16 шестнадцатых такта, повторяются каждый такт практики. */
   readonly groove?: readonly (readonly GrooveHit[])[] | null;
+  /** Аккорды по тактам прохода; молчат в отсчёте, на паузе и без этого поля. */
+  readonly chords?: ChordTrack | null;
   readonly repeat?: RepeatMode;
   readonly metronome?: {
     readonly enabled?: boolean;
@@ -70,6 +76,7 @@ export interface PlaybackPlan {
   readonly finishGrid: number | null;
   readonly swing: number;
   readonly groove: readonly (readonly GrooveHit[])[] | null;
+  readonly chords: ChordTrack | null;
   readonly metronome: {
     readonly enabled: boolean;
     readonly subdivision: NoteDuration;
@@ -101,6 +108,8 @@ export interface GridEvent {
   readonly swingGrids: number;
   readonly click: { readonly audible: boolean; readonly accent: boolean; readonly countIn: boolean } | null;
   readonly groove: readonly GrooveHit[];
+  /** Голоса аккорда, начинающегося на этой шестнадцатой (такт «Держать» или доля «Доли»), и режим; иначе `null`. */
+  readonly chord: { readonly mode: AccompanimentMode; readonly midis: readonly number[]; readonly grids: number } | null;
 }
 
 export const DURATION_GRIDS: Readonly<Record<NoteDuration, number>> = Object.freeze({ quarter: 4, eighth: 2, sixteenth: 1 });
@@ -174,6 +183,13 @@ export function createPlaybackPlan(config: PlaybackConfig): PlaybackPlan {
   if (groove && (groove.length !== 16 || groove.some(hits => !Array.isArray(hits) || hits.some(hit => !(hit.velocity > 0 && hit.velocity <= 1))))) {
     throw new RangeError('Подложка задаётся 16 шестнадцатыми такта с силой удара от 0 до 1.');
   }
+  const chords = config.chords ?? null;
+  if (chords) {
+    if ((chords.mode !== 'hold' && chords.mode !== 'beats') || !Array.isArray(chords.bars) || !chords.bars.length) throw new RangeError('Аккомпанемент: режим «Держать» или «Доли» и аккорды по тактам.');
+    for (const voices of chords.bars) {
+      if (voices !== null && (!Array.isArray(voices) || !voices.length || voices.some(midi => !Number.isInteger(midi) || midi < 0 || midi > 127))) throw new RangeError('Аккорд такта — непустой список высот MIDI.');
+    }
+  }
   const countInGrids = countInBars * 16;
   const starts: number[] = [];
   let passGrids = 0;
@@ -191,8 +207,18 @@ export function createPlaybackPlan(config: PlaybackConfig): PlaybackPlan {
     passBpms, totalPasses,
     finishGrid: totalPasses === null ? null : countInGrids + passGrids * totalPasses,
     swing, groove: groove ? Object.freeze(groove.map(hits => Object.freeze(hits.map(hit => Object.freeze({ ...hit }))))) : null,
+    chords: chords ? Object.freeze({ mode: chords.mode, bars: Object.freeze(chords.bars.map(voices => (voices ? Object.freeze([...voices]) : null))) }) : null,
     metronome: Object.freeze({ enabled: config.metronome?.enabled ?? true, subdivision, mode }),
   });
+}
+
+/** Аккорд, который начинается на этой шестнадцатой: «Держать» — на первой шестнадцатой такта, «Доли» — на каждой доле. */
+function chordAt(plan: PlaybackPlan, inPass: number, barInPass: number): GridEvent['chord'] {
+  if (!plan.chords) return null;
+  const midis = plan.chords.bars[barInPass % plan.chords.bars.length];
+  if (!midis) return null;
+  const grids = plan.chords.mode === 'hold' ? 16 : 4;
+  return inPass % grids === 0 ? { mode: plan.chords.mode, midis, grids } : null;
 }
 
 /** Шаг фрагмента, в который попадает шестнадцатая прохода: двоичный поиск по началам. */
@@ -212,7 +238,7 @@ const NO_HITS: readonly GrooveHit[] = Object.freeze([]);
  */
 export function eventAtGrid(plan: PlaybackPlan, grid: number): GridEvent {
   if (!Number.isInteger(grid) || grid < 0) throw new RangeError('Индекс музыкальной сетки должен быть неотрицательным целым.');
-  const base = { stepIndex: null, noteIndex: null, note: null, noteGrids: 0, audible: false, swingGrids: 0, groove: NO_HITS, barInPass: 0 } as const;
+  const base = { stepIndex: null, noteIndex: null, note: null, noteGrids: 0, audible: false, swingGrids: 0, groove: NO_HITS, barInPass: 0, chord: null } as const;
   if (grid < plan.countInGrids) {
     return { ...base, grid, phase: 'count-in', finish: false, passIndex: 0, loopBoundary: false,
       beat: Math.floor(grid / 4) % 4 + 1, bar: Math.floor(grid / 16), bpm: plan.bpm,
@@ -255,7 +281,8 @@ export function eventAtGrid(plan: PlaybackPlan, grid: number): GridEvent {
     stepIndex, noteIndex, note, noteGrids, audible: note !== null && step.audible !== false && !held,
     beat, bar, barInPass, bpm, click,
     swingGrids: practiceGrid % 4 === 2 ? ((plan.swing - 50) / 50) * 2 : 0,
-    groove: plan.groove ? plan.groove[practiceGrid % 16] : NO_HITS };
+    groove: plan.groove ? plan.groove[practiceGrid % 16] : NO_HITS,
+    chord: chordAt(plan, inPass, barInPass) };
 }
 
 /** Шаг — продолжение звучащей той же ноты предыдущего шага (в пределах фрагмента). */

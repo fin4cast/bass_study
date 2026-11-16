@@ -19,9 +19,9 @@ function onsets(actual, expected) {
   actual.forEach((value, index) => near(value, expected[index], 0.02, `PCM onset ${index}`));
 }
 function pcm(report, bass, click = []) {
-  // Каналы PCM: бас, клик, подложка (D-050); без подложки третий канал молчит.
-  assert.equal(report.channels, 3); assert.equal(report.sampleRate, 44100);
-  assert.equal(report.groove.onsets.length, 0);
+  // Каналы PCM: бас, клик, подложка (D-050), аккорды; без подложки и аккордов их каналы молчат.
+  assert.equal(report.channels, 4); assert.equal(report.sampleRate, 44100);
+  assert.equal(report.groove.onsets.length, 0); assert.equal(report.chords.onsets.length, 0);
   onsets(report.bass.onsets, bass); onsets(report.click.onsets, click);
   assert.ok(report.bass.peak > 0.01); assert.ok(report.bass.tailRms < 0.000001);
   if (click.length) assert.ok(report.click.peak > 0.01);
@@ -88,6 +88,47 @@ check('offline-sequence-bass-timbre-has-second-and-third-harmonics', 'api', asyn
     results.push(result);
   }
   return { method: 'OfflineAudioContext PCM of the product player, Hann-window correlation at k·f0; perceived timbre/speaker audibility not inferred', results };
+});
+
+/** Аккорд такта: C, E, G (MIDI 60, 64, 67) и A, C, E (57, 60, 64) — окно G3–F♯4 с минимальным движением голосов. */
+const C_CHORD = [60, 64, 67], A_CHORD = [57, 60, 64];
+const bar = note => ({ note, grids: 16 });
+check('offline-chords-hold-start-on-bar-downbeats-and-stay-silent-between', 'api', async ({ page }) => {
+  // 120 BPM: такт — 2 с. «Держать»: аккорд звучит весь такт; такт без аккорда (null) — тишина на канале аккордов.
+  const result = await offline(page, { steps: [bar(0), bar(1), bar(2)], chords: { mode: 'hold', bars: [C_CHORD, null, A_CHORD] } });
+  onsets(result.chords.onsets, [0, 4]); onsets(result.bass.onsets, [0, 2, 4]);
+  assert.ok(result.chords.peak > 0.01 && result.chords.peak < 0.9, `громкость аккордов: ${result.chords.peak}`);
+  assert.equal(result.trace.filter(event => event.type === 'chord').length, 2);
+  return result.chords;
+});
+check('offline-chords-beats-sound-on-every-quarter-and-follow-the-bar-chord', 'api', async ({ page }) => {
+  const result = await offline(page, { steps: [bar(0), bar(1)], chords: { mode: 'beats', bars: [C_CHORD, A_CHORD] } });
+  onsets(result.chords.onsets, [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]);
+  const times = result.trace.filter(event => event.type === 'chord').map(event => event.time);
+  assert.equal(times.length, 8); times.forEach((time, index) => near(time - times[0], index * 0.5, 0.001, `доля ${index}`));
+  return result.chords;
+});
+check('offline-chords-are-silent-in-count-in-and-off-by-volume', 'api', async ({ page }) => {
+  const counted = await offline(page, { countIn: true, steps: [bar(0)], chords: { mode: 'hold', bars: [C_CHORD] } });
+  // Четыре отсчётных клика занимают первые 2 с; аккорд — только на первой доле практики.
+  onsets(counted.chords.onsets, [2]); onsets(counted.bass.onsets, [2]);
+  const muted = await page.evaluate(async config => {
+    window.p4.player.setVolumes({ bass: 0.65, chords: 0 });
+    try { return await window.p4.player.renderOffline(window.p4.makeConfig(config)); }
+    finally { window.p4.player.setVolumes({ bass: 0.65, chords: 0.35 }); }
+  }, { steps: [{ note: 0, grids: 16 }], chords: { mode: 'hold', bars: [[60, 64, 67]] } });
+  assert.ok(muted.chords.peak < 0.0001, `шина аккордов с нулевой громкостью молчит: ${muted.chords.peak}`);
+  return { counted: counted.chords, muted: muted.chords };
+});
+check('offline-chord-voices-sound-at-their-own-frequencies-and-do-not-carry-over', 'api', async ({ page }) => {
+  const result = await page.evaluate(() => window.p4.chordSpectrum());
+  const [first, second] = result;
+  // Первый такт — C E G: голоса C4, E4, G4 заметны, посторонняя D4 нет; второй такт — A C E без G4 первого такта.
+  for (const level of first.voices) assert.ok(level > 0.003, `голос C-E-G слышен: ${JSON.stringify(first)}`);
+  assert.ok(first.control < first.voices.reduce((min, level) => Math.min(min, level), 1) / 4, `D4 не звучит в C-E-G: ${JSON.stringify(first)}`);
+  for (const level of second.voices) assert.ok(level > 0.003, `голос A-C-E слышен: ${JSON.stringify(second)}`);
+  assert.ok(second.gone < second.voices.reduce((min, level) => Math.min(min, level), 1) / 4, `G4 первого аккорда не остаётся во втором такте: ${JSON.stringify(second)}`);
+  return result;
 });
 
 check('offline-four-quarter-count-in-precedes-eighth-notes', 'api', async ({ page }) => {

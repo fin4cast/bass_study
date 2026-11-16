@@ -8,7 +8,7 @@ import './settings.css';
 import { renderPageHeader } from '../../app/page-frame';
 import { escapeHtml } from '../html';
 import {
-  BPM_MAX, BPM_MIN, BPM_STEP, LABEL_LABELS, SAVE_DETAIL, SAVE_TEXT, SECTIONS, THEME_LABELS, VIEW_LABELS, REFERENCE_LABELS, METRONOME_LABELS, COUNT_IN_LABELS,
+  BPM_MAX, BPM_MIN, BPM_STEP, LABEL_LABELS, SAVE_DETAIL, SAVE_TEXT, SECTIONS, THEME_LABELS, VIEW_LABELS, REFERENCE_LABELS, METRONOME_LABELS, ACCOMPANIMENT_LABELS, COUNT_IN_LABELS,
   compareCounts, countLines, errorText, formatBytes, formatCopyDate, plural, rejectionText, saveKind, sectionSummaries, stepBpm, withDefaults,
   type BackupChoice, type BackupPreview, type BackupRejection, type BoardLabels, type PlayDefaults, type PlayView, type SectionId, type SettingsState, type ThemeChoice,
 } from './model';
@@ -63,7 +63,7 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
   let toastTimer = 0;
   const origin = options.origin ?? (typeof location !== 'undefined' ? location.origin : '');
 
-  const seg = (key: 'view' | 'labels' | 'countInBars' | 'reference' | 'metronome', items: Readonly<Record<string, string>>, label: string) =>
+  const seg = (key: 'view' | 'labels' | 'countInBars' | 'reference' | 'metronome' | 'accompaniment', items: Readonly<Record<string, string>>, label: string) =>
     `<div class="st-seg" role="group" aria-label="${escapeHtml(label)}">${Object.entries(items).map(([id, text]) => `<button type="button" data-set="${key}" data-value="${id}" aria-pressed="false" data-lock>${escapeHtml(text)}</button>`).join('')}</div>`;
   const toggle = (key: 'newExerciseView', label: string) =>
     `<button type="button" class="st-switch" role="switch" aria-checked="false" data-switch="${key}" data-lock><span class="st-track" aria-hidden="true"></span><span class="st-switch-label">${escapeHtml(label)}</span></button>`;
@@ -82,6 +82,7 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
       ${row('Отсчёт перед стартом', 'Такты отсчёта перед первой нотой. После паузы игра продолжается без отсчёта.', seg('countInBars', COUNT_IN_LABELS, 'Отсчёт перед стартом'))}
       ${row('Эталонный бас', '«Авто» — эталон звучит с подсказкой и молчит в виде «По памяти». На экране игры меняется в панели «Звук и ритм».', seg('reference', REFERENCE_LABELS, 'Эталонный бас'))}
       ${row('Метроном', 'Как щёлкает метроном во время игры. «Такты тишины»: два такта с кликом, два без — проверка внутреннего пульса.', seg('metronome', METRONOME_LABELS, 'Метроном'))}
+      ${row('Аккорды', 'Аккорды такта под «Своей линией», риффом и песней: «Держать» — один на такт, «Доли» — четыре коротких. Громкость — на экране игры в панели «Звук и ритм».', seg('accompaniment', ACCOMPANIMENT_LABELS, 'Аккорды'))}
       ${row('Подписи на грифе', 'Что написано в кружках нот. На экране игры можно сменить.', seg('labels', LABEL_LABELS, 'Подписи на грифе'))}
       ${row('Темп нового упражнения', 'Для упражнения, которое ещё не играли и у которого нет истории похожих; дальше упражнение помнит свой темп.', `<span class="st-stepper"><button type="button" class="st-icon-btn" data-bpm="-${BPM_STEP}" aria-label="Медленнее на ${BPM_STEP}">−</button><output data-bpm-out aria-live="polite" aria-label="Темп нового упражнения"></output><button type="button" class="st-icon-btn" data-bpm="${BPM_STEP}" aria-label="Быстрее на ${BPM_STEP}">+</button><small>BPM</small></span>`)}
     </div></div>`,
@@ -148,7 +149,7 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
     const defaults = state.playDefaults;
     const kind = saveKind(state);
     for (const button of $$('[data-theme-choice]')) button.setAttribute('aria-pressed', String(button.dataset.themeChoice === state.theme));
-    for (const button of $$('[data-set]')) button.setAttribute('aria-pressed', String(String(defaults[button.dataset.set as 'view' | 'labels' | 'countInBars' | 'reference' | 'metronome']) === button.dataset.value));
+    for (const button of $$('[data-set]')) button.setAttribute('aria-pressed', String(String(defaults[button.dataset.set as 'view' | 'labels' | 'countInBars' | 'reference' | 'metronome' | 'accompaniment']) === button.dataset.value));
     for (const button of $$('[data-switch]')) button.setAttribute('aria-checked', String(defaults.newExerciseView === 'board'));
     $('[data-bpm-out]')!.textContent = String(defaults.bpm);
     for (const button of $$<HTMLButtonElement>('[data-bpm]')) button.disabled = locked() || (Number(button.dataset.bpm) < 0 ? defaults.bpm <= BPM_MIN : defaults.bpm >= BPM_MAX);
@@ -404,7 +405,7 @@ export function mountSettings(container: HTMLElement, options: SettingsOptions):
       return;
     }
     if (button.dataset.set) {
-      const key = button.dataset.set as 'view' | 'labels' | 'countInBars' | 'reference' | 'metronome';
+      const key = button.dataset.set as 'view' | 'labels' | 'countInBars' | 'reference' | 'metronome' | 'accompaniment';
       const value = button.dataset.value!;
       setDefaults(withDefaults(state.playDefaults, key === 'countInBars' ? { countInBars: Number(value) as 0 | 1 | 2 } : { [key]: value } as Partial<PlayDefaults>));
       return;

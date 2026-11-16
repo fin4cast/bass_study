@@ -15,10 +15,10 @@ import { onPageVisibility } from '../page-visibility';
 import { escapeHtml } from '../html';
 import { boardGeometry, boardNotesFromPlan, formatDegree, formatPosition, pitchLetter, planFretWindow, renderBoard, type BoardLabelMode } from './board';
 import {
-  BPM_MAX, BPM_MIN, BPM_STEP, CONCEPT_LABELS, COUNT_IN_CHOICES, DEFAULT_PLAY_SETTINGS, METRONOME_CHOICES, PLAY_VIEWS, REFERENCE_MODES,
-  clampBpm, continueApproach, isPlayView, junctionText, stopApproach, junctions, ladderAvailable, listenConfig, listenProgressText, loopText, playbackConfig, plural,
+  ACCOMPANIMENT_CHOICES, BPM_MAX, BPM_MIN, BPM_STEP, CONCEPT_LABELS, COUNT_IN_CHOICES, DEFAULT_PLAY_SETTINGS, METRONOME_CHOICES, PLAY_VIEWS, REFERENCE_MODES,
+  clampBpm, continueApproach, hasChords, isPlayView, junctionText, stopApproach, junctions, ladderAvailable, listenConfig, listenProgressText, loopText, playbackConfig, plural,
   progressText, referenceAudible, shiftText, suggestion, tabEvents, timelineFor, upcomingJunction, volumesFor,
-  type ApproachTally, type Assessment, type Junction, type MetronomeChoice, type PlaySettings, type PlayView, type ReferenceMode, type SuggestionAction,
+  type AccompanimentChoice, type ApproachTally, type Assessment, type Junction, type MetronomeChoice, type PlaySettings, type PlayView, type ReferenceMode, type SuggestionAction,
 } from './model';
 import { createEnginePort, type PlayState, type PlaybackPort } from './port';
 import { pageOf, renderRhythm, renderTab, tabGeometry, totalBars, type TabEvent } from './tab';
@@ -134,6 +134,10 @@ const BARS_PER_PAGE = 2;
 const segButtons = <T extends string | number>(name: string, items: readonly { id: T; label: string }[]) =>
   items.map(item => `<button type="button" data-${name}="${escapeHtml(item.id)}" aria-pressed="false">${escapeHtml(item.label)}</button>`).join('');
 
+/** Ползунок громкости внутри поля своего источника звука: меньше полей — панель помещается в два ряда. */
+const volumeSlider = (kind: string, of: string) =>
+  `<label class="pl-vol"><small>Громкость ${of}</small><input type="range" min="0" max="100" step="5" data-volume="${kind}" aria-label="Громкость ${of}"></label>`;
+
 const TEMPLATE = `
 <section class="pl-scene" data-status="stopped" aria-label="Экран игры">
   <header class="pl-head">
@@ -194,15 +198,14 @@ const TEMPLATE = `
     <div class="pl-panel" data-panel hidden role="group" aria-label="Звук и ритм">
       <div class="pl-panel-grid">
         <div class="pl-field"><span>Эталонный бас</span><div class="pl-seg" role="group" aria-label="Эталонный бас">${segButtons('reference', REFERENCE_MODES)}</div><small data-reference-note></small></div>
-        <div class="pl-field"><span>Метроном</span><div class="pl-seg" role="group" aria-label="Метроном">${segButtons('metronome', METRONOME_CHOICES)}</div></div>
-        <label class="pl-field"><span>Громкость клика</span><input type="range" min="0" max="100" step="5" data-volume="click" aria-label="Громкость клика"></label>
-        <label class="pl-field"><span>Подложка</span><select data-groove aria-label="Подложка"><option value="">Без подложки</option>${GROOVE_PRESETS.map(id => `<option value="${escapeHtml(id)}">${escapeHtml(presetName(id))}</option>`).join('')}</select></label>
-        <label class="pl-field"><span>Громкость подложки</span><input type="range" min="0" max="100" step="5" data-volume="groove" aria-label="Громкость подложки"></label>
+        <div class="pl-field"><span>Метроном</span><div class="pl-seg" role="group" aria-label="Метроном">${segButtons('metronome', METRONOME_CHOICES)}</div>${volumeSlider('click', 'клика')}</div>
+        <div class="pl-field"><span>Подложка</span><select data-groove aria-label="Подложка"><option value="">Без подложки</option>${GROOVE_PRESETS.map(id => `<option value="${escapeHtml(id)}">${escapeHtml(presetName(id))}</option>`).join('')}</select>${volumeSlider('groove', 'подложки')}</div>
+        <div class="pl-field"><span>Аккорды</span><div class="pl-seg" role="group" aria-label="Аккорды">${segButtons('accompaniment', ACCOMPANIMENT_CHOICES)}</div>${volumeSlider('chords', 'аккордов')}<small data-accompaniment-note></small></div>
         <div class="pl-field"><span>Отсчёт</span><div class="pl-seg" role="group" aria-label="Отсчёт">${COUNT_IN_CHOICES.map(item => `<button type="button" data-countin-bars="${item.bars}" aria-pressed="false">${escapeHtml(item.label)}</button>`).join('')}</div></div>
         <label class="pl-field"><span>Ритм</span><select data-rhythm-select aria-label="Ритмический рисунок"></select><small data-rhythm-note></small></label>
         <div class="pl-field"><span>Эхо</span><button type="button" class="pl-toggle" data-flag="echo" aria-pressed="false" title="Такт звучит эталоном, следующий — тишина для повтора">Услышь — повтори</button></div>
       </div>
-      <p class="pl-panel-note">Громкости и эталон меняются сразу, ритм, отсчёт, метроном и подложка — со следующего старта. M — открыть или закрыть панель.</p>
+      <p class="pl-panel-note">Громкости и эталон меняются сразу, ритм, отсчёт, метроном, подложка и режим аккордов — со следующего старта. M — открыть или закрыть панель.</p>
     </div>
     <div class="pl-countin" data-countin hidden><small>Отсчёт</small><span data-countin-value></span></div>
     <button type="button" class="primary-button pl-play" data-play aria-keyshortcuts="Space"><span data-play-label>▶ Играть</span><kbd>Пробел</kbd></button>
@@ -677,7 +680,8 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     const reference = settings.echo ? 'эхо' : settings.reference === 'auto' ? (referenceAudible(settings, view) ? 'эталон вкл' : 'эталон выкл') : `эталон ${REFERENCE_MODES.find(item => item.id === settings.reference)!.label.toLowerCase()}`;
     const metronome = METRONOME_CHOICES.find(item => item.id === settings.metronome)!.short;
     const count = settings.countInBars ? `отсчёт ${settings.countInBars}` : 'без отсчёта';
-    return [reference, metronome, count, settings.groove ? presetName(settings.groove).toLowerCase() : ''].filter(Boolean).join(' · ');
+    const chords = plan && hasChords(plan.spec) ? ACCOMPANIMENT_CHOICES.find(item => item.id === settings.accompaniment)!.short : '';
+    return [reference, metronome, count, settings.groove ? presetName(settings.groove).toLowerCase() : '', chords].filter(Boolean).join(' · ');
   }
   function renderPanel() {
     const panel = at('[data-panel]');
@@ -695,6 +699,15 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (document.activeElement !== groove) groove.value = String(Math.round(settings.grooveVolume * 100));
     groove.disabled = !settings.groove;
     at<HTMLSelectElement>('[data-groove]').value = settings.groove ?? '';
+    const chordsAvailable = plan ? hasChords(plan.spec) : false;
+    all<HTMLButtonElement>('[data-accompaniment]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.accompaniment === settings.accompaniment));
+      button.disabled = !chordsAvailable;
+    });
+    const chordVolume = at<HTMLInputElement>('[data-volume="chords"]');
+    if (document.activeElement !== chordVolume) chordVolume.value = String(Math.round(settings.accompanimentVolume * 100));
+    chordVolume.disabled = !chordsAvailable || settings.accompaniment === 'off';
+    setText(at('[data-accompaniment-note]'), chordsAvailable ? '' : 'Нет аккордов по тактам.');
     const select = at<HTMLSelectElement>('[data-rhythm-select]');
     const allowed = plan ? rhythmPatternsFor(plan) : [];
     const key = allowed.join(',');
@@ -798,8 +811,11 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     return `Шаг цели — ${how}; подход по-другому в цель не засчитается.`;
   }
   function setText(element: Element, text: string) { if (element.textContent !== text) element.textContent = text; }
+  function volumePatch(kind: string, value: number): Partial<PlaySettings> {
+    return kind === 'click' ? { click: value } : kind === 'chords' ? { accompanimentVolume: value } : { grooveVolume: value };
+  }
   function differsForNextStart(running: PlaySettings, next: PlaySettings) {
-    return running.countInBars !== next.countInBars || running.loop !== next.loop || running.ladder !== next.ladder
+    return running.countInBars !== next.countInBars || running.accompaniment !== next.accompaniment || running.loop !== next.loop || running.ladder !== next.ladder
       || running.range?.fromBar !== next.range?.fromBar || running.range?.toBar !== next.range?.toBar
       || running.rhythm !== next.rhythm || running.echo !== next.echo || running.groove !== next.groove || running.metronome !== next.metronome
       || (running.ladder && (running.bpm !== next.bpm || running.targetBpm !== next.targetBpm));
@@ -1134,6 +1150,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     else if (data.panelToggle !== undefined) { panelOpen = !panelOpen; renderPanel(); }
     else if (data.reference) changeSettings({ reference: data.reference as ReferenceMode });
     else if (data.metronome) changeSettings({ metronome: data.metronome as MetronomeChoice });
+    else if (data.accompaniment) changeSettings({ accompaniment: data.accompaniment as AccompanimentChoice });
     else if (data.countinBars !== undefined) changeSettings({ countInBars: Number(data.countinBars) as 0 | 1 | 2 });
     else if (data.rate) { rate(data.rate as Assessment); rateEl.focus({ preventScroll: true }); }
     else if (data.rateOpen !== undefined) offerRateNow();
@@ -1171,13 +1188,13 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (target instanceof HTMLInputElement && target.dataset.target !== undefined) { changeSettings({ targetBpm: clampBpm(Number(target.value) || settings.targetBpm) }); return; }
     if (target instanceof HTMLSelectElement && target.dataset.groove !== undefined) { changeSettings({ groove: (target.value || null) as RhythmPresetId | null }); return; }
     if (target instanceof HTMLSelectElement && target.dataset.rhythmSelect !== undefined) { changeSettings({ rhythm: target.value as RhythmPatternId, range: null }); return; }
-    if (target instanceof HTMLInputElement && target.dataset.volume) changeSettings(target.dataset.volume === 'click' ? { click: Number(target.value) / 100 } : { grooveVolume: Number(target.value) / 100 });
+    if (target instanceof HTMLInputElement && target.dataset.volume) changeSettings(volumePatch(target.dataset.volume, Number(target.value) / 100));
   }, { signal });
   scene.addEventListener('input', event => {
     const target = event.target;
     // Громкость слышна сразу, пока ползунок движется; сохранение — по `change`.
     if (target instanceof HTMLInputElement && target.dataset.volume) {
-      settings = target.dataset.volume === 'click' ? { ...settings, click: Number(target.value) / 100 } : { ...settings, grooveVolume: Number(target.value) / 100 };
+      settings = { ...settings, ...volumePatch(target.dataset.volume, Number(target.value) / 100) };
       applyVolumes();
     }
   }, { signal });

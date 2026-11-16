@@ -8,7 +8,7 @@ import {
   type AnnotatedPosition, type MusicalStructure, type StringId, type StructureId,
 } from '../music';
 import { getBoxCatalogue, getBoxOverlap, type BoxInstance, type BoxShapeId } from '../music/boxes';
-import { degreeFrom, parseChord } from '../music/chords';
+import { degreeFrom, parseChord, type ChordInfo } from '../music/chords';
 import { createSequence, type SequencePattern } from '../training';
 import { TEMPLATE_TASKS, type TemplateTask } from './tasks';
 import { barLayout, isRhythmPatternId, rhythmPattern, RHYTHM_PATTERNS, type RhythmPatternId } from './rhythm';
@@ -827,6 +827,27 @@ function positionedProgressionPlan(chords: readonly ChordRef[], patterns: readon
     bars.push({ q: quarters.map(offset => base + offset), e: Array.from({ length: 8 }, (_, step) => base + (pattern === 'approach' && step === 7 ? 1 : step)), tail: pattern === 'approach' ? [base + 7] : [] });
   });
   return { drafts, overlap: 'none', bars, segments: chords.map(chord => `${chord.root}${CHORD_SYMBOL[chord.structureId] ?? ''} · ${chord.roman}`) };
+}
+
+/**
+ * Аккорд каждого такта материала для аккомпанемента (R-028, B6): последовательность, рифф, «Своя линия» и фрагмент песни
+ * с аккордами партитуры; нераспознанное имя — `null` (такт без аккорда). У материала без аккордов по тактам — `null`.
+ */
+export function barChords(spec: ExerciseSpec): readonly (ChordInfo | null)[] | null {
+  const info = (root: string, structureId: StructureId): ChordInfo => ({ root, structureId, name: `${root}${CHORD_SYMBOL[structureId] ?? ''}` });
+  switch (spec.templateId) {
+    case 'progression': {
+      const key = createStructure(spec.params.root, 'major');
+      return PROGRESSION_CHORDS[spec.params.progression].map(([degree, structureId]) => info(key.notes[degree - 1].name, structureId));
+    }
+    case 'riff': {
+      const key = createStructure(spec.params.root, 'major');
+      return PROGRESSION_CHORDS[RIFFS[spec.params.riff].progression].map(([degree, structureId]) => info(key.notes[degree - 1].name, structureId));
+    }
+    case 'line': return spec.params.bars.map(bar => info(stepName(spec.params.root, bar.step), bar.chord));
+    case 'song-fragment': return spec.params.bars.map(bar => parseChord(bar.chord));
+    default: return null;
+  }
 }
 
 /* ---------- «Своя линия» (R-028, B5) ---------- */

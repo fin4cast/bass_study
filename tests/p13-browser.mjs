@@ -685,6 +685,32 @@ check('play-right-hand-echo-and-shuffle-groove-on-string-crossing-and-memory-pul
   return { labels: [...new Set(labels)] };
 });
 
+check('play-chords-panel-disabled-without-chords-and-remembered-with-progression', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  // Шаг 1 занятия — пульс на открытой струне: аккордов по тактам нет, управление недоступно с пояснением.
+  await home(page).locator('.ls-plan').getByRole('button', { name: 'Играть: ' + PROGRAM_DAY_ONE[0], exact: true }).click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  await playScene(page).locator('[data-panel-toggle]').click();
+  const panel = playScene(page).getByRole('group', { name: 'Звук и ритм' });
+  assert.equal(await panel.locator('[data-accompaniment="hold"]').isDisabled(), true);
+  assert.match(await panel.locator('[data-accompaniment-note]').innerText(), /Нет аккордов по тактам/);
+  assert.equal(await panel.locator('[data-volume="chords"]').isDisabled(), true);
+  await playScene(page).locator('[data-back]').click();
+  // Шаг 3 — I–IV–V на открытых струнах: режим выбирается, виден в сводке, запоминается как общая настройка звука.
+  await home(page).locator('.ls-plan').getByRole('button', { name: 'Играть: ' + PROGRAM_DAY_ONE[2], exact: true }).click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  await playScene(page).locator('[data-panel-toggle]').click();
+  const chords = playScene(page).getByRole('group', { name: 'Звук и ритм' });
+  assert.equal(await chords.locator('[data-accompaniment="hold"]').isDisabled(), false);
+  assert.equal(await chords.locator('[data-volume="chords"]').isDisabled(), true, 'громкость недоступна при режиме «Выкл»');
+  await chords.locator('[data-accompaniment="beats"]').click();
+  assert.match(await playScene(page).locator('[data-sound-summary]').innerText(), /аккорды по долям/);
+  assert.equal(await chords.locator('[data-volume="chords"]').isDisabled(), false);
+  await chords.locator('[data-volume="chords"]').fill('80');
+  await waitDb(page, db => db.preferences?.play?.accompaniment === 'beats' && db.preferences.play.accompanimentVolume === 0.8, 'аккорды запомнены');
+  return { summary: await playScene(page).locator('[data-sound-summary]').innerText() };
+});
+
 /* ---------- P17-fix: клавиши после мыши, подход до оценки, таймер, темп, «как играть» шага ---------- */
 
 const rateGroup = page => playScene(page).getByRole('group', { name: 'Самооценка подхода' });

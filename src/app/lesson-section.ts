@@ -283,7 +283,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
         options.savePreferences({
           lesson: { ...prefs.lesson, exerciseSettings: rememberExerciseSettings(prefs.lesson.exerciseSettings, play?.key ?? key, exerciseSettingsPatch(next, changed, practice !== null)) },
           // «Пр. рука» есть не у всех упражнений — умолчанием подписей не становится.
-          play: { ...prefs.play, countInBars: next.countInBars, reference: next.reference, metronome: next.metronome, click: next.click, grooveVolume: next.grooveVolume, labels: labels === 'pluck' ? prefs.play.labels : labels },
+          play: { ...prefs.play, countInBars: next.countInBars, reference: next.reference, metronome: next.metronome, click: next.click, grooveVolume: next.grooveVolume, accompaniment: next.accompaniment, accompanimentVolume: next.accompanimentVolume, labels: labels === 'pluck' ? prefs.play.labels : labels },
         });
       },
       onConcept: id => openConceptPanel(id),

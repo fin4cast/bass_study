@@ -216,7 +216,7 @@ describe('записи истории занятия', () => {
 describe('умолчания экрана игры и копия', () => {
   it('умолчания «Настроек» и настройки хранения переводятся без потерь', () => {
     const play: PlayPreferences = { defaultView: 'both', newExerciseView: 'board', countInBars: 0, labels: 'degree', bpm: 96, reference: 'quiet', metronome: 'two-four', click: 0.3, grooveVolume: 0.5, accompaniment: 'hold', accompanimentVolume: 0.8 };
-    expect(toPlayDefaults(play)).toEqual({ view: 'tabBoard', newExerciseView: 'board', countInBars: 0, labels: 'degrees', bpm: 96, reference: 'quiet', metronome: 'two-four' });
+    expect(toPlayDefaults(play)).toEqual({ view: 'tabBoard', newExerciseView: 'board', countInBars: 0, labels: 'degrees', bpm: 96, reference: 'quiet', metronome: 'two-four', accompaniment: 'hold' });
     expect(fromPlayDefaults(toPlayDefaults(play), play)).toEqual(play);
     const plain: PlayPreferences = { defaultView: 'memory', newExerciseView: null, countInBars: 2, labels: 'finger', bpm: 60, reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6, accompaniment: 'off', accompanimentVolume: 0.5 };
     expect(fromPlayDefaults(toPlayDefaults(plain), plain)).toEqual(plain);

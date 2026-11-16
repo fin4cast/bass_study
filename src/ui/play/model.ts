@@ -2,8 +2,9 @@
  * Чистая логика экрана игры: виды, переходы между сегментами, конфигурация звука, тексты
  * прогресса и предложения после самооценки. Без DOM, звука и базы.
  */
-import type { PlaybackConfig } from '../../audio/plan';
-import type { ConceptId, ExerciseNote, ExercisePlan } from '../../exercises';
+import type { ChordTrack, PlaybackConfig } from '../../audio/plan';
+import { barChords, type ConceptId, type ExerciseNote, type ExercisePlan, type ExerciseSpec } from '../../exercises';
+import { chordVoicing } from '../../music/voicing';
 import { barStepRange, buildTimeline, type RhythmPatternId, type Timeline } from '../../exercises/rhythm';
 import { grooveHits, presetSwing, type RhythmPresetId } from '../../rhythm/model';
 import { formatPosition } from './board';
@@ -21,9 +22,9 @@ export const PLAY_VIEWS: readonly { readonly id: PlayView; readonly label: strin
   { id: 'memory', label: 'По памяти', hint: 'Без нот: пульс, такт, старт и финиш' },
 ]);
 
-export { COUNT_IN_CHOICES, METRONOME_CHOICES, REFERENCE_MODES } from '../sound-options';
-export type { MetronomeChoice, ReferenceMode } from '../sound-options';
-import type { MetronomeChoice, ReferenceMode } from '../sound-options';
+export { ACCOMPANIMENT_CHOICES, COUNT_IN_CHOICES, METRONOME_CHOICES, REFERENCE_MODES } from '../sound-options';
+export type { AccompanimentChoice, MetronomeChoice, ReferenceMode } from '../sound-options';
+import type { AccompanimentChoice, MetronomeChoice, ReferenceMode } from '../sound-options';
 
 /** Короткие подписи чипов понятий в шапке экрана игры. */
 export const CONCEPT_LABELS: Readonly<Record<ConceptId, string>> = Object.freeze({
@@ -124,11 +125,14 @@ export interface PlaySettings {
   /** Громкость клика и подложки, 0–1. */
   readonly click: number;
   readonly grooveVolume: number;
+  /** Аккорды такта под линию (общая настройка звука, на зачёт шага не влияет) и их громкость. */
+  readonly accompaniment: AccompanimentChoice;
+  readonly accompanimentVolume: number;
 }
 
 export const DEFAULT_PLAY_SETTINGS: PlaySettings = Object.freeze({
   bpm: 72, targetBpm: 96, countInBars: 1, loop: true, ladder: false, range: null, rhythm: 'eighths', echo: false, groove: null,
-  reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6,
+  reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6, accompaniment: 'off', accompanimentVolume: 0.5,
 });
 
 /* ---------- Подход (D-050): проходы до оценки ---------- */
@@ -194,10 +198,10 @@ export function tabEvents(plan: Pick<ExercisePlan, 'notes'>, timeline: Pick<Time
 }
 
 /** Громкости шин по виду: эталон «авто» молчит в «По памяти»; «эхо» включает эталон, иначе повторять нечего. */
-export function volumesFor(settings: Pick<PlaySettings, 'reference' | 'echo' | 'click' | 'grooveVolume' | 'metronome'>, view: PlayView) {
+export function volumesFor(settings: Pick<PlaySettings, 'reference' | 'echo' | 'click' | 'grooveVolume' | 'metronome' | 'accompanimentVolume'>, view: PlayView) {
   const reference = settings.echo ? 'on' : settings.reference;
   const bass = reference === 'on' ? REFERENCE_VOLUME : reference === 'quiet' ? QUIET_VOLUME : reference === 'off' ? 0 : view === 'memory' ? 0 : REFERENCE_VOLUME;
-  return { bass, click: settings.click, groove: settings.grooveVolume };
+  return { bass, click: settings.click, groove: settings.grooveVolume, chords: settings.accompanimentVolume };
 }
 
 /** Эталон слышен при этих настройках и виде. */
@@ -211,8 +215,27 @@ const METRONOME_CONFIG: Readonly<Record<MetronomeChoice, NonNullable<PlaybackCon
   off: { enabled: false, subdivision: 'quarter', mode: 'all' },
 };
 
-/** Конфигурация звука: шкала шагов, петля по тактам, метроном, отсчёт, свинг и подложка. */
-export function playbackConfig(plan: Pick<ExercisePlan, 'positions'>, timeline: Timeline, settings: PlaySettings): PlaybackConfig {
+/**
+ * Аккорды по тактам прохода для аккомпанемента (B6): у «эха» аккорд повторяемого такта; петля берёт свои такты.
+ * `null` — режим выключен или у материала нет аккордов по тактам.
+ */
+export function chordTrack(spec: ExerciseSpec, timeline: Pick<Timeline, 'bars' | 'echo'>, range: PlaySettings['range'], mode: AccompanimentChoice): ChordTrack | null {
+  if (mode === 'off') return null;
+  const chords = barChords(spec);
+  if (!chords) return null;
+  const scale = timeline.echo ? 2 : 1;
+  const from = range?.fromBar ?? 0, to = range?.toBar ?? timeline.bars;
+  const bars = Array.from({ length: Math.max(0, to - from) }, (_, offset) => {
+    const chord = chords[Math.floor((from + offset) / scale)] ?? null;
+    return chord ? chordVoicing(chord) : null;
+  });
+  return bars.length ? { mode, bars } : null;
+}
+/** У материала есть аккорды по тактам: без них управление аккордами недоступно. */
+export const hasChords = (spec: ExerciseSpec): boolean => barChords(spec) !== null;
+
+/** Конфигурация звука: шкала шагов, петля по тактам, метроном, отсчёт, свинг, подложка и аккорды. */
+export function playbackConfig(plan: Pick<ExercisePlan, 'positions' | 'spec'>, timeline: Timeline, settings: PlaySettings): PlaybackConfig {
   const bpm = clampBpm(settings.bpm);
   const range = settings.range ? barStepRange(timeline, settings.range.fromBar, settings.range.toBar) : null;
   return {
@@ -226,6 +249,7 @@ export function playbackConfig(plan: Pick<ExercisePlan, 'positions'>, timeline: 
     metronome: METRONOME_CONFIG[settings.metronome],
     swing: settings.groove ? presetSwing(settings.groove) : timeline.swing,
     groove: settings.groove ? grooveHits(settings.groove) : null,
+    chords: chordTrack(plan.spec, timeline, settings.range, settings.accompaniment),
   };
 }
 

@@ -41,11 +41,23 @@
       const levels = harmonicLevels(samples, sampleRate, position.frequency, .15, .65);
       return { fret, hz: position.frequency, peak, levels, ratios: levels.slice(1).map(level => level / levels[0]) };
     }
+    /** Аккорды в PCM канала 3: уровни голосов, посторонней высоты (D4) и «хвоста» G4 прошлого аккорда. 60 BPM: такт — 4 с, окно аккорда 0,3–3,5 с. */
+    async function chordSpectrum() {
+      const { buffer } = await renderSequenceOffline(makeConfig({ steps: [{ note: 0, grids: 16 }, { note: 1, grids: 16 }], bpm: 60, chords: { mode: 'hold', bars: [[60, 64, 67], [57, 60, 64]] } }),
+        { durationSeconds: 8.5, volumes: { bass: 0, click: 0, groove: 0, chords: 1 } });
+      const samples = buffer.getChannelData(3).slice(); const sampleRate = buffer.sampleRate;
+      const hz = midi => 440 * 2 ** ((midi - 69) / 12);
+      const level = (midi, from, to) => harmonicLevels(samples, sampleRate, hz(midi), from, to, 1)[0];
+      return [
+        { voices: [60, 64, 67].map(midi => level(midi, .3, 3.5)), control: level(62, .3, 3.5) },
+        { voices: [57, 60, 64].map(midi => level(midi, 4.3, 7.5)), gone: level(67, 4.3, 7.5) },
+      ];
+    }
     /** Шаги настоящей шкалы прохода для `count` нот без тоники: ритмический рисунок → шаги звука. */
     const rhythmSteps = (pattern, count) => buildTimeline(
       { spec: { templateId: 'chromatic-position' }, notes: Array.from({ length: count }, () => ({ degree: null, segment: 0, midi: 40 })), segments: [], cadence: 'none' }, { pattern },
     ).steps.map(({ note, grids, audible, tie }) => ({ note, grids, audible, tie }));
-    window.p4 = { player, makeConfig, bassSpectrum, rhythmSteps, config: makeConfig(), ready: true, action: null };
+    window.p4 = { player, makeConfig, bassSpectrum, chordSpectrum, rhythmSteps, config: makeConfig(), ready: true, action: null };
     for (const name of ['start', 'pause', 'resume', 'stop']) {
       document.getElementById(name).addEventListener('click', async () => {
         window.p4.action = { name, done: false, error: null };

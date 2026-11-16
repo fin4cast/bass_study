@@ -86,6 +86,7 @@ export function playSettingsFor(spec: ExerciseSpec, key: string, sources: {
     echo: practice?.echo ?? false,
     countInBars: sources.play.countInBars, reference: sources.play.reference, metronome: sources.play.metronome,
     click: sources.play.click, grooveVolume: sources.play.grooveVolume,
+    accompaniment: sources.play.accompaniment, accompanimentVolume: sources.play.accompanimentVolume,
   };
 }
 
@@ -311,13 +312,13 @@ const LABELS_FROM_SETTINGS = invert(LABELS_TO_SETTINGS);
 
 export function toPlayDefaults(play: PlayPreferences): PlayDefaults {
   return { view: VIEW_TO_SETTINGS[play.defaultView], newExerciseView: play.newExerciseView === null ? null : VIEW_TO_SETTINGS[play.newExerciseView], countInBars: play.countInBars,
-    labels: LABELS_TO_SETTINGS[play.labels], bpm: play.bpm, reference: play.reference, metronome: play.metronome };
+    labels: LABELS_TO_SETTINGS[play.labels], bpm: play.bpm, reference: play.reference, metronome: play.metronome, accompaniment: play.accompaniment };
 }
-/** Умолчания из «Настроек»; громкости клика и подложки задаются на экране игры и сохраняются как есть. */
-export function fromPlayDefaults(defaults: PlayDefaults, current: Pick<PlayPreferences, 'click' | 'grooveVolume' | 'accompaniment' | 'accompanimentVolume'>): PlayPreferences {
+/** Умолчания из «Настроек»; громкости клика, подложки и аккордов задаются на экране игры и сохраняются как есть. */
+export function fromPlayDefaults(defaults: PlayDefaults, current: Pick<PlayPreferences, 'click' | 'grooveVolume' | 'accompanimentVolume'>): PlayPreferences {
   return { defaultView: VIEW_FROM_SETTINGS[defaults.view], newExerciseView: defaults.newExerciseView === null ? null : VIEW_FROM_SETTINGS[defaults.newExerciseView], countInBars: defaults.countInBars,
     labels: LABELS_FROM_SETTINGS[defaults.labels], bpm: defaults.bpm, reference: defaults.reference, metronome: defaults.metronome, click: current.click, grooveVolume: current.grooveVolume,
-    accompaniment: current.accompaniment, accompanimentVolume: current.accompanimentVolume };
+    accompaniment: defaults.accompaniment, accompanimentVolume: current.accompanimentVolume };
 }
 
 /** Статусы программы по истории, отметкам «Уже умею» и дате (R-028): вычисляются, нигде не хранятся. */
