@@ -57,6 +57,8 @@ export function rhythmPatternsFor(plan: Pick<ExercisePlan, 'spec'> & Partial<Pic
     const even = plan.spec.templateId !== 'song-fragment' && plan.timing.every(step => step.grids % 2 === 0);
     return even ? ['eighths', 'shuffle'] : ['eighths'];
   }
+  // A8.1: граница длинных и коротких нот совпадает с тактовой чертой только при четвертях и восьмых.
+  if (plan.spec.templateId === 'long-short') return ['eighths', 'quarters'];
   return RHYTHM_PATTERNS.map(pattern => pattern.id);
 }
 
@@ -76,6 +78,8 @@ export interface TimelineStep {
   readonly landing: boolean;
   /** Продолжение ноты прошлого шага (лига через тактовую черту во фрагменте песни): без атаки и без своего номера. */
   readonly tie: boolean;
+  /** Доля шага, которую звучит эталон (A3); `null` — обычная длительность. */
+  readonly gate: number | null;
   /** Такт «эха»: повтор предыдущего такта без эталона. */
   readonly echo: boolean;
 }
@@ -178,7 +182,7 @@ export function buildTimeline(plan: Pick<ExercisePlan, 'spec' | 'notes' | 'segme
   const place = (source: typeof raw, bar: number, echo: boolean) => {
     let start = 0;
     for (const step of source) {
-      steps.push({ note: step.note, grids: step.grids, audible: !echo, start: bar * BAR + start, bar, beatInBar: start / 4, landing: step.landing, tie: step.tie, echo });
+      steps.push({ note: step.note, grids: step.grids, audible: !echo, start: bar * BAR + start, bar, beatInBar: start / 4, landing: step.landing, tie: step.tie, gate: step.note === null ? null : (plan.notes[step.note] as { gate?: number | null }).gate ?? null, echo });
       start += step.grids;
     }
   };

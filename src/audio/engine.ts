@@ -71,6 +71,9 @@ const BASS_VOICE = { waveform: BASS_TIMBRE.waveform, level: dbToGain(-12), envel
 /** Аккорд аккомпанемента: мягкий тон без резкой атаки, тише эталона баса. */
 const CHORD_VOICE = { waveform: 'triangle', level: dbToGain(-20), envelope: { attack: 0.02, decay: 0.12, sustain: 0.7, release: 0.06 } } as const;
 const midiHz = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
+/** Доля длительности ноты по умолчанию и запас до следующей атаки, секунды. */
+const NOTE_GATE = 0.72;
+const GATE_GUARD = 0.01;
 const CLICK_VOICE = { waveform: 'triangle', level: dbToGain(-18), envelope: { attack: 0.001, decay: 0.004, sustain: 0.3, release: 0.003 } } as const;
 /** Постоянная экспоненциального спада, при которой значение почти доходит до цели за rampTime. */
 const approachConstant = (rampTime: number) => Math.log(rampTime + 1) / Math.log(200);
@@ -323,7 +326,9 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
     if (event.loopBoundary) record('loop', time, event, { bpm });
     if (event.note) {
       // Сдвинутая свингом нота короче на величину сдвига, иначе она наползает на следующую долю.
-      const duration = ((event.noteGrids - event.swingGrids) / 4) * (60 / bpm) * 0.72;
+      // Звучание — доля длительности (по умолчанию 0,72), но не дольше шага минус 10 мс: нота не наползает на следующую атаку (A3).
+      const full = ((event.noteGrids - event.swingGrids) / 4) * (60 / bpm);
+      const duration = Math.max(0.01, Math.min(full * (event.gate ?? NOTE_GATE), full - GATE_GUARD));
       if (event.audible) graph.bass(event.note.frequency, duration, sound);
       record('note', sound, event, { bpm, audible: event.audible && volumes.bass > 0 });
     }

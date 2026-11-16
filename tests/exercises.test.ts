@@ -98,6 +98,8 @@ const CONTROL: Record<ExerciseTemplateId, { ids: string; names?: string; degrees
   },
   // A5: шестнадцать нот E:0, пальцы левой руки и ступени не назначаются.
   'pulse-note': { ids: Array(16).fill('E:0').join(' '), names: Array(16).fill('E1').join(' '), fingers: Array(16).fill('-').join(' '), segments: '16' },
+  // A8.1: шестнадцать нот E:5 (A1), первые восемь длинные, вторые короткие; пальцы левой руки не назначаются.
+  'long-short': { ids: Array(16).fill('E:5').join(' '), names: Array(16).fill('A1').join(' '), fingers: Array(16).fill('-').join(' '), segments: '8 8' },
   // A6.1: натуральные ноты струны E на ладах 0–5 и обратно: E F G A G F.
   'string-naturals': { ids: 'E:0 E:1 E:3 E:5 E:3 E:1', names: 'E1 F1 G1 A1 G1 F1', fingers: '- - - - - -', segments: '6' },
   // A7.2: f = 5, n = 3, ряд позиций 5, 6, 7, 6; чётные — E→G пальцами 1-2-3-4, нечётные — G→E пальцами 4-3-2-1; 64 ноты.

@@ -53,11 +53,24 @@
         { voices: [57, 60, 64].map(midi => level(midi, 4.3, 7.5)), gone: level(67, 4.3, 7.5) },
       ];
     }
+    /** Длительность звучания (A3) в PCM баса: СКЗ в окнах внутри шага; 60 BPM, четверть — 1 с. Шаги: gate 1, gate 0,5, без gate. */
+    async function gateWindows() {
+      const { buffer } = await renderSequenceOffline(makeConfig({ steps: [{ note: 0, grids: 4, gate: 1 }, { note: 0, grids: 4, gate: 0.5 }, { note: 0, grids: 4 }], bpm: 60 }),
+        { durationSeconds: 3.5, volumes: { bass: 1, click: 0, groove: 0, chords: 0 } });
+      const samples = buffer.getChannelData(0); const sampleRate = buffer.sampleRate;
+      const rms = (from, to) => { let sum = 0; const a = Math.round(from * sampleRate), b = Math.round(to * sampleRate); for (let i = a; i < b; i++) sum += samples[i] * samples[i]; return Math.sqrt(sum / (b - a)); };
+      const window = (step, from, to) => rms(step + from, step + to);
+      return {
+        long: { at90: window(0, .88, .92), late: window(0, .95, .985) },
+        short: { early: window(1, .15, .45), gap: window(1, .6, .95) },
+        plain: { early: window(2, .15, .6), gap: window(2, .8, .95) },
+      };
+    }
     /** Шаги настоящей шкалы прохода для `count` нот без тоники: ритмический рисунок → шаги звука. */
     const rhythmSteps = (pattern, count) => buildTimeline(
       { spec: { templateId: 'chromatic-position' }, notes: Array.from({ length: count }, () => ({ degree: null, segment: 0, midi: 40 })), segments: [], cadence: 'none' }, { pattern },
     ).steps.map(({ note, grids, audible, tie }) => ({ note, grids, audible, tie }));
-    window.p4 = { player, makeConfig, bassSpectrum, chordSpectrum, rhythmSteps, config: makeConfig(), ready: true, action: null };
+    window.p4 = { player, makeConfig, bassSpectrum, chordSpectrum, gateWindows, rhythmSteps, config: makeConfig(), ready: true, action: null };
     for (const name of ['start', 'pause', 'resume', 'stop']) {
       document.getElementById(name).addEventListener('click', async () => {
         window.p4.action = { name, done: false, error: null };

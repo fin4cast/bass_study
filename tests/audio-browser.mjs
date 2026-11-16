@@ -131,6 +131,16 @@ check('offline-chord-voices-sound-at-their-own-frequencies-and-do-not-carry-over
   return result;
 });
 
+check('offline-note-gate-long-sounds-to-the-end-short-is-silent-after-half', 'api', async ({ page }) => {
+  // A3: 60 BPM, четверть — 1 с. Длинная (gate 1) звучит на 0,9 шага; короткая (0,5) молчит на отрезке 0,6–0,95; без gate — по умолчанию 0,72.
+  const result = await page.evaluate(() => window.p4.gateWindows());
+  assert.ok(result.long.at90 > 0.02, `длинная звучит на 0,9 шага: ${JSON.stringify(result.long)}`);
+  assert.ok(result.short.early > 0.02, `короткая звучит в первой половине: ${JSON.stringify(result.short)}`);
+  assert.ok(result.short.gap < 0.0005, `короткая молчит на 0,6–0,95 шага: ${JSON.stringify(result.short)}`);
+  assert.ok(result.plain.early > 0.02 && result.plain.gap < 0.0005, `без gate прежние 0,72: ${JSON.stringify(result.plain)}`);
+  return result;
+});
+
 check('offline-four-quarter-count-in-precedes-eighth-notes', 'api', async ({ page }) => {
   const result = await offline(page, { countIn: true, duration: 'eighth' });
   pcm(result, [2, 2.25, 2.5, 2.75], [0, 0.5, 1, 1.5]); near(result.finishAt, 3, 0.0001);

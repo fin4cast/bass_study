@@ -23,6 +23,11 @@ export interface PlaybackStep {
    * продолжение звучит обычной нотой.
    */
   readonly tie?: boolean;
+  /**
+   * Доля длительности ноты (с лигами, за вычетом сдвига свинга), которую она звучит: от 0 (не включая) до 1 включительно;
+   * `null` или нет поля — обычная длительность. Нота не наползает на следующую атаку: звучание не длиннее шага минус 10 мс.
+   */
+  readonly gate?: number | null;
 }
 /** Удар подложки-грува на шестнадцатой такта. */
 export interface GrooveHit { readonly sound: RhythmSound; readonly velocity: number }
@@ -98,6 +103,8 @@ export interface GridEvent {
   readonly note: AnnotatedPosition | null;
   /** Длина звучащей ноты в шестнадцатых и слышен ли эталон. */
   readonly noteGrids: number;
+  /** Доля длительности, которую звучит нота (A3); `null` — обычная. */
+  readonly gate: number | null;
   readonly audible: boolean;
   readonly beat: number;
   readonly bar: number;
@@ -110,6 +117,13 @@ export interface GridEvent {
   readonly groove: readonly GrooveHit[];
   /** Голоса аккорда, начинающегося на этой шестнадцатой (такт «Держать» или доля «Доли»), и режим; иначе `null`. */
   readonly chord: { readonly mode: AccompanimentMode; readonly midis: readonly number[]; readonly grids: number } | null;
+}
+
+/** Доля звучания ноты: число в (0, 1] или `null` (обычная длительность). */
+function gateOf(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > 1) throw new RangeError('Доля звучания ноты — число больше 0 и не больше 1.');
+  return value;
 }
 
 export const DURATION_GRIDS: Readonly<Record<NoteDuration, number>> = Object.freeze({ quarter: 4, eighth: 2, sixteenth: 1 });
@@ -149,8 +163,8 @@ export function createPlaybackPlan(config: PlaybackConfig): PlaybackPlan {
   }
   const noteDuration = duration(config.duration, 'eighth');
   const steps = config.steps
-    ? config.steps.map(step => Object.freeze({ note: step.note, grids: step.grids, audible: step.audible !== false, tie: step.tie === true }))
-    : config.notes.map((_, index) => Object.freeze({ note: index, grids: DURATION_GRIDS[noteDuration], audible: true, tie: false }));
+    ? config.steps.map(step => Object.freeze({ note: step.note, grids: step.grids, audible: step.audible !== false, tie: step.tie === true, gate: gateOf(step.gate) }))
+    : config.notes.map((_, index) => Object.freeze({ note: index, grids: DURATION_GRIDS[noteDuration], audible: true, tie: false, gate: null }));
   if (!steps.length) throw new RangeError('Шкала прохода пуста.');
   for (const step of steps) {
     if (!Number.isInteger(step.grids) || step.grids < 1 || step.grids > 64) throw new RangeError('Длительность шага — целое число шестнадцатых от 1 до 64.');
@@ -238,7 +252,7 @@ const NO_HITS: readonly GrooveHit[] = Object.freeze([]);
  */
 export function eventAtGrid(plan: PlaybackPlan, grid: number): GridEvent {
   if (!Number.isInteger(grid) || grid < 0) throw new RangeError('Индекс музыкальной сетки должен быть неотрицательным целым.');
-  const base = { stepIndex: null, noteIndex: null, note: null, noteGrids: 0, audible: false, swingGrids: 0, groove: NO_HITS, barInPass: 0, chord: null } as const;
+  const base = { stepIndex: null, noteIndex: null, note: null, noteGrids: 0, gate: null, audible: false, swingGrids: 0, groove: NO_HITS, barInPass: 0, chord: null } as const;
   if (grid < plan.countInGrids) {
     return { ...base, grid, phase: 'count-in', finish: false, passIndex: 0, loopBoundary: false,
       beat: Math.floor(grid / 4) % 4 + 1, bar: Math.floor(grid / 16), bpm: plan.bpm,
@@ -278,7 +292,7 @@ export function eventAtGrid(plan: PlaybackPlan, grid: number): GridEvent {
     }
   }
   return { grid, phase: 'practice', finish: false, passIndex, loopBoundary: practiceGrid > 0 && inPass === 0,
-    stepIndex, noteIndex, note, noteGrids, audible: note !== null && step.audible !== false && !held,
+    stepIndex, noteIndex, note, noteGrids, gate: note && !held ? step.gate ?? null : null, audible: note !== null && step.audible !== false && !held,
     beat, bar, barInPass, bpm, click,
     swingGrids: practiceGrid % 4 === 2 ? ((plan.swing - 50) / 50) * 2 : 0,
     groove: plan.groove ? plan.groove[practiceGrid % 16] : NO_HITS,

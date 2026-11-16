@@ -20,7 +20,13 @@ export interface TabEvent {
   readonly echo?: boolean;
   /** Продолжение ноты по лиге через тактовую черту: лад в скобках, без новой атаки. */
   readonly tie?: boolean;
+  /** Доля шага, которую звучит нота (A3): 1 — длинная (тенуто), меньше 1 — короткая (стаккато); `null` — без знака. */
+  readonly gate?: number | null;
 }
+
+/** Артикуляция ноты по доле звучания: подпись для знака и ARIA. */
+export const articulation = (gate: number | null | undefined): 'long' | 'short' | null => (gate === null || gate === undefined ? null : gate >= 1 ? 'long' : 'short');
+const ARTICULATION_TITLE = { long: 'длинно', short: 'коротко' } as const;
 
 export interface TabRenderOptions {
   readonly events: readonly TabEvent[];
@@ -121,7 +127,15 @@ export function renderTab(options: TabRenderOptions): string {
     const w = label.length * fontSize * 0.62 + 6;
     if (!isCurrent) parts.push(`<rect class="pl-tab-gap" x="${round(x - w / 2)}" y="${round(ly - fontSize * 0.62)}" width="${round(w)}" height="${round(fontSize * 1.24)}"/>`);
     const classes = ['pl-tab-fret', isCurrent && 'is-current', isPlayed && 'is-played', event.echo && 'is-echo'].filter(Boolean).join(' ');
-    parts.push(`<text class="${classes}" data-index="${event.index}" data-string="${event.tab.string}" x="${x}" y="${round(ly + fontSize * 0.36)}" text-anchor="middle" font-size="${fontSize}">${label}</text>`);
+    const art = articulation(event.gate);
+    parts.push(`<text class="${classes}" data-index="${event.index}" data-string="${event.tab.string}"${art ? ` data-articulation="${art}"` : ''} x="${x}" y="${round(ly + fontSize * 0.36)}" text-anchor="middle" font-size="${fontSize}">${label}</text>`);
+    // Знак артикуляции над ладом: точка — стаккато (коротко), черта — тенуто (длинно); без доли звучания знака нет.
+    if (art) {
+      const my = round(ly - fontSize * 0.78);
+      parts.push(art === 'short'
+        ? `<circle class="pl-tab-art is-short" cx="${x}" cy="${my}" r="${round(Math.max(1.6, fontSize * 0.12))}"><title>${ARTICULATION_TITLE.short}</title></circle>`
+        : `<line class="pl-tab-art is-long" x1="${round(x - fontSize * 0.34)}" x2="${round(x + fontSize * 0.34)}" y1="${my}" y2="${my}"><title>${ARTICULATION_TITLE.long}</title></line>`);
+    }
     // Черта длительности под станом: длинная нота видна как длинная.
     if (end - x > slot * 0.6) parts.push(`<line class="pl-tab-dur" x1="${round(x - slot * 0.4)}" x2="${end}" y1="${round(bottom + 7)}" y2="${round(bottom + 7)}"/>`);
     else parts.push(`<line class="pl-tab-dur" x1="${round(x - slot * 0.4)}" x2="${round(x + slot * 0.4)}" y1="${round(bottom + 7)}" y2="${round(bottom + 7)}"/>`);
@@ -150,7 +164,12 @@ export function renderRhythm(events: readonly TabEvent[], bar: number, current: 
   for (const event of events.filter(item => item.bar === bar)) {
     const x0 = round(x(event.beatInBar) + 2), x1 = round(x(event.beatInBar + event.durationBeats) - 2);
     const cls = ['pl-rh-note', !event.tab && 'is-rest', event.tie && 'is-tie', event.index === current && 'is-current', event.echo && 'is-echo'].filter(Boolean).join(' ');
-    parts.push(`<rect class="${cls}" x="${x0}" y="${top}" width="${round(Math.max(4, x1 - x0))}" height="${h}" rx="4"><title>${event.tab ? (event.tie ? 'лига — нота продолжается' : 'нота') : 'пауза'}</title></rect>`);
+    const art = event.tab ? articulation(event.gate) : null;
+    const full = Math.max(4, x1 - x0);
+    // Отрезок шага закрашен на долю звучания; весь шаг обведён, чтобы короткая нота читалась как «звук и тишина».
+    if (art) parts.push(`<rect class="pl-rh-step" x="${x0}" y="${top}" width="${round(full)}" height="${h}" rx="4"/>`);
+    const width = art ? Math.max(3, full * (event.gate as number)) : full;
+    parts.push(`<rect class="${cls}"${art ? ` data-articulation="${art}"` : ''} x="${x0}" y="${top}" width="${round(width)}" height="${h}" rx="4"><title>${event.tab ? (event.tie ? 'лига — нота продолжается' : `нота${art ? ` · ${ARTICULATION_TITLE[art]}` : ''}`) : 'пауза'}</title></rect>`);
   }
   return `<svg xmlns="${NS}" class="pl-rh-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Ритм такта ${bar + 1}">${parts.join('')}</svg>`;
 }
