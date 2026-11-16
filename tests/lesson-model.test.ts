@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createExerciseSpec } from '../src/exercises';
+import { createExerciseSpec, EXERCISE_TEMPLATES } from '../src/exercises';
 import { completeStep, createPlan, type DayPlan } from '../src/practice/plan';
 import { checkExercise, degreeCheck } from '../src/practice/check';
 import type { PracticeRecord } from '../src/practice/results';
@@ -145,12 +145,14 @@ describe('«Сегодня»', () => {
 });
 
 describe('библиотека', () => {
+  /** Встроенные шаблоны библиотеки — все, кроме «только своих» (фрагмент песни). */
+  const BUILTIN = EXERCISE_TEMPLATES.filter(template => !template.userOnly).length;
   const state = { plan: continuePlan(), records, userExercises: [] as UserExercise[], playFrom: null };
-  it('23 шаблона в 9 категориях; рекомендуемое — первым', () => {
+  it('все встроенные шаблоны в 9 категориях; рекомендуемое — первым', () => {
     const model = libraryModel(state, DEFAULT_LIBRARY);
-    expect(model.cards).toHaveLength(23);
-    expect(model.categories[0]).toMatchObject({ id: 'all', count: 23 });
-    expect(model.categories.slice(1).reduce((sum, category) => sum + category.count, 0)).toBe(23);
+    expect(model.cards).toHaveLength(BUILTIN);
+    expect(model.categories[0]).toMatchObject({ id: 'all', count: BUILTIN });
+    expect(model.categories.slice(1).reduce((sum, category) => sum + category.count, 0)).toBe(BUILTIN);
     expect(model.categories).toHaveLength(10);
     expect(model.cards[0]).toMatchObject({ id: 'tpl:pentatonic-relative', featured: true });
     expect(model.cards.find(card => card.id === 'tpl:connect-forms')).toMatchObject({ inPlan: true, played: true, minutes: 5 });
@@ -162,7 +164,7 @@ describe('библиотека', () => {
     expect(libraryModel(state, { ...DEFAULT_LIBRARY, structureId: 'minor-pentatonic' }).cards.map(card => card.id)).toContain('tpl:pentatonic-relative');
     expect(libraryModel(state, { ...DEFAULT_LIBRARY, concept: 'shared-notes' }).cards.map(card => card.id).sort()).toEqual(['tpl:connect-forms', 'tpl:pentatonic-neck']);
     const fromD = libraryModel({ ...state, playFrom: 'D' }, DEFAULT_LIBRARY);
-    expect(fromD.cards).toHaveLength(23);
+    expect(fromD.cards).toHaveLength(BUILTIN);
     expect(fromD.cards.find(card => card.id === 'tpl:pentatonic-form')!.material).toBe('Dm · минорная пентатоника · форма A');
   });
   it('свои упражнения — отдельная категория с ключом user:', () => {
@@ -171,7 +173,7 @@ describe('библиотека', () => {
     expect(model.cards).toEqual([expect.objectContaining({ key: 'user:mine', title: 'Моя форма <B>', builtin: false })]);
     expect(exerciseKey(own.spec, [own])).toBe('user:mine');
     expect(stepTitle({ kind: 'exercise', spec: own.spec }, [own])).toBe('Моя форма <B>');
-    expect(libraryItems(null, [own])).toHaveLength(24);
+    expect(libraryItems(null, [own])).toHaveLength(BUILTIN + 1);
   });
   it('настроенный материал карточки важнее «Играть от»: ключ, «в плане», лучший темп и то, что сохраняет ☆ (D-049)', () => {
     const formB = createExerciseSpec('pentatonic-form', { root: 'E', shapeId: 'penta-b' });

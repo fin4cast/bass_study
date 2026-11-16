@@ -208,3 +208,24 @@ describe('ноты такта последовательности по прав
     expect(bar(roots, 'tied-syncopation')).toEqual(row('C2 G2 G2 ~G2 C2 G2'));
   });
 });
+
+describe('контрольные шкалы A2.6 на настоящих шаблонах', () => {
+  it('материал А — «Ноты на струне» по умолчанию (шесть нот, тоники нет): шесть рисунков', () => {
+    const naturals = plan('string-naturals');
+    expect(naturals.notes).toHaveLength(6);
+    expect(shape(buildTimeline(naturals, { pattern: 'quarters' }))).toBe('n0@0(4) n1@4(4) n2@8(4) n3@12(4) | n4@16(4) n5@20(4) п@24(8)');
+    expect(shape(buildTimeline(naturals, { pattern: 'tied-syncopation' }))).toBe('n0@0(4) n1@4(2) n2@6(2) ~n2@8(2) n3@10(2) n4@12(4) | n5@16(4) п@20(12)');
+    expect(shape(buildTimeline(naturals, { pattern: 'eighth-rest' }))).toBe('n0@0(4) п@4(2) n1@6(2) n2@8(4) п@12(2) n3@14(2) | n4@16(4) п@20(2) n5@22(2) п@24(8)');
+  });
+  it.each<[number, Pattern, number, string]>([
+    [16, 'quarters', 4, ''], [16, 'eighths', 2, ''], [16, 'sixteenths', 1, ''],
+    [16, 'quarter-two-eighths', 3, 'n15@40(4) п@44(4)'],
+    [8, 'note-rest', 4, 'n7@56(4) п@60(4)'],
+    [32, 'sixteenths', 2, ''],
+  ])('материал В — «Пульс на одной ноте», %i нот, рисунок %s: %i тактов', (notes, pattern, bars, tail) => {
+    const pulse = plan('pulse-note', { notes });
+    const timeline = buildTimeline(pulse, { pattern });
+    expect(timeline.bars).toBe(bars);
+    if (tail) expect(shape(timeline).endsWith(tail)).toBe(true);
+  });
+});

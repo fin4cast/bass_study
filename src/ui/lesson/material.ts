@@ -46,6 +46,7 @@ export const TEMPLATE_MINUTES: Readonly<Record<ExerciseTemplateId, number>> = Ob
   'chromatic-position': 3, 'position-shift': 3, 'note-all-positions': 3, octaves: 3, 'pentatonic-form': 3,
   'pentatonic-relative': 4, 'scale-compact': 4, 'connect-forms': 5, 'pentatonic-neck': 5, 'scale-one-string': 3,
   'scale-position': 4, 'arpeggio-1358': 4, 'root-five-eight': 3, 'groups-of-three': 4, thirds: 4, 'form-transpose': 3, 'cycle-fourths': 4,
+  'pulse-note': 2, 'chromatic-shift': 4, 'string-naturals': 3,
   spider: 4, 'blues-scale': 3, 'arpeggio-seventh': 4, 'arpeggio-inversion': 3, progression: 4, 'string-crossing': 3, 'song-fragment': 4,
 });
 export const CHECK_MINUTES = 3;
@@ -85,7 +86,10 @@ export function materialLabel(spec: ExerciseSpec): string {
   const first = plan.notes[0];
   const note = (value: string) => parseNote(value).name;
   switch (spec.templateId) {
-    case 'chromatic-position': return `позиция ${spec.params.startFret} · палец на лад`;
+    case 'chromatic-position': return `позиция ${spec.params.startFret} · ${spec.params.fingering === '124' ? 'пальцы 1-2-4' : 'палец на лад'}${spec.params.direction === 'up-down' ? ' · вверх и вниз' : ''}`;
+    case 'pulse-note': return spec.params.fret === 0 ? `открытая струна ${spec.params.string} · ${spec.params.notes} нот` : `струна ${spec.params.string} · лад ${spec.params.fret} · ${spec.params.notes} нот`;
+    case 'chromatic-shift': return `лады ${spec.params.startFret}–${spec.params.startFret + spec.params.positions + 2} · ${spec.params.positions} позиций`;
+    case 'string-naturals': return `струна ${spec.params.string} · натуральные ноты · лады 0–${spec.params.fretMax}`;
     case 'position-shift': return `струна ${spec.params.string} · лады ${spec.params.startFret}–${spec.params.startFret + spec.params.shifts + 3}`;
     case 'note-all-positions': return `нота ${note(spec.params.note)} · все струны`;
     case 'octaves': return `нота ${note(spec.params.note)} · струны E и A`;

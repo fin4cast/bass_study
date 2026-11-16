@@ -45,11 +45,17 @@ type PentaShape = Extract<BoxShapeId, `penta-${string}`>;
 type CompactShape = 'compact-e' | 'compact-a';
 
 /** Аппликатура и направление хроматики, позиция последовательности (R-028, A1/B7): форма введена сейчас, значения добавляются новыми значениями списков без повышения версии. */
-export type Fingering = '1234';
-export type Direction = 'up';
+export type Fingering = '1234' | '124';
+export type Direction = 'up' | 'up-down';
 export type ProgressionPosition = 'closed';
-export const FINGERINGS: readonly Fingering[] = ['1234'];
-export const DIRECTIONS: readonly Direction[] = ['up'];
+export const FINGERINGS: readonly Fingering[] = ['1234', '124'];
+export const DIRECTIONS: readonly Direction[] = ['up', 'up-down'];
+/** Число нот «Пульса на одной ноте»: 16 — четыре такта четвертями, 8 — «нота — пауза», 32 — два такта шестнадцатыми (A5). */
+export type PulseNotes = 8 | 16 | 32;
+export const PULSE_NOTES: readonly PulseNotes[] = [8, 16, 32];
+/** Натуральные ноты струны: до 5-го лада у порожка или до 12-го (A6.1). */
+export type NaturalsFretMax = 5 | 12;
+export const NATURALS_FRET_MAX: readonly NaturalsFretMax[] = [5, 12];
 export const PROGRESSION_POSITIONS: readonly ProgressionPosition[] = ['closed'];
 
 export interface ExerciseParams {
@@ -57,6 +63,12 @@ export interface ExerciseParams {
   readonly 'position-shift': { readonly string: StringId; readonly startFret: number; readonly shifts: number };
   readonly spider: { readonly startFret: number; readonly positions: number; readonly pattern: SpiderPattern };
   readonly 'string-crossing': { readonly pattern: CrossingPattern };
+  /** Пульс правой рукой на одной ноте (R-028, A5). */
+  readonly 'pulse-note': { readonly string: StringId; readonly fret: number; readonly notes: PulseNotes };
+  /** Хроматика по позициям: ход вверх по грифу и обратно (A7.2). */
+  readonly 'chromatic-shift': { readonly startFret: number; readonly positions: number };
+  /** Натуральные ноты на одной струне, туда и обратно (A6.1). */
+  readonly 'string-naturals': { readonly string: StringId; readonly fretMax: NaturalsFretMax };
   readonly 'note-all-positions': { readonly note: string };
   readonly octaves: { readonly note: string };
   readonly 'pentatonic-form': { readonly root: string; readonly structureId: Pentatonic; readonly shapeId: PentaShape };
@@ -150,8 +162,11 @@ export const EXERCISE_TEMPLATES: readonly ExerciseTemplate[] = deepFreeze([
   { id: 'position-shift', category: 'warmup', title: 'Смена позиции по струне', concepts: ['position-shift', 'finger-per-fret'], defaults: { string: 'A', startFret: 3, shifts: 2 } },
   { id: 'spider', category: 'warmup', title: 'Паук: четыре пальца по грифу', concepts: ['finger-per-fret', 'position-shift'], defaults: { startFret: 5, positions: 5, pattern: '1234' } },
   { id: 'string-crossing', category: 'warmup', title: 'Переход между струнами (правая рука)', concepts: ['right-hand'], defaults: { pattern: 'adjacent' } },
+  { id: 'pulse-note', category: 'warmup', title: 'Пульс на одной ноте', concepts: ['right-hand'], defaults: { string: 'E', fret: 0, notes: 16 } },
+  { id: 'chromatic-shift', category: 'warmup', title: 'Хроматика по позициям', concepts: ['finger-per-fret', 'position-shift', 'semitone'], defaults: { startFret: 5, positions: 3 } },
   { id: 'note-all-positions', category: 'notes', title: 'Одна нота по всему грифу', concepts: ['octave', 'unison'], defaults: { note: 'C' } },
   { id: 'octaves', category: 'notes', title: 'Октавы: +2 струны, +2 лада', concepts: ['octave'], defaults: { note: 'G' } },
+  { id: 'string-naturals', category: 'notes', title: 'Ноты на струне', concepts: ['semitone', 'octave'], defaults: { string: 'E', fretMax: 5 } },
   { id: 'pentatonic-form', category: 'forms', title: 'Форма пентатоники вверх-вниз', concepts: ['pentatonic', 'degrees'], defaults: { root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a' } },
   { id: 'pentatonic-relative', category: 'forms', title: 'Мажорная и минорная пентатоника: одни ноты — разные тоники', concepts: ['relative-keys', 'degrees', 'pentatonic'], defaults: { minorRoot: 'A', shapeId: 'penta-a' } },
   { id: 'scale-compact', category: 'forms', title: 'Гамма в одной позиции', concepts: ['scale-formula', 'degrees'], defaults: { root: 'C', structureId: 'major', shapeId: 'compact-e' } },
@@ -220,6 +235,21 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
     return { string: oneOf(raw.string, STRINGS, 'Струна'), startFret, shifts };
   },
   'string-crossing': raw => ({ pattern: oneOf(raw.pattern, CROSSING_PATTERNS, 'Рисунок правой руки') }),
+  'pulse-note': raw => {
+    const notes = integer(raw.notes, 8, 32, 'Число нот') as PulseNotes;
+    if (!PULSE_NOTES.includes(notes)) throw new RangeError('Число нот: допустимо 8, 16 или 32.');
+    return { string: oneOf(raw.string, STRINGS, 'Струна'), fret: integer(raw.fret, 0, 12, 'Лад'), notes };
+  },
+  'chromatic-shift': raw => {
+    const startFret = integer(raw.startFret, 1, 12, 'Первый лад'); const positions = integer(raw.positions, 2, 5, 'Число позиций');
+    if (startFret + positions + 2 > 16) throw new RangeError('Хроматика по позициям должна заканчиваться не дальше 16-го лада.');
+    return { startFret, positions };
+  },
+  'string-naturals': raw => {
+    const fretMax = integer(raw.fretMax, 5, 12, 'Последний лад') as NaturalsFretMax;
+    if (!NATURALS_FRET_MAX.includes(fretMax)) throw new RangeError('Последний лад: допустимо 5 или 12.');
+    return { string: oneOf(raw.string, STRINGS, 'Струна'), fretMax };
+  },
   spider: raw => {
     const startFret = integer(raw.startFret, 1, 12, 'Первый лад'); const positions = integer(raw.positions, 2, 12, 'Число позиций');
     if (startFret + positions + 2 > 16) throw new RangeError('Паук должен заканчиваться не дальше 16-го лада.');
@@ -398,10 +428,51 @@ type Built = { readonly drafts: readonly Draft[]; readonly segments: readonly st
   readonly timing?: readonly { readonly note: number | null; readonly grids: number; readonly tie?: boolean }[]; readonly bars?: readonly BarForms[] };
 
 const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[Id]) => Built } = {
-  'chromatic-position': ({ startFret }) => ({
-    drafts: STRINGS.flatMap(string => [0, 1, 2, 3].map(offset => ({ position: chromatic(string, startFret + offset), finger: offset + 1, segment: 0, degree: null }))),
-    segments: [`Позиция ${startFret} · пальцы 1-2-3-4`],
+  'chromatic-position': ({ startFret, fingering, direction }) => {
+    // Аппликатура 1-2-3-4: четыре лада; 1-2-4: три лада, пальцы 1, 2 и 4 (A7.1). Вниз — те же лады по убыванию, пальцы в обратном порядке.
+    const offsets = fingering === '124' ? [0, 1, 2] : [0, 1, 2, 3];
+    const fingers = fingering === '124' ? [1, 2, 4] : [1, 2, 3, 4];
+    const stroke = (strings: readonly StringId[], reverse: boolean, segment: number): Draft[] => strings.flatMap(string => offsets.map((_, index) => {
+      const at = reverse ? offsets.length - 1 - index : index;
+      return { position: chromatic(string, startFret + offsets[at]), finger: fingers[at], segment, degree: null };
+    }));
+    const label = fingering === '124' ? `Позиция ${startFret} · пальцы 1-2-4 · лады ${startFret}–${startFret + 2}` : `Позиция ${startFret} · пальцы 1-2-3-4`;
+    const title = `Хроматика ${fingering === '124' ? '1-2-4' : '1-2-3-4'} в позиции`;
+    if (direction === 'up') return { drafts: stroke(STRINGS, false, 0), segments: [label], title, overlap: 'none' };
+    return {
+      drafts: [...stroke(STRINGS, false, 0), ...stroke([...STRINGS].reverse(), true, 1)], segments: [`${label} · вверх`, `${label} · вниз`],
+      title: `${title}, вверх и вниз`, overlap: 'none',
+    };
+  },
+  'pulse-note': ({ string, fret, notes }) => ({
+    drafts: Array.from({ length: notes }, (_, index): Draft => ({ position: chromatic(string, fret), finger: null, segment: 0, degree: null, pluck: index % 2 ? 'm' : 'i' })),
+    segments: [fret === 0 ? `Открытая струна ${string} · i–m` : `Струна ${string} · лад ${fret} · i–m`], overlap: 'none',
   }),
+  'chromatic-shift': ({ startFret, positions }) => {
+    // Ряд позиций «туда-обратно», крайние не повторяются: P = f…f+n−1, f+n−2…f+1 (длина 2n−2).
+    const row = [...range(startFret, startFret + positions - 1), ...(positions > 2 ? range(startFret + 1, startFret + positions - 2).reverse() : [])];
+    const drafts: Draft[] = []; const segments: string[] = [];
+    row.forEach((position, segment) => {
+      const up = segment % 2 === 0;
+      const strings = up ? STRINGS : [...STRINGS].reverse();
+      for (const string of strings) for (let step = 0; step < 4; step++) {
+        const offset = up ? step : 3 - step;
+        drafts.push({ position: chromatic(string, position + offset), finger: offset + 1, segment, degree: null });
+      }
+      segments.push(`Лады ${position}–${position + 3} · ${up ? 'E → G' : 'G → E'}`);
+    });
+    return { drafts, segments, overlap: 'none' };
+  },
+  'string-naturals': ({ string, fretMax }) => {
+    // Натуральные ноты струны на ладах 0…fretMax по возрастанию, затем обратно без крайних (R-007 «туда-обратно»).
+    const natural = new Set([0, 2, 4, 5, 7, 9, 11]);
+    const frets = range(0, fretMax).filter(fret => natural.has(getPosition(string, fret).midi % 12));
+    const order = [...frets, ...frets.slice(1, -1).reverse()];
+    return {
+      drafts: order.map((fret): Draft => ({ position: chromatic(string, fret), finger: null, segment: 0, degree: null })),
+      segments: [`Струна ${string} · натуральные ноты · лады 0–${fretMax}`], overlap: 'none',
+    };
+  },
   'position-shift': ({ string, startFret, shifts }) => ({
     drafts: Array.from({ length: shifts + 1 }, (_, shift) => [0, 1, 2, 3].map(offset => ({ position: chromatic(string, startFret + shift + offset), finger: offset + 1, segment: shift, degree: null }))).flat(),
     segments: Array.from({ length: shifts + 1 }, (_, shift) => `Лады ${startFret + shift}–${startFret + shift + 3}`),
@@ -745,6 +816,7 @@ export const TEMPLATE_TARGET_BPM: Readonly<Record<ExerciseTemplateId, number>> =
   'pentatonic-form': 96, 'pentatonic-relative': 92, 'scale-compact': 96, 'blues-scale': 96, 'connect-forms': 92, 'pentatonic-neck': 88,
   'scale-one-string': 88, 'scale-position': 92, 'arpeggio-1358': 96, 'arpeggio-seventh': 92, 'arpeggio-inversion': 88, 'root-five-eight': 100,
   'groups-of-three': 88, thirds: 88, 'form-transpose': 88, 'cycle-fourths': 84, progression: 100, 'song-fragment': 0,
+  'pulse-note': 100, 'chromatic-shift': 96, 'string-naturals': 80,
 });
 /** Цель темпа материала: у фрагмента песни — темп партитуры, у остальных — цель шаблона. */
 export const targetBpmFor = (spec: ExerciseSpec): number => spec.templateId === 'song-fragment' ? spec.params.bpm : TEMPLATE_TARGET_BPM[spec.templateId];
@@ -807,7 +879,14 @@ const structures = (values: readonly string[]) => option('structureId', 'Стр�
 const pentaForm = [notes('root'), structures(PENTA_STRUCTURES), pentaShape];
 
 const OPTIONS: { readonly [Id in ExerciseTemplateId]: readonly TemplateOption[] } = {
-  'chromatic-position': [option('startFret', 'Лад', range(1, 12))],
+  'chromatic-position': [
+    option('startFret', 'Лад', range(1, 12)),
+    option('fingering', 'Аппликатура', FINGERINGS, fingering => (fingering === '1234' ? 'палец на лад 1-2-3-4' : 'три лада 1-2-4')),
+    option('direction', 'Направление', DIRECTIONS, direction => (direction === 'up' ? 'вверх' : 'вверх и вниз')),
+  ],
+  'pulse-note': [option('string', 'Струна', STRINGS), option('fret', 'Лад', range(0, 12), fret => (fret === 0 ? 'открытая' : String(fret))), option('notes', 'Нот', PULSE_NOTES)],
+  'chromatic-shift': [option('startFret', 'С лада', range(1, 12)), option('positions', 'Позиций', range(2, 5))],
+  'string-naturals': [option('string', 'Струна', STRINGS), option('fretMax', 'До лада', NATURALS_FRET_MAX)],
   'position-shift': [option('string', 'Струна', STRINGS), option('startFret', 'С лада', range(1, 12)), option('shifts', 'Сдвигов', range(1, 4))],
   'string-crossing': [option('pattern', 'Рисунок', CROSSING_PATTERNS, pattern => CROSSING_TITLES[pattern].toLowerCase())],
   spider: [option('startFret', 'С лада', range(1, 12)), option('positions', 'Позиций', range(2, 12)), option('pattern', 'Пальцы', SPIDER_PATTERNS, pattern => [...pattern].join('-'))],
@@ -845,6 +924,7 @@ export function configureSpec(spec: ExerciseSpec, param: string, value: string |
   const attempt = (patch: Record<string, unknown> = {}) => validateExerciseSpec({ version: 'exercise-v1', templateId: spec.templateId, params: { ...params, ...patch } });
   try { return attempt(); } catch (failure) {
     const patches: Record<string, unknown>[] = [];
+    if (spec.templateId === 'chromatic-shift') patches.push({ positions: Math.max(2, 14 - Number(params.startFret)) }, { startFret: Math.max(1, 14 - Number(params.positions)) });
     if (spec.templateId === 'spider') patches.push({ positions: Math.max(2, 14 - Number(params.startFret)) }, { startFret: Math.max(1, 14 - Number(params.positions)) });
     if (spec.templateId === 'progression') patches.push({ pattern: 'roots' }, { progression: 'blues-12' });
     if ('shapeId' in params) {

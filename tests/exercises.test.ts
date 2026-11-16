@@ -81,6 +81,23 @@ const CONTROL: Record<ExerciseTemplateId, { ids: string; names?: string; degrees
     degrees: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1',
     fingers: '2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2', segments: '8 8 8 8',
   },
+  // A5: шестнадцать нот E:0, пальцы левой руки и ступени не назначаются.
+  'pulse-note': { ids: Array(16).fill('E:0').join(' '), names: Array(16).fill('E1').join(' '), fingers: Array(16).fill('-').join(' '), segments: '16' },
+  // A6.1: натуральные ноты струны E на ладах 0–5 и обратно: E F G A G F.
+  'string-naturals': { ids: 'E:0 E:1 E:3 E:5 E:3 E:1', names: 'E1 F1 G1 A1 G1 F1', fingers: '- - - - - -', segments: '6' },
+  // A7.2: f = 5, n = 3, ряд позиций 5, 6, 7, 6; чётные — E→G пальцами 1-2-3-4, нечётные — G→E пальцами 4-3-2-1; 64 ноты.
+  'chromatic-shift': {
+    ids: 'E:5 E:6 E:7 E:8 A:5 A:6 A:7 A:8 D:5 D:6 D:7 D:8 G:5 G:6 G:7 G:8 '
+      + 'G:9 G:8 G:7 G:6 D:9 D:8 D:7 D:6 A:9 A:8 A:7 A:6 E:9 E:8 E:7 E:6 '
+      + 'E:7 E:8 E:9 E:10 A:7 A:8 A:9 A:10 D:7 D:8 D:9 D:10 G:7 G:8 G:9 G:10 '
+      + 'G:9 G:8 G:7 G:6 D:9 D:8 D:7 D:6 A:9 A:8 A:7 A:6 E:9 E:8 E:7 E:6',
+    names: 'A1 B♭1 B1 C2 D2 E♭2 E2 F2 G2 A♭2 A2 B♭2 C3 C♯3 D3 E♭3 '
+      + 'E3 E♭3 D3 C♯3 B2 B♭2 A2 A♭2 F♯2 F2 E2 E♭2 C♯2 C2 B1 B♭1 '
+      + 'B1 C2 C♯2 D2 E2 F2 F♯2 G2 A2 B♭2 B2 C3 D3 E♭3 E3 F3 '
+      + 'E3 E♭3 D3 C♯3 B2 B♭2 A2 A♭2 F♯2 F2 E2 E♭2 C♯2 C2 B1 B♭1',
+    fingers: Array.from({ length: 4 }, (_, segment) => (segment % 2 ? '4 3 2 1' : '1 2 3 4')).flatMap(group => [group, group, group, group]).join(' '),
+    segments: '16 16 16 16',
+  },
   'cycle-fourths': {
     ids: 'E:8 A:10 D:10 A:10 E:1 A:3 D:3 A:3 E:6 A:8 D:8 A:8 E:11 A:13 D:13 A:13', names: 'C2 G2 C3 G2 F1 C2 F2 C2 B♭1 F2 B♭2 F2 E♭2 B♭2 E♭3 B♭2',
     degrees: '1 5 1 5 1 5 1 5 1 5 1 5 1 5 1 5', fingers: '- - - - - - - - - - - - - - - -', segments: '4 4 4 4',
@@ -94,7 +111,7 @@ const segmentSizes = (segments: readonly number[]) => {
 };
 
 describe('каталог exercise-v1: независимые контрольные примеры', () => {
-  it('каталог содержит 23 шаблона с уникальными ID, по одному эталону на каждый', () => {
+  it('каталог содержит шаблоны с уникальными ID, по одному эталону на каждый', () => {
     expect(EXERCISE_TEMPLATES.map(template => template.id).sort()).toEqual(Object.keys(CONTROL).sort());
   });
   it.each(Object.entries(CONTROL))('%s по умолчанию', (templateId, expected) => {
@@ -340,14 +357,139 @@ describe('форма A1/B7: аппликатура, направление и п
     expect(materialId(createExerciseSpec('progression'))).toBe('progression.C.I-IV-V.roots.closed');
   });
 
-  it('до захода C допустимы только умолчания: остальные значения отклоняются', () => {
+  it('новые значения аппликатуры и направления допустимы, посторонние отклоняются; позиции последовательности пока только умолчание', () => {
     const chromatic = createExerciseSpec('chromatic-position');
-    for (const [param, value] of [['fingering', '124'], ['direction', 'up-down'], ['fingering', '']] as const) {
+    for (const [param, value] of [['fingering', '124'], ['direction', 'up-down']] as const) {
+      expect(() => validateExerciseSpec({ ...chromatic, params: { ...chromatic.params, [param]: value } }), `${param}=${value}`).not.toThrow();
+    }
+    for (const [param, value] of [['fingering', '134'], ['direction', 'down'], ['fingering', '']] as const) {
       expect(() => validateExerciseSpec({ ...chromatic, params: { ...chromatic.params, [param]: value } }), `${param}=${value}`).toThrow(RangeError);
     }
     const progression = createExerciseSpec('progression');
     for (const value of ['low', 'open', 'Closed']) expect(() => validateExerciseSpec({ ...progression, params: { ...progression.params, position: value } }), value).toThrow(RangeError);
     // Старая форма без новых полей — не материал этой версии.
     expect(() => validateExerciseSpec({ version: 'exercise-v1', templateId: 'chromatic-position', params: { startFret: 5 } })).toThrow(RangeError);
+  });
+});
+
+/* ---------- Шаблоны этапа 1: хроматика 1-2-4, пульс, ноты на струне, хроматика по позициям (R-028, A5–A7) ---------- */
+
+describe('хроматика: аппликатура 1-2-4 и направление (A7.1)', () => {
+  const run = (params: Record<string, unknown>) => buildExercise(createExerciseSpec('chromatic-position', params as never));
+  const ids = (plan: ReturnType<typeof run>) => plan.notes.map(note => note.id).join(' ');
+  const fingers = (plan: ReturnType<typeof run>) => plan.notes.map(note => note.finger).join(' ');
+  const names = (plan: ReturnType<typeof run>) => plan.notes.map(note => note.name).join(' ');
+
+  it('1-2-4 от 1-го лада вверх: три лада на струне, пальцы 1, 2, 4', () => {
+    const plan = run({ startFret: 1, fingering: '124' });
+    expect(ids(plan)).toBe('E:1 E:2 E:3 A:1 A:2 A:3 D:1 D:2 D:3 G:1 G:2 G:3');
+    expect(names(plan)).toBe('F1 F♯1 G1 B♭1 B1 C2 E♭2 E2 F2 A♭2 A2 B♭2');
+    expect(fingers(plan)).toBe('1 2 4 1 2 4 1 2 4 1 2 4');
+    expect(plan.segments.map(segment => segment.label)).toEqual(['Позиция 1 · пальцы 1-2-4 · лады 1–3']);
+  });
+  it('1-2-4 от 3-го лада вверх', () => {
+    const plan = run({ startFret: 3, fingering: '124' });
+    expect(ids(plan)).toBe('E:3 E:4 E:5 A:3 A:4 A:5 D:3 D:4 D:5 G:3 G:4 G:5');
+    expect(names(plan)).toBe('G1 A♭1 A1 C2 C♯2 D2 F2 F♯2 G2 B♭2 B2 C3');
+    expect(fingers(plan)).toBe('1 2 4 1 2 4 1 2 4 1 2 4');
+  });
+  it('вверх и вниз с 1-2-4: ход вниз по струнам G, D, A, E теми же ладами по убыванию, пальцы 4-2-1', () => {
+    const plan = run({ startFret: 1, fingering: '124', direction: 'up-down' });
+    expect(plan.notes).toHaveLength(24);
+    expect(ids(plan)).toBe('E:1 E:2 E:3 A:1 A:2 A:3 D:1 D:2 D:3 G:1 G:2 G:3 G:3 G:2 G:1 D:3 D:2 D:1 A:3 A:2 A:1 E:3 E:2 E:1');
+    expect(names(plan).split(' ').slice(12).join(' ')).toBe('B♭2 A2 A♭2 F2 E2 E♭2 C2 B1 B♭1 G1 F♯1 F1');
+    expect(fingers(plan).split(' ').slice(12).join(' ')).toBe('4 2 1 4 2 1 4 2 1 4 2 1');
+    expect(plan.segments.map(segment => segment.label)).toEqual(['Позиция 1 · пальцы 1-2-4 · лады 1–3 · вверх', 'Позиция 1 · пальцы 1-2-4 · лады 1–3 · вниз']);
+  });
+  it('1-2-3-4 вверх и вниз: 32 ноты, верхняя нота дважды подряд, последняя — E:f', () => {
+    const plan = run({ startFret: 5, direction: 'up-down' });
+    expect(plan.notes).toHaveLength(32);
+    expect(plan.notes.slice(15, 17).map(note => note.id)).toEqual(['G:8', 'G:8']);
+    expect(plan.notes.at(-1)!.id).toBe('E:5');
+    expect(fingers(plan).split(' ').slice(16, 20).join(' ')).toBe('4 3 2 1');
+  });
+  it('умолчания не изменились; заголовок называет аппликатуру и направление', () => {
+    expect(run({}).title).toBe('Хроматика 1-2-3-4 в позиции');
+    expect(run({ fingering: '124' }).title).toBe('Хроматика 1-2-4 в позиции');
+    expect(run({ direction: 'up-down' }).title).toBe('Хроматика 1-2-3-4 в позиции, вверх и вниз');
+    expect(templateOptions('chromatic-position').map(option => option.param)).toEqual(['startFret', 'fingering', 'direction']);
+  });
+});
+
+describe('пульс на одной ноте (A5)', () => {
+  const run = (params: Record<string, unknown>) => buildExercise(createExerciseSpec('pulse-note', params as never));
+  it('варианты программы: открытые A, D, G и E:5 — та же высота, что у открытой A', () => {
+    expect(run({ string: 'A' }).notes.map(note => `${note.id} ${note.name}`)[0]).toBe('A:0 A1');
+    expect(run({ string: 'D' }).notes[0]).toMatchObject({ id: 'D:0', name: 'D2' });
+    expect(run({ string: 'G' }).notes[0]).toMatchObject({ id: 'G:0', name: 'G2' });
+    expect(run({ fret: 5 }).notes[0]).toMatchObject({ id: 'E:5', name: 'A1' });
+  });
+  it('правая рука чередуется i–m по нотам, ступеней и пальцев левой руки нет', () => {
+    const plan = run({});
+    expect(plan.notes.map(note => note.pluck).join(' ')).toBe('i m i m i m i m i m i m i m i m');
+    expect(plan.notes.every(note => note.degree === null && note.finger === null)).toBe(true);
+    expect(plan.cadence).toBe('none');
+    expect(plan.segments.map(segment => segment.label)).toEqual(['Открытая струна E · i–m']);
+    expect(run({ fret: 5 }).segments.map(segment => segment.label)).toEqual(['Струна E · лад 5 · i–m']);
+  });
+  it('число нот — 8, 16 или 32; остальное отклоняется', () => {
+    for (const notes of [8, 16, 32]) expect(run({ notes }).notes).toHaveLength(notes);
+    for (const notes of [0, 7, 12, 64]) expect(() => createExerciseSpec('pulse-note', { notes } as never), String(notes)).toThrow(RangeError);
+    expect(() => createExerciseSpec('pulse-note', { fret: 13 })).toThrow(RangeError);
+    expect(() => validateExerciseSpec({ version: 'exercise-v1', templateId: 'pulse-note', params: { string: 'E', fret: 0 } })).toThrow(RangeError);
+  });
+});
+
+describe('ноты на струне (A6.1)', () => {
+  // Лады натуральных нот вверх: независимая таблица из требований.
+  const UP: Record<string, Record<5 | 12, string>> = {
+    E: { 5: '0 1 3 5', 12: '0 1 3 5 7 8 10 12' },
+    A: { 5: '0 2 3 5', 12: '0 2 3 5 7 8 10 12' },
+    D: { 5: '0 2 3 5', 12: '0 2 3 5 7 9 10 12' },
+    G: { 5: '0 2 4 5', 12: '0 2 4 5 7 9 10 12' },
+  };
+  const NAMES: Record<string, Record<5 | 12, string>> = {
+    E: { 5: 'E1 F1 G1 A1', 12: 'E1 F1 G1 A1 B1 C2 D2 E2' }, A: { 5: 'A1 B1 C2 D2', 12: 'A1 B1 C2 D2 E2 F2 G2 A2' },
+    D: { 5: 'D2 E2 F2 G2', 12: 'D2 E2 F2 G2 A2 B2 C3 D3' }, G: { 5: 'G2 A2 B2 C3', 12: 'G2 A2 B2 C3 D3 E3 F3 G3' },
+  };
+  const back = (items: string[]) => [...items, ...items.slice(1, -1).reverse()];
+  it.each(['E', 'A', 'D', 'G'].flatMap(string => [5, 12].map(fretMax => [string, fretMax] as const)))('струна %s, лады 0–%i: вверх по таблице и обратно без крайних', (string, fretMax) => {
+    const plan = buildExercise(createExerciseSpec('string-naturals', { string, fretMax } as never));
+    expect(plan.notes.map(note => note.fret.toString())).toEqual(back(UP[string][fretMax as 5 | 12].split(' ')));
+    expect(plan.notes.map(note => note.name)).toEqual(back(NAMES[string][fretMax as 5 | 12].split(' ')));
+    expect(plan.notes.every(note => note.string === string && note.degree === null && note.finger === null && note.pluck === null)).toBe(true);
+  });
+  it('E, 0–12: четырнадцать нот', () => {
+    expect(buildExercise(createExerciseSpec('string-naturals', { fretMax: 12 })).notes.map(note => note.id).join(' '))
+      .toBe('E:0 E:1 E:3 E:5 E:7 E:8 E:10 E:12 E:10 E:8 E:7 E:5 E:3 E:1');
+  });
+  it('допустимо только до 5-го или 12-го лада', () => {
+    for (const fretMax of [0, 4, 7, 24]) expect(() => createExerciseSpec('string-naturals', { fretMax } as never), String(fretMax)).toThrow(RangeError);
+  });
+});
+
+describe('хроматика по позициям (A7.2)', () => {
+  it('ряд позиций «туда-обратно», крайние не повторяются; (2n−2)·16 нот', () => {
+    for (const [positions, rows] of [[2, [5, 6]], [3, [5, 6, 7, 6]], [4, [5, 6, 7, 8, 7, 6]], [5, [5, 6, 7, 8, 9, 8, 7, 6]]] as const) {
+      const plan = buildExercise(createExerciseSpec('chromatic-shift', { positions }));
+      expect(plan.notes, String(positions)).toHaveLength(rows.length * 16);
+      expect(plan.segments.map(segment => Number(/Лады (\d+)/.exec(segment.label)![1]))).toEqual(rows);
+    }
+  });
+  it('подписи сегментов: чётные — E → G, нечётные — G → E; стыки позиций ведут пальцы 4→4, 1→1', () => {
+    const plan = buildExercise(createExerciseSpec('chromatic-shift'));
+    expect(plan.segments.map(segment => segment.label)).toEqual(['Лады 5–8 · E → G', 'Лады 6–9 · G → E', 'Лады 7–10 · E → G', 'Лады 6–9 · G → E']);
+    const at = (index: number) => `${plan.notes[index].id}(${plan.notes[index].finger})`;
+    // G:8 (4) → G:9 (4); E:6 (1) → E:7 (1); G:10 (4) → G:9 (4); при повторе E:6 (1) → E:5 (1).
+    expect([at(15), at(16)]).toEqual(['G:8(4)', 'G:9(4)']);
+    expect([at(31), at(32)]).toEqual(['E:6(1)', 'E:7(1)']);
+    expect([at(47), at(48)]).toEqual(['G:10(4)', 'G:9(4)']);
+    expect([at(63), at(0)]).toEqual(['E:6(1)', 'E:5(1)']);
+  });
+  it('граница: начало плюс число позиций плюс 2 не дальше 16-го лада; configureSpec подстраивает число позиций', () => {
+    expect(() => createExerciseSpec('chromatic-shift', { startFret: 12, positions: 5 })).toThrow(RangeError);
+    expect(() => createExerciseSpec('chromatic-shift', { startFret: 10, positions: 5 })).toThrow(RangeError);
+    expect(() => createExerciseSpec('chromatic-shift', { startFret: 9, positions: 5 })).not.toThrow();
+    expect(configureSpec(createExerciseSpec('chromatic-shift', { startFret: 5, positions: 5 }), 'startFret', 12).params).toMatchObject({ startFret: 12, positions: 2 });
   });
 });
