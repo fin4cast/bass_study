@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createExerciseSpec } from '../src/exercises';
 import {
-  addStep, completeStep, createPlan, currentStep, doneMinutes, moveStep, planFromTemplate, plannedMinutes, removeStep, selectStep, validatePlan,
+  addStep, completeStep, createPlan, currentStep, doneMinutes, moveStep, plannedMinutes, removeStep, selectStep, validatePlan,
 } from '../src/practice/plan';
 import { builtinLibrary, countByCategory, filterLibrary, userLibrary, validateUserExercise } from '../src/practice/library';
 import { checkProgress, difficulties, exerciseProgress, minutesByDay, playedKeys, type PracticeRecord } from '../src/practice/results';
-import { recommend } from '../src/practice/recommend';
 
 const connect = createExerciseSpec('connect-forms');
 const chromatic = createExerciseSpec('chromatic-position');
@@ -48,11 +47,6 @@ describe('план на сегодня', () => {
     ];
     for (const value of bad) expect(() => validatePlan(value)).toThrow(RangeError);
     expect(validatePlan(good)).toEqual(createPlan('2026-11-12', [step('a'), step('b')]));
-  });
-  it('шаблоны планов строятся и проходят проверку', () => {
-    expect(plannedMinutes(planFromTemplate('2026-11-12', 'standard'))).toBe(15);
-    expect(planFromTemplate('2026-11-12', 'firstRun').steps).toHaveLength(3);
-    expect(planFromTemplate('2026-11-12', 'standard').steps[3].content.kind).toBe('check');
   });
 });
 
@@ -122,16 +116,3 @@ describe('прогресс', () => {
   });
 });
 
-describe('рекомендации «Сегодня»', () => {
-  it('после связки A→B — связка B→C, затем трудное место и понятие', () => {
-    const items = recommend(history);
-    expect(items.map(item => item.kind)).toEqual(['next', 'repeat', 'concept']);
-    expect(items[0].title).toBe('Связка B → C');
-    expect((items[0].spec!.params as { shapeId: string }).shapeId).toBe('penta-b');
-    expect(items[1].reason).toContain('«С ошибками» (2)');
-    expect(items[2].concept).toBe('shared-notes');
-  });
-  it('без истории рекомендаций нет — «Сегодня» предлагает план первого запуска', () => {
-    expect(recommend([])).toEqual([]);
-  });
-});

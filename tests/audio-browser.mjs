@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { seedPlan } from './helpers/seed-plan.mjs';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runAudioBrowserChecks } from './helpers/audio-browser-harness.mjs';
@@ -59,7 +60,7 @@ async function waitPlay(page, predicate, arg = null, timeout = 15000) {
 /** «Сегодня» → «Играть: <упражнение>» стартового плана. */
 async function openPlay(page, title = 'Хроматика 1-2-3-4 в позиции') {
   const home = page.locator('[data-lesson-screen="home"]');
-  await home.getByRole('tab', { name: /^Сегодня/ }).click();
+  await seedPlan(page);
   await home.locator('.ls-plan').getByRole('button', { name: `Играть: ${title}`, exact: true }).click();
   await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
   return playState(page);

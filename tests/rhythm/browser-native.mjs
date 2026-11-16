@@ -196,7 +196,7 @@ function sequenceDraftSnapshot() {
 check('native-current-database-saves-fretboard-sequence-draft', 'native', async ({ origin, withNativeBrowser }) => withNativeBrowser(async ({ page }) => {
   await seedDatabase(page, origin, sequenceDraftSnapshot());
   const before = await raw(page);
-  assert.equal(before.version, 14);
+  assert.equal(before.version, 15);
   await page.goto(origin);
   await ready(page);
   assert.deepEqual(await raw(page), before, 'Opening a current database must not rewrite it');

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createExerciseSpec } from '../src/exercises';
 import { builtinLibrary, type UserExercise } from '../src/practice/library';
 import { materialId } from '../src/practice/material';
-import { createPlan, completeStep, planFromTemplate, type CheckSpec } from '../src/practice/plan';
+import { createPlan, completeStep, type CheckSpec } from '../src/practice/plan';
 import { practiceRecords } from '../src/practice/history';
 import { difficulties, type PracticeRecord } from '../src/practice/results';
 import { MAX_EXERCISE_VIEWS, type ExerciseView, type PlayPreferences } from '../src/storage/model';
@@ -21,6 +21,13 @@ const own: UserExercise = { version: 'user-exercise-v1', id: 'own-1', name: 'М�
 const meta = (id: string, occurredAt = '2026-11-12T10:00:00.000Z') => ({ id, occurredAt, timeZone: 'Europe/Moscow' });
 const playRecord = (key: string, bpm: number, occurredAt: string, assessment: 'clean' | 'errors' | 'slow' = 'clean', spec = arpeggio): PracticeRecord =>
   ({ kind: 'play', id: `play-${key}-${occurredAt}`, exerciseKey: key, title: 'Арпеджио', spec, assessment, bpm, activeMs: 60000, localDate: occurredAt.slice(0, 10), occurredAt, view: 'both', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null } });
+/** План из четырёх шагов: три упражнения и проверка — основа тестов плана. */
+const fourStepPlan = (date: string) => createPlan(date, [
+  { id: 'step-1', content: { kind: 'exercise', spec: createExerciseSpec('chromatic-position') }, minutes: 3 },
+  { id: 'step-2', content: { kind: 'exercise', spec: createExerciseSpec('connect-forms') }, minutes: 5 },
+  { id: 'step-3', content: { kind: 'exercise', spec: arpeggio }, minutes: 4 },
+  { id: 'step-4', content: { kind: 'check', spec: { version: 'check-v1', exercise: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), kind: 'name-degree', count: 6, ear: false } }, minutes: 3 },
+]);
 const checkSpec = (exercise = penta): CheckSpec => ({ version: 'check-v1', exercise, kind: 'name-degree', count: 6, ear: false });
 
 describe('план на сегодня', () => {
@@ -28,25 +35,23 @@ describe('план на сегодня', () => {
     expect(todayKey(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
   });
 
-  it('план этого дня сохраняется как есть; первый запуск получает шаблон «Основ»', () => {
-    const stored = planFromTemplate(TODAY, 'standard');
-    expect(planForToday(stored, TODAY, true)).toBe(stored);
-    const first = planForToday(null, TODAY, true);
+  it('план этого дня сохраняется как есть; без плана день начинается с пустого', () => {
+    const stored = fourStepPlan(TODAY);
+    expect(planForToday(stored, TODAY)).toBe(stored);
+    const first = planForToday(null, TODAY);
     expect(first.localDate).toBe(TODAY);
-    expect(first.steps.map(step => step.content.kind === 'exercise' && step.content.spec.templateId)).toEqual(['note-all-positions', 'octaves', 'chromatic-position']);
-    expect(first.steps[0].status).toBe('current');
-    expect(planForToday(null, TODAY, false).steps).toEqual([]);
+    expect(first.steps).toEqual([]);
   });
 
   it('план прошлого дня переносит только незавершённые шаги, текущим становится первый', () => {
-    const yesterday = planFromTemplate('2026-11-11', 'standard');
+    const yesterday = fourStepPlan('2026-11-11');
     const done = completeStep(yesterday, yesterday.steps[0].id);
-    const today = planForToday(done, TODAY, false);
+    const today = planForToday(done, TODAY);
     expect(today.localDate).toBe(TODAY);
     expect(today.steps.map(step => step.id)).toEqual(yesterday.steps.slice(1).map(step => step.id));
     expect(today.steps.map(step => step.status)).toEqual(['current', 'pending', 'pending']);
     const finished = yesterday.steps.reduce((plan, step) => completeStep(plan, step.id), yesterday);
-    expect(planForToday(finished, TODAY, false).steps).toEqual([]);
+    expect(planForToday(finished, TODAY).steps).toEqual([]);
   });
 });
 
@@ -106,7 +111,7 @@ describe('ключ и вид упражнения', () => {
 });
 
 describe('план после самооценки и проверки', () => {
-  const plan = planFromTemplate(TODAY, 'standard');
+  const plan = fourStepPlan(TODAY);
   const [first, second, , last] = plan.steps;
 
   it('«Чисто» завершает шаг из плана, остальные отметки оставляют его текущим', () => {

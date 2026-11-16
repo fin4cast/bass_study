@@ -15,7 +15,7 @@ import type { QuestionContext, QuizSession } from '../training';
 import { reviewMaterial } from '../ui/check/session';
 import { mountCheck } from '../ui/check/view';
 import { mountLesson } from '../ui/lesson/view';
-import { stepTitle, storedGoal } from '../ui/lesson/model';
+import { stepTitle } from '../ui/lesson/model';
 import { createEnginePort, type PlaybackPort } from '../ui/play/port';
 import { mountPlay, type PlayHandle, type RateEvent } from '../ui/play/view';
 import { mountReference } from '../ui/reference/view';
@@ -82,7 +82,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   const user = () => options.userExercises();
   const lessonPreferences = () => options.preferences().lesson;
   /** План на сегодня: сохранённый или выведенный для нового дня. */
-  const currentPlan = () => planForToday(lessonPreferences().plan, today(), records().length === 0);
+  const currentPlan = () => planForToday(lessonPreferences().plan, today());
   function savePlan(plan: DayPlan) {
     return options.savePreferences({ lesson: { ...lessonPreferences(), plan } });
   }
@@ -106,11 +106,6 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     },
     onOpenConcept(id) { openConcept(id); },
     onSaveExercise(spec, name) { options.saveExercise(spec, name); },
-    onGoalChange(goal) {
-      if (!options.savePreferences({ lesson: { ...lessonPreferences(), goal } })) throw new Error('Цель не сохранена: эта вкладка сейчас не может записывать.');
-      renderHome();
-    },
-    onBasicsViewChange(basicsView) { options.savePreferences({ lesson: { ...lessonPreferences(), basicsView } }); },
   });
 
   const checkView = mountCheck(host('check'), {
@@ -152,8 +147,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
 
   function homeState() {
     const prefs = options.preferences();
-    return { plan: ensurePlan(), records: records(), userExercises: user(), firstRun: records().length === 0, playFrom: prefs.lesson.playFrom, tab: prefs.lesson.tab,
-      goal: storedGoal(prefs.lesson.goal), basicsView: prefs.lesson.basicsView };
+    return { plan: ensurePlan(), records: records(), userExercises: user(), firstRun: records().length === 0, playFrom: prefs.lesson.playFrom, tab: prefs.lesson.tab };
   }
   function renderHome() {
     if (disposed) return;

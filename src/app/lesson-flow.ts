@@ -7,7 +7,7 @@ import { buildExercise, configureSpec, targetBpmFor, type ExercisePlan, type Exe
 import { DEFAULT_PRACTICE, type PracticeOptions } from '../exercises/rhythm';
 import { builtinLibrary, type UserExercise } from '../practice/library';
 import { builtinTemplateOf } from '../practice/material';
-import { addStep, completeStep, createPlan, currentStep, planFromTemplate, type CheckSpec, type DayPlan, type PlanStepContent } from '../practice/plan';
+import { addStep, completeStep, createPlan, currentStep, type CheckSpec, type DayPlan, type PlanStepContent } from '../practice/plan';
 import { difficulties, type Assessment, type Difficulty, type PracticeRecord } from '../practice/results';
 import {
   makeCheckHistory, makeManualHistory, MAX_CHECK_ACTIVE_MS, MAX_EXERCISE_VIEWS,
@@ -29,11 +29,10 @@ export function todayKey(now: Date = new Date()): string {
 
 /**
  * План на сегодня из сохранённого. План другого дня переносит незавершённые шаги в новый день;
- * без сохранённого плана и без записей прогресса — шаблон первого запуска, иначе пустой план.
+ * без сохранённого плана — пустой план (занятие собирает программа, R-028).
  */
-export function planForToday(stored: DayPlan | null, today: string, firstRun: boolean): DayPlan {
+export function planForToday(stored: DayPlan | null, today: string): DayPlan {
   if (stored?.localDate === today) return stored;
-  if (!stored && firstRun) return planFromTemplate(today, 'firstRun');
   const carried = stored ? stored.steps.filter(step => step.status !== 'done') : [];
   return createPlan(today, carried.map(({ id, content, minutes }) => ({ id, content, minutes })));
 }

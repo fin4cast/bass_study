@@ -44,10 +44,10 @@ export interface LessonPreferences {
   readonly exerciseSettings: Readonly<Record<string, ExerciseSettings>>;
   readonly progressTab: 'exercises' | 'calendar';
   readonly progressSource: 'play' | 'check' | 'all';
-  /** Текущая учебная цель «Основ» (D-049): id цели и её тоника; null — цель не выбрана. */
-  readonly goal: LessonGoal | null;
-  /** Что показывают «Основы»: цели или уровни теории. */
-  readonly basicsView: 'goals' | 'levels';
+  /** Что показывают «Основы»: путь программы или справочная линия карточек (R-028). */
+  readonly basicsView: 'path' | 'knowledge';
+  /** Блоки программы с отметкой «Уже умею» (ID блоков, R-028). */
+  readonly skipped: readonly string[];
 }
 /** Что экран игры помнит по упражнению: вид, темп, цель темпа, ритм и подложку. */
 export interface ExerciseSettings {
@@ -57,8 +57,6 @@ export interface ExerciseSettings {
   readonly rhythm: RhythmPatternId;
   readonly groove: string | null;
 }
-/** Учебная цель «Основ»; `root: null` — у цели нет тоники («Четыре пальца», «Ноты на грифе»). */
-export interface LessonGoal { readonly id: string; readonly root: string | null }
 export interface PlayPreferences {
   readonly defaultView: ExerciseView;
   readonly newExerciseView: ExerciseView | null;
@@ -127,7 +125,7 @@ export class StudyStorageError extends Error {
 }
 export const MAX_BACKUP_BYTES = 67_108_864;
 /** Version of the IndexedDB schema and the backup format. Raising it starts every older database empty (no migrations). */
-export const STUDY_SCHEMA_VERSION = 14;
+export const STUDY_SCHEMA_VERSION = 15;
 
 const ROOT_IDS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const MODES: readonly QuizMode[] = ['name-note', 'name-degree', 'find-note', 'find-all', 'find-degree', 'find-pitch', 'find-interval'];
@@ -246,7 +244,7 @@ export const DEFAULT_PREFERENCES: AppPreferences = immutable({
   tracks: null, musicBank: null, input: { deviceId: '' },
   rhythm: null,
   activeModule: 'lesson',
-  lesson: { plan: null, tab: 'today', playFrom: null, exerciseSettings: {}, progressTab: 'exercises', progressSource: 'all', goal: null, basicsView: 'goals' },
+  lesson: { plan: null, tab: 'today', playFrom: null, exerciseSettings: {}, progressTab: 'exercises', progressSource: 'all', basicsView: 'path', skipped: [] },
   play: { defaultView: 'both', newExerciseView: 'board', countInBars: 1, labels: 'name', bpm: 72, reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6 },
   reference: { mastered: [] },
   study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12,
@@ -272,7 +270,7 @@ function exerciseKey(value: unknown, label: string): string {
 }
 function exerciseTitle(value: unknown): string { return text(value, 'Название упражнения', 120); }
 function validateLessonPreferences(value: unknown): LessonPreferences {
-  const data = object(value, ['plan', 'tab', 'playFrom', 'exerciseSettings', 'progressTab', 'progressSource', 'goal', 'basicsView'], 'Настройки занятия');
+  const data = object(value, ['plan', 'tab', 'playFrom', 'exerciseSettings', 'progressTab', 'progressSource', 'basicsView', 'skipped'], 'Настройки занятия');
   const plan = data.plan === null ? null : rhythmData('План на сегодня', () => validatePlan(data.plan));
   let playFrom: string | null = null;
   if (data.playFrom !== null) {
@@ -287,8 +285,7 @@ function validateLessonPreferences(value: unknown): LessonPreferences {
   return { plan, tab: oneOf(data.tab, ['today', 'library', 'basics'] as const, 'Вкладка занятия'), playFrom, exerciseSettings,
     progressTab: oneOf(data.progressTab, ['exercises', 'calendar'] as const, 'Вкладка прогресса'),
     progressSource: oneOf(data.progressSource, ['play', 'check', 'all'] as const, 'Источник прогресса'),
-    goal: data.goal === null ? null : lessonGoal(data.goal),
-    basicsView: oneOf(data.basicsView, ['goals', 'levels'] as const, 'Вид «Основ»') };
+    basicsView: oneOf(data.basicsView, ['path', 'knowledge'] as const, 'Вид «Основ»'), skipped: skippedBlocks(data.skipped) };
 }
 function countInBars(value: unknown): 0 | 1 | 2 {
   if (value !== 0 && value !== 1 && value !== 2) invalid('Отсчёт перед игрой: 0, 1 или 2 такта.');
@@ -306,16 +303,14 @@ function validateExerciseSettings(value: unknown): ExerciseSettings {
     rhythm: data.rhythm as RhythmPatternId, groove,
   };
 }
-/** Цель хранится строго по формату; неизвестный id интерфейс считает отсутствием цели (каталог целей может меняться). */
-function lessonGoal(value: unknown): LessonGoal {
-  const data = object(value, ['id', 'root'], 'Учебная цель');
-  const id = text(data.id, 'Цель', 40);
-  if (!/^[a-z0-9-]{1,40}$/.test(id)) invalid('Цель: некорректный идентификатор.');
-  if (data.root === null) return { id, root: null };
-  const note = text(data.root, 'Тоника цели', 8);
-  let root = '';
-  try { root = parseNote(note).name; } catch { invalid('Тоника цели: некорректная нота.'); }
-  return { id, root };
+/** Отметки «Уже умею»: ID блоков программы, без повторов (R-028). */
+export const MAX_SKIPPED_BLOCKS = 64;
+export const BLOCK_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+function skippedBlocks(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length > MAX_SKIPPED_BLOCKS) invalid(`Отметки «Уже умею»: список не длиннее ${MAX_SKIPPED_BLOCKS}.`);
+  const ids = (value as unknown[]).map(item => text(item, 'ID блока', 40));
+  if (ids.some(id => !BLOCK_ID.test(id)) || new Set(ids).size !== ids.length) invalid('Отметки «Уже умею»: ID блоков без повторов и лишних знаков.');
+  return ids;
 }
 function validatePlayPreferences(value: unknown): PlayPreferences {
   const data = object(value, ['defaultView', 'newExerciseView', 'countInBars', 'labels', 'bpm', 'reference', 'metronome', 'click', 'grooveVolume'], 'Настройки экрана игры');

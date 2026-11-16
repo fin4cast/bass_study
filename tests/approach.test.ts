@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { createExerciseSpec } from '../src/exercises';
 import { DEFAULT_PRACTICE } from '../src/exercises/rhythm';
 import { bpmAfterRating, exerciseSettingsPatch } from '../src/app/lesson-flow';
-import { GOALS, goalSteps } from '../src/practice/goals';
 import { createPlan } from '../src/practice/plan';
 import { pendingMatches } from '../src/ui/lesson/model';
 import { continueApproach, PARTIAL_PASS_MIN_MS, stopApproach, type ApproachTally } from '../src/ui/play/model';
@@ -45,12 +44,7 @@ describe('темп и настройки упражнения после экр�
   });
 });
 
-describe('«как играть» шагов целей', () => {
-  it('у каждого упражнения цели явный practice', () => {
-    for (const goal of GOALS) for (const step of goalSteps(goal.id, goal.defaultRoot)) {
-      if (step.content.kind === 'exercise') expect(step.content.practice, `${goal.id}/${step.id}`).toBeDefined();
-    }
-  });
+describe('«как играть» шагов плана', () => {
   it('тот же материал с эхо — другой шаг плана; без practice — те же восьмые', () => {
     const spec = createExerciseSpec('pentatonic-form', { shapeId: 'penta-a' });
     const plan = createPlan('2026-11-15', [{ id: 'a', content: { kind: 'exercise', spec }, minutes: 4 }]);

@@ -7,19 +7,18 @@ import './mini-board.css';
 import './lesson.css';
 import { configureSpec, NOTE_CHOICES, templateOptions, type ExerciseSpec, type TemplateOption } from '../../exercises';
 import { conceptForExerciseConcept, getConcept, conceptBoard, parseConceptText, type ConceptBoard, type ConceptRole } from '../../practice/concepts';
-import { PLAN_TEMPLATES, moveStep, plannedMinutes, removeStep, type DayPlan, type PlanStepContent } from '../../practice/plan';
+import { moveStep, plannedMinutes, removeStep, type DayPlan, type PlanStepContent } from '../../practice/plan';
 import { renderPageHeader } from '../../app/page-frame';
 import { bindPageTabs } from '../page-tabs';
 import { escapeHtml as e } from '../html';
 import { CONCEPT_LABELS, exercisePlan, materialLabel, STRUCTURE_LABELS } from './material';
 import { boardSvg, boardWindow, type BoardNote } from './mini-board';
 import {
-  addGoalSteps, appendTemplate, basicsBadge, basicsCourse, basicsStepPosition, checkContent, contentMinutes, currentGoalProgress, goalRootLabel, goalsOverview, planFromGoal, stepRuleHint, untouchedFirstRunPlan, currentBasicsStep, DEFAULT_LIBRARY, exerciseBoard, heroModel,
+  basicsBadge, basicsCourse, basicsStepPosition, checkContent, contentMinutes, currentBasicsStep, DEFAULT_LIBRARY, exerciseBoard, heroModel,
   configuredItems, LIBRARY_CONCEPTS, LIBRARY_STRUCTURES, libraryItems, libraryModel, nextExerciseStep, pendingMatches, planRows, planStrip,
-  recommendationCards, searchBasics, setStepMinutes, stepMaterial, stepTitle, togglePlanContent, toggleStepEar,
-  type BasicsLevel, type BasicsStep, type BasicsView, type LessonState, type LessonTab, type LibraryCategory, type LibraryControls,
+  searchBasics, setStepMinutes, stepMaterial, stepTitle, togglePlanContent, toggleStepEar,
+  type BasicsLevel, type BasicsStep, type LessonState, type LessonTab, type LibraryCategory, type LibraryControls,
 } from './model';
-import { goalInfo, goalProgress, GOALS, mastered, STARTER_GOALS, type GoalId, type GoalProgress } from '../../practice/goals';
 import { CATEGORY_ORDER, CATEGORY_TITLES } from '../../practice/library';
 
 export type { LessonState, LessonTab } from './model';
@@ -35,10 +34,6 @@ export interface LessonOptions {
   /** Карточка понятия справочника R-027 по её идентификатору. */
   readonly onOpenConcept: (id: string) => void;
   readonly onSaveExercise?: (spec: ExerciseSpec, name: string) => void;
-  /** «Сделать целью» и смена тоники текущей цели; `null` — снять цель. */
-  readonly onGoalChange?: (goal: { id: GoalId; root: string | null } | null) => void;
-  /** Переключатель «Цели | Уровни» в «Основах». */
-  readonly onBasicsViewChange?: (view: BasicsView) => void;
   readonly state?: LessonState;
 }
 
@@ -66,11 +61,6 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
   let library: LibraryControls = DEFAULT_LIBRARY;
   let basicsLevel: string | null = null;
   let basicsStep: string | null = null;
-  /** Вид «Основ» до подтверждения настройки; цель, тоники и шаг, выбранные на экране целей. */
-  let basicsMode: BasicsView | null = null;
-  let goalShown: GoalId | null = null;
-  const goalRoots = new Map<GoalId, string | null>();
-  let goalStep: string | null = null;
   let saveDraft: { key: string; name: string } | null = null;
   /** Материал, настроенный на встроенных карточках библиотеки (по id карточки), и открытая строка настройки. */
   let cardSpecs = new Map<string, ExerciseSpec>();
@@ -172,40 +162,23 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
   /* ---------- Сегодня ---------- */
 
   function renderToday(current: LessonState) {
-    const goal = currentGoalProgress(current);
-    const hero = heroModel(current, goal);
+    const hero = heroModel(current);
     const rows = planRows(current.plan, current.records, current.userExercises);
     const total = plannedMinutes(current.plan);
     const done = rows.filter(row => row.status === 'done').reduce((sum, row) => sum + row.minutes, 0);
-    // Первая рекомендация — следующий шаг цели; если он уже в главном блоке, — шаг после него.
-    const goalRec = goal ? goal.steps.filter(item => !mastered(item.mastery)).map(item => item.step)[hero.mode === 'goal' ? 1 : 0] : undefined;
-    const recs = recommendationCards(current.records, current.firstRun, goal && goalRec ? { progress: goal, step: goalRec } : null);
-    const goalLineMarkup = hero.goalLine ? `<p class="ls-goal-line"><span>${e(hero.goalLine)}</span><button type="button" class="ls-link" data-act="open-goal" data-key="hero-goal">Открыть цель</button></p>` : '';
-    const addGoalButton = goal?.next ? `<button type="button" class="secondary-button" data-act="add-goal-steps" data-key="hero-goal-steps">Добавить шаги цели</button>` : '';
     const items = libraryItems(current.playFrom, current.userExercises);
 
     let heroMarkup: string;
-    if (hero.mode === 'first-run') {
-      // Первый запуск: одно решение — цель; план собирается из неё. Без цели можно сразу сыграть стартовый план.
-      heroMarkup = `<div><span class="ls-eyebrow">Первый запуск</span><h2>Выбери цель</h2><p class="ls-sub">Цель — шаги к навыку: что сыграть сегодня и когда шаг освоен. План на сегодня соберётся из неё.</p></div>
-        <div class="ls-goal-cards">${STARTER_GOALS.map(id => { const info = goalInfo(id); return `<button type="button" class="ls-card ls-goal-card" data-act="goal-start" data-value="${e(id)}" data-key="hero-goal:${e(id)}"><b>${e(info.title)}</b><span>${e(info.summary)}</span></button>`; }).join('')}</div>
-        <div class="ls-actions">${hero.content ? `<button type="button" class="secondary-button" data-act="play" data-ref="${ref(hero.content)}" data-step="${e(hero.stepId ?? '')}" data-key="hero-play">или сразу сыграй план ▶</button>` : ''}<button type="button" class="ls-link" data-act="choose-goal" data-key="hero-choose-goal">Все цели</button></div>`;
-    } else if (hero.mode === 'goal') {
-      const content = hero.content!;
-      const spec = content.kind === 'exercise' ? content.spec : content.spec.exercise;
-      heroMarkup = `${goalLineMarkup}<div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
-        <div class="ls-actions"><button type="button" class="primary-button button-large" data-act="play" data-ref="${ref(content)}" data-key="hero-play">▶ ${content.kind === 'check' ? 'Проверь себя' : 'Играть'}</button>${addGoalButton}</div>
-        ${exerciseBoardMarkup(spec, 700, 28)}`;
-    } else if (hero.mode === 'empty') {
-      heroMarkup = `${goalLineMarkup}<div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
-        <div class="ls-actions">${Object.entries(PLAN_TEMPLATES).map(([key, template]) => `<button type="button" class="${key === 'standard' ? 'primary-button' : 'secondary-button'}" data-act="template" data-template="${e(key)}" data-key="template-${e(key)}">${e(template.title)}</button>`).join('')}<button type="button" class="secondary-button" data-act="go-library" data-key="hero-library">Открыть библиотеку →</button></div>`;
+    if (hero.mode === 'empty') {
+      heroMarkup = `<div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
+        <div class="ls-actions"><button type="button" class="secondary-button" data-act="go-library" data-key="hero-library">Открыть библиотеку →</button></div>`;
     } else {
       const content = hero.content!;
       const spec = content.kind === 'exercise' ? content.spec : content.spec.exercise;
-      heroMarkup = `${goalLineMarkup}<div class="ls-hero-top"><div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
+      heroMarkup = `<div class="ls-hero-top"><div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
           <div class="ls-chips">${hero.concepts.map(concept => `<span class="ls-chip ls-chip-concept">${e(concept)}</span>`).join('')}</div></div>
         <div class="ls-actions"><button type="button" class="primary-button button-large" data-act="play" data-ref="${ref(content)}" data-step="${e(hero.stepId ?? '')}" data-key="hero-play">▶ ${content.kind === 'check' ? 'Проверь себя' : 'Играть'}</button>
-          ${addGoalButton}${hero.stats.length ? `<div class="ls-stats">${hero.stats.map(stat => `<span><b>${e(stat.value)}</b>${e(stat.label)}</span>`).join('')}</div>` : '<div class="ls-stats"><span class="ls-sub">Отметку «Чисто / С ошибками / Не успевал» поставишь после прохода.</span></div>'}</div>
+          ${hero.stats.length ? `<div class="ls-stats">${hero.stats.map(stat => `<span><b>${e(stat.value)}</b>${e(stat.label)}</span>`).join('')}</div>` : '<div class="ls-stats"><span class="ls-sub">Отметку «Чисто / С ошибками / Не успевал» поставишь после прохода.</span></div>'}</div>
         ${exerciseBoardMarkup(spec, 700, 28)}`;
     }
 
@@ -223,20 +196,11 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
             <button type="button" class="ls-mini" data-act="move" data-step="${e(row.id)}" data-delta="-1" data-key="up:${e(row.id)}" aria-label="${e(`Выше: ${row.title}`)}"${row.status === 'done' || row.first ? ' disabled' : ''}>↑</button>
             <button type="button" class="ls-mini" data-act="move" data-step="${e(row.id)}" data-delta="1" data-key="down:${e(row.id)}" aria-label="${e(`Ниже: ${row.title}`)}"${row.status === 'done' || row.last ? ' disabled' : ''}>↓</button>
             <button type="button" class="ls-mini" data-act="remove" data-step="${e(row.id)}" data-key="del:${e(row.id)}" aria-label="${e(`Убрать из плана: ${row.title}`)}">✕</button></span>` : ''}
-        </div></li>`).join('')}</ol>` : `<p class="ls-empty">План пуст — добавь упражнение из библиотеки или «Основ».</p><div class="ls-plan-tools">${Object.entries(PLAN_TEMPLATES).map(([key, template]) => `<button type="button" class="secondary-button button-compact" data-act="template" data-template="${e(key)}" data-key="tpl-${e(key)}">Шаблон: ${e(template.title)}</button>`).join('')}</div>`}
+        </div></li>`).join('')}</ol>` : `<p class="ls-empty">План пуст — добавь упражнение из библиотеки.</p>`}
       <div class="ls-plan-tools">${rows.length ? `<button type="button" class="secondary-button button-compact" data-act="edit" data-key="edit" aria-pressed="${editing}">${editing ? 'Готово' : 'Изменить план'}</button>` : ''}<button type="button" class="secondary-button button-compact" data-act="go-library" data-key="plan-library">+ из библиотеки</button></div>`;
 
-    const recsMarkup = recs.map(card => {
-      let action = '';
-      if (card.content) action = addButton(card.content);
-      else if (card.openBasics) action = `<button type="button" class="secondary-button button-compact" data-act="basics-start" data-key="rec-basics">Открыть «Основы»</button>`;
-      else if (card.conceptId) action = `<button type="button" class="secondary-button button-compact" data-act="concept" data-concept="${e(card.conceptId)}" data-key="rec-concept:${e(card.id)}">Открыть понятие</button>`;
-      return `<article class="ls-card ls-rec${card.concept ? ' is-concept' : ''}"><span class="ls-eyebrow">${e(card.eyebrow)}</span><h3>${e(card.title)}</h3><p>${e(card.reason)}</p>${action}</article>`;
-    }).join('');
-
     regions.today.innerHTML = `<div class="ls-today-grid">
-        <div class="ls-col"><section class="ls-card ls-hero feature-panel" aria-label="Главное действие">${heroMarkup}</section>
-          <section class="ls-recs" aria-label="Рекомендации">${recsMarkup}</section></div>
+        <div class="ls-col"><section class="ls-card ls-hero feature-panel" aria-label="Главное действие">${heroMarkup}</section></div>
         <section class="ls-card ls-plan${editing ? ' is-editing' : ''}" aria-label="План на сегодня">${planMarkup}</section>
       </div>
       <section class="ls-card ls-libstrip" aria-label="Библиотека"><strong>Библиотека</strong><span class="ls-sub">${e(items.length)} ${plural(items.length, 'упражнение', 'упражнения', 'упражнений')} · ${CATEGORY_ORDER.length} категорий</span>
@@ -334,16 +298,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     }).join('');
   }
 
-  const basicsViewOf = (current: LessonState): BasicsView => basicsMode ?? current.basicsView;
-  function setBasicsView(view: BasicsView) {
-    if (state && basicsViewOf(state) === view) return;
-    basicsMode = view;
-    try { options.onBasicsViewChange?.(view); } catch (failure) { toast(failure instanceof Error ? failure.message : String(failure)); }
-  }
-  const basicsToggle = (view: BasicsView) => `<div class="ls-seg ls-basics-toggle" role="group" aria-label="Вид «Основ»">${([['goals', 'Цели'], ['levels', 'Уровни']] as const).map(([value, label]) => `<button type="button" data-act="basics-view" data-value="${value}" data-key="bv:${value}" aria-pressed="${view === value}">${label}</button>`).join('')}</div>`;
-
   function renderBasics(current: LessonState) {
-    if (basicsViewOf(current) === 'goals') { renderGoals(current); return; }
     const levels = basicsCourse(current.records, current.userExercises);
     const level = selectedLevel(levels);
     const step = level.steps.find(item => item.key === basicsStep) ?? currentBasicsStep(level);
@@ -360,7 +315,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         <button type="button" class="ls-st-btn" data-act="basics-step" data-value="${e(item.key)}" data-key="st:${e(item.key)}" aria-current="${item.key === step.key ? 'step' : 'false'}"><small>${KIND_LABEL[item.kind]}${item.done ? ' ✓' : ''}</small><span>${e(item.title)}</span>${item.kind === 'exercise' && item.content ? `<em class="ls-st-mat">${e(stepMaterial(item.content))}</em>` : ''}</button>
         ${canAdd ? `<button type="button" class="ls-mini ls-st-add" data-act="toggle-plan" data-ref="${ref(item.content!)}" data-key="st-add:${e(item.key)}" aria-pressed="${on}" aria-label="${e(`${on ? 'Убрать из плана' : 'Добавить в план'}: ${item.title}`)}" title="${on ? 'В плане «Сегодня» — нажми, чтобы убрать' : `В план «Сегодня» · ${contentMinutes(item.content!)} мин`}">${on ? '✓' : '+'}</button>` : ''}</li>`;
     }).join('');
-    regions.basics.innerHTML = `${basicsToggle('levels')}<div class="ls-basics-grid">
+    regions.basics.innerHTML = `<div class="ls-basics-grid">
         <section class="ls-card ls-path" aria-label="Путь уровней">
           <div class="ls-lanes"><div><div class="ls-lane-title">Гриф и теория</div><ol class="ls-lane">${levels.filter(item => item.lane === 'main').map(levelItem).join('')}</ol></div>
             <div class="ls-side"><div class="ls-lane-title">Параллельно</div><ol class="ls-lane is-side">${levels.filter(item => item.lane === 'side').map(levelItem).join('')}</ol></div></div>
@@ -372,64 +327,6 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
           <section class="ls-card ls-focus feature-panel" aria-label="Текущий шаг">${focusMarkup(level, step, firstRun)}</section>
         </div>
       </div>`;
-  }
-
-  /* ---------- Цели «Основ» ---------- */
-
-  const goalRootOf = (current: LessonState, id: GoalId) => goalRoots.has(id) ? goalRoots.get(id)! : current.goal?.id === id ? current.goal.root : goalInfo(id).defaultRoot;
-
-  function renderGoals(current: LessonState) {
-    const roots = new Map(GOALS.map(goal => [goal.id, goalRootOf(current, goal.id)]));
-    const overview = goalsOverview(current.records, roots, current.plan.localDate);
-    const shownId = goalShown ?? current.goal?.id ?? null;
-    const shown = overview.find(item => item.goal.id === shownId) ?? null;
-    const list = overview.map(item => {
-      const isCurrent = current.goal?.id === item.goal.id;
-      const sub = `${isCurrent ? 'текущая цель · ' : ''}освоено ${item.done}/${item.total}`;
-      return `<li class="ls-lvl${item.done === item.total ? ' is-done' : isCurrent ? ' is-current' : ''}"><span class="ls-node" aria-hidden="true">${item.done === item.total ? '✓' : ''}</span>
-        <button type="button" class="ls-lvl-btn" data-act="goal" data-value="${e(item.goal.id)}" data-key="goal:${e(item.goal.id)}" aria-pressed="${item.goal.id === shownId}"><b>${e(item.goal.title)}</b><span>${e(sub)}</span>${item.done ? `<span class="ls-meter" aria-hidden="true"><i style="width:${Math.round(item.done / item.total * 100)}%"></i></span>` : ''}</button></li>`;
-    }).join('');
-    const right = shown ? goalMarkup(current, shown) : `<section class="ls-card ls-focus feature-panel ls-goal-choose" aria-label="Выбор цели"><span class="ls-eyebrow">С чего начать</span><h2>Выбери цель</h2>
-        <p class="ls-sub">Цель — цепочка шагов к навыку: что сыграть и когда шаг освоен. Любой шаг можно сыграть сразу, ничего не заблокировано.</p>
-        <div class="ls-goal-cards">${STARTER_GOALS.map(id => { const goal = goalInfo(id); return `<button type="button" class="ls-card ls-goal-card" data-act="goal" data-value="${e(id)}" data-key="goal-card:${e(id)}"><b>${e(goal.title)}</b><span>${e(goal.summary)}</span></button>`; }).join('')}</div></section>`;
-    regions.basics.innerHTML = `${basicsToggle('goals')}<div class="ls-basics-grid">
-        <section class="ls-card ls-path" aria-label="Цели"><div class="ls-lane-title">Цели</div><ol class="ls-lane">${list}</ol>
-          <p class="ls-path-note">Шаг освоен, когда сыгран целиком и отмечен «Чисто»; формы и гаммы — целиком в виде «По памяти». Отметки ставишь ты.</p></section>
-        <div class="ls-basics-right">${right}</div>
-      </div>`;
-  }
-
-  function goalMarkup(current: LessonState, progress: GoalProgress) {
-    const goal = progress.goal;
-    const isCurrent = current.goal?.id === goal.id && current.goal.root === progress.root;
-    const selected = progress.steps.find(item => item.step.id === goalStep) ?? progress.steps.find(item => !mastered(item.mastery)) ?? progress.steps[0];
-    const tonic = progress.root === null ? '' : `<label class="ls-field">Тоника <select data-control="goal-root" data-goal="${e(goal.id)}" data-key="goal-root:${e(goal.id)}">${ROOTS.map(root => `<option value="${e(root)}"${root === progress.root ? ' selected' : ''}>${e(root)}</option>`).join('')}</select></label>`;
-    const makeGoal = isCurrent ? '<span class="ls-chip ls-chip-concept">Текущая цель</span>'
-      : `<button type="button" class="secondary-button button-compact" data-act="make-goal" data-value="${e(goal.id)}" data-key="make-goal">Сделать целью</button>`;
-    const strip = progress.steps.map((item, index) => {
-      const on = inPlan(item.step.content);
-      const title = stepTitle(item.step.content, current.userExercises);
-      return `<li class="ls-st k-${item.step.content.kind}${item.mastery.state === 'done' ? ' is-done' : item.mastery.state === 'review' ? ' is-review' : ''}${item === selected ? ' is-current' : ''} can-add">
-        <button type="button" class="ls-st-btn" data-act="goal-step" data-value="${e(item.step.id)}" data-key="gst:${e(item.step.id)}" aria-current="${item === selected ? 'step' : 'false'}"><small>${e(index + 1)} · ${e(item.mastery.label)}</small><span>${e(title)}</span><em class="ls-st-mat">${e(stepMaterial(item.step.content))}</em></button>
-        <button type="button" class="ls-mini ls-st-add" data-act="toggle-plan" data-ref="${ref(item.step.content)}" data-key="gst-add:${e(item.step.id)}" aria-pressed="${on}" aria-label="${e(`${on ? 'Убрать из плана' : 'Добавить в план'}: ${title}`)}" title="${on ? 'В плане «Сегодня» — нажми, чтобы убрать' : `В план «Сегодня» · ${contentMinutes(item.step.content)} мин`}">${on ? '✓' : '+'}</button></li>`;
-    }).join('');
-    const content = selected.step.content;
-    const spec = content.kind === 'exercise' ? content.spec : content.spec.exercise;
-    const check = content.kind === 'exercise' ? checkContent(spec, 'name-degree') : null;
-    const concept = conceptForExerciseConcept(exercisePlan(spec).concepts[0]);
-    const index = progress.steps.indexOf(selected);
-    const root = goalRootLabel(progress);
-    return `<section class="ls-card ls-level" aria-label="Шаги цели"><div class="ls-level-head"><h2>${e(goal.title)}${root ? ` · ${e(root)}` : ''}</h2><span class="ls-sub">освоено ${e(progress.done)} из ${e(progress.total)}</span></div>
-        <div class="ls-goal-tools">${tonic}${makeGoal}</div>
-        <ol class="ls-strip ls-goal-strip">${strip}</ol></section>
-      <section class="ls-card ls-focus feature-panel" aria-label="Шаг цели">
-        <div class="ls-focus-top"><span class="ls-eyebrow">Шаг ${e(index + 1)} из ${e(progress.total)} · ${e(goal.title)}</span><span class="ls-chip${selected.mastery.state === 'done' ? ' ls-chip-done' : ''}">${e(selected.mastery.label)}</span></div>
-        <h2>${e(stepTitle(content, current.userExercises))}</h2>
-        <p class="ls-sub">${e(stepMaterial(content))}</p>
-        <p class="ls-goal-rule">${e(stepRuleHint(selected.step))}</p>
-        <div class="ls-actions"><button type="button" class="primary-button button-large" data-act="play" data-ref="${ref(content)}" data-key="goal-primary">▶ ${content.kind === 'check' ? 'Проверь себя' : 'Играть'}</button>${addButton(content)}${check ? `<button type="button" class="secondary-button button-compact" data-act="play" data-ref="${ref(check)}" data-key="goal-check">Проверь себя · ${contentMinutes(check)} мин</button>` : ''}${concept ? `<button type="button" class="secondary-button button-compact" data-act="concept" data-concept="${e(concept.id)}" data-key="goal-concept">Открыть понятие</button>` : ''}</div>
-        ${exerciseBoardMarkup(spec, 700, 28, spec.templateId === 'chromatic-position' || spec.templateId === 'spider' ? 'finger' : 'name')}
-      </section>`;
   }
 
   function focusMarkup(level: BasicsLevel, step: BasicsStep, firstRun: boolean) {
@@ -469,7 +366,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     searchResults.innerHTML = hits.length
       ? `<ul aria-label="Результаты поиска">${hits.map(hit => {
         const attrs = hit.kind === 'concept' ? `data-act="search-concept" data-value="${e(hit.stepKey)}" data-level="${e(hit.levelKey)}"`
-          : hit.kind === 'goal' ? `data-act="search-goal" data-value="${e(hit.goalId)}"` : `data-act="play" data-ref="${ref(hit.content)}"`;
+          : `data-act="play" data-ref="${ref(hit.content)}"`;
         return `<li><button type="button" ${attrs}><span>${e(hit.title)}</span><small>${e(hit.hint)}</small></button></li>`;
       }).join('')}</ul>`
       : '<p>Ничего не нашлось — попробуй «пентатоника», «гамма», «блюз» или «паук».</p>';
@@ -487,7 +384,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const badges: Record<LessonTab, string> = {
       today: `${plannedMinutes(state.plan)} мин`,
       library: String(libraryItems(state.playFrom, state.userExercises).length),
-      basics: state.goal ? basicsBadge(levels, currentGoalProgress(state)) : state.firstRun ? 'ур. 0' : basicsBadge(levels),
+      basics: state.firstRun ? 'ур. 0' : basicsBadge(levels),
     };
     for (const item of TABS) container.querySelector<HTMLElement>(`[data-badge="${item.key}"]`)!.textContent = badges[item.key];
     renderToday(state);
@@ -520,18 +417,6 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         case 'edit-today': editing = true; selectTab('today'); render(); container.querySelector<HTMLElement>('[data-key="edit"]')?.focus(); break;
         case 'go-library': selectTab('library'); container.querySelector<HTMLElement>(`#${id}-panel-library`)?.focus({ preventScroll: true }); break;
         case 'go-category': library = { ...DEFAULT_LIBRARY, category: target.dataset.category as LibraryCategory }; selectTab('library'); render(); container.querySelector<HTMLElement>(`[data-key="cat:${library.category}"]`)?.focus(); break;
-        case 'basics-start': {
-          setBasicsView('levels');
-          const levels = basicsCourse(state.records, state.userExercises);
-          basicsLevel = levels[0].key; basicsStep = levels[0].steps[0]?.key ?? null;
-          selectTab('basics'); render(); container.querySelector<HTMLElement>('[data-key="focus-primary"]')?.focus(); break;
-        }
-        case 'template': {
-          const key = target.dataset.template as keyof typeof PLAN_TEMPLATES;
-          if (!Object.hasOwn(PLAN_TEMPLATES, key)) break;
-          changePlan(appendTemplate(state.plan, key, state.userExercises), `План собран: ${PLAN_TEMPLATES[key].title}`);
-          break;
-        }
         case 'ear': if (stepId) changePlan(toggleStepEar(state.plan, stepId), step?.content.kind === 'check' && !step.content.spec.ear ? 'Слух включён для шага проверки' : 'Слух выключен для шага проверки'); break;
         case 'minutes': if (step) changePlan(setStepMinutes(state.plan, step.id, step.minutes + Number(target.dataset.delta)), `${stepTitle(step.content, state.userExercises)}: ${step.minutes + Number(target.dataset.delta)} мин`); break;
         case 'move': if (step) { const next = moveStep(state.plan, step.id, Number(target.dataset.delta) as -1 | 1); if (next !== state.plan) changePlan(next, `${Number(target.dataset.delta) < 0 ? 'Выше' : 'Ниже'}: ${stepTitle(step.content, state.userExercises)}`); } break;
@@ -550,38 +435,8 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         case 'save-start': if (content?.kind === 'exercise') { saveDraft = { key: target.dataset.card!, name: `${exercisePlan(content.spec).title} · ${materialLabel(content.spec)}`.slice(0, 80).trim() }; render(); container.querySelector<HTMLInputElement>('[data-save-name]')?.select(); } break;
         case 'save-cancel': { const key = saveDraft?.key; saveDraft = null; render(); if (key) container.querySelector<HTMLElement>(`[data-key="save:${CSS.escape(key)}"]`)?.focus(); break; }
         case 'level': basicsLevel = target.dataset.value ?? null; basicsStep = null; render(); break;
-        case 'basics-view': setBasicsView(target.dataset.value as BasicsView); render(); break;
-        case 'choose-goal': case 'open-goal': {
-          setBasicsView('goals'); goalShown = target.dataset.act === 'open-goal' ? state.goal?.id ?? null : null; goalStep = null;
-          selectTab('basics'); render(); container.querySelector<HTMLElement>(target.dataset.act === 'open-goal' ? '[data-key="goal-primary"]' : '[data-key^="goal-card:"]')?.focus(); break;
-        }
-        case 'goal': goalShown = target.dataset.value as GoalId; goalStep = null; render(); if (target.dataset.key?.startsWith('goal-card:')) container.querySelector<HTMLElement>('[data-key="goal-primary"]')?.focus(); break;
-        case 'goal-step': goalStep = target.dataset.value ?? null; render(); break;
-        case 'make-goal': case 'goal-start': {
-          const goalId = target.dataset.value as GoalId;
-          const root = goalRootOf(state, goalId);
-          const rebuild = untouchedFirstRunPlan(state.plan);
-          options.onGoalChange?.({ id: goalId, root });
-          // Нетронутый план первого запуска собирается из цели; добавленное вручную не трогается.
-          if (rebuild) changePlan(planFromGoal(state.plan, goalProgress(goalId, root, state.records, undefined, state.plan.localDate), state.records, state.userExercises), `Цель: ${goalInfo(goalId).title} · план на сегодня собран из неё`);
-          else toast(`Цель: ${goalInfo(goalId).title}`);
-          if (target.dataset.act === 'goal-start') { selectTab('today'); container.querySelector<HTMLElement>('[data-key="hero-play"]')?.focus(); }
-          break;
-        }
-        case 'add-goal-steps': {
-          const progress = currentGoalProgress(state);
-          if (!progress) break;
-          const result = addGoalSteps(state.plan, progress, state.records, state.userExercises);
-          if (!result.added.length) { toast('Шаги цели уже в плане.'); break; }
-          changePlan(result.plan, `В план: ${result.added.map(item => stepTitle(item.content, state!.userExercises)).join(', ')}`);
-          break;
-        }
         case 'basics-step': basicsStep = target.dataset.value ?? null; render(); break;
-        case 'search-goal': {
-          setBasicsView('goals'); goalShown = target.dataset.value as GoalId; goalStep = null; searchInput.value = ''; renderSearch();
-          selectTab('basics'); render(); container.querySelector<HTMLElement>('[data-key="goal-primary"]')?.focus(); break;
-        }
-        case 'search-concept': setBasicsView('levels'); basicsLevel = target.dataset.level ?? null; basicsStep = target.dataset.value ?? null; searchInput.value = ''; renderSearch(); render(); container.querySelector<HTMLElement>('.ls-focus h2')?.scrollIntoView?.({ block: 'nearest' }); break;
+        case 'search-concept': basicsLevel = target.dataset.level ?? null; basicsStep = target.dataset.value ?? null; searchInput.value = ''; renderSearch(); render(); container.querySelector<HTMLElement>('.ls-focus h2')?.scrollIntoView?.({ block: 'nearest' }); break;
       }
     } catch (failure) { toast(failure instanceof Error ? failure.message : String(failure)); }
   }, listen);
@@ -605,12 +460,6 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const control = event.target instanceof HTMLSelectElement ? event.target : null;
     if (!control || !state) return;
     if (control.dataset.control === 'play-from') { options.onPlayFromChange(control.value || null); return; }
-    if (control.dataset.control === 'goal-root') {
-      const goalId = control.dataset.goal as GoalId;
-      goalRoots.set(goalId, control.value);
-      if (state.goal?.id === goalId) options.onGoalChange?.({ id: goalId, root: control.value });
-      render(); return;
-    }
     if (control.dataset.control === 'card-param') { configureCard(state, control.dataset.card!, control.dataset.param!, control.value); return; }
     if (control.dataset.control === 'structure') library = { ...library, structureId: (control.value || null) as LibraryControls['structureId'] };
     if (control.dataset.control === 'sort') library = { ...library, sort: control.value as LibraryControls['sort'] };

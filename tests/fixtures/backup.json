@@ -1,6 +1,6 @@
 {
   "format": "bass-study-backup",
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "preferences": {
     "activeModule": "harmony",
     "lesson": {
@@ -56,11 +56,8 @@
       },
       "progressTab": "exercises",
       "progressSource": "all",
-      "goal": {
-        "id": "pentatonic-neck",
-        "root": "A"
-      },
-      "basicsView": "goals"
+      "basicsView": "path",
+      "skipped": ["t1-left"]
     },
     "play": {
       "defaultView": "both",

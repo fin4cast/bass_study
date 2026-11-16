@@ -141,28 +141,3 @@ export function selectStep(plan: DayPlan, id: string): DayPlan {
 export const currentStep = (plan: DayPlan) => plan.steps.find(step => step.status === 'current') ?? null;
 export const plannedMinutes = (plan: DayPlan) => plan.steps.reduce((sum, step) => sum + step.minutes, 0);
 export const doneMinutes = (plan: DayPlan) => plan.steps.filter(step => step.status === 'done').reduce((sum, step) => sum + step.minutes, 0);
-
-/** Встроенные шаблоны планов: первый запуск («Основы») и обычное занятие на 15 минут. */
-export const PLAN_TEMPLATES = deepFreeze({
-  firstRun: {
-    title: 'Начни с «Основ»',
-    steps: [
-      { content: { kind: 'exercise', spec: createExerciseSpec('note-all-positions') }, minutes: 3 },
-      { content: { kind: 'exercise', spec: createExerciseSpec('octaves') }, minutes: 3 },
-      { content: { kind: 'exercise', spec: createExerciseSpec('chromatic-position') }, minutes: 4 },
-    ],
-  },
-  standard: {
-    title: 'Занятие на 15 минут',
-    steps: [
-      { content: { kind: 'exercise', spec: createExerciseSpec('chromatic-position') }, minutes: 3 },
-      { content: { kind: 'exercise', spec: createExerciseSpec('connect-forms') }, minutes: 5 },
-      { content: { kind: 'exercise', spec: createExerciseSpec('arpeggio-1358') }, minutes: 4 },
-      { content: { kind: 'check', spec: { version: 'check-v1', exercise: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), kind: 'name-degree', count: 6, ear: false } }, minutes: 3 },
-    ],
-  },
-} as const satisfies Record<string, { title: string; steps: readonly { content: PlanStepContent; minutes: number }[] }>);
-
-export function planFromTemplate(localDate: string, template: keyof typeof PLAN_TEMPLATES): DayPlan {
-  return createPlan(localDate, PLAN_TEMPLATES[template].steps.map((step, index) => ({ id: `${template}-${index + 1}`, content: step.content, minutes: step.minutes })));
-}

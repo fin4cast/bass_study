@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createExerciseSpec } from '../src/exercises';
-import { completeStep, createPlan, planFromTemplate, type DayPlan } from '../src/practice/plan';
+import { completeStep, createPlan, type DayPlan } from '../src/practice/plan';
 import type { PracticeRecord } from '../src/practice/results';
 import type { UserExercise } from '../src/practice/library';
 import { exerciseStructure, formatDegree, formatPosition, materialLabel } from '../src/ui/lesson/material';
 import {
-  appendTemplate, basicsBadge, basicsCourse, basicsStepPosition, checkContent, conceptsOfLevel, currentBasicsStep, DEFAULT_LIBRARY, exerciseBoard, exerciseKey,
-  heroModel, isPentatonic, libraryModel, nextStepId, planRows, planStrip, recommendationCards, searchBasics, setStepMinutes, stepTitle,
+  basicsBadge, basicsCourse, basicsStepPosition, checkContent, conceptsOfLevel, currentBasicsStep, DEFAULT_LIBRARY, exerciseBoard, exerciseKey,
+  heroModel, libraryModel, nextStepId, planRows, planStrip, searchBasics, setStepMinutes, stepTitle,
   togglePlanContent, toggleStepEar, libraryItems, configuredItems, materialId, searchMatches,
 } from '../src/ui/lesson/model';
 
@@ -20,7 +20,16 @@ const records: PracticeRecord[] = [
   play('connect-forms', 'errors', 76, '2026-11-11', '18:20'),
   play('chromatic-position', 'clean', 80, today, '17:00'),
 ];
-const continuePlan = (): DayPlan => { const plan = planFromTemplate(today, 'standard'); return completeStep(plan, plan.steps[0].id); };
+/** План из четырёх шагов (три упражнения и проверка) с выполненным первым. */
+const continuePlan = (): DayPlan => {
+  const plan = createPlan(today, [
+    { id: 'step-1', content: { kind: 'exercise', spec: createExerciseSpec('chromatic-position') }, minutes: 3 },
+    { id: 'step-2', content: { kind: 'exercise', spec: createExerciseSpec('connect-forms') }, minutes: 5 },
+    { id: 'step-3', content: { kind: 'exercise', spec: createExerciseSpec('arpeggio-1358') }, minutes: 4 },
+    { id: 'step-4', content: { kind: 'check', spec: { version: 'check-v1', exercise: createExerciseSpec('pentatonic-form', { shapeId: 'penta-b' }), kind: 'name-degree', count: 6, ear: false } }, minutes: 3 },
+  ]);
+  return completeStep(plan, plan.steps[0].id);
+};
 
 describe('подписи материала (контрольные примеры VIS-10 r2)', () => {
   it('пишет позиции как E/8 и ступени со знаками', () => {
@@ -96,13 +105,6 @@ describe('план на сегодня', () => {
     const plan = createPlan(today, [{ id: 'step-2', content: { kind: 'exercise', spec: createExerciseSpec('octaves') }, minutes: 3 }]);
     expect(nextStepId(plan)).toBe('step-3');
   });
-  it('шаблон плана добавляется один раз', () => {
-    const empty = createPlan(today);
-    const once = appendTemplate(empty, 'standard');
-    expect(once.steps).toHaveLength(4);
-    expect(once.steps[0].status).toBe('current');
-    expect(appendTemplate(once, 'standard').steps).toHaveLength(4);
-  });
   it('минуты 1–60 и «+ слух» только у проверки', () => {
     const plan = continuePlan();
     expect(setStepMinutes(plan, plan.steps[1].id, 0).steps[1].minutes).toBe(1);
@@ -129,28 +131,15 @@ describe('план на сегодня', () => {
 
 describe('«Сегодня»', () => {
   it('продолжает текущий шаг плана с прошлым темпом и отметкой', () => {
-    const hero = heroModel({ plan: continuePlan(), records, userExercises: [], firstRun: false });
+    const hero = heroModel({ plan: continuePlan(), records, userExercises: [] });
     expect(hero.mode).toBe('continue');
     expect(hero.eyebrow).toBe('Продолжить · шаг 2 из 4 плана');
-    expect(hero.stepId).toBe('standard-2');
+    expect(hero.stepId).toBe('step-2');
     expect(hero.stats).toEqual([{ value: '76', label: 'темп в прошлый раз' }, { value: 'С ошибками', label: 'твоя отметка' }]);
   });
   it('без плана продолжает последнее сыгранное, без истории — предлагает собрать план', () => {
-    expect(heroModel({ plan: createPlan(today), records, userExercises: [], firstRun: false })).toMatchObject({ mode: 'continue', eyebrow: 'Продолжить · с прошлого занятия', stepId: null });
-    expect(heroModel({ plan: createPlan(today), records: [], userExercises: [], firstRun: false }).mode).toBe('empty');
-  });
-  it('первый запуск — «Начни с „Основ“» без нулевой статистики', () => {
-    const hero = heroModel({ plan: planFromTemplate(today, 'firstRun'), records: [], userExercises: [], firstRun: true });
-    expect(hero).toMatchObject({ mode: 'first-run', title: 'Начни с «Основ»', stats: [] });
-  });
-  it('три рекомендации с причиной, одна — про пентатонику', () => {
-    for (const history of [records, [], records.slice(0, 1)]) {
-      const cards = recommendationCards(history, history.length === 0);
-      expect(cards).toHaveLength(3);
-      expect(cards.every(card => card.reason.length > 10)).toBe(true);
-      expect(cards.some(card => card.content?.kind === 'exercise' && isPentatonic(card.content.spec))).toBe(true);
-    }
-    expect(recommendationCards(records.slice(0, 3), false)[0]).toMatchObject({ eyebrow: 'Следующий шаг', title: 'Связка B → C' });
+    expect(heroModel({ plan: createPlan(today), records, userExercises: [] })).toMatchObject({ mode: 'continue', eyebrow: 'Продолжить · с прошлого занятия', stepId: null });
+    expect(heroModel({ plan: createPlan(today), records: [], userExercises: [] }).mode).toBe('empty');
   });
 });
 
@@ -265,16 +254,15 @@ describe('«Основы»', () => {
     expect(hits.some(hit => hit.kind === 'exercise' && hit.title === 'Пентатоника по всему грифу')).toBe(true);
     expect(searchBasics('   ', basicsCourse([]), [])).toEqual([]);
   });
-  it('поиск по началу слова находит цели, понятия и упражнения: «минорная гамма», «минорную гамму», «паук», «блюз»', () => {
+  it('поиск по началу слова находит понятия и упражнения: «минорная гамма», «минорную гамму», «паук», «блюз»', () => {
     const find = (query: string) => searchBasics(query, basicsCourse([]), libraryItems(null, []));
     for (const query of ['минорная гамма', 'минорную гамму']) {
       const hits = find(query);
-      expect(hits.filter(hit => hit.kind === 'goal').map(hit => hit.title), query).toContain('Натуральный минор');
       expect(hits.some(hit => hit.kind === 'concept'), query).toBe(true);
     }
-    expect(find('гамма').filter(hit => hit.kind === 'goal').map(hit => hit.title)).toEqual(expect.arrayContaining(['Мажорная гамма', 'Натуральный минор']));
-    expect(find('паук').map(hit => hit.title)).toEqual(expect.arrayContaining(['Техника рук', 'Паук: четыре пальца по грифу']));
-    expect(find('блюз').map(hit => hit.title)).toEqual(expect.arrayContaining(['Блюз', 'Блюзовая гамма']));
+    expect(find('гамма').filter(hit => hit.kind === 'concept').length).toBeGreaterThan(0);
+    expect(find('паук').map(hit => hit.title)).toEqual(expect.arrayContaining(['Паук: четыре пальца по грифу']));
+    expect(find('блюз').map(hit => hit.title)).toEqual(expect.arrayContaining(['Блюзовая гамма']));
     expect(find('септаккорд').some(hit => hit.kind === 'exercise' && hit.title === 'Арпеджио септаккорда 1–3–5–7')).toBe(true);
     // Короткое слово ищется только как подстрока; длинное — по основе.
     expect(searchMatches('гам', 'гамма')).toBe(true);
