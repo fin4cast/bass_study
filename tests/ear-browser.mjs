@@ -287,7 +287,7 @@ check('native-hidden-tab-cancels-check-cue-and-requires-new-complete-listen', 'n
   await checkHost(page).locator(`[data-choice="${oracle.index}"]`).click();
   await finishEarly(page);
   const db = await waitCheckRecord(page);
-  assert.deepEqual({ ...db.records[0].result.answers[0], degree: normalizeDegree(db.records[0].result.answers[0].target) }, { degree: oracle.degree, outcome: 'correct', errors: 0 });
+  assert.deepEqual({ ...db.records[0].result.answers[0], target: normalizeDegree(db.records[0].result.answers[0].target) }, { target: oracle.degree, outcome: 'correct', errors: 0 });
   await other.close();
   return { oracle, actualDocumentHidden: true, newFullListenRequired: true, databaseVersion: db.version, method: 'Separate Edge/CDP noDefaults:true, real tab activation; readonly native IndexedDB; no synthetic visibility event' };
 }));
