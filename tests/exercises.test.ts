@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildExercise, configureSpec, createExerciseSpec, EXERCISE_TEMPLATES, TASK_LINE_MAX, TEMPLATE_TASKS, templateOptions, validateExerciseSpec, type ExerciseTemplateId } from '../src/exercises';
 import { createNotationPlan } from '../src/notation';
+import { buildTimeline } from '../src/exercises/rhythm';
 
 /**
  * Контрольные примеры R-014: выведены вручную независимым проверяющим по правилам R-026
@@ -357,7 +358,7 @@ describe('форма A1/B7: аппликатура, направление и п
     expect(materialId(createExerciseSpec('progression'))).toBe('progression.C.I-IV-V.roots.closed');
   });
 
-  it('новые значения аппликатуры и направления допустимы, посторонние отклоняются; позиции последовательности пока только умолчание', () => {
+  it('значения аппликатуры, направления и позиции допустимы, посторонние отклоняются', () => {
     const chromatic = createExerciseSpec('chromatic-position');
     for (const [param, value] of [['fingering', '124'], ['direction', 'up-down']] as const) {
       expect(() => validateExerciseSpec({ ...chromatic, params: { ...chromatic.params, [param]: value } }), `${param}=${value}`).not.toThrow();
@@ -366,7 +367,8 @@ describe('форма A1/B7: аппликатура, направление и п
       expect(() => validateExerciseSpec({ ...chromatic, params: { ...chromatic.params, [param]: value } }), `${param}=${value}`).toThrow(RangeError);
     }
     const progression = createExerciseSpec('progression');
-    for (const value of ['low', 'open', 'Closed']) expect(() => validateExerciseSpec({ ...progression, params: { ...progression.params, position: value } }), value).toThrow(RangeError);
+    for (const value of ['closed', 'low']) expect(() => validateExerciseSpec({ ...progression, params: { ...progression.params, position: value } }), value).not.toThrow();
+    for (const value of ['Closed', 'middle', '']) expect(() => validateExerciseSpec({ ...progression, params: { ...progression.params, position: value } }), value).toThrow(RangeError);
     // Старая форма без новых полей — не материал этой версии.
     expect(() => validateExerciseSpec({ version: 'exercise-v1', templateId: 'chromatic-position', params: { startFret: 5 } })).toThrow(RangeError);
   });
@@ -491,5 +493,71 @@ describe('хроматика по позициям (A7.2)', () => {
     expect(() => createExerciseSpec('chromatic-shift', { startFret: 10, positions: 5 })).toThrow(RangeError);
     expect(() => createExerciseSpec('chromatic-shift', { startFret: 9, positions: 5 })).not.toThrow();
     expect(configureSpec(createExerciseSpec('chromatic-shift', { startFret: 5, positions: 5 }), 'startFret', 12).params).toMatchObject({ startFret: 12, positions: 2 });
+  });
+});
+
+/* ---------- Позиции последовательности: нижняя и открытые струны (R-028, B0.1) ---------- */
+
+describe('позиции последовательности low и open', () => {
+  const run = (params: Record<string, unknown>) => buildExercise(createExerciseSpec('progression', params as never));
+  const tonics = (plan: ReturnType<typeof run>) => plan.segments.map((_, bar) => plan.notes.find(note => note.segment === bar)!.id);
+  const bar = (plan: ReturnType<typeof run>, index: number) => plan.notes.filter(note => note.segment === index);
+
+  it('нижняя: C, I–IV–V, тоники — 1-й лад и открытые струны разрешены (A:3, E:1, E:3, A:3)', () => {
+    const plan = run({ root: 'C', position: 'low' });
+    expect(tonics(plan)).toEqual(['A:3', 'E:1', 'E:3', 'A:3']);
+    expect(bar(plan, 1).map(note => note.name)).toEqual(Array(8).fill('F1'));
+  });
+  it('нижняя: A, I–IV–V — A:0, A:5, E:0, A:0; открытая струна без пальца', () => {
+    const plan = run({ root: 'A', position: 'low' });
+    expect(tonics(plan)).toEqual(['A:0', 'A:5', 'E:0', 'A:0']);
+    expect(bar(plan, 0).map(note => note.finger)).toEqual(Array(8).fill(null));
+    expect(bar(plan, 1).map(note => note.finger)).toEqual(Array(8).fill(2));
+  });
+  it('нижняя, арпеджио, такт F: E:1 A:0 A:3 A:0, повтор; пальцы 2, —, 4, —', () => {
+    const plan = run({ root: 'C', pattern: 'arpeggio', position: 'low' });
+    const f = bar(plan, 1);
+    expect(f.map(note => note.id).join(' ')).toBe('E:1 A:0 A:3 A:0 E:1 A:0 A:3 A:0');
+    expect(f.map(note => note.finger ?? '-').join(' ')).toBe('2 - 4 - 2 - 4 -');
+    expect(f.map(note => note.degree).join(' ')).toBe('1 3 5 3 1 3 5 3');
+  });
+  it('нижняя, арпеджио, аккорд E: терция на ладу −1 невозможна, берётся A:7 — D:6, D:9', () => {
+    const plan = run({ root: 'A', pattern: 'arpeggio', position: 'low' });
+    const e = bar(plan, 2);
+    expect(e.map(note => note.id).join(' ')).toBe('A:7 D:6 D:9 D:6 A:7 D:6 D:9 D:6');
+    expect(e.map(note => note.finger).join(' ')).toBe('2 1 4 1 2 1 4 1');
+    expect(e.map(note => note.name).slice(0, 4)).toEqual(['E2', 'G♯2', 'B2', 'G♯2']);
+  });
+  it('нижняя, подход: на лад ниже следующей тоники на её струне, лад 0 допустим', () => {
+    const plan = run({ root: 'C', pattern: 'approach', position: 'low' });
+    expect([0, 1, 2, 3].map(index => bar(plan, index)[7].id)).toEqual(['E:0', 'E:2', 'A:2', 'A:2']);
+    expect(bar(plan, 0)[7]).toMatchObject({ finger: null, degree: null });
+  });
+  it('открытые струны: A и D по I–IV–V, блюз в A; палец не назначается', () => {
+    expect(tonics(run({ root: 'A', position: 'open' }))).toEqual(['A:0', 'D:0', 'E:0', 'A:0']);
+    expect(tonics(run({ root: 'D', position: 'open' }))).toEqual(['D:0', 'G:0', 'A:0', 'D:0']);
+    const blues = run({ root: 'A', progression: 'blues-12', position: 'open' });
+    expect(tonics(blues)).toEqual(['A:0', 'A:0', 'A:0', 'A:0', 'D:0', 'D:0', 'A:0', 'A:0', 'E:0', 'D:0', 'A:0', 'E:0']);
+    expect(blues.notes.every(note => note.finger === null)).toBe(true);
+    expect(blues.segments.map(segment => segment.label).slice(0, 5)).toEqual(['A7 · I7', 'A7 · I7', 'A7 · I7', 'A7 · I7', 'D7 · IV7']);
+  });
+  it('открытые струны: только тоники по I–IV–V и блюзу; тональность без открытой струны аккорда отклоняется', () => {
+    expect(() => run({ root: 'A', pattern: 'root-fifth', position: 'open' })).toThrow(RangeError);
+    expect(() => run({ root: 'C', progression: 'ii-V-I', position: 'open' })).toThrow(RangeError);
+    for (const root of ['C', 'G', 'E', 'F']) expect(() => run({ root, position: 'open' }), root).toThrow(RangeError);
+  });
+  it('ритм работает на новых позициях: форма Q и форма E', () => {
+    const plan = run({ root: 'A', pattern: 'root-fifth', position: 'low' });
+    const quarters = buildTimeline(plan, { pattern: 'quarters' }).steps.filter(step => step.bar === 1).map(step => plan.notes[step.note!].id);
+    expect(quarters).toEqual(['A:5', 'D:7', 'A:5', 'D:7']);
+  });
+  it('«Настроить»: недопустимая позиция уступает, выбранный параметр не меняется; подпись называет позицию', async () => {
+    const open = createExerciseSpec('progression', { root: 'A', progression: 'blues-12', position: 'open' });
+    expect(configureSpec(open, 'pattern', 'arpeggio').params).toMatchObject({ pattern: 'arpeggio', position: 'closed', progression: 'blues-12' });
+    expect(templateOptions('progression').map(option => option.param)).toEqual(['root', 'progression', 'pattern', 'position']);
+    const { materialLabel } = await import('../src/ui/lesson/material');
+    expect(materialLabel(open)).toBe('A · блюз 12 тактов · тоники · открытые струны');
+    expect(materialLabel(createExerciseSpec('progression', { position: 'low' }))).toBe('C · I–IV–V · тоники · нижняя');
+    expect(materialLabel(createExerciseSpec('progression'))).toBe('C · I–IV–V · тоники');
   });
 });

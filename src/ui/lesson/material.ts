@@ -2,7 +2,7 @@
  * Подписи материала упражнения для экранов «Занятие» и «Проверь себя» (VIS-10 r2, VIS-02 r1).
  * Чистый модуль: без DOM, звука и хранилища. Позиции в тексте — `E/8`.
  */
-import { buildExercise, type ConceptId, type ExercisePlan, type ExerciseSpec, type ExerciseTemplateId } from '../../exercises';
+import { buildExercise, POSITION_NAMES, type ConceptId, type ExercisePlan, type ExerciseSpec, type ExerciseTemplateId } from '../../exercises';
 import { createStructure, formatDegree, parseNote, STRUCTURE_LABELS, type MusicalStructure, type StructureId } from '../../music';
 
 /** `E:8` → `E/8`. */
@@ -121,6 +121,6 @@ export function materialLabel(spec: ExerciseSpec): string {
     case 'blues-scale': return `${note(spec.params.root)} · блюзовая гамма · от ${formatPosition(first.id)}`;
     case 'arpeggio-seventh': return `${keyName(createStructure(spec.params.root, spec.params.structureId))} · от ${formatPosition(first.id)}`;
     case 'arpeggio-inversion': return `${keyName(createStructure(spec.params.root, spec.params.structureId))} · ${spec.params.inversion}-е обращение · от ${formatPosition(first.id)}`;
-    case 'progression': return `${note(spec.params.root)} · ${PROGRESSION_LABELS[spec.params.progression]} · ${PATTERN_LABELS[spec.params.pattern]}`;
+    case 'progression': return `${note(spec.params.root)} · ${PROGRESSION_LABELS[spec.params.progression]} · ${PATTERN_LABELS[spec.params.pattern]}${spec.params.position === 'closed' ? '' : ` · ${POSITION_NAMES[spec.params.position]}`}`;
   }
 }
