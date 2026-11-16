@@ -18,7 +18,7 @@ const SECTIONS = [
   ['lesson', 'Занятие'], ['foundation', 'Гриф'], ['harmony', 'Ритм'], ['tracks', 'Песни'], ['progress', 'Прогресс'], ['settings', 'Настройки'],
 ];
 /** Первое занятие, собранное программой (R-028): текущие шаги трёх линий этапа 1. */
-const PROGRAM_DAY_ONE = ['Переход между струнами (правая рука)', 'Октавы: +2 струны, +2 лада', 'Игра по последовательности аккордов'];
+const PROGRAM_DAY_ONE = ['Пульс на одной ноте', 'Ноты на струне', 'Игра по последовательности аккордов'];
 const FIRST_RUN_PLAN = ['Одна нота по всему грифу', 'Октавы: +2 струны, +2 лада', 'Хроматика 1-2-3-4 в позиции'];
 
 async function ready(page) {
@@ -351,8 +351,13 @@ check('today-first-day-is-composed-by-program-with-one-start-button', 'ui', asyn
   const db = await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'занятие первого дня');
   assert.equal(db.version, 16);
   assert.deepEqual(db.preferences.lesson.plan.steps.map(step => [step.id, step.programStep, step.status]), [
-    ['d1', 't1-crossing.eighths', 'current'], ['d2', 'f1-octave.quarters', 'pending'], ['d3', 'h1-roots.eighths', 'pending'],
+    ['d1', 't1-pulse.quarters', 'current'], ['d2', 'f1-ea5.naturals', 'pending'], ['d3', 'h1-open.quarters', 'pending'],
   ]);
+  // Занятие 1 по таблице «Путь ученика» (R-028): пульс четвертями на открытой E, ноты струны E до 5-го лада, I–IV–V на открытых струнах в A.
+  assert.deepEqual(db.preferences.lesson.plan.steps.map(step => step.content.spec.params), [
+    { string: 'E', fret: 0, notes: 16 }, { string: 'E', fretMax: 5 }, { root: 'A', progression: 'I-IV-V', pattern: 'roots', position: 'open' },
+  ]);
+  assert.deepEqual(db.preferences.lesson.plan.steps.map(step => step.content.practice.rhythm), ['quarters', 'quarters', 'quarters']);
   // «Начать» открывает первый шаг занятия на базовом темпе, без выбора параметров.
   await home(page).locator('[data-key="hero-play"]').click();
   await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
@@ -401,15 +406,15 @@ check('today-next-day-offers-next-variant-and-keeps-manual-steps-and-long-break-
   await playOneLoopedPass(page);
   await page.keyboard.press('KeyZ');
   await waitDb(page, db => db.history.length === 1, 'проход записан');
-  assert.equal((await readDb(page)).history[0].result.material.spec.params.pattern, 'adjacent');
+  assert.deepEqual((await readDb(page)).history[0].result.material.spec.params, { string: 'E', fret: 0, notes: 16 });
   await playScene(page).locator('[data-back]').click();
   await page.clock.setFixedTime(new Date('2026-11-17T10:00:00'));
   await page.reload(); await ready(page);
   let db = await waitDb(page, db => db.preferences.lesson.plan?.localDate === '2026-11-17', 'план нового дня');
   const first = db.preferences.lesson.plan.steps[0];
-  assert.equal(first.programStep, 't1-crossing.eighths');
-  assert.equal(first.content.spec.params.pattern, 'skip', 'вариант подставлен: после «Чисто» в первом — второй');
-  assert.deepEqual(db.preferences.lesson.plan.steps.map(step => step.programStep), ['t1-crossing.eighths', 'f1-octave.quarters', 'h1-roots.eighths', undefined]);
+  assert.equal(first.programStep, 't1-pulse.quarters');
+  assert.equal(first.content.spec.params.string, 'A', 'вариант подставлен: после «Чисто» в первом — второй');
+  assert.deepEqual(db.preferences.lesson.plan.steps.map(step => step.programStep), ['t1-pulse.quarters', 'f1-ea5.naturals', 'h1-open.quarters', undefined]);
   assert.match((await home(page).locator('.ls-hero').innerText()), /Продолжить/i);
   // Перерыв больше 14 дней: «Вспомнить».
   await page.clock.setFixedTime(new Date('2026-12-20T10:00:00'));
@@ -1450,10 +1455,10 @@ check('basics-path-opens-step-on-base-tempo-with-rule-and-rated-variant-shows-in
   await lessonTab(page, 'Основы');
   assert.equal(await home(page).locator('[data-act="basics-view"][data-value="path"]').getAttribute('aria-pressed'), 'true', 'по умолчанию — путь');
   assert.deepEqual(await home(page).locator('.ls-pline h3').allInnerTexts(), ['Техника', 'Гриф', 'Аккорды и линии']);
-  assert.match(await home(page).locator('.ls-path-head .ls-sub').first().innerText(), /пройдено 0 · пропущено 0 · освоено 0 из 11/);
+  assert.match(await home(page).locator('.ls-path-head .ls-sub').first().innerText(), /пройдено 0 · пропущено 0 · освоено 0 из 29/);
   assert.equal(await pathStatus(page, 't1-left.quarters'), 'не начат');
   // Текущие шаги трёх линий отмечены.
-  assert.deepEqual(await home(page).locator('.ls-pstep.is-current').evaluateAll(items => items.map(item => item.dataset.stepId)), ['t1-crossing.eighths', 'f1-octave.quarters', 'h1-roots.eighths']);
+  assert.deepEqual(await home(page).locator('.ls-pstep.is-current').evaluateAll(items => items.map(item => item.dataset.stepId)), ['t1-pulse.quarters', 'f1-ea5.naturals', 'h1-open.quarters']);
   // Шаг открывается на базовом темпе 60, с «как играть» шага и правилом зачёта.
   await pathStep(page, 't1-left.quarters').getByRole('button', { name: /^Играть/ }).click();
   await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
@@ -1473,7 +1478,7 @@ check('basics-path-opens-step-on-base-tempo-with-rule-and-rated-variant-shows-in
   await playScene(page).locator('[data-back]').click();
   await lessonTab(page, 'Основы');
   assert.equal(await pathStatus(page, 't1-left.quarters'), 'в работе');
-  assert.deepEqual(await pathStep(page, 't1-left.quarters').locator('.ls-vchip').evaluateAll(chips => chips.map(chip => [chip.classList.contains('is-clean'), chip.classList.contains('is-on')])), [[true, false], [false, true], [false, false]]);
+  assert.deepEqual(await pathStep(page, 't1-left.quarters').locator('.ls-vchip').evaluateAll(chips => chips.map(chip => [chip.classList.contains('is-clean'), chip.classList.contains('is-on')])), [[true, false], [false, true], [false, false], [false, false], [false, false]]);
   assert.equal(await pathStatus(page, 't1-left.eighths'), 'не начат', 'другой ритм — другой шаг');
   return { key: entry.result.material.key };
 });
@@ -1481,20 +1486,20 @@ check('basics-path-opens-step-on-base-tempo-with-rule-and-rated-variant-shows-in
 check('basics-path-already-know-marks-block-persists-and-is-removable', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
   await lessonTab(page, 'Основы');
-  const skip = home(page).locator('[data-act="path-skip"][data-block="f1-octave"]');
+  const skip = home(page).locator('[data-act="path-skip"][data-block="f1-ea5"]');
   await skip.click();
-  await assertAttribute(home(page).locator('[data-act="path-skip"][data-block="f1-octave"]'), 'aria-pressed', 'true');
-  assert.equal(await pathStatus(page, 'f1-octave.quarters'), 'пропущен');
-  assert.match(await home(page).locator('.ls-pblock[data-block="f1-octave"] header .ls-sub').innerText(), /пропущено 2/);
-  let db = await waitDb(page, db => db.preferences.lesson.skipped?.includes('f1-octave'), 'отметка сохранена');
-  assert.deepEqual(db.preferences.lesson.skipped, ['f1-octave']);
+  await assertAttribute(home(page).locator('[data-act="path-skip"][data-block="f1-ea5"]'), 'aria-pressed', 'true');
+  assert.equal(await pathStatus(page, 'f1-ea5.naturals'), 'пропущен');
+  assert.match(await home(page).locator('.ls-pblock[data-block="f1-ea5"] header .ls-sub').innerText(), /пропущено 2/);
+  let db = await waitDb(page, db => db.preferences.lesson.skipped?.includes('f1-ea5'), 'отметка сохранена');
+  assert.deepEqual(db.preferences.lesson.skipped, ['f1-ea5']);
   await page.reload(); await ready(page);
   await lessonTab(page, 'Основы');
-  assert.equal(await pathStatus(page, 'f1-octave.degrees'), 'пропущен', 'отметка пережила перезагрузку');
-  assert.equal(await home(page).locator('.ls-pstep.is-current').evaluateAll(items => items.map(item => item.dataset.stepId)).then(ids => ids.includes('f1-octave.quarters')), false, 'линия «Гриф» ушла дальше блока');
-  await home(page).locator('[data-act="path-skip"][data-block="f1-octave"]').click();
+  assert.equal(await pathStatus(page, 'f1-ea5.name-note'), 'пропущен', 'отметка пережила перезагрузку');
+  assert.equal(await home(page).locator('.ls-pstep.is-current').evaluateAll(items => items.map(item => item.dataset.stepId)).then(ids => ids.includes('f1-ea5.naturals')), false, 'линия «Гриф» ушла дальше блока');
+  await home(page).locator('[data-act="path-skip"][data-block="f1-ea5"]').click();
   db = await waitDb(page, db => Array.isArray(db.preferences.lesson.skipped) && db.preferences.lesson.skipped.length === 0, 'отметка снята');
-  assert.equal(await pathStatus(page, 'f1-octave.quarters'), 'не начат');
+  assert.equal(await pathStatus(page, 'f1-ea5.naturals'), 'не начат');
   // «Знания» остаются: прежние уровни как справочная линия карточек.
   await home(page).locator('[data-act="basics-view"][data-value="knowledge"]').click();
   await home(page).locator('.ls-basics-grid').waitFor();
@@ -1524,14 +1529,14 @@ check('basics-path-two-variants-pass-the-step-and-two-days-master-it', 'ui', asy
   await playVariant(1);
   await lessonTab(page, 'Основы');
   assert.equal(await pathStatus(page, 't1-left.quarters'), 'пройден');
-  assert.match(await home(page).locator('.ls-pblock[data-block="t1-left"] header .ls-sub').innerText(), /пройдено 1 · пропущено 0 · освоено 0 из 2/);
+  assert.match(await home(page).locator('.ls-pblock[data-block="t1-left"] header .ls-sub').innerText(), /пройдено 1 · пропущено 0 · освоено 0 из 3/);
   await page.clock.setFixedTime(new Date('2026-11-17T10:00:00'));
   await page.reload(); await ready(page);
   await playVariant(0);
   await playVariant(1);
   await lessonTab(page, 'Основы');
   assert.match(await pathStatus(page, 't1-left.quarters'), /^освоен · \d+$/);
-  assert.match(await home(page).locator('.ls-pblock[data-block="t1-left"] header .ls-sub').innerText(), /пройдено 1 · пропущено 0 · освоено 1 из 2/);
+  assert.match(await home(page).locator('.ls-pblock[data-block="t1-left"] header .ls-sub').innerText(), /пройдено 1 · пропущено 0 · освоено 1 из 3/);
   return { status: await pathStatus(page, 't1-left.quarters') };
 });
 
@@ -1545,11 +1550,11 @@ check('progress-shows-program-status-after-a-lesson-pass-and-reload', 'ui', asyn
   await page.reload(); await ready(page);
   await page.locator('.site-header [data-app-module="progress"]').click();
   const progress = page.locator('[data-page-frame="progress"]');
-  const row = progress.locator('.pg-pstep[data-step-id="t1-crossing.eighths"]');
+  const row = progress.locator('.pg-pstep[data-step-id="t1-pulse.quarters"]');
   await row.waitFor();
-  assert.match(await progress.locator('.pg-stage-head').first().innerText(), /Этап 1 · Пульс и опора\s+пройдено 0 · пропущено 0 · освоено 0 из 11/);
+  assert.match(await progress.locator('.pg-stage-head').first().innerText(), /Этап 1 · Пульс и опора\s+пройдено 0 · пропущено 0 · освоено 0 из 29/);
   assert.equal(await row.locator('.pg-pstatus').innerText(), 'в работе');
-  assert.match(await row.innerText(), /сыграно 1 из 2 · лучший чистый темп 200/);
+  assert.match(await row.innerText(), /сыграно 1 из 4 · лучший чистый темп 200/);
   assert.equal(await progress.locator('.pg-pstep[data-step-id="h1-roots.eighths"] .pg-pstatus').innerText(), 'не начат');
   assert.deepEqual(await progress.locator('.pg-pline > summary b').allInnerTexts(), ['Техника', 'Гриф', 'Аккорды и линии']);
   return { status: await row.locator('.pg-pstatus').innerText() };

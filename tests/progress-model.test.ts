@@ -210,10 +210,10 @@ describe('программа обучения в «Прогрессе» (R-028)'
   it('этап и линии со счётчиками, шаги в порядке программы', () => {
     const stages = rows(facts());
     expect(stages).toHaveLength(1);
-    expect(stages[0].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 11');
-    expect(stages[0].lines.map(line => [line.title, line.steps.length])).toEqual([['Техника', 4], ['Гриф', 2], ['Аккорды и линии', 5]]);
-    expect(stages[0].lines[0].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 4');
-    expect(step(stages, 't1-left.quarters')).toMatchObject({ state: 'new', label: 'не начат', played: 'сыграно 0 из 3', bestBpm: null });
+    expect(stages[0].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 29');
+    expect(stages[0].lines.map(line => [line.title, line.steps.length])).toEqual([['Техника', 9], ['Гриф', 7], ['Аккорды и линии', 13]]);
+    expect(stages[0].lines[0].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 9');
+    expect(step(stages, 't1-left.quarters')).toMatchObject({ state: 'new', label: 'не начат', played: 'сыграно 0 из 5', bestBpm: null });
   });
 
   it('у шага — статус, сыгранные варианты и лучший чистый темп', () => {
@@ -222,12 +222,12 @@ describe('программа обучения в «Прогрессе» (R-028)'
     expect(step(stages, 't1-crossing.eighths')).toMatchObject({ state: 'progress', label: 'в работе', played: 'сыграно 1 из 2', bestBpm: 84 });
     const done = rows(facts({ plays: [fact(adjacent), fact(createExerciseSpec('string-crossing', { pattern: 'skip' }), { bpm: 70 })] }));
     expect(step(done, 't1-crossing.eighths')).toMatchObject({ state: 'passed', label: 'пройден', played: 'сыграно 2 из 2', bestBpm: 84 });
-    expect(done[0].lines[0].counts).toBe('пройдено 1 · пропущено 0 · освоено 0 из 4');
+    expect(done[0].lines[0].counts).toBe('пройдено 1 · пропущено 0 · освоено 0 из 9');
   });
 
   it('проверка: «серия сыграна»; пропущенный блок — «пропущен»', () => {
     const skipped = rows(facts({ skippedBlocks: new Set(['f1-octave']) }));
     expect(step(skipped, 'f1-octave.degrees')).toMatchObject({ state: 'skipped', label: 'пропущен', played: 'серии нет' });
-    expect(skipped[0].lines[1].counts).toBe('пройдено 0 · пропущено 2 · освоено 0 из 2');
+    expect(skipped[0].lines[1].counts).toBe('пройдено 0 · пропущено 2 · освоено 0 из 7');
   });
 });

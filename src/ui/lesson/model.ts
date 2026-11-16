@@ -404,6 +404,10 @@ const STEP_EXERCISE: Partial<Record<string, () => ExerciseSpec>> = {
   counting: () => createExerciseSpec('connect-forms', { shapeId: 'penta-b' }),
   tab: () => createExerciseSpec('scale-one-string', { root: 'G', structureId: 'major', string: 'E' }),
   'bass-clef': () => createExerciseSpec('note-all-positions', { note: 'G' }),
+  tuning: () => createExerciseSpec('pulse-note', { string: 'E', fret: 0 }),
+  posture: () => createExerciseSpec('pulse-note', { string: 'A', fret: 0 }),
+  'right-hand-basics': () => createExerciseSpec('pulse-note', { string: 'D', fret: 0 }),
+  'left-hand-basics': () => createExerciseSpec('chromatic-position', { startFret: 7 }),
 };
 const FORM_TEMPLATES: ReadonlySet<ExerciseTemplateId> = new Set(['pentatonic-form', 'connect-forms', 'pentatonic-neck', 'groups-of-three', 'pentatonic-relative']);
 

@@ -397,7 +397,7 @@ describe('данные программы (этап 1, заход B)', () => {
 
   it('первое занятие по данным: текущие шаги трёх линий с первым вариантом; все шаги — обязательные или необязательная песня', () => {
     const first = composeDay(PROGRAM, facts());
-    expect(first.items.map(item => item.step.id)).toEqual(['t1-crossing.eighths', 'f1-octave.quarters', 'h1-roots.eighths']);
+    expect(first.items.map(item => item.step.id)).toEqual(['t1-pulse.quarters', 'f1-ea5.naturals', 'h1-open.quarters']);
     expect(first.items.every(item => item.variant === 0 && item.minutes >= 2 && item.minutes <= 5)).toBe(true);
     for (const ref of refs) expect(isRequired(ref.step) || ref.step.kind === 'song').toBe(true);
   });
@@ -413,7 +413,7 @@ describe('факты из записей «Проверь себя»', () => {
     ];
     const record = { kind: 'check' as const, id: 'c1', exerciseKey: 'builtin:x', title: 'Октава', check: degreeCheck(exercise, 'find-degree', 6), activeMs: 1, localDate: TODAY, occurredAt: `${TODAY}T10:00:00.000Z`, answers };
     const [fact] = checkFacts([record]);
-    const step = stepRefs(PROGRAM).map(ref => ref.step).find(item => item.kind === 'check');
+    const step = stepRefs(PROGRAM).map(ref => ref.step).find(item => item.id === 'f1-octave.degrees');
     expect(step?.kind === 'check' && fact.checkId === checkId(step.check)).toBe(true);
     expect(fact).toMatchObject({ firstTry: 4, count: 6, localDate: TODAY });
     const status = evaluateProgram(PROGRAM, facts({ checks: [{ ...fact, firstTry: 5 }] })).statuses.get('f1-octave.degrees');
@@ -454,11 +454,11 @@ describe('занятие как шаги плана', () => {
   it('обычный день: ID d<n>, программный шаг, вариант и «как играть» в содержимом, проверка — описанием шага', () => {
     const day = composeDay(PROGRAM, facts());
     const steps = dayPlanSteps(day);
-    expect(steps.map(step => [step.id, step.programStep])).toEqual([['d1', 't1-crossing.eighths'], ['d2', 'f1-octave.quarters'], ['d3', 'h1-roots.eighths']]);
+    expect(steps.map(step => [step.id, step.programStep])).toEqual([['d1', 't1-pulse.quarters'], ['d2', 'f1-ea5.naturals'], ['d3', 'h1-open.quarters']]);
     expect(steps[1].content).toMatchObject({ kind: 'exercise', practice: { rhythm: 'quarters' } });
     expect(steps.every(step => step.minutes >= 2 && step.minutes <= 5)).toBe(true);
-    const withCheck = composeDay(PROGRAM, facts({ plays: ['G', 'A'].map(note => fact(createExerciseSpec('octaves', { note }), { practice: QUARTERS, bpm: 80 })) }));
-    const check = dayPlanSteps(withCheck).find(step => step.programStep === 'f1-octave.degrees');
+    const withCheck = composeDay(PROGRAM, facts({ plays: (['E', 'A'] as const).map(string => fact(createExerciseSpec('string-naturals', { string, fretMax: 5 }), { practice: QUARTERS, bpm: 80 })) }));
+    const check = dayPlanSteps(withCheck).find(step => step.programStep === 'f1-ea5.name-note');
     expect(check?.content.kind).toBe('check');
     expect(check?.minutes).toBe(2);
   });
@@ -467,6 +467,6 @@ describe('занятие как шаги плана', () => {
     const plays = [createExerciseSpec('string-crossing', { pattern: 'adjacent' }), createExerciseSpec('string-crossing', { pattern: 'skip' })].map(spec => fact(spec, { localDate: day(-30) }));
     const recall = composeDay(PROGRAM, facts({ plays }));
     expect(recall.mode).toBe('recall');
-    expect(dayPlanSteps(recall).map(step => [step.id, step.programStep])).toEqual([['r1', 't1-crossing.eighths'], ['r2', 'f1-octave.quarters'], ['r3', 'h1-roots.eighths']]);
+    expect(dayPlanSteps(recall).map(step => [step.id, step.programStep])).toEqual([['r1', 't1-crossing.eighths'], ['r2', 'f1-ea5.naturals'], ['r3', 'h1-open.quarters']]);
   });
 });

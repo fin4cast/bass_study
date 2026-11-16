@@ -20,10 +20,10 @@ describe('путь программы для «Основ»', () => {
     const stages = model();
     expect(stages).toHaveLength(1);
     expect(stages[0].lines.map(line => [line.id, line.blocks.map(block => block.id)])).toEqual([
-      ['technique', ['t1-crossing', 't1-left']], ['fretboard', ['f1-octave']], ['chords', ['h1-roots', 'h1-fifth']],
+      ['technique', ['t1-pulse', 't1-crossing', 't1-left']], ['fretboard', ['f1-ea5', 'f1-ea12', 'f1-octave']], ['chords', ['h1-open', 'h1-roots', 'h1-fifth', 'h1-line']],
     ]);
-    expect(stages[0].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 11');
-    expect(pathBadge(evaluateProgram(PROGRAM, facts()))).toBe('0/11');
+    expect(stages[0].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 29');
+    expect(pathBadge(evaluateProgram(PROGRAM, facts()))).toBe('0/29');
   });
 
   it('счётчик по-русски: пропущено и «повторить» показываются, когда они есть', () => {
@@ -33,7 +33,7 @@ describe('путь программы для «Основ»', () => {
 
   it('текущие шаги линий отмечены, вариант по умолчанию — первый без «Чисто»', () => {
     const start = model();
-    expect(['t1-crossing.eighths', 'f1-octave.quarters', 'h1-roots.eighths'].every(id => stepOf(start, id).current)).toBe(true);
+    expect(['t1-pulse.quarters', 'f1-ea5.naturals', 'h1-open.quarters'].every(id => stepOf(start, id).current)).toBe(true);
     expect(stepOf(start, 't1-crossing.raking').current).toBe(false);
     const after = model(facts({ plays: [clean(createExerciseSpec('string-crossing', { pattern: 'adjacent' }))] }));
     const step = stepOf(after, 't1-crossing.eighths');
@@ -58,12 +58,13 @@ describe('путь программы для «Основ»', () => {
     expect(stale.review).toBe(true);
     const skipped = model(facts({ skippedBlocks: new Set(['h1-roots']) }));
     expect(stepOf(skipped, 'h1-roots.eighths').label).toBe(STATE_LABELS.skipped);
-    expect(skipped[0].lines[2].blocks[0].skipped).toBe(true);
+    expect(skipped[0].lines[2].blocks[1].skipped).toBe(true);
   });
 
   it('карточки блоков — существующие понятия справочника; проверка показывает свой материал', () => {
     const stages = model();
-    const block = stages[0].lines[0].blocks[0];
+    expect(stages[0].lines[0].blocks[0].cards.map(card => card.id)).toEqual(['tuning', 'posture', 'right-hand-basics']);
+    const block = stages[0].lines[0].blocks[1];
     expect(block.cards.map(card => card.id)).toEqual(['alternate-plucking', 'muting']);
     expect(block.cards.every(card => card.title.length > 0)).toBe(true);
     const check = stepOf(stages, 'f1-octave.degrees');
