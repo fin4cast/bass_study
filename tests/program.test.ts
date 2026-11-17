@@ -419,6 +419,20 @@ describe('факты из записей «Проверь себя»', () => {
     const status = evaluateProgram(PROGRAM, facts({ checks: [{ ...fact, firstTry: 5 }] })).statuses.get('f1-octave.degrees');
     expect(status?.state).toBe('passed');
   });
+
+  it('серия, завершённая досрочно, шагу не засчитывается: 5 верных и шестой «без ответа» — не факт', () => {
+    const exercise = createExerciseSpec('root-five-eight', { root: 'C', string: 'A' });
+    type Answer = { target: string; outcome: 'correct' | 'unanswered'; errors: number };
+    const right = (target: string): Answer => ({ target, outcome: 'correct', errors: 0 });
+    const record = (answers: Answer[]) => ({
+      kind: 'check' as const, id: 'c2', exerciseKey: 'builtin:x', title: 'Октава', check: degreeCheck(exercise, 'find-degree', 6), activeMs: 1, localDate: TODAY, occurredAt: `${TODAY}T10:00:00.000Z`, answers,
+    });
+    const early = [right('1'), right('5'), right('1'), right('5'), right('1'), { target: '5', outcome: 'unanswered', errors: 0 } as Answer];
+    expect(checkFacts([record(early)])).toEqual([]);
+    const short = [right('1'), right('5'), right('1'), right('5'), right('1')];
+    expect(checkFacts([record(short)])).toEqual([]);
+    expect(checkFacts([record([...short, right('5')])])).toHaveLength(1);
+  });
 });
 
 describe('правило зачёта шага словами', () => {

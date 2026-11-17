@@ -6,7 +6,7 @@
 import { buildExercise, type ExerciseSpec } from '../exercises';
 import { buildTimeline, samePractice, type PracticeOptions, type RhythmPatternId } from '../exercises/rhythm';
 import type { TemplateTask } from '../exercises/tasks';
-import { checkId, degreeCheck, type CheckSpec } from './check';
+import { checkId, type CheckSpec } from './check';
 import { lineBarsText, materialId } from './material';
 import { lineVolume } from './line-builder';
 import { parseNote } from '../music';
@@ -166,13 +166,15 @@ export function lineFacts(records: readonly PracticeRecord[]): LineFact[] {
 }
 
 /**
- * Факты из записей «Проверь себя»: тождество проверки — из описания записи, число вопросов — по числу ответов;
+ * Факты из записей «Проверь себя»: тождество проверки — из описания записи, число вопросов — по числу ответов (равному числу вопросов описания);
  * верные с первой попытки — без ошибок и показа.
  */
 export function checkFacts(records: readonly PracticeRecord[]): CheckFact[] {
   const facts: CheckFact[] = [];
   for (const record of records) {
     if (record.kind !== 'check') continue;
+    // Серия, завершённая досрочно, и повтор части вопросов шагу не засчитываются: «сыграна до конца» — все вопросы описания с ответом (A9.5).
+    if (record.answers.length !== record.check.count || record.answers.some(answer => answer.outcome === 'unanswered')) continue;
     try {
       const id = checkId({ ...record.check, count: record.answers.length });
       facts.push({ checkId: id, firstTry: record.answers.filter(answer => answer.outcome === 'correct' && answer.errors === 0).length, count: record.answers.length, localDate: record.localDate });

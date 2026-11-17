@@ -85,6 +85,16 @@ export function stageLine(state: ProgramState): string | null {
   return counts ? `Этап ${number} · пройдено ${counts.passed} · освоено ${counts.mastered}` : null;
 }
 
+/** Текущий шаг «Своя линия»: в план дня он не входит (строится в конструкторе), поэтому «Сегодня» предлагает его отдельной строкой. */
+export function currentLineStep(state: ProgramState): { id: string; title: string; volume: 1 | 2 | null } | null {
+  for (const ref of Object.values(state.current)) {
+    const step = ref?.step;
+    if (step?.kind !== 'line') continue;
+    return { id: step.id, title: step.title, volume: step.rule === 'h1-line' ? 1 : step.rule === 'h2-own' ? 2 : null };
+  }
+  return null;
+}
+
 /** Бейдж вкладки «Основы»: сколько обязательных шагов пройдено или пропущено из всех. */
 export function pathBadge(state: ProgramState): string {
   let done = 0;

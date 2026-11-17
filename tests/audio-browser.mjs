@@ -131,6 +131,24 @@ check('offline-chord-voices-sound-at-their-own-frequencies-and-do-not-carry-over
   return result;
 });
 
+check('offline-hold-chord-is-cut-at-the-pass-boundary-when-tempo-changes-mid-bar', 'api', async ({ page }) => {
+  const { before, after } = await page.evaluate(() => window.p4.chordCutAtTempoChange());
+  assert.ok(before > 0.003, `A3 звучит в своём такте: ${before}`);
+  assert.ok(after < before / 4, `A3 снят на границе прохода: до ${before}, после ${after}`);
+  return { before, after };
+});
+check('offline-chord-volume-outside-zero-one-is-rejected-and-keeps-previous', 'api', async ({ page }) => {
+  const result = await page.evaluate(() => {
+    const before = window.p4.player.getSnapshot().volumes;
+    let message = null;
+    try { window.p4.player.setVolumes({ chords: 2 }); } catch (error) { message = error.message; }
+    return { message, before, after: window.p4.player.getSnapshot().volumes };
+  });
+  assert.ok(result.message, 'громкость аккордов 2 должна отклоняться');
+  assert.deepEqual(result.after, result.before);
+  return result;
+});
+
 check('offline-note-gate-long-sounds-to-the-end-short-is-silent-after-half', 'api', async ({ page }) => {
   // A3: 60 BPM, четверть — 1 с. Длинная (gate 1) звучит на 0,9 шага; короткая (0,5) молчит на отрезке 0,6–0,95; без gate — по умолчанию 0,72.
   const result = await page.evaluate(() => window.p4.gateWindows());
@@ -301,6 +319,19 @@ check('live-fractional-pause-resume-preserves-grid-route-and-one-scheduler', 'ap
   assert.equal(sounded(resumed, 'count-in').length, 0); assert.notEqual(resumed.repeatId, null);
   await fixtureAction(page, 'stop');
   return { paused, frozen, resumed };
+});
+
+check('live-hold-chord-keeps-sounding-after-pause-in-the-middle-of-a-bar', 'api', async ({ page }) => {
+  // Пауза на второй доле такта и продолжение: аккорд «Держать» текущего такта доигрывается, а не молчит до следующей границы.
+  await fixtureConfig(page, { repeat: 'infinite', countIn: false, steps: [bar(0), bar(1)], chords: { mode: 'hold', bars: [C_CHORD, A_CHORD] } });
+  await fixtureAction(page, 'start');
+  await waitSnapshot(page, state => state.transportBeat >= 1.7 && state.transportBeat < 2);
+  await fixtureAction(page, 'pause'); await fixtureAction(page, 'resume');
+  const resumed = await waitSnapshot(page, state => state.trace.some(event => event.type === 'chord' && !event.cancelled && event.absoluteGrid % 16 !== 0 && event.time <= state.audioTime));
+  const chord = resumed.trace.find(event => event.type === 'chord' && !event.cancelled && event.absoluteGrid % 16 !== 0);
+  assert.ok(chord, 'после продолжения посреди такта нет события аккорда');
+  await fixtureAction(page, 'stop');
+  return { chord };
 });
 
 check('live-pause-during-count-in-does-not-repeat-count-or-skip-first-note', 'api', async ({ page }) => {

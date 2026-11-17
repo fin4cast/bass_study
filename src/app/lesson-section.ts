@@ -23,7 +23,7 @@ import { createEnginePort, type PlaybackPort } from '../ui/play/port';
 import { mountPlay, type PlayHandle, type RateEvent } from '../ui/play/view';
 import { mountReference } from '../ui/reference/view';
 import {
-  addToPlan, bpmAfterRating, checkEntry, exerciseKey, exerciseSettingsPatch, hasPlayed, nextPlanStep, planAfterCheck, planAfterNext, planAfterRating, planForToday, planStepInfo, variantChange,
+  addToPlan, bpmAfterRating, checkEntry, exerciseKey, exerciseSettingsPatch, hasPlayed, nextPlanStep, planAfterCheck, planAfterNext, planAfterSkipChange, planAfterRating, planForToday, planStepInfo, variantChange,
   checkForKey, playRatingEntry, playSettingsFor, plannedProgressIds, rememberExerciseSettings, repeatContent, specForKey, stepPosition, todayKey, viewForExercise,
 } from './lesson-flow';
 
@@ -114,16 +114,19 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     onSkipBlock(blockId, skipped) {
       const lesson = lessonPreferences();
       const list = skipped ? [...lesson.skipped.filter(id => id !== blockId), blockId] : lesson.skipped.filter(id => id !== blockId);
-      if (!options.savePreferences({ lesson: { ...lesson, skipped: list } })) throw new Error('Отметка не сохранена: эта вкладка сейчас не может записывать.');
+      // Отметки меняют текущие шаги линий: невыполненный план дня собирается заново вместе с ними (R-028, «Первый запуск»).
+      const plan = planAfterSkipChange(lesson.plan, today(), () => dayPlanSteps(composeDay(PROGRAM, programFacts(new Set(list)))));
+      if (!options.savePreferences({ lesson: { ...lesson, skipped: list, plan } })) throw new Error('Отметка не сохранена: эта вкладка сейчас не может записывать.');
       renderHome();
     },
   });
 
   const checkView = mountCheck(host('check'), {
-    onFinish(summary, answers) {
+    onFinish(summary, answers, played) {
       if (!check?.spec) return;
       try {
-        const entry = checkEntry({ spec: check.spec, userExercises: user(), activeMs: summary.activeMs, answers }, metadata('check'));
+        // Серия идёт под тем видом вопросов и слухом, что сыграны: смена вида на экране не засчитывается шагу другого описания.
+        const entry = checkEntry({ spec: { ...check.spec, kind: played.kind, ear: played.ear }, userExercises: user(), activeMs: summary.activeMs, answers }, metadata('check'));
         if (entry) options.saveHistory(entry);
       } catch (failure) { options.onFailure(`Итог проверки не сохранён: ${message(failure)}`); }
     },
@@ -157,9 +160,9 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   reference.setVisible(false);
 
   /** Факты программы по истории и отметкам «Уже умею» (статусы нигде не хранятся). */
-  function programFacts(): ProgramFacts {
+  function programFacts(skipped: ReadonlySet<string> = new Set(lessonPreferences().skipped)): ProgramFacts {
     const all = records();
-    return { plays: playFacts(all), checks: checkFacts(all), lines: lineFacts(all), skippedBlocks: new Set(lessonPreferences().skipped), today: today() };
+    return { plays: playFacts(all), checks: checkFacts(all), lines: lineFacts(all), skippedBlocks: skipped, today: today() };
   }
   function homeState() {
     const prefs = options.preferences();

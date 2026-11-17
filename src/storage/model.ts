@@ -679,6 +679,7 @@ function validateCheckHistory(value: unknown): CheckHistoryResult {
     return { target, outcome, errors };
   });
   if (!answers.length) invalid('Итог «Проверь себя» должен содержать хотя бы один ответ.');
+  if (answers.length > check.count) invalid('Ответов больше, чем вопросов в описании проверки.');
   return immutable({ kind: 'check', source: 'screen-check', exerciseKey: key, title: exerciseTitle(raw.title), check,
     activeMs: number(raw.activeMs, 0, MAX_CHECK_ACTIVE_MS, 'Активное время проверки'), answers });
 }

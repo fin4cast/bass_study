@@ -244,6 +244,7 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
   let idleBpm = 80;
   let nextGrid = 0; let nextAt = 0;
   let pausedGrid = 0;
+  let resumeGrid: number | null = null;
   let pauseReason: string | null = null;
   let finishAt: number | null = null;
   let interruptionAt: number | null = null;
@@ -311,7 +312,8 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
   }
   function scheduleGrid(grid: number, time: number) {
     const current = plan!;
-    const event = eventAtGrid(current, grid);
+    const event = eventAtGrid(current, grid, grid === resumeGrid);
+    if (grid === resumeGrid) resumeGrid = null;
     remember({ ...event, time, epoch });
     if (event.finish) {
       finishAt = time;
@@ -441,6 +443,7 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
     pauseReason = null; interruptionAt = null;
     // Продолжение без отсчёта: сетка идёт с сохранённой дробной позиции.
     runGrid(time, pausedGrid, firstGrid, ladder() ? (frames.at(-1)?.bpm ?? plan.bpm) : manualBpm);
+    resumeGrid = firstGrid;
     record('resume', time);
     pump();
     if (!offline && repeatId !== null) ticker.start();

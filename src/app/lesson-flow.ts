@@ -42,6 +42,16 @@ export function planForToday(stored: DayPlan | null, today: string, compose: () 
   return createPlan(today, steps);
 }
 
+/**
+ * План дня после смены отметок «Уже умею»: пока в плане нет выполненных шагов, шаги программы собираются заново,
+ * вручную добавленные остаются; после первого выполненного шага план дня не меняется.
+ */
+export function planAfterSkipChange(stored: DayPlan | null, today: string, compose: () => readonly NewPlanStep[]): DayPlan | null {
+  if (!stored || stored.localDate !== today || stored.steps.some(step => step.status === 'done')) return stored;
+  const manual = stored.steps.filter(step => step.programStep === undefined).map(({ id, content, minutes }) => ({ id, content, minutes }));
+  return createPlan(today, [...compose(), ...manual].slice(0, MAX_PLAN_STEPS));
+}
+
 export const contentExercise = contentExerciseOf;
 
 /**

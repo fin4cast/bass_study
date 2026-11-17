@@ -6,7 +6,7 @@
 import { buildExercise, NOTE_CHOICES, type ExerciseSpec, type LineChord, type LineMode, type ProgressionPattern } from '../../exercises';
 import {
   addBar, lineSpec, newLineDraft, patternsFor, removeBar, setBarKind, setBarPattern, setBarStep, setLineMode, setLineRoot, stepChoices,
-  VOLUME_2_CHORDS, VOLUME_2_MAX_BARS, VOLUME_TITLES, volumeDraft, type LineDraft, type LineVolume,
+  VOLUME_2_CHORDS, VOLUME_2_MAX_BARS, VOLUME_TITLES, type LineDraft, type LineVolume,
 } from '../../practice/line-builder';
 import { escapeHtml as e } from '../html';
 import { PATTERN_LABELS } from './material';
@@ -29,7 +29,7 @@ export const toggleBuilder = (state: BuilderState, open = !state.open): BuilderS
 export const builderRoot = (state: BuilderState, root: string): BuilderState => ({ ...state, draft: setLineRoot(state.draft, root), error: '' });
 export const builderPattern = (state: BuilderState, bar: number, pattern: ProgressionPattern): BuilderState => ({ ...state, draft: setBarPattern(state.draft, bar, pattern), error: '' });
 /** Смена объёма начинает с четырёх тактов I–IV–V–I в той же тональности. */
-export const builderVolume = (state: BuilderState, volume: 1 | 2): BuilderState => (volume === state.volume ? state : { ...state, volume, draft: volumeDraft(state.draft.root), error: '' });
+export const builderVolume = (state: BuilderState, volume: 1 | 2): BuilderState => (volume === state.volume ? state : { ...state, volume, draft: newLineDraft(state.draft.root), error: '' });
 
 /** Правка объёма 2: ошибка границ (меньше двух тактов, больше восьми) остаётся на панели, черновик не меняется. */
 function edit(state: BuilderState, change: (draft: LineDraft) => LineDraft): BuilderState {

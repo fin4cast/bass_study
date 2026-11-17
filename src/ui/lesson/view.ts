@@ -20,7 +20,7 @@ import {
   type BasicsLevel, type BasicsStep, type BasicsView, type LessonState, type LessonTab, type LibraryCategory, type LibraryControls,
 } from './model';
 import { CATEGORY_ORDER, CATEGORY_TITLES } from '../../practice/library';
-import { pathBadge, pathModel, stageLine, type PathStep } from './path';
+import { currentLineStep, pathBadge, pathModel, stageLine, type PathStep } from './path';
 import {
   builderAddBar, builderKind, builderMarkup, builderMode, builderPattern, builderRemoveBar, builderRoot, builderSpec, builderStep, builderVolume, initialBuilder, toggleBuilder, type BuilderState,
 } from './line-builder';
@@ -181,6 +181,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
   function renderToday(current: LessonState) {
     const hero = heroModel(current);
     const stage = stageLine(current.programState);
+    const lineStep = currentLineStep(current.programState);
     const rows = planRows(current.plan, current.records, current.userExercises);
     const total = plannedMinutes(current.plan);
     const done = rows.filter(row => row.status === 'done').reduce((sum, row) => sum + row.minutes, 0);
@@ -224,7 +225,8 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
 
     regions.today.innerHTML = `<div class="ls-today-grid">
         <div class="ls-col"><section class="ls-card ls-hero feature-panel" aria-label="Главное действие">${heroMarkup}</section>
-          ${stage ? `<p class="ls-stage-line" data-stage-line>${e(stage)}</p>` : ''}</div>
+          ${stage ? `<p class="ls-stage-line" data-stage-line>${e(stage)}</p>` : ''}
+          ${lineStep && lineStep.volume ? `<p class="ls-stage-line" data-line-step><span>Своя линия: ${e(lineStep.title)}</span> <button type="button" class="secondary-button button-compact" data-act="path-build" data-step-id="${e(lineStep.id)}" data-volume="${lineStep.volume}" data-key="today-build" aria-label="${e(`Построить: ${lineStep.title}`)}">▶ Построить</button></p>` : ''}</div>
         <section class="ls-card ls-plan${editing ? ' is-editing' : ''}" aria-label="План на сегодня">${planMarkup}</section>
       </div>
       <section class="ls-card ls-libstrip" aria-label="Библиотека"><strong>Библиотека</strong><span class="ls-sub">${e(items.length)} ${plural(items.length, 'упражнение', 'упражнения', 'упражнений')} · ${CATEGORY_ORDER.length} категорий</span>

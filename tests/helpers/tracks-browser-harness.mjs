@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { DEFAULT_EDGE_PATH, launchIsolatedEdge, NAVIGATION_TIMEOUT_MS } from './native-edge.mjs';
+import { DEFAULT_EDGE_PATH, launchIsolatedEdge, NAVIGATION_TIMEOUT_MS, openNativePage } from './native-edge.mjs';
 
 const loopback = url => ['localhost', '127.0.0.1', '[::1]'].includes(new URL(url).hostname);
 
@@ -63,7 +63,7 @@ export async function runTracksBrowserChecks(allChecks, suite = {}) {
       const context = nativeEdge.context; await isolate(context);
       const page = nativeEdge.page; page.setDefaultTimeout(15000); page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
       page.on('pageerror', error => report.pageErrors.push(error.message));
-      await page.goto(origin);
+      await openNativePage(page, origin);
       await page.waitForFunction(() => document.querySelector('.site-header [data-app-module="tracks"]'), undefined, { polling: 100 });
       await page.bringToFront();
       try { return await run({ page, context }); }

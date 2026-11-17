@@ -90,6 +90,17 @@ describe('план: аккорды на сетке шестнадцатых', ()
     const beats = createPlaybackPlan({ ...base, chords: { mode: 'beats', bars: [C, F] } });
     expect([0, 4, 8, 12, 16, 20].map(grid => eventAtGrid(beats, grid).chord?.midis)).toEqual([C, C, C, C, F, F]);
   });
+  it('продолжение с паузы посреди такта: «Держать» доигрывает аккорд такта на остаток, «Доли» и обычный ход не меняются', () => {
+    const hold = createPlaybackPlan({ ...base, chords: { mode: 'hold', bars: [C, F] } });
+    expect(eventAtGrid(hold, 6, true).chord).toEqual({ mode: 'hold', midis: C, grids: 10 });
+    expect(eventAtGrid(hold, 22, true).chord).toEqual({ mode: 'hold', midis: F, grids: 10 });
+    expect(eventAtGrid(hold, 16, true).chord).toEqual({ mode: 'hold', midis: F, grids: 16 });
+    expect(eventAtGrid(hold, 6).chord).toBeNull();
+    const beats = createPlaybackPlan({ ...base, chords: { mode: 'beats', bars: [C, F] } });
+    expect(eventAtGrid(beats, 6, true).chord).toBeNull();
+    const silent = createPlaybackPlan({ ...base, chords: { mode: 'hold', bars: [C, null] } });
+    expect(eventAtGrid(silent, 22, true).chord).toBeNull();
+  });
   it('в отсчёте и без дорожки аккордов нет; такт без аккорда молчит', () => {
     const counted = createPlaybackPlan({ ...base, countInBars: 1, chords: { mode: 'hold', bars: [C, null] } });
     expect([0, 4, 8, 12].map(grid => eventAtGrid(counted, grid).chord)).toEqual([null, null, null, null]);

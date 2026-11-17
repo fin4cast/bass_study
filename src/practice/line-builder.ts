@@ -42,9 +42,6 @@ export function patternsFor(volume: LineVolume, chord: LineChord): readonly Prog
 export const setLineRoot = (draft: LineDraft, root: string): LineDraft => ({ ...draft, root });
 export const setLineMode = (draft: LineDraft, mode: LineMode): LineDraft => ({ ...draft, mode });
 
-/** Черновик объёма: объём 1 — стандартные четыре такта; объём 2 начинается с них же и дальше правится по тактам. */
-export const volumeDraft = (root: string): LineDraft => newLineDraft(root);
-
 /** Названия тоник аккорда относительно тоники линии: двенадцать ступеней с написанием из тональности (B5.2). */
 export const stepChoices = (root: string): readonly { readonly step: number; readonly name: string }[] => Array.from({ length: 12 }, (_, step) => ({ step, name: stepName(root, step) }));
 

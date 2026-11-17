@@ -227,10 +227,12 @@ export function createPlaybackPlan(config: PlaybackConfig): PlaybackPlan {
 }
 
 /** Аккорд, который начинается на этой шестнадцатой: «Держать» — на первой шестнадцатой такта, «Доли» — на каждой доле. */
-function chordAt(plan: PlaybackPlan, inPass: number, barInPass: number): GridEvent['chord'] {
+function chordAt(plan: PlaybackPlan, inPass: number, barInPass: number, resumed: boolean): GridEvent['chord'] {
   if (!plan.chords) return null;
   const midis = plan.chords.bars[barInPass % plan.chords.bars.length];
   const grids = plan.chords.mode === 'hold' ? 16 : 4;
+  // Продолжение после паузы посреди такта: «Держать» доигрывает аккорд текущего такта на остаток, а не молчит до следующей границы.
+  if (resumed && plan.chords.mode === 'hold' && inPass % 16 !== 0) return midis ? { mode: 'hold', midis, grids: 16 - (inPass % 16) } : null;
   if (inPass % grids !== 0) return null;
   // Такт без аккорда в режиме «Держать» всё равно даёт событие без голосов: оно снимает аккорд прошлого такта на своей границе.
   if (!midis) return plan.chords.mode === 'hold' ? { mode: plan.chords.mode, midis: [], grids } : null;
@@ -252,7 +254,8 @@ const NO_HITS: readonly GrooveHit[] = Object.freeze([]);
  * Монотонная сетка шестнадцатых → музыка. Доля и такт считаются глобально (4/4 не сбрасывается);
  * шкалы экрана игры кратны такту, поэтому каждый проход начинается с «раз».
  */
-export function eventAtGrid(plan: PlaybackPlan, grid: number): GridEvent {
+/** Событие сетки; `resumed` — первая шестнадцатая после продолжения с паузы (аккорд «Держать» текущего такта доигрывается). */
+export function eventAtGrid(plan: PlaybackPlan, grid: number, resumed = false): GridEvent {
   if (!Number.isInteger(grid) || grid < 0) throw new RangeError('Индекс музыкальной сетки должен быть неотрицательным целым.');
   const base = { stepIndex: null, noteIndex: null, note: null, noteGrids: 0, gate: null, audible: false, swingGrids: 0, groove: NO_HITS, barInPass: 0, chord: null } as const;
   if (grid < plan.countInGrids) {
@@ -298,7 +301,7 @@ export function eventAtGrid(plan: PlaybackPlan, grid: number): GridEvent {
     beat, bar, barInPass, bpm, click,
     swingGrids: practiceGrid % 4 === 2 ? ((plan.swing - 50) / 50) * 2 : 0,
     groove: plan.groove ? plan.groove[practiceGrid % 16] : NO_HITS,
-    chord: chordAt(plan, inPass, barInPass) };
+    chord: chordAt(plan, inPass, barInPass, resumed) };
 }
 
 /** Шаг — продолжение звучащей той же ноты предыдущего шага (в пределах фрагмента). */

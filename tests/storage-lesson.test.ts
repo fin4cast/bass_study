@@ -191,6 +191,8 @@ describe('«Проверь себя» в истории', () => {
     expect(validateHistoryEntry(clone(entry))).toEqual(entry);
     expect(validateHistoryEntry(clone(entry), 'stored')).toEqual(entry);
     expect(makeCheckHistory({ ...checkResult(), answers: [] }, { ...metadata, id: 'empty' })).toBeNull();
+    const extra = { target: '1', outcome: 'correct' as const, errors: 0 };
+    invalid(() => makeCheckHistory({ ...checkResult(), answers: [...checkResult().answers, extra] }, { ...metadata, id: 'too-many' }));
     expect(getReviewPositionIds([entry])).toEqual([]);
     expect(getHistorySummary([entry, pass()])).toMatchObject({ entries: 2, checkSessions: 1, checkActiveMs: 90000, manualSessions: 1, screenSessions: 0, questions: 0 });
   });

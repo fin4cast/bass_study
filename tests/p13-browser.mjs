@@ -986,6 +986,22 @@ check('check-cards-answer-hidden-then-error-correction-reveal-skip-and-summary-s
   return { questions: questions.map(({ root, position, expected, outcome, phrase }) => ({ root, position, expected, outcome, phrase })), tiles, statuses, history: { id: entry.id, title: entry.result.title, answers: entry.result.answers } };
 });
 
+check('check-series-is-recorded-under-the-kind-actually-played-not-the-step-description', 'ui', async ({ page, origin }) => {
+  // A9.5: серия засчитывается шагу только с его описанием; смена вида вопроса до первого ответа даёт запись другой проверки.
+  await openApp(page, origin);
+  await openBasicsCheck(page, '1', '1:fifth:check');
+  const host = checkHost(page);
+  assert.match(await host.locator('h1').innerText(), /^Проверь себя: назови ступень$/);
+  await host.locator('[data-kind]').selectOption('find-degree');
+  await host.locator('[data-act="finish"]').click();
+  await host.locator('[data-ck-summary]').waitFor();
+  const db = await waitDb(page, db => db.history.some(entry => entry.result?.kind === 'check'), 'итог проверки в истории');
+  const entry = db.history.find(item => item.result?.kind === 'check');
+  assert.equal(entry.result.check.kind, 'find-degree', 'в записи — сыгранный вид вопроса');
+  assert.match(entry.result.exerciseKey, /^check:find-degree\./);
+  return { key: entry.result.exerciseKey };
+});
+
 check('check-board-answer-positions-hidden-then-correction-and-reveal-match-independent-oracle', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
   await openBasicsCheck(page, '2', '2:pentatonic:check');
@@ -1371,8 +1387,10 @@ check('play-variant-chromatic-fret-5-to-7-keeps-step-and-rates-the-new-material'
   await openApp(page, origin);
   await openPlanStep(page, FIRST_RUN_PLAN[2]);
   assert.equal(await selectedText(variantSelect(page, 'startFret')), '5');
+  await variantSelect(page, 'startFret').focus();
   await variantSelect(page, 'startFret').selectOption({ label: '7' });
   assert.equal(await selectedText(variantSelect(page, 'startFret')), '7');
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset?.variant), 'startFret', 'после смены варианта фокус остался на переключателе');
   assert.equal(await playScene(page).locator('[data-title]').innerText(), FIRST_RUN_PLAN[2], 'шаг плана тот же');
   await playScene(page).locator('[data-flag="loop"]').click();
   await playScene(page).locator('[data-bpm]').fill('200'); await playScene(page).locator('[data-bpm]').press('Enter');
@@ -1528,6 +1546,7 @@ check('basics-path-already-know-marks-block-persists-and-is-removable', 'ui', as
   assert.match(await home(page).locator('.ls-pblock[data-block="f1-ea5"] header .ls-sub').innerText(), /пропущено 2/);
   let db = await waitDb(page, db => db.preferences.lesson.skipped?.includes('f1-ea5'), 'отметка сохранена');
   assert.deepEqual(db.preferences.lesson.skipped, ['f1-ea5']);
+  assert.ok(!db.preferences.lesson.plan.steps.some(step => step.programStep?.startsWith('f1-ea5.')), 'план дня собран заново без пропущенного блока: ' + JSON.stringify(db.preferences.lesson.plan.steps.map(step => step.programStep)));
   await page.reload(); await ready(page);
   await lessonTab(page, 'Основы');
   assert.equal(await pathStatus(page, 'f1-ea5.name-note'), 'пропущен', 'отметка пережила перезагрузку');
@@ -1535,6 +1554,7 @@ check('basics-path-already-know-marks-block-persists-and-is-removable', 'ui', as
   await home(page).locator('[data-act="path-skip"][data-block="f1-ea5"]').click();
   db = await waitDb(page, db => Array.isArray(db.preferences.lesson.skipped) && db.preferences.lesson.skipped.length === 0, 'отметка снята');
   assert.equal(await pathStatus(page, 'f1-ea5.naturals'), 'не начат');
+  assert.ok((await readDb(page)).preferences.lesson.plan.steps.some(step => step.programStep === 'f1-ea5.naturals'), 'после снятия отметки блок вернулся в план дня');
   // «Знания» остаются: прежние уровни как справочная линия карточек.
   await home(page).locator('[data-act="basics-view"][data-value="knowledge"]').click();
   await home(page).locator('.ls-basics-grid').waitFor();

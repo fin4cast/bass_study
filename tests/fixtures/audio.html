@@ -53,6 +53,17 @@
         { voices: [57, 60, 64].map(midi => level(midi, 4.3, 7.5)), gone: level(67, 4.3, 7.5) },
       ];
     }
+    /**
+     * «Держать» и смена темпа посреди такта: проход в 1,5 такта, второй проход вдвое быстрее. Аккорд A–C–E второго такта первого прохода
+     * (60 BPM, 4–8 с по своей длине) обязан замолчать на границе прохода (6 с), где начинается C–E–G; A3 (MIDI 57) есть только в A–C–E.
+     */
+    async function chordCutAtTempoChange() {
+      const { buffer } = await renderSequenceOffline(makeConfig({ steps: [{ note: 0, grids: 16 }, { note: 1, grids: 8 }], bpm: 60, repeat: { kind: 'ladder', start: 60, end: 120, step: 60, repeatsPerTempo: 1 }, chords: { mode: 'hold', bars: [[60, 64, 67], [57, 60, 64]] } }),
+        { durationSeconds: 9.5, volumes: { bass: 0, click: 0, groove: 0, chords: 1 } });
+      const samples = buffer.getChannelData(3).slice(); const sampleRate = buffer.sampleRate;
+      const a3 = (from, to) => harmonicLevels(samples, sampleRate, 440 * 2 ** ((57 - 69) / 12), from, to, 1)[0];
+      return { before: a3(4.3, 5.7), after: a3(6.3, 7.7) };
+    }
     /** Длительность звучания (A3) в PCM баса: СКЗ в окнах внутри шага; 60 BPM, четверть — 1 с. Шаги: gate 1, gate 0,5, без gate. */
     async function gateWindows() {
       const { buffer } = await renderSequenceOffline(makeConfig({ steps: [{ note: 0, grids: 4, gate: 1 }, { note: 0, grids: 4, gate: 0.5 }, { note: 0, grids: 4 }], bpm: 60 }),
@@ -70,7 +81,7 @@
     const rhythmSteps = (pattern, count) => buildTimeline(
       { spec: { templateId: 'chromatic-position' }, notes: Array.from({ length: count }, () => ({ degree: null, segment: 0, midi: 40 })), segments: [], cadence: 'none' }, { pattern },
     ).steps.map(({ note, grids, audible, tie }) => ({ note, grids, audible, tie }));
-    window.p4 = { player, makeConfig, bassSpectrum, chordSpectrum, gateWindows, rhythmSteps, config: makeConfig(), ready: true, action: null };
+    window.p4 = { player, makeConfig, bassSpectrum, chordSpectrum, chordCutAtTempoChange, gateWindows, rhythmSteps, config: makeConfig(), ready: true, action: null };
     for (const name of ['start', 'pause', 'resume', 'stop']) {
       document.getElementById(name).addEventListener('click', async () => {
         window.p4.action = { name, done: false, error: null };

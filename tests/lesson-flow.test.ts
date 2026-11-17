@@ -9,7 +9,7 @@ import { difficulties, type PracticeRecord } from '../src/practice/results';
 import { MAX_EXERCISE_VIEWS, type ExerciseView, type PlayPreferences } from '../src/storage/model';
 import { backupFileName, backupVersion } from '../src/app/backup';
 import {
-  addToPlan, bpmForExercise, checkEntry, checkForKey, describeProgressRow, exerciseKey, fromPlayDefaults, hasPlayed, nextPlanStep, planAfterCheck, planAfterRating,
+  addToPlan, bpmForExercise, planAfterSkipChange, checkEntry, checkForKey, describeProgressRow, exerciseKey, fromPlayDefaults, hasPlayed, nextPlanStep, planAfterCheck, planAfterRating,
   planForToday, planStepInfo, playRatingEntry, plannedProgressIds, rememberExerciseSettings, EMPTY_EXERCISE_SETTINGS, playSettingsFor, repeatContent, specForKey, stepPosition, todayKey, toPlayDefaults, variantChange, viewForExercise,
 } from '../src/app/lesson-flow';
 import { difficultyId, progressRows } from '../src/ui/progress/model';
@@ -53,6 +53,28 @@ describe('план на сегодня', () => {
     expect(today.steps.map(step => step.status)).toEqual(['current', 'pending', 'pending']);
     const finished = yesterday.steps.reduce((plan, step) => completeStep(plan, step.id), yesterday);
     expect(planForToday(finished, TODAY).steps).toEqual([]);
+  });
+});
+
+describe('«Уже умею» и план дня', () => {
+  const composed = [
+    { id: 'd1', content: { kind: 'exercise' as const, spec: createExerciseSpec('connect-forms') }, minutes: 4, programStep: 't1-pulse.quarters' },
+  ];
+  it('пока ничего не выполнено, шаги программы собираются заново, ручные остаются', () => {
+    const stored = createPlan(TODAY, [
+      { id: 'd1', content: { kind: 'exercise', spec: createExerciseSpec('chromatic-position') }, minutes: 3, programStep: 'f1-ea5.naturals' },
+      { id: 'manual-1', content: { kind: 'exercise', spec: createExerciseSpec('arpeggio-1358') }, minutes: 5 },
+    ]);
+    const next = planAfterSkipChange(stored, TODAY, () => composed)!;
+    expect(next.steps.map(step => [step.id, step.programStep])).toEqual([['d1', 't1-pulse.quarters'], ['manual-1', undefined]]);
+    expect(next.steps[0].status).toBe('current');
+  });
+  it('после выполненного шага, в другой день и без плана — без изменений', () => {
+    const stored = createPlan(TODAY, [{ id: 'd1', content: composed[0].content, minutes: 4, programStep: 'f1-ea5.naturals' }, { id: 'd2', content: composed[0].content, minutes: 4 }]);
+    const started = completeStep(stored, 'd1');
+    expect(planAfterSkipChange(started, TODAY, () => composed)).toBe(started);
+    expect(planAfterSkipChange(stored, '2026-11-13', () => composed)).toBe(stored);
+    expect(planAfterSkipChange(null, TODAY, () => composed)).toBeNull();
   });
 });
 

@@ -150,7 +150,7 @@ const TEMPLATE = `
         <div><dt>Обрати внимание</dt><dd data-task="notice"></dd></div>
         <div><dt>Чисто, если</dt><dd data-task="clean"></dd></div>
       </dl>
-      <p class="pl-rule" data-rule hidden></p>
+      <p class="pl-rule" data-rule aria-live="polite" hidden></p>
     </div>
     <div class="pl-head-tools">
       <button type="button" class="text-button pl-listen" data-listen aria-pressed="false" title="Эталон звучит до игры: один проход без отсчёта; пробел или Esc — остановить">♪ Сначала услышь</button>
@@ -373,6 +373,8 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     const fields = at('[data-variant-fields]');
     if (!plan || !list.length) { fields.replaceChildren(); return; }
     const params = plan.spec.params as unknown as Record<string, unknown>;
+    // Список пересоздаётся при каждой смене варианта: фокус возвращается на тот же переключатель, иначе клавиатурный выбор прерывается.
+    const focused = fields.contains(document.activeElement) && document.activeElement instanceof HTMLSelectElement ? document.activeElement.dataset.variant : undefined;
     fields.replaceChildren(...list.map(option => {
       const label = document.createElement('label');
       const name = document.createElement('span');
@@ -390,6 +392,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       label.append(name, select);
       return label;
     }));
+    if (focused !== undefined) fields.querySelector<HTMLSelectElement>(`select[data-variant="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
   }
   /** Подпись значения параметра: структуры названы по-русски, остальное — подпись списка шаблона. */
   const valueLabel = (param: string, item: { value: string | number; label: string }) =>

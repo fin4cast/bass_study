@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { DEFAULT_EDGE_PATH, launchIsolatedEdge, NAVIGATION_TIMEOUT_MS } from './native-edge.mjs';
+import { DEFAULT_EDGE_PATH, launchIsolatedEdge, NAVIGATION_TIMEOUT_MS, openNativePage } from './native-edge.mjs';
 
 const WAV_SIGNALS = { a1: 55, 'low-e': 41.2034446141, harmonics: 41.2034446141, noise: 0, 'out-of-range': 500, clipping: 55 };
 function makeWav(signal) {
@@ -84,7 +84,7 @@ export async function runInputBrowserChecks(allChecks) {
       const context = nativeEdge.context; await isolate(context); await context.addInitScript(observeCapture);
       const page = nativeEdge.page; page.setDefaultTimeout(6000); page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
       page.on('pageerror', error => report.pageErrors.push(error.message));
-      await page.goto(origin);
+      await openNativePage(page, origin);
       await page.waitForFunction(() => document.querySelector('[data-input-mount]'), undefined, { polling: 100 });
       await page.bringToFront();
       try { return await run({ page, context }); }

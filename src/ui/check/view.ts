@@ -32,9 +32,11 @@ export interface CheckFinishSummary extends CheckSummary {
   readonly contour: number;
   readonly retry: boolean;
 }
+/** Вид вопросов и слух серии, как они сыграны: запись идёт под ними, а не под описанием шага (A9.5). */
+export interface PlayedCheck { readonly kind: CheckSpec['kind']; readonly ear: boolean }
 export interface CheckOptions {
   /** Итог вопросов о ступенях по шагу плана — запись «Проверь себя» в истории. */
-  readonly onFinish: (summary: CheckFinishSummary, answers: readonly { readonly target: string; readonly outcome: CheckOutcome; readonly errors: number }[]) => void;
+  readonly onFinish: (summary: CheckFinishSummary, answers: readonly { readonly target: string; readonly outcome: CheckOutcome; readonly errors: number }[], played: PlayedCheck) => void;
   /**
    * Серия прочих видов вопросов (ноты, все позиции, высота, интервал, повтор ошибок) — экранное задание R-006.
    * Вызывается после каждого закрытого ответа и в итоге с тем же объектом вопросов: одна запись на серию.
@@ -219,7 +221,7 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     summaryBox.querySelector<HTMLElement>('[data-act="next-step"]')?.focus({ preventScroll: true });
     if (finished.mode !== 'ear' && !recordsDegrees(runKind(finished)) && !material.series) { publishScreen(finished); if (notice) render(); return; }
     if (!material.spec) return;
-    try { options.onFinish(summary, recordAnswers(list)); } catch (error) { notice = error instanceof Error ? error.message : String(error); render(); }
+    try { options.onFinish(summary, recordAnswers(list), { kind: runKind(finished) as PlayedCheck['kind'], ear: finished.mode === 'ear' }); } catch (error) { notice = error instanceof Error ? error.message : String(error); render(); }
   }
   function markContour() { if (run && run.mode === 'board' && contour) contourUsed[questionIndex(run)] = true; }
 

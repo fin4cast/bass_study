@@ -63,6 +63,26 @@ function withTimeout(promise, ms, message) {
 }
 
 /**
+ * Первая навигация нативной вкладки. На CI она иногда зависает целиком (в зелёных прогонах — около 8 с, в красных — более 30 с),
+ * поэтому ждём `domcontentloaded` (готовность страницы сценарии проверяют сами), при отказе повторяем один раз с пустой страницы
+ * и в сообщении об ошибке называем адрес и состояние вкладки: без этого причину зависания не увидеть.
+ */
+export async function openNativePage(page, url) {
+  try { await page.goto(url, { waitUntil: 'domcontentloaded' }); return; }
+  catch (first) {
+    if (!/Timeout/i.test(String(first?.message))) throw first;
+    try {
+      await page.goto('about:blank');
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+    } catch (second) {
+      const state = await page.evaluate(() => ({ url: location.href, readyState: document.readyState })).catch(failure => ({ evaluateError: failure.message }));
+      throw new Error(`Первая навигация нативного Edge дважды не уложилась в ${NAVIGATION_TIMEOUT_MS} мс: ${second.message}
+Состояние вкладки: ${JSON.stringify(state)}`, { cause: second });
+    }
+  }
+}
+
+/**
  * Starts Edge with its own profile and connects over CDP.
  * Returns { browser, context, page, userDataDir, endpointSource, close() }. close() is idempotent and bounded; it returns
  * the leftover processes it had to terminate and throws only if some still run afterwards.
