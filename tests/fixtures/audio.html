@@ -13,6 +13,8 @@
     import { createPlayer, renderSequenceOffline } from '/src/audio/engine.ts';
     import { annotatePositions, createStructure, getPosition } from '/src/music/index.ts';
     import { buildTimeline } from '/src/exercises/rhythm.ts';
+    import { buildExercise, createExerciseSpec } from '/src/exercises/index.ts';
+    import { DEFAULT_PLAY_SETTINGS, listenConfig, playbackConfig, timelineFor } from '/src/ui/play/model.ts';
     const notes = annotatePositions([0, 1, 3, 5].map(fret => getPosition('E', fret)), createStructure('C', 'major'));
     const player = createPlayer();
     const makeConfig = (overrides = {}) => ({
@@ -64,6 +66,14 @@
       const a3 = (from, to) => harmonicLevels(samples, sampleRate, 440 * 2 ** ((57 - 69) / 12), from, to, 1)[0];
       return { before: a3(4.3, 5.7), after: a3(6.3, 7.7) };
     }
+    /** «Сначала услышь» и игра для одного материала с аккордами и включённым режимом «Держать»: СКЗ шины аккордов настоящих конфигураций экрана игры. */
+    async function listenChordsRms() {
+      const plan = buildExercise(createExerciseSpec('progression'));
+      const settings = { ...DEFAULT_PLAY_SETTINGS, accompaniment: 'hold', accompanimentVolume: 1, bpm: 120 };
+      const rms = async config => (await renderSequenceOffline(config, { durationSeconds: 8, volumes: { bass: 0, click: 0, groove: 0, chords: 1 } }))
+        .buffer.getChannelData(3).reduce((sum, value) => sum + value * value, 0);
+      return { game: await rms({ ...playbackConfig(plan, timelineFor(plan, settings), settings), countInBars: 0, repeat: 'once' }), listen: await rms(listenConfig(plan, settings)) };
+    }
     /** Длительность звучания (A3) в PCM баса: СКЗ в окнах внутри шага; 60 BPM, четверть — 1 с. Шаги: gate 1, gate 0,5, без gate. */
     async function gateWindows() {
       const { buffer } = await renderSequenceOffline(makeConfig({ steps: [{ note: 0, grids: 4, gate: 1 }, { note: 0, grids: 4, gate: 0.5 }, { note: 0, grids: 4 }], bpm: 60 }),
@@ -81,7 +91,7 @@
     const rhythmSteps = (pattern, count) => buildTimeline(
       { spec: { templateId: 'chromatic-position' }, notes: Array.from({ length: count }, () => ({ degree: null, segment: 0, midi: 40 })), segments: [], cadence: 'none' }, { pattern },
     ).steps.map(({ note, grids, audible, tie }) => ({ note, grids, audible, tie }));
-    window.p4 = { player, makeConfig, bassSpectrum, chordSpectrum, chordCutAtTempoChange, gateWindows, rhythmSteps, config: makeConfig(), ready: true, action: null };
+    window.p4 = { player, makeConfig, bassSpectrum, chordSpectrum, chordCutAtTempoChange, listenChordsRms, gateWindows, rhythmSteps, config: makeConfig(), ready: true, action: null };
     for (const name of ['start', 'pause', 'resume', 'stop']) {
       document.getElementById(name).addEventListener('click', async () => {
         window.p4.action = { name, done: false, error: null };

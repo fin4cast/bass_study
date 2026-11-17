@@ -62,6 +62,8 @@ const MAX_FRAMES = 4096;
 const EPSILON = 0.000001;
 /** Задержка первой шестнадцатой после старта или продолжения (как у прежнего transport). */
 const START_LEAD = 0.1;
+/** Громкость аккордов, пока приложение не задало свою: та же, что умолчание настроек (`accompanimentVolume`), чтобы не было двух значений. */
+export const DEFAULT_CHORD_VOLUME = 0.5;
 const OFFLINE_SAMPLE_RATE = 44100;
 const gridSeconds = (bpm: number) => 15 / bpm;
 const dbToGain = (db: number) => 10 ** (db / 20);
@@ -86,7 +88,7 @@ function createGraph(context: BaseAudioContext, separateChannels: boolean) {
   const bassBus = context.createGain(); bassBus.gain.value = 0.65;
   const clickBus = context.createGain(); clickBus.gain.value = 0.45;
   const grooveBus = context.createGain(); grooveBus.gain.value = 0.6;
-  const chordBus = context.createGain(); chordBus.gain.value = 0.35;
+  const chordBus = context.createGain(); chordBus.gain.value = DEFAULT_CHORD_VOLUME;
   const merger = separateChannels ? context.createChannelMerger(4) : null;
   if (merger) { bassBus.connect(merger, 0, 0); clickBus.connect(merger, 0, 1); grooveBus.connect(merger, 0, 2); chordBus.connect(merger, 0, 3); merger.connect(master); }
   else { bassBus.connect(master); clickBus.connect(master); grooveBus.connect(master); chordBus.connect(master); }
@@ -181,7 +183,7 @@ function createGraph(context: BaseAudioContext, separateChannels: boolean) {
     },
     setVolumes(volumes: PlayerVolumes) {
       const now = context.currentTime;
-      for (const [bus, value] of [[bassBus, volumes.bass], [clickBus, volumes.click], [grooveBus, volumes.groove], [chordBus, volumes.chords ?? 0.35]] as const) {
+      for (const [bus, value] of [[bassBus, volumes.bass], [clickBus, volumes.click], [grooveBus, volumes.groove], [chordBus, volumes.chords ?? DEFAULT_CHORD_VOLUME]] as const) {
         bus.gain.cancelScheduledValues(now); bus.gain.setValueAtTime(value, now);
       }
     },
@@ -252,7 +254,7 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
   let disposed = false; let offlineRendering = false;
   let manualBpm = 80;
   let pendingTempo: { bpm: number; requestedAt: number } | null = null;
-  let volumes: PlayerVolumes = { bass: 0.65, click: 0.45, groove: 0.6, chords: 0.35 };
+  let volumes: PlayerVolumes = { bass: 0.65, click: 0.45, groove: 0.6, chords: DEFAULT_CHORD_VOLUME };
   let frames: Frame[] = [];
   const trace: AudioTraceEvent[] = [];
 
@@ -357,7 +359,7 @@ function createInternalPlayer(context: BaseAudioContext, separateChannels: boole
       graph.chordCut(time);
       if (event.chord.midis.length) {
         graph.chord(event.chord.midis, hold ? Math.max(0.05, span - 0.04) : Math.min(span * 0.5, 0.3), time, hold);
-        record('chord', time, event, { bpm, audible: (volumes.chords ?? 0.35) > 0 });
+        record('chord', time, event, { bpm, audible: (volumes.chords ?? DEFAULT_CHORD_VOLUME) > 0 });
       }
     }
     nextGrid = grid + 1;

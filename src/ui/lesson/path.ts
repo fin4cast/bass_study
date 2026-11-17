@@ -5,7 +5,7 @@
 import { checkExercise } from '../../practice/check';
 import { getConcept } from '../../practice/concepts';
 import {
-  LINES, STATE_LABELS, countsLabel, isDone, statusLabel, type Block, type Counts, type LineId, type Program, type ProgramState, type Step, type StepState,
+  LINES, STATE_LABELS, countsLabel, isDone, isRequired, statusLabel, stepRefs, type Block, type Counts, type LineId, type Program, type ProgramState, type Step, type StepState,
 } from '../../practice/program';
 import { materialLabel } from './material';
 
@@ -83,6 +83,22 @@ export function stageLine(state: ProgramState): string | null {
   const number = Math.min(...stages);
   const counts = state.stageCounts.get(number);
   return counts ? `Этап ${number} · пройдено ${counts.passed} · освоено ${counts.mastered}` : null;
+}
+
+/**
+ * Переход линии в следующий этап (R-028, «Путь ученика»): текущий шаг линии — первый обязательный шаг этапа 2 и дальше и ещё не начат.
+ * Сообщение живёт, пока ученик не начал этот шаг; отдельного хранимого признака нет.
+ */
+export function stageTransitions(program: Program, state: ProgramState): readonly string[] {
+  const refs = stepRefs(program).filter(ref => isRequired(ref.step));
+  const lines: string[] = [];
+  for (const line of LINES) {
+    const current = state.current[line.id];
+    if (!current || current.stage <= 1) continue;
+    const first = refs.find(ref => ref.block.line === line.id && ref.stage === current.stage);
+    if (first?.step.id === current.step.id && state.statuses.get(current.step.id)?.state === 'new') lines.push(`Линия «${line.title}» — теперь этап ${current.stage}: ${current.step.title}.`);
+  }
+  return lines;
 }
 
 /** Текущий шаг «Своя линия»: в план дня он не входит (строится в конструкторе), поэтому «Сегодня» предлагает его отдельной строкой. */

@@ -39,6 +39,8 @@ describe('конструктор «Своей линии» (R-028, B5.4)', () =>
     expect(buildExercise(moved).notes.filter(note => note.segment === 0).every(note => note.id === 'E:5')).toBe(true);
     expect(lineSpec(setLineRoot(draft, 'D')).templateId).toBe('line');
     expect(() => setBarPattern(draft, 9, 'roots')).toThrow(RangeError);
+    expect(() => setBarPattern(setBarKind(draft, 0, 'minor-triad'), 0, 'boogie')).toThrow(/не подходит аккорду/);
+    expect(setBarPattern(setBarKind(draft, 0, 'dominant-seventh'), 0, 'boogie').bars[0].pattern).toBe('boogie');
     expect(() => transposeLine(buildExercise(lineSpec(draft)).spec.templateId === 'line' ? { version: 'exercise-v1', templateId: 'octaves', params: { note: 'G' } } as never : spec, 'A')).toThrow(RangeError);
   });
 });

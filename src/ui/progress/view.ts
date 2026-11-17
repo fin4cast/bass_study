@@ -536,8 +536,10 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
   function renderProgram() {
     const box = $('[data-program]')!;
     box.hidden = state.program.length === 0;
+    // Свёрнутые учеником линии остаются свёрнутыми при любом обновлении экрана.
+    const collapsed = new Set([...box.querySelectorAll<HTMLElement>('details.pg-pline:not([open])')].map(details => details.dataset.line));
     box.innerHTML = state.program.map(stage => `<div class="pg-stage"><div class="pg-stage-head"><h2>Этап ${escapeHtml(stage.number)} · ${escapeHtml(stage.title)}</h2><span class="pg-sub">${escapeHtml(stage.counts)}</span></div>
-      ${stage.lines.map(line => `<details class="pg-pline" data-line="${escapeHtml(stage.number)}:${escapeHtml(line.id)}" open><summary><b>${escapeHtml(line.title)}</b> <span class="pg-sub">${escapeHtml(line.counts)}</span></summary>
+      ${stage.lines.map(line => `<details class="pg-pline" data-line="${escapeHtml(stage.number)}:${escapeHtml(line.id)}"${collapsed.has(`${stage.number}:${line.id}`) ? '' : ' open'}><summary><b>${escapeHtml(line.title)}</b> <span class="pg-sub">${escapeHtml(line.counts)}</span></summary>
         <ul class="pg-psteps">${line.steps.map(step => `<li class="pg-pstep is-${escapeHtml(step.state)}" data-step-id="${escapeHtml(step.id)}"><span class="pg-pstep-title">${escapeHtml(step.title)}</span>
           <span class="pg-pstatus" data-status="${escapeHtml(step.state)}">${escapeHtml(step.label)}</span>${step.review ? '<span class="pg-preview">пора повторить</span>' : ''}
           <span class="pg-sub">${escapeHtml(step.played)}${step.bestBpm ? ` · лучший чистый темп ${escapeHtml(step.bestBpm)}` : ''}</span></li>`).join('')}</ul></details>`).join('')}</div>`).join('');

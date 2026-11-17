@@ -11,11 +11,12 @@ export interface LineDraft { readonly root: string; readonly mode: LineMode; rea
 
 /** Рисунки объёма 1: тоники, тоника и квинта, октавы; объёма 2 — плюс тоники с подходом и арпеджио; объёма 3 — все. */
 const VOLUME_1_PATTERNS: readonly string[] = ['roots', 'root-fifth', 'octaves'];
-const VOLUME_2_PATTERNS: readonly string[] = [...VOLUME_1_PATTERNS, 'roots-approach', 'arpeggio'];
+export const VOLUME_2_PATTERNS: readonly string[] = [...VOLUME_1_PATTERNS, 'roots-approach', 'arpeggio'];
 export const VOLUME_2_CHORDS: readonly LineChord[] = ['major-triad', 'minor-triad', 'dominant-seventh'];
 /** Не больше восьми тактов в объёме 2 (B5.4). */
 export const VOLUME_2_MAX_BARS = 8;
-const STANDARD_STEPS: readonly number[] = [0, 5, 7, 0];
+/** Тоники тактов стандартной линии I–IV–V–I. */
+export const STANDARD_STEPS: readonly number[] = [0, 5, 7, 0];
 
 export const VOLUME_TITLES: Readonly<Record<LineVolume, string>> = { 1: 'I–IV–V–I, рисунки этапа 1', 2: 'до восьми тактов, любые аккорды', 3: 'все рисунки и ритм на такт' };
 
@@ -70,8 +71,10 @@ export function removeBar(draft: LineDraft, index: number): LineDraft {
   if (!Number.isInteger(index) || index < 0 || index >= draft.bars.length) throw new RangeError('Нет такого такта.');
   return { ...draft, bars: draft.bars.filter((_, at) => at !== index) };
 }
+/** Рисунок такта: только тот, что подходит аккорду такта; границы объёма держит набор `patternsFor`, который показывает экран. */
 export function setBarPattern(draft: LineDraft, index: number, pattern: ProgressionPattern): LineDraft {
   if (!Number.isInteger(index) || index < 0 || index >= draft.bars.length) throw new RangeError('Нет такого такта.');
+  if (!patternFits(pattern, draft.bars[index].chord)) throw new RangeError('Этот рисунок не подходит аккорду такта.');
   return { ...draft, bars: draft.bars.map((bar, at) => (at === index ? { ...bar, pattern } : bar)) };
 }
 

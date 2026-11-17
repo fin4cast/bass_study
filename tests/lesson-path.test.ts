@@ -4,7 +4,7 @@ import { DEFAULT_PRACTICE } from '../src/exercises/rhythm';
 import { materialId } from '../src/practice/material';
 import { PROGRAM } from '../src/practice/program-data';
 import { evaluateProgram, type PlayFact, type ProgramFacts } from '../src/practice/program';
-import { countsLabel, pathBadge, pathModel, stageLine, STATE_LABELS } from '../src/ui/lesson/path';
+import { countsLabel, pathBadge, pathModel, stageLine, stageTransitions, STATE_LABELS } from '../src/ui/lesson/path';
 
 const TODAY = '2026-11-16';
 const day = (offset: number) => new Date(Date.UTC(2026, 10, 16 + offset)).toISOString().slice(0, 10);
@@ -91,5 +91,23 @@ describe('строка этапа под «Сегодня»', () => {
     expect(stageLine(evaluateProgram(PROGRAM, facts({ plays })))).toBe('Этап 1 · пройдено 1 · освоено 0');
     expect(stageLine(evaluateProgram(PROGRAM, facts({ skippedBlocks: new Set(PROGRAM.stages[0].blocks.map(block => block.id)) })))).toBe('Этап 2 · пройдено 0 · освоено 0');
     expect(stageLine(evaluateProgram(PROGRAM, facts({ skippedBlocks: new Set(PROGRAM.stages.flatMap(stage => stage.blocks.map(block => block.id))) })))).toBeNull();
+  });
+});
+
+describe('переход линий в следующий этап на «Сегодня»', () => {
+  const stage1 = new Set(PROGRAM.stages[0].blocks.map(block => block.id));
+  it('в этапе 1 сообщений нет', () => {
+    expect(stageTransitions(PROGRAM, evaluateProgram(PROGRAM, facts()))).toEqual([]);
+  });
+  it('линии, ушедшие в этап 2, названы по строке на линию, пока первый шаг этапа не начат', () => {
+    const lines = stageTransitions(PROGRAM, evaluateProgram(PROGRAM, facts({ skippedBlocks: stage1 })));
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toMatch(/^Линия «Техника» — теперь этап 2: .+\.$/);
+    expect(lines[1]).toContain('«Гриф»');
+    expect(lines[2]).toContain('«Аккорды и линии»');
+  });
+  it('программа пройдена целиком — сообщений нет', () => {
+    const all = new Set(PROGRAM.stages.flatMap(stage => stage.blocks.map(block => block.id)));
+    expect(stageTransitions(PROGRAM, evaluateProgram(PROGRAM, facts({ skippedBlocks: all })))).toEqual([]);
   });
 });

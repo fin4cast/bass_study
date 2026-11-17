@@ -260,6 +260,8 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     if (retiring || applyingPreferences || !phase.writable) return false;
     try {
       if (!preferences.update(patch) && !status.preferenceIssue) return true;
+      // Отметки «Уже умею» и план дня входят в «Прогресс» (программа сверху, «в плане»): экран перерисуется при следующем показе.
+      if (patch.lesson) progressStale = true;
       status.setPreferenceIssue('');
       const generation = writes.supersede('preferences');
       const value = preferences.value;

@@ -20,7 +20,7 @@ import {
   type BasicsLevel, type BasicsStep, type BasicsView, type LessonState, type LessonTab, type LibraryCategory, type LibraryControls,
 } from './model';
 import { CATEGORY_ORDER, CATEGORY_TITLES } from '../../practice/library';
-import { currentLineStep, pathBadge, pathModel, stageLine, type PathStep } from './path';
+import { currentLineStep, pathBadge, pathModel, stageLine, stageTransitions, type PathStep } from './path';
 import {
   builderAddBar, builderKind, builderMarkup, builderMode, builderPattern, builderRemoveBar, builderRoot, builderSpec, builderStep, builderVolume, initialBuilder, toggleBuilder, type BuilderState,
 } from './line-builder';
@@ -182,6 +182,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const hero = heroModel(current);
     const stage = stageLine(current.programState);
     const lineStep = currentLineStep(current.programState);
+    const transitions = stageTransitions(current.program, current.programState);
     const rows = planRows(current.plan, current.records, current.userExercises);
     const total = plannedMinutes(current.plan);
     const done = rows.filter(row => row.status === 'done').reduce((sum, row) => sum + row.minutes, 0);
@@ -226,6 +227,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     regions.today.innerHTML = `<div class="ls-today-grid">
         <div class="ls-col"><section class="ls-card ls-hero feature-panel" aria-label="Главное действие">${heroMarkup}</section>
           ${stage ? `<p class="ls-stage-line" data-stage-line>${e(stage)}</p>` : ''}
+          ${transitions.map(text => `<p class="ls-stage-line" data-stage-transition>${e(text)}</p>`).join('')}
           ${lineStep && lineStep.volume ? `<p class="ls-stage-line" data-line-step><span>Своя линия: ${e(lineStep.title)}</span> <button type="button" class="secondary-button button-compact" data-act="path-build" data-step-id="${e(lineStep.id)}" data-volume="${lineStep.volume}" data-key="today-build" aria-label="${e(`Построить: ${lineStep.title}`)}">▶ Построить</button></p>` : ''}</div>
         <section class="ls-card ls-plan${editing ? ' is-editing' : ''}" aria-label="План на сегодня">${planMarkup}</section>
       </div>
@@ -585,6 +587,13 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     } catch (failure) { toast(failure instanceof Error ? failure.message : String(failure)); }
   }, listen);
 
+  /** Enter в названии линии сохраняет её, как кнопка «Сохранить»: поле стоит вне формы. */
+  container.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' || !(event.target instanceof HTMLInputElement) || event.target.dataset.builderName === undefined) return;
+    event.preventDefault();
+    builder = { ...builder, name: event.target.value };
+    container.querySelector<HTMLButtonElement>('[data-act="builder-save"]')?.click();
+  }, listen);
   container.addEventListener('input', event => {
     if (event.target === searchInput) { renderSearch(); return; }
     if (event.target instanceof HTMLInputElement && event.target.dataset.builderName !== undefined) { builder = { ...builder, name: event.target.value }; return; }

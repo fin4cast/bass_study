@@ -209,7 +209,7 @@ describe('виды заданий R-006 по материалу (P13-08)', () =>
   it('«Назови ноту»: карточки с названиями нот, ответа нет в вопросе до закрытия', () => {
     const run = first('name-note', 'cards', candidate => candidate.quiz.currentQuestion.targetPositionId === 'A:7');
     expect(choiceLabels(run)).toHaveLength(12);
-    expect(prompt(run, material)).toEqual({ kind: 'Назови ноту', title: 'Какая это нота?', sub: 'Отмеченная позиция — A/7. Октава не важна. Ответь кнопкой или клавишей 1–9.' });
+    expect(prompt(run, material)).toEqual({ kind: 'Назови ноту', title: 'Какая это нота?', sub: 'Отмеченная позиция — A/7. Октава не важна. Ответь кнопкой или клавишей 1–9, 0, −, =.' });
     expect(revealedAnswer(run, material)).toBeNull();
     const right = run.quiz.currentQuestion.choices.findIndex(choice => choice.label === 'E');
     const wrong = (right + 1) % 12;
@@ -316,6 +316,23 @@ describe('серия по диапазону на экране (R-028, A9)', () 
     const first = entries(run)[0];
     expect(first.target).toMatch(/^[A-G][♯♭]?$/);
     expect(recordAnswers(entries(run))[0]).toMatchObject({ target: first.target, outcome: 'unanswered' });
+  });
+  it('все ноты: вопрос — одним именем, ответ и итог — двойной подписью F♯/G♭; без знака и по натуральным — одно имя', () => {
+    const all = checkMaterial(rangeSpec('name-note', { type: 'notes', notes: 'all' }));
+    const sharp = runWhere(all, 'cards', run => run.mode === 'cards' && /[♯♭]/.test(run.quiz.currentQuestion.target.name));
+    const name = sharp.mode === 'cards' ? sharp.quiz.currentQuestion.target.name : '';
+    const revealed = reveal(sharp, 10);
+    expect(revealedAnswer(revealed, all)!.text).toMatch(/ — [A-G][♯♭]\/[A-G][♯♭]\.$/);
+    expect(revealedAnswer(revealed, all)!.text).toContain(name);
+    expect(summaryRow(revealed, all, entries(revealed)[0]).answer).toMatch(/^[A-G][♯♭]\/[A-G][♯♭]$/);
+    const natural = checkMaterial(rangeSpec('name-note', { type: 'notes', notes: 'natural' }));
+    expect(revealedAnswer(reveal(startRun(natural, 'cards', 3), 10), natural)!.text).toMatch(/ — [A-G]\.$/);
+  });
+  it('подсказка клавиш при 12 карточках называет 1–9, 0, −, =', () => {
+    const all = checkMaterial(rangeSpec('name-note', { type: 'notes', notes: 'all' }));
+    const run = startRun(all, 'cards', 4);
+    expect(choiceLabels(run)).toHaveLength(12);
+    expect(prompt(run, all).sub).toContain('1–9, 0, −, =');
   });
   it('тоника аккорда: вопрос называет аккорд, ответ — позиция на гриде; клетка вне диапазона — «вне диапазона вопроса»', () => {
     const material = checkMaterial(rangeSpec('find-note', { type: 'chord-root', notes: 'natural' }, ['E', 'A'], 0, 12));

@@ -8,7 +8,7 @@ import { buildTimeline, samePractice, type PracticeOptions, type RhythmPatternId
 import type { TemplateTask } from '../exercises/tasks';
 import { checkId, type CheckSpec } from './check';
 import { lineBarsText, materialId } from './material';
-import { lineVolume } from './line-builder';
+import { lineVolume, STANDARD_STEPS, VOLUME_2_PATTERNS } from './line-builder';
 import { parseNote } from '../music';
 import type { NewPlanStep, PlanStepContent } from './plan';
 import type { PlayRecord, PracticeRecord } from './results';
@@ -142,8 +142,6 @@ export function playFacts(records: readonly PracticeRecord[]): PlayFact[] {
 }
 
 /** Рисунки объёма 2 (B5.4): всё остальное в линии — «рисунок вне объёма 2». */
-const VOLUME_2_PATTERNS = ['roots', 'root-fifth', 'octaves', 'roots-approach', 'arpeggio'];
-const STANDARD_STEPS = [0, 5, 7, 0];
 
 /**
  * Факты из проходов «Своей линии» (R-028, правила `h1-line`…`h4-line`): объём, состав тактов, тональность (класс высоты),

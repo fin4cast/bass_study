@@ -77,8 +77,8 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   let homeStale = true;
   let disposed = false;
   /** `keys` — все варианты материала, открытые на этом экране: таймер шага не обнуляется при смене лада (P18-04). */
-  let play: { handle: PlayHandle; port: PlaybackPort; spec: ExerciseSpec; key: string; keys: readonly string[]; stepId: string | null; practice: PracticeOptions | null; program: { step: PlayStep; block: Block } | null } | null = null;
-  let check: { spec: CheckSpec | null; stepId: string | null; origin: LessonOrigin | null } | null = null;
+  let play: { handle: PlayHandle; port: PlaybackPort; spec: ExerciseSpec; key: string; keys: readonly string[]; stepId: string | null; planDate: string | null; practice: PracticeOptions | null; program: { step: PlayStep; block: Block } | null } | null = null;
+  let check: { spec: CheckSpec | null; stepId: string | null; planDate: string | null; origin: LessonOrigin | null } | null = null;
 
   const today = () => todayKey();
   const records = () => options.records();
@@ -88,6 +88,15 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   const currentPlan = () => planForToday(lessonPreferences().plan, today(), () => dayPlanSteps(composeDay(PROGRAM, programFacts())));
   function savePlan(plan: DayPlan) {
     return options.savePreferences({ lesson: { ...lessonPreferences(), plan } });
+  }
+  /** Отметка шага по действию ученика: отказ записи показывается, а не теряется молча. */
+  function savePlanStep(plan: DayPlan) {
+    if (!savePlan(plan)) options.onFailure('План дня не сохранён: эта вкладка сейчас не может записывать.');
+  }
+  /** План дня, в котором открыт шаг: после полуночи он уже другой, и открытый шаг ему не принадлежит. */
+  function planOf(planDate: string | null): DayPlan | null {
+    const plan = currentPlan();
+    return planDate !== null && plan.localDate === planDate ? plan : null;
   }
   /** Выведенный план нового дня сохраняется, чтобы отметки шагов не зависели от появления первых записей. */
   function ensurePlan() {
@@ -135,9 +144,10 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     onNextStep() {
       if (check?.origin) { leave(check.origin); return; }
       const stepId = check?.stepId ?? null;
-      if (stepId) {
-        const plan = planAfterCheck(currentPlan(), stepId);
-        savePlan(plan);
+      const stored = planOf(check?.planDate ?? null);
+      if (stepId && stored) {
+        const plan = planAfterCheck(stored, stepId);
+        savePlanStep(plan);
         const next = nextPlanStep(plan);
         if (next) { open(next.content, next.stepId); return; }
       }
@@ -293,13 +303,14 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
       onNextStep: () => nextFromPlay(),
       onCompleteStep: () => {
         const current = play;
-        if (!current?.stepId) return;
-        savePlan(planAfterNext(currentPlan(), current.stepId));
+        const stored = current ? planOf(current.planDate) : null;
+        if (!current?.stepId || !stored) return;
+        savePlanStep(planAfterNext(stored, current.stepId));
         refreshPlanStep();
       },
     });
     handle.setExercise(program?.step.task ? { ...exercise, task: program.step.task } : exercise, spec);
-    play = { handle, port, spec, key, keys: [key], stepId, practice, program };
+    play = { handle, port, spec, key, keys: [key], stepId, planDate: stepId ? currentPlan().localDate : null, practice, program };
     refreshPlanStep();
     if (!visible) handle.setVisible(false);
     const heading = playHost.querySelector<HTMLElement>('h1');
@@ -316,10 +327,10 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     if (event.passes === 0) { refreshPlanStep(); return; }
     const lesson = lessonPreferences();
     options.savePreferences({ lesson: { ...lesson, exerciseSettings: rememberExerciseSettings(lesson.exerciseSettings, current.key, { bpm: bpmAfterRating(event.assessment, event.bpm) }) } });
-    if (current.stepId) {
-      const plan = currentPlan();
-      const next = planAfterRating(plan, current.stepId, event.assessment);
-      if (next !== plan) savePlan(next);
+    const stored = current.stepId ? planOf(current.planDate) : null;
+    if (current.stepId && stored) {
+      const next = planAfterRating(stored, current.stepId, event.assessment);
+      if (next !== stored) savePlanStep(next);
     }
     refreshPlanStep();
   }
@@ -337,15 +348,17 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   function refreshPlanStep() {
     if (!play) return;
     refreshRule();
-    play.handle.setPlanStep(planStepInfo(currentPlan(), play.stepId, play.keys, records()));
+    play.handle.setPlanStep(planStepInfo(currentPlan(), planOf(play.planDate) ? play.stepId : null, play.keys, records()));
   }
 
   /** «Следующий шаг плана →»: текущий шаг выполнен, открывается следующий невыполненный шаг. */
   function nextFromPlay() {
     const current = play;
     if (!current?.stepId) return;
-    const plan = planAfterNext(currentPlan(), current.stepId);
-    if (plan !== currentPlan()) savePlan(plan);
+    const stored = planOf(current.planDate);
+    if (!stored) { leave(null); return; }
+    const plan = planAfterNext(stored, current.stepId);
+    if (plan !== stored) savePlanStep(plan);
     const next = nextPlanStep(plan);
     if (next) open(next.content, next.stepId);
     else leave(null);
@@ -364,7 +377,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   function openCheck(spec: CheckSpec, stepId: string | null) {
     const plan = currentPlan();
     const position = stepPosition(plan, stepId);
-    let nextLabel = 'Вернёмся в «Сегодня».';
+    let nextLabel = 'Вернёмся в «Занятие».';
     if (position && stepId) {
       const after = nextPlanStep(planAfterCheck(plan, stepId));
       const afterPosition = after ? stepPosition(plan, after.stepId) : null;
@@ -372,7 +385,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
         ? `Дальше: шаг ${afterPosition.index} из ${afterPosition.total} — ${stepTitle(after.content, user())}.`
         : `Шаг ${position.index} из ${position.total} — последний: вернёмся в «Сегодня».`;
     }
-    check = { spec, stepId, origin: null };
+    check = { spec, stepId, planDate: stepId ? plan.localDate : null, origin: null };
     setScreen('check');
     checkView.start(spec, { backLabel: position ? `план на сегодня, шаг ${position.index} из ${position.total}` : undefined, nextLabel });
   }
@@ -381,7 +394,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   function openCheckFrom(spec: CheckSpec, origin: LessonOrigin) {
     // Начатая серия закрывается со своим описанием до смены текущей проверки.
     if (screen === 'check') checkView.stop();
-    check = { spec, stepId: null, origin };
+    check = { spec, stepId: null, planDate: null, origin };
     setScreen('check');
     checkView.start(spec, { backText: ORIGIN_LABELS[origin], nextText: ORIGIN_NEXT[origin] });
   }
@@ -442,7 +455,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     repeatErrors(positionIds: readonly string[], context: Pick<QuestionContext, 'root' | 'structureId'>, origin: LessonOrigin = 'progress') {
       reviewMaterial(positionIds, context);
       if (screen === 'check') checkView.stop();
-      check = { spec: null, stepId: null, origin };
+      check = { spec: null, stepId: null, planDate: null, origin };
       setScreen('check');
       checkView.startReview(positionIds, context, { backText: ORIGIN_LABELS[origin], nextText: ORIGIN_NEXT[origin] });
     },

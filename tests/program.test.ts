@@ -310,6 +310,12 @@ describe('занятие (R-028)', () => {
     expect(composeDay(prog, facts({ plays: [fact(chromatic(1), { localDate: day(-14) }), fact(chromatic(2), { localDate: day(-14) })] })).mode).toBe('normal');
   });
 
+  it('«Вспомнить» считает последней любую игру: тренировка вне программы 3 дня назад перерывом не считается', () => {
+    const prog = program(block('t', 'technique', [step('t.a', [chromatic(1), chromatic(2)])]));
+    const plays = [fact(chromatic(1), { localDate: day(-30) }), fact(chromatic(2), { localDate: day(-30) }), fact(octaves('E'), { localDate: day(-3) })];
+    expect(composeDay(prog, facts({ plays })).mode).toBe('normal');
+  });
+
   it('плановое время шага: такты × 4 с × 3 прохода + минута, вверх до минуты, от 2 до 5; проверка — 2; своя линия — 5', () => {
     const blues = playStep('x', [createExerciseSpec('progression', { progression: 'blues-12' })]);
     expect(stepMinutes(blues)).toBe(4);

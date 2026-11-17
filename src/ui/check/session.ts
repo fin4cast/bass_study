@@ -251,7 +251,13 @@ export interface Prompt { readonly kind: string; readonly title: string; readonl
 
 /** Нота с октавой, если вопрос о точной высоте. */
 const targetText = (question: QuizSession['currentQuestion']) => question.targetMidi === null ? question.target.name : formatMidi(question.targetMidi, question.target.name);
-const keysHint = (count: number) => count > 9 ? 'кнопкой или клавишей 1–9' : `кнопкой или клавишей 1–${count}`;
+const ENHARMONIC: Readonly<Record<string, string>> = Object.freeze({
+  'C♯': 'C♯/D♭', 'D♭': 'C♯/D♭', 'D♯': 'D♯/E♭', 'E♭': 'D♯/E♭', 'F♯': 'F♯/G♭', 'G♭': 'F♯/G♭', 'G♯': 'G♯/A♭', 'A♭': 'G♯/A♭', 'A♯': 'A♯/B♭', 'B♭': 'A♯/B♭',
+});
+/** Серия по всем нотам: вопрос называет ноту одним именем, а ответ, пояснение и итог — двойной подписью, «F♯/G♭» (A9.4). */
+const dualNames = (material: CheckMaterial) => material.series && material.spec?.subject.type === 'notes' && material.spec.subject.notes === 'all';
+const shownNote = (question: QuizSession['currentQuestion'], material: CheckMaterial) => dualNames(material) && question.targetMidi === null ? (ENHARMONIC[question.target.name] ?? question.target.name) : targetText(question);
+const keysHint = (count: number) => count > 9 ? `кнопкой или клавишей 1–9${count > 9 ? ', 0' : ''}${count > 10 ? ', −' : ''}${count > 11 ? ', =' : ''}` : `кнопкой или клавишей 1–${count}`;
 /** Позиции, среди которых отвечают в этой серии (материал вопроса). */
 const quizArea = (run: CheckRun & { mode: 'board' | 'cards' }) => run.quiz.currentQuestion.context.positionIds;
 const INTERVAL_FROM_SEMITONES = ['1', '♭2', '2', '♭3', '3', '4', '♯4/♭5', '5', '♭6', '6', '♭7', '7'];
@@ -340,7 +346,7 @@ export function wrongFeedback(run: CheckRun, material: CheckMaterial, answer: { 
     if (!inside) return material.series ? `${here} — вне диапазона вопроса. Ищи внутри.` : match ? `${here} — тоже ${targetText(question)}, но вне материала вопроса. Найди внутри.` : `${here} — вне материала вопроса (${material.material}). Ищи внутри.`;
     return question.mode === 'find-pitch' && position.pitchClass === question.target.pitchClass
       ? `${here} — это ${heard}: та же нота, другая октава. Нужна ${targetText(question)}.`
-      : `${here} — это ${heard}, не ${targetText(question)}. Попробуй ещё.`;
+      : `${here} — это ${heard}, не ${shownNote(question, material)}. Попробуй ещё.`;
   }
   const label = choiceLabels(run)[answer.choice ?? -1] ?? '';
   if (run.mode === 'ear') return `Не ${label}. Попробуй ещё или прослушай снова — повтор не ошибка.`;
@@ -363,10 +369,10 @@ export function revealedAnswer(run: CheckRun, material: CheckMaterial): { degree
   const question = run.quiz.currentQuestion;
   const degree = question.target.degree ?? '';
   if (question.mode === 'name-note') {
-    return { degree, positions: [question.targetPositionId!], text: `${formatPosition(question.targetPositionId!)} — ${question.target.name}.` };
+    return { degree, positions: [question.targetPositionId!], text: `${formatPosition(question.targetPositionId!)} — ${shownNote(question, material)}.` };
   }
   if (question.mode !== 'find-degree' && question.mode !== 'name-degree') {
-    const what = question.mode === 'find-interval' ? `${formatDegree(degree)} от ${material.root} — ${question.target.name}` : targetText(question);
+    const what = question.mode === 'find-interval' ? `${formatDegree(degree)} от ${material.root} — ${question.target.name}` : shownNote(question, material);
     return { degree, positions: question.expectedPositionIds, text: `${what}: ${question.expectedPositionIds.map(formatPosition).join(', ')}.` };
   }
   if (run.mode === 'cards') {
@@ -465,7 +471,7 @@ export function summaryRow(run: CheckRun, material: CheckMaterial, entry: CheckE
   const degree = formatDegree(entry.degree);
   const question = run.mode === 'ear' ? null : run.quiz.questions[entry.index];
   if (question && question.mode !== 'find-degree' && question.mode !== 'name-degree') {
-    if (question.mode === 'name-note') return { question: `Нота ${formatPosition(question.targetPositionId ?? '')}`, answer: shown ? question.target.name : '—' };
+    if (question.mode === 'name-note') return { question: `Нота ${formatPosition(question.targetPositionId ?? '')}`, answer: shown ? shownNote(question, material) : '—' };
     const asked = question.recordTarget !== undefined ? question.prompt.replace(/\.$/, '') : question.mode === 'find-interval' ? `Найди ${formatDegree(question.target.degree)} от ${material.root}` : question.mode === 'find-all' ? `Найди все ${question.target.name}` : `Найди ${targetText(question)}`;
     return { question: asked, answer: shown ? question.expectedPositionIds.map(formatPosition).join(', ') : '—' };
   }

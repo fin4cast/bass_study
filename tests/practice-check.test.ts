@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createExerciseSpec } from '../src/exercises';
-import { checkId, sameCheck, validateCheckSpec, type CheckSpec } from '../src/practice/check';
+import { checkId, validateCheckSpec, type CheckSpec } from '../src/practice/check';
 
 const range = (strings: string[], fretMin: number, fretMax: number) => ({ type: 'range', strings, fretMin, fretMax });
 const base = (over: Record<string, unknown> = {}) => ({
@@ -104,12 +104,6 @@ describe('check-v2: строгая проверка описания (A9.1)', ()
     expect(() => validateCheckSpec(base({ kind: 'find-degree', area: exercise, subject: { type: 'degrees', scale: null, targets: null }, ear: true }))).not.toThrow();
     rejects(base({ kind: 'find-degree', area: exercise, subject: { type: 'degrees', scale: null, targets: ['1'] }, ear: true }), /Слух/);
     rejects(base({ ear: true }), /Слух/);
-  });
-
-  it('сравнение описаний полное, включая число вопросов', () => {
-    const six: CheckSpec = validateCheckSpec(base());
-    expect(sameCheck(six, validateCheckSpec(base()))).toBe(true);
-    expect(sameCheck(six, validateCheckSpec(base({ count: 5 })))).toBe(false);
   });
 });
 

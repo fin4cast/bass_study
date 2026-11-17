@@ -552,8 +552,11 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     if (event.key === 'Enter' && runStatus(run) === 'review' && onAnswer) { event.preventDefault(); goNext(); return; }
     if (event.code === 'Space' && run.mode === 'ear' && runStatus(run) === 'active' && !run.ear.answerState.activeListen && onAnswer) { event.preventDefault(); void playSignal(); return; }
     if (run.mode !== 'board') {
+      // Карточки 1–9 — цифрами, 10–12 (все ноты) — клавишами 0, «−» и «=».
       const digit = /^(?:Digit|Numpad)([1-9])$/.exec(event.code);
-      if (digit) { event.preventDefault(); answerCard(Number(digit[1]) - 1); }
+      const extra = ({ Digit0: 9, Numpad0: 9, Minus: 10, NumpadSubtract: 10, Equal: 11 } as Record<string, number>)[event.code];
+      const index = digit ? Number(digit[1]) - 1 : extra;
+      if (index !== undefined) { event.preventDefault(); answerCard(index); }
       return;
     }
     const moves: Record<string, [number, number]> = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] };

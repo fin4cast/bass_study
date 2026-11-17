@@ -1059,7 +1059,7 @@ check('library-line-builder-assembles-saves-as-own-exercise-and-plays-it', 'ui',
   await builder.locator('[data-act="builder-save"]').click();
   assert.match(await builder.locator('[role="alert"]').innerText(), /Назови линию/);
   await builder.locator('[data-builder-name]').fill('Моя линия в A');
-  await builder.locator('[data-act="builder-save"]').click();
+  await builder.locator('[data-builder-name]').press('Enter');
   await page.waitForFunction(() => /Сохранено как своё упражнение: Моя линия в A/.test(document.querySelector('[data-toast]')?.textContent ?? ''));
   await home(page).getByRole('button', { name: /^Свои/ }).click();
   assert.deepEqual(await home(page).locator('.ls-lib-card h3').allInnerTexts(), ['Моя линия в A']);
@@ -1082,6 +1082,33 @@ check('library-line-builder-assembles-saves-as-own-exercise-and-plays-it', 'ui',
 });
 
 /* ---------- Проверка по диапазону (R-028, A9) ---------- */
+
+check('check-twelve-note-cards-answer-by-keys-0-minus-and-equals-after-digits', 'ui', async ({ page, origin }) => {
+  // Карточки 10–12 в «Назови ноту» по всем нотам достижимы клавишами 0, «−» и «=».
+  await openApp(page, origin);
+  const copy = await exportUi(page);
+  const today = await page.evaluate(() => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; });
+  const spec = { version: 'check-v2', kind: 'name-note', area: { type: 'range', strings: ['E', 'A'], fretMin: 0, fretMax: 12 }, subject: { type: 'notes', notes: 'all' }, count: 6, ear: false };
+  copy.preferences.lesson.plan = { version: 'plan-v1', localDate: today, steps: [{ id: 'step-1', content: { kind: 'check', spec }, minutes: 3, status: 'current' }] };
+  await restoreCopy(page, copy, 'twelve-cards.json');
+  await go(page, 'lesson');
+  await home(page).getByRole('tab', { name: /^Сегодня/ }).click();
+  await home(page).locator('.ls-hero [data-act="play"]').click();
+  const host = checkHost(page);
+  await host.locator('[data-ck-title]').waitFor();
+  assert.equal(await host.locator('[data-choice]').count(), 12);
+  const handled = [];
+  for (const [key, index] of [['Digit0', 9], ['Minus', 10], ['Equal', 11]]) {
+    await page.keyboard.press(key);
+    const card = host.locator(`[data-choice="${index}"]`);
+    const state = await card.evaluate(node => ({ disabled: node.getAttribute('aria-disabled'), cls: node.className }));
+    assert.ok(state.disabled === 'true' || /is-right|is-shown/.test(state.cls), `клавиша ${key} ответила карточкой ${index + 1}: ${JSON.stringify(state)}`);
+    handled.push(index);
+    if (await host.locator('[data-act="next"]').count() === 0) await host.locator('[data-act="reveal"]').click();
+    await host.locator('[data-act="next"]').click();
+  }
+  return { handled };
+});
 
 check('check-range-chord-root-hatches-outside-cells-records-check-and-retry-keeps-question', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
@@ -1405,6 +1432,29 @@ check('play-variant-chromatic-fret-5-to-7-keeps-step-and-rates-the-new-material'
   return { key: entry.result.material.key };
 });
 
+check('play-after-midnight-rating-does-not-close-a-step-of-the-new-days-plan', 'ui', async ({ page, origin }) => {
+  // Шаг открыт в одном дне, оценка — после полуночи: у нового плана те же ID шагов, отметка «выполнено» ему не принадлежит.
+  await page.addInitScript(() => {
+    const Real = Date; let shift = 0;
+    window.__dayShift = ms => { shift = ms; };
+    globalThis.Date = class extends Real {
+      constructor(...args) { if (args.length === 0) super(Real.now() + shift); else super(...args); }
+      static now() { return Real.now() + shift; }
+    };
+  });
+  await openApp(page, origin);
+  await openPlanStep(page, FIRST_RUN_PLAN[2]);
+  await page.evaluate(() => window.__dayShift(36 * 3600 * 1000));
+  await playScene(page).locator('[data-flag="loop"]').click();
+  await playScene(page).locator('[data-bpm]').fill('200'); await playScene(page).locator('[data-bpm]').press('Enter');
+  await focusPlayTitle(page); await page.keyboard.press('Space');
+  await playScene(page).getByRole('group', { name: 'Самооценка подхода' }).waitFor({ timeout: 20000 });
+  await page.keyboard.press('KeyZ');
+  const db = await waitDb(page, db => db.history.some(entry => entry.result?.assessment === 'clean'), '«Чисто» в истории');
+  assert.ok(!db.preferences.lesson.plan.steps.some(step => step.status === 'done'), 'оценка после полуночи не закрыла шаг плана нового дня: ' + JSON.stringify(db.preferences.lesson.plan.steps.map(step => step.status)));
+  return { statuses: db.preferences.lesson.plan.steps.map(step => step.status) };
+});
+
 /** Три строки задания видны во всех четырёх видах и вместе с остальным экраном помещаются в окно 1280×720 без прокрутки. */
 async function assertTaskLinesFit(page, label) {
   await page.waitForFunction(() => document.querySelector('[data-lesson-screen="play"]:not([hidden]) [data-task="do"]')?.textContent);
@@ -1614,6 +1664,27 @@ check('progress-shows-program-status-after-a-lesson-pass-and-reload', 'ui', asyn
   // Два этапа программы, в каждом по три линии.
   assert.deepEqual(await progress.locator('.pg-pline > summary b').allInnerTexts(), ['Техника', 'Гриф', 'Аккорды и линии', 'Техника', 'Гриф', 'Аккорды и линии']);
   return { status: await row.locator('.pg-pstatus').innerText() };
+});
+
+check('progress-program-line-collapsed-by-user-stays-collapsed-after-leaving-and-returning', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await page.locator('.site-header [data-app-module="progress"]').click();
+  const progress = page.locator('[data-page-frame="progress"]');
+  const line = progress.locator('.pg-pline').first();
+  await line.waitFor();
+  await line.locator('summary').click();
+  assert.equal(await line.evaluate(details => details.open), false, 'линия свернулась');
+  // Данные меняются в «Занятии» (отметка «Уже умею» у блока) — при возврате «Прогресс» перерисовывается заново.
+  await page.locator('.site-header [data-app-module="lesson"]').click();
+  await lessonTab(page, 'Основы');
+  await home(page).locator('[data-act="path-skip"][data-block="f1-ea5"]').click();
+  await waitDb(page, db => db.preferences.lesson.skipped?.includes('f1-ea5'), 'отметка сохранена');
+  await page.locator('.site-header [data-app-module="progress"]').click();
+  await progress.locator('.pg-pline').first().waitFor();
+  assert.match(await progress.locator('.pg-pstep[data-step-id="f1-ea5.naturals"] .pg-pstatus').innerText(), /пропущен/, 'экран перерисован свежими данными');
+  assert.equal(await progress.locator('.pg-pline').first().evaluate(details => details.open), false, 'свёрнутая линия не раскрылась при обновлении');
+  assert.equal(await progress.locator('.pg-pline').nth(1).evaluate(details => details.open), true, 'остальные линии остались открытыми');
+  return { collapsedKept: true };
 });
 
 markFullOnly(checks, ['basics-path-two-variants-pass-the-step-and-two-days-master-it', 'today-next-day-offers-next-variant-and-keeps-manual-steps-and-long-break-recalls',

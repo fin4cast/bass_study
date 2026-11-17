@@ -115,10 +115,31 @@ check('offline-chords-are-silent-in-count-in-and-off-by-volume', 'api', async ({
   const muted = await page.evaluate(async config => {
     window.p4.player.setVolumes({ bass: 0.65, chords: 0 });
     try { return await window.p4.player.renderOffline(window.p4.makeConfig(config)); }
-    finally { window.p4.player.setVolumes({ bass: 0.65, chords: 0.35 }); }
+    finally { window.p4.player.setVolumes({ bass: 0.65, chords: 0.5 }); }
   }, { steps: [{ note: 0, grids: 16 }], chords: { mode: 'hold', bars: [[60, 64, 67]] } });
   assert.ok(muted.chords.peak < 0.0001, `шина аккордов с нулевой громкостью молчит: ${muted.chords.peak}`);
   return { counted: counted.chords, muted: muted.chords };
+});
+check('offline-chords-at-app-default-volume-are-quieter-than-the-bass-reference', 'api', async ({ page }) => {
+  // B6: по умолчанию аккорды тише эталона баса. Умолчания приложения: эталон «авто» 0,65, аккорды 0,5; сравнение — СКЗ каналов бас и аккорды.
+  const config = { steps: [{ note: 0, grids: 16 }, { note: 1, grids: 16 }], chords: { mode: 'hold', bars: [[60, 64, 67], [57, 60, 64]] } };
+  const measure = chords => page.evaluate(async ({ config, chords }) => {
+    window.p4.player.setVolumes({ bass: 0.65, click: 0, groove: 0, chords });
+    try { const result = await window.p4.player.renderOffline(window.p4.makeConfig(config)); return { bass: result.bass.rms, chords: result.chords.rms }; }
+    finally { window.p4.player.setVolumes({ bass: 0.65, click: 0.45, groove: 0.6, chords: 0.5 }); }
+  }, { config, chords });
+  const atDefault = await measure(0.5);
+  assert.ok(atDefault.chords > 0.0005, `аккорды слышны: ${JSON.stringify(atDefault)}`);
+  assert.ok(atDefault.chords < atDefault.bass, `аккорды при умолчании 0,5 тише баса при «авто» 0,65: ${JSON.stringify(atDefault)}`);
+  const full = await measure(1);
+  return { atDefault, full };
+});
+check('offline-first-listen-has-no-chord-channel-while-the-game-config-of-the-same-material-has', 'api', async ({ page }) => {
+  // B6: в «Сначала услышь» шины аккордов не слышно; те же материал и настройки в игре аккорды дают.
+  const { game, listen } = await page.evaluate(() => window.p4.listenChordsRms());
+  assert.ok(game > 0.01, `в игре аккорды слышны: ${game}`);
+  assert.ok(listen < 1e-9, `в «Сначала услышь» шина аккордов молчит: ${listen}`);
+  return { game, listen };
 });
 check('offline-chord-voices-sound-at-their-own-frequencies-and-do-not-carry-over', 'api', async ({ page }) => {
   const result = await page.evaluate(() => window.p4.chordSpectrum());

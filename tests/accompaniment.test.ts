@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createPlaybackPlan, eventAtGrid, type PlaybackConfig } from '../src/audio/plan';
+import { DEFAULT_CHORD_VOLUME } from '../src/audio/engine';
+import { DEFAULT_PREFERENCES } from '../src/storage/model';
 import { barChords, createExerciseSpec, type ExerciseSpec } from '../src/exercises';
 import { annotatePositions, createStructure, getPosition } from '../src/music';
 import { parseChord } from '../src/music/chords';
@@ -128,5 +130,12 @@ describe('материал без названных аккордов', () => {
   });
   it('аккорды риффа строятся от той же тональности, что его ноты: penta-a в A — Am, Dm, Em, Am', () => {
     expect(barChords(createExerciseSpec('riff', { riff: 'penta-a', root: 'A' }))!.map(chord => chord?.name)).toEqual(['Am', 'Dm', 'Em', 'Am']);
+  });
+});
+
+describe('умолчание громкости аккордов', () => {
+  it('одно значение у движка, экрана игры и настроек', () => {
+    expect(DEFAULT_PLAY_SETTINGS.accompanimentVolume).toBe(DEFAULT_CHORD_VOLUME);
+    expect(DEFAULT_PREFERENCES.play.accompanimentVolume).toBe(DEFAULT_CHORD_VOLUME);
   });
 });

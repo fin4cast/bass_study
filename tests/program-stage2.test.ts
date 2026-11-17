@@ -47,6 +47,7 @@ describe('данные этапа 2 по таблице R-028', () => {
     expect(block('f2-penta').cards).toEqual(['degree', 'pentatonic']);
     expect(block('h2-rhythm').cards).toEqual(['durations-rests', 'tie-syncopation']);
     expect(block('h2-triad').cards).toEqual(['triad']);
+    for (const id of ['t2-spider', 'f2-dg', 'h2-blues', 'h2-approach', 'h2-own']) expect(block(id).cards, `у блока ${id} карточек нет`).toEqual([]);
   });
   it('варианты в порядке таблицы: струны E, A, D; пауки с 5-го и 7-го лада; D и G; круг кварт на E и A; формы A в Am, Bm, Gm; риффы', () => {
     expect(variants('t2-length.quarters')).toEqual(['E', 'A', 'D'].map(string => `long-short.${string}.5`));
@@ -67,6 +68,11 @@ describe('данные этапа 2 по таблице R-028', () => {
     expect(variants('h2-approach.pop1').slice(0, 3)).toEqual(['C', 'G', 'D'].map(root => `progression.${root}.I-V-vi-IV.roots-approach.low`));
     expect(variants('h2-approach.pop2').slice(3)).toEqual(['C', 'G', 'D'].map(root => `progression.${root}.I-vi-IV-V.roots-approach.closed`));
     expect(variants('h2-triad.progression').slice(3)).toEqual(['G', 'A', 'C'].map(root => `progression.${root}.I-IV-V.arpeggio.closed`));
+    expect(variants('h2-triad.progression').slice(0, 3)).toEqual(['G', 'A', 'C'].map(root => `progression.${root}.I-IV-V.arpeggio.low`));
+    // Три шага ритма — одни и те же I–IV–V тониками в G, A, C: сначала нижняя позиция, затем закрытая.
+    for (const id of ['h2-rhythm.eighth-rest', 'h2-rhythm.tied', 'h2-rhythm.shuffle']) {
+      expect(variants(id)).toEqual([...['G', 'A', 'C'].map(root => `progression.${root}.I-IV-V.roots.low`), ...['G', 'A', 'C'].map(root => `progression.${root}.I-IV-V.roots.closed`)]);
+    }
   });
   it('арпеджио 1–3–5–8: мажор и минор каждой тоники C, G, A по очереди', () => {
     expect(variants('h2-triad.quarters')).toEqual(['C', 'G', 'A'].flatMap(root => ['major-triad', 'minor-triad'].map(structure => `arpeggio-1358.${root}.${structure}.compact-e`)));
