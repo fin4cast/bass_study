@@ -445,12 +445,12 @@ check('today-next-day-offers-next-variant-and-keeps-manual-steps-and-long-break-
   await page.clock.setFixedTime(new Date('2026-11-17T10:00:00'));
   await page.reload(); await ready(page);
   let db = await waitDb(page, db => db.preferences.lesson.plan?.localDate === '2026-11-17', 'план нового дня');
-  const [warmup, first] = db.preferences.lesson.plan.steps;
-  assert.deepEqual([warmup.role, warmup.programStep, warmup.minutes], ['warmup', undefined, 5], 'со второго дня занятие начинается с разминки');
-  assert.notEqual(warmup.content.spec.templateId, 'pulse-note', 'разминка не повторяет текущий шаг «Техники»');
+  // Разминка не продвигает непройденный шаг (R-028): после одного прохода ни один шаг не пройден — знакомого материала для неё нет.
+  assert.ok(!db.preferences.lesson.plan.steps.some(step => step.role === 'warmup'), 'разминки нет, пока ни один шаг не пройден');
+  const first = db.preferences.lesson.plan.steps[0];
   assert.equal(first.programStep, 't1-pulse.quarters');
   assert.equal(first.content.spec.params.string, 'A', 'вариант подставлен: после «Чисто» в первом — второй');
-  assert.deepEqual(db.preferences.lesson.plan.steps.slice(1, 4).map(step => step.programStep), ['t1-pulse.quarters', 'f1-ea5.naturals', 'h1-open.quarters']);
+  assert.deepEqual(db.preferences.lesson.plan.steps.slice(0, 3).map(step => step.programStep), ['t1-pulse.quarters', 'f1-ea5.naturals', 'h1-open.quarters']);
   const manual = db.preferences.lesson.plan.steps.at(-1);
   assert.deepEqual([manual.programStep, manual.role, manual.content.spec.templateId], [undefined, undefined, 'position-shift'], 'ручной шаг перенесён в конец');
   assert.match((await home(page).locator('.ls-hero').innerText()), /Продолжить/i);
@@ -458,7 +458,7 @@ check('today-next-day-offers-next-variant-and-keeps-manual-steps-and-long-break-
   await page.clock.setFixedTime(new Date('2026-12-20T10:00:00'));
   await page.reload(); await ready(page);
   db = await waitDb(page, db => db.preferences.lesson.plan?.localDate === '2026-12-20', 'план после перерыва');
-  assert.deepEqual(db.preferences.lesson.plan.steps.filter(step => step.role).map(step => [step.id, step.role]), [['r1', 'warmup'], ['r2', 'recall'], ['r3', 'recall'], ['r4', 'recall']]);
+  assert.deepEqual(db.preferences.lesson.plan.steps.filter(step => step.role).map(step => [step.id, step.role]), [['r1', 'recall'], ['r2', 'recall'], ['r3', 'recall']]);
   assert.match(await home(page).locator('.ls-hero').innerText(), /Вспомнить/i);
   return { recall: db.preferences.lesson.plan.steps.map(step => step.id) };
 });
