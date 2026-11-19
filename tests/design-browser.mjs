@@ -526,7 +526,8 @@ check('bounded-rhythm-frame-at-viewport-boundaries', async ({ page }) => {
     assert.equal(sample.bounded, bounded);
     assert.equal(sample.sidebarPosition, bounded ? 'sticky' : 'static');
     assert.equal(sample.sideSettings, width >= 1440 && height >= 700);
-    assert.equal(sample.faderHeight === '64px', height <= 740);
+    // Низкое окно — короче ход фейдера (P20: 76 px вместо 86 px; высота пульта не растёт).
+    assert.equal(sample.faderHeight === '76px', height <= 740);
     measurements.push({ width, height, ...sample });
   }
   return { measurements };

@@ -308,7 +308,7 @@ export function mountRhythm(container: HTMLElement, options: RhythmOptions = {})
     output('overlay-help').textContent = project.overlay
       ? 'Общий BPM. Ритм считает четверти в 4/4. Клик наследует акценты, подразделения и свинг метронома. /4 даёт четыре позиции основного клика на такт, /8 — восемь. Рисунок повторяется или обрезается на границе такта.'
       : 'Включи наложение, чтобы использовать настройки клика метронома и связать темп двух вкладок.';
-    output('metro-swing').textContent = swingAvailable ? `${metro.swing}%` : '—';
+    output('metro-swing').textContent = swingAvailable ? `${metro.swing}%` : 'недоступен';
     output('rhythm-swing').textContent = `${project.swing}%`;
     const meter = `${metro.meter.beats}/${metro.meter.denominator}`;
     output('meter-label').textContent = meter;

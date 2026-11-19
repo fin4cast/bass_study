@@ -599,7 +599,7 @@ check('product-photo-panel-uses-local-images-and-keeps-shared-controls-compact',
       assert.ok(name.bottom <= fader.top && fader.bottom <= level.top, `Mixer title, rail and level stay in reading order at ${context}`);
       if (index < instrumentChannels.length) {
         near(strip.width, channels[0].strip.width, 1);
-        assert.ok(strip.width <= 155, `Channel pitch stays compact at ${context}`);
+        assert.ok(strip.width <= 181, `Channel pitch stays compact at ${context}`);
       }
       if (mode === 'rhythm' && index < instrumentChannels.length) {
         assert.ok(mute && solo && mute.right <= level.left && level.right <= solo.left, `Mute, level and solo share a strip at ${context}`);
@@ -613,8 +613,8 @@ check('product-photo-panel-uses-local-images-and-keeps-shared-controls-compact',
       dialWidth: tempoDial.width,
       faderHeight: bounds.master.height,
       channelWidth: instrumentChannels[0].strip.width,
-      // Каналы занимают ширину до общего фейдера целиком либо упёрлись в предел шага 154 px.
-      channelsFill: instrumentChannels.every(channel => channel.strip.width >= 153)
+      // Каналы занимают ширину до общего фейдера целиком либо упёрлись в предел шага 180 px.
+      channelsFill: instrumentChannels.every(channel => channel.strip.width >= 179)
         || Math.abs(instrumentChannels.at(-1).strip.right - instrumentChannels[0].strip.left - (channels.at(-1).strip.left - faders.x)) <= 12,
       master: channels.at(-1).strip,
     };

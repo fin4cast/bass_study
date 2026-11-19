@@ -552,15 +552,15 @@
   --amp-key-ink: var(--text-primary);
   --amp-plate: var(--rhythm-amp-plate);
   --amp-plate-top: var(--rhythm-amp-plate-top);
-  --amp-dial-size: 76px;
-  --amp-fader-height: 74px;
-  --amp-cap-width: 44px;
-  --amp-cap-height: 19px;
-  --amp-label-size: 12px;
+  --amp-dial-size: 84px;
+  --amp-fader-height: 86px;
+  --amp-cap-width: 54px;
+  --amp-cap-height: 23px;
+  --amp-label-size: var(--text-s);
   --amp-wood-height: 13px;
   position: relative;
   flex: none;
-  padding-block: 7px calc(6px + var(--amp-wood-height));
+  padding-block: 5px calc(6px + var(--amp-wood-height));
   border: 1px solid var(--amp-divider);
   border-radius: var(--radius-m);
   background: linear-gradient(165deg, var(--amp-plate-top), var(--amp-plate));
@@ -583,7 +583,8 @@
 .rhythm-view .rhythm-transport-line {
   --amp-module-inset: 9px;
   display: grid;
-  grid-template-columns: minmax(132px, 1fr) minmax(176px, 1.3fr) minmax(150px, 1.1fr) minmax(0, 2.8fr);
+  /* Темп, ручки и транспорт растут с пультом до своего предела, остальное — микшеру. */
+  grid-template-columns: clamp(140px, 16%, 210px) clamp(200px, 20%, 250px) clamp(160px, 17%, 220px) minmax(0, 1fr);
   align-items: stretch;
 }
 
@@ -773,7 +774,7 @@
   line-height: 15px;
   font-variant-numeric: tabular-nums;
 }
-.rhythm-view .rhythm-tempo-limits { display: flex; justify-content: space-between; width: var(--amp-dial-size); color: var(--amp-muted); font-size: 10px; }
+.rhythm-view .rhythm-tempo-limits { display: flex; justify-content: space-between; width: var(--amp-dial-size); color: var(--amp-muted); font-size: var(--text-2xs); }
 .rhythm-view .rhythm-swing-dock output { font-weight: 650; }
 .rhythm-view .rhythm-play-module {
   display: grid;
@@ -888,7 +889,7 @@
 
 .rhythm-view .rhythm-play-buttons button {
   min-width: 0;
-  min-height: 46px;
+  min-height: 50px;
   padding: 0;
   font-size: 17px;
   white-space: nowrap;
@@ -903,15 +904,16 @@
   background: transparent;
   box-shadow: none;
   color: var(--amp-ink);
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
+  font-weight: 600;
   line-height: 1.2;
 }
 
 .rhythm-view .rhythm-key-face {
   display: grid;
   place-items: center;
-  width: min(100%, 62px);
-  height: 31px;
+  width: min(100%, 68px);
+  height: 34px;
   background: var(--rhythm-photo-start) center / contain no-repeat;
   color: transparent;
   font-size: var(--text-s);
@@ -923,18 +925,19 @@
 
 .rhythm-view .rhythm-position {
   display: grid;
-  grid-template-columns: 6px minmax(0, 1fr);
-  grid-template-rows: repeat(2, 12px);
+  grid-template-columns: 6px auto;
+  grid-template-rows: repeat(2, 13px);
   gap: 0 5px;
   align-items: center;
   width: 100%;
+  justify-content: center;
   color: var(--amp-muted);
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
 .rhythm-view .rhythm-position-phase { grid-column: 2; grid-row: 1; }
-.rhythm-view .rhythm-position-detail { grid-column: 1 / -1; grid-row: 2; }
+.rhythm-view .rhythm-position-detail { grid-column: 1 / -1; grid-row: 2; text-align: center; }
 .rhythm-view .rhythm-position > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .rhythm-view .rhythm-position::before {
@@ -963,10 +966,11 @@
   --amp-mixer-master: var(--rhythm-amp-mixer-master);
   --amp-scale-ink: var(--rhythm-amp-scale-ink);
   --amp-strip-rule: var(--rhythm-amp-strip-rule);
-  --amp-strip-height: calc(52px + var(--amp-fader-height));
+  /* Строка названия 24 + уровень 20 + два зазора по 1 px: остальная высота пульта отдана ходу фейдера. */
+  --amp-strip-height: calc(46px + var(--amp-fader-height));
   display: grid;
   align-content: center;
-  gap: 3px;
+  gap: 2px;
 }
 
 .rhythm-view .rhythm-mix-module h2 {
@@ -974,7 +978,7 @@
   font-size: var(--text-2xs);
   font-weight: 650;
   letter-spacing: .09em;
-  line-height: 15px;
+  line-height: 13px;
   text-transform: uppercase;
 }
 
@@ -983,7 +987,7 @@
   grid-template-columns: minmax(0, 1fr) clamp(58px, 19%, 104px);
   gap: 4px;
   min-width: 0;
-  padding: 1px 3px;
+  padding: 0 3px;
   border: 1px solid var(--amp-divider);
   border-radius: var(--radius-s);
   background-color: var(--amp-mixer-face);
@@ -1002,18 +1006,18 @@
 .rhythm-view .rhythm-channel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  grid-template-rows: 28px var(--amp-fader-height) 20px;
-  gap: 2px;
+  grid-template-rows: 24px var(--amp-fader-height) 20px;
+  gap: 1px 2px;
   justify-items: center;
   align-items: center;
   flex: 1 1 0;
   block-size: var(--amp-strip-height);
   min-width: 70px;
-  max-width: 154px;
+  max-width: 180px;
   margin: 0;
   padding-inline: 3px;
   color: var(--amp-muted);
-  font-size: var(--text-xs);
+  font-size: var(--text-s);
   font-weight: 500;
   line-height: 1;
   text-align: center;
@@ -1041,7 +1045,8 @@
   font-weight: 600;
   text-overflow: ellipsis;
   text-wrap: balance;
-  line-height: 14px;
+  line-height: 12px;
+  font-size: var(--text-xs);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -1050,7 +1055,7 @@
 
 .rhythm-view .rhythm-fader-slot::before {
   grid-area: 1 / 1;
-  width: 44px;
+  width: 58px;
   height: calc(var(--amp-fader-height) - var(--amp-cap-height));
   background-color: var(--amp-scale-ink);
   mask: center / 100% 100% no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 100' preserveAspectRatio='none'%3E%3Cpath d='M1 1h14m14 0h14M8 17h7m14 0h7M5 34h10m14 0h10M1 50h14m14 0h14M5 66h10m14 0h10M8 83h7m14 0h7M1 99h14m14 0h14' fill='none' stroke='black' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
@@ -1061,7 +1066,7 @@
 .rhythm-view input.rhythm-fader {
   position: relative;
   grid-area: 1 / 1;
-  width: 48px;
+  width: 60px;
   height: var(--amp-fader-height);
   appearance: none;
   writing-mode: vertical-lr;
@@ -1071,17 +1076,17 @@
 }
 
 .rhythm-view input.rhythm-fader::-webkit-slider-runnable-track {
-  width: 8px;
+  width: 10px;
   border: 1px solid var(--amp-scale-ink);
-  border-radius: 4px;
+  border-radius: 5px;
   background-color: var(--amp-recess);
   box-shadow: inset 1px 0 2px var(--rhythm-control-shadow);
 }
 
 .rhythm-view input.rhythm-fader::-moz-range-track {
-  width: 8px;
+  width: 10px;
   border: 1px solid var(--amp-scale-ink);
-  border-radius: 4px;
+  border-radius: 5px;
   background-color: var(--amp-recess);
   box-shadow: inset 1px 0 2px var(--rhythm-control-shadow);
 }
@@ -1089,7 +1094,7 @@
 .rhythm-view input.rhythm-fader::-webkit-slider-thumb {
   width: var(--amp-cap-width);
   height: var(--amp-cap-height);
-  margin-left: calc((6px - var(--amp-cap-width)) / 2);
+  margin-left: calc((8px - var(--amp-cap-width)) / 2);
   appearance: none;
   border: 0;
   background: var(--rhythm-photo-fader) center / contain no-repeat;
@@ -1108,14 +1113,14 @@
 
 .rhythm-view .rhythm-channel-keys button {
   grid-row: 3;
-  min-width: 19px;
+  min-width: 20px;
   min-height: 20px;
-  padding: 1px 2px;
+  padding: 1px 3px;
   border-color: var(--amp-divider);
   background-color: var(--amp-key);
   box-shadow: none;
   color: var(--amp-ink);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   line-height: 1;
 }
 .rhythm-view .rhythm-channel-keys .rhythm-lane-mute { grid-column: 1; justify-self: end; }
@@ -1280,9 +1285,9 @@
 
 @container (max-width: 705px) {
   .rhythm-view .rhythm-transport {
-    --amp-fader-height: 64px;
-    --amp-cap-width: 35px;
-    --amp-cap-height: 15px;
+    --amp-fader-height: 76px;
+    --amp-cap-width: 46px;
+    --amp-cap-height: 19px;
   }
   .rhythm-view .rhythm-transport-line { grid-template-columns: minmax(95px, 1fr) minmax(130px, 1.3fr) minmax(95px, 1fr); }
   .rhythm-view .rhythm-transport-line > .rhythm-mix-module {
@@ -1324,9 +1329,9 @@
 
 @media (max-height: 740px) {
   .rhythm-view .rhythm-transport {
-    --amp-fader-height: 64px;
-    --amp-cap-width: 35px;
-    --amp-cap-height: 15px;
+    --amp-fader-height: 76px;
+    --amp-cap-width: 46px;
+    --amp-cap-height: 19px;
   }
 }
 
