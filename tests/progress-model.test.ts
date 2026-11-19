@@ -209,7 +209,8 @@ describe('программа обучения в «Прогрессе» (R-028)'
 
   it('этап и линии со счётчиками, шаги в порядке программы', () => {
     const stages = rows(facts());
-    expect(stages).toHaveLength(2);
+    expect(stages).toHaveLength(3);
+    expect(stages[2].lines.map(line => [line.title, line.steps.length])).toEqual([['Техника', 4], ['Гриф', 10], ['Аккорды и линии', 18]]);
     expect(stages[1].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 32');
     expect(stages[1].lines.map(line => [line.title, line.steps.length])).toEqual([['Техника', 6], ['Гриф', 9], ['Аккорды и линии', 17]]);
     expect(stages[0].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 29');

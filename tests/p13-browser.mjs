@@ -1597,6 +1597,23 @@ check('basics-path-opens-step-on-base-tempo-with-rule-and-rated-variant-shows-in
   return { key: entry.result.material.key };
 });
 
+check('basics-path-stage-3-tab-lists-blocks-and-opens-a-step-with-passing-notes', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await lessonTab(page, 'Основы');
+  await home(page).locator('[data-act="path-stage"][data-value="3"]').click();
+  assert.equal(await home(page).locator('.ls-path-head h2').innerText(), 'Этап 3 · Тоны аккорда и свои линии');
+  assert.match(await home(page).locator('.ls-path-head .ls-sub').first().innerText(), /пройдено 0 · пропущено 0 · освоено 0 из 32/);
+  assert.deepEqual(await home(page).locator('.ls-pblock').evaluateAll(blocks => blocks.map(block => block.dataset.block)),
+    ['t3-sixteenths', 't3-spider', 'f3-major', 'f3-minor', 'f3-penta', 'h3-minor', 'h3-diatonic', 'h3-passing', 'h3-blues', 'h3-line']);
+  // Шаг этапа 3 открывается на базовом темпе 60; первый вариант — нижняя позиция с проходящими нотами.
+  await pathStep(page, 'h3-passing.i-iv-v').getByRole('button', { name: /^Играть/ }).click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  assert.equal(await playScene(page).locator('[data-bpm]').inputValue(), '60');
+  assert.match(await playScene(page).innerText(), /проходящими/);
+  assert.match(await playScene(page).locator('[data-rule]').innerText(), /Зачёт шага/);
+  return { stage: 3 };
+});
+
 check('basics-path-already-know-marks-block-persists-and-is-removable', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
   await lessonTab(page, 'Основы');
@@ -1672,8 +1689,8 @@ check('progress-shows-program-status-after-a-lesson-pass-and-reload', 'ui', asyn
   assert.equal(await row.locator('.pg-pstatus').innerText(), 'в работе');
   assert.match(await row.innerText(), /сыграно 1 из 4 · лучший чистый темп 200/);
   assert.equal(await progress.locator('.pg-pstep[data-step-id="h1-roots.eighths"] .pg-pstatus').innerText(), 'не начат');
-  // Два этапа программы, в каждом по три линии.
-  assert.deepEqual(await progress.locator('.pg-pline > summary b').allInnerTexts(), ['Техника', 'Гриф', 'Аккорды и линии', 'Техника', 'Гриф', 'Аккорды и линии']);
+  // Три этапа программы, в каждом по три линии.
+  assert.deepEqual(await progress.locator('.pg-pline > summary b').allInnerTexts(), Array(3).fill(['Техника', 'Гриф', 'Аккорды и линии']).flat());
   return { status: await row.locator('.pg-pstatus').innerText() };
 });
 

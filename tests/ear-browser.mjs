@@ -201,6 +201,31 @@ check('ui-check-ear-answers-locked-until-actual-cue-end-and-first-correct-is-ind
   return { oracle, tiles, record: { id: db.records[0].id, title: db.records[0].result.title, answers }, databaseVersion: db.version };
 });
 
+/** Проверка этапа 3 «Назови ступень по блюзовой гамме A» из «Основ» со слухом: шесть вариантов ответа и запись результата. */
+check('ui-check-ear-blues-scale-from-stage-3-has-six-choices-and-records-the-answer', 'ui', async ({ page }) => {
+  await ready(page);
+  await page.getByRole('tab', { name: /^Основы/ }).click();
+  await page.locator('[data-act="path-stage"][data-value="3"]').click();
+  await page.locator('.ls-pstep[data-step-id="h3-blues.name-degree"]').getByRole('button', { name: /Проверь себя/ }).click();
+  await page.locator('[data-lesson-screen="check"]:not([hidden]) [data-ck-title]').waitFor();
+  await checkHost(page).locator('[data-act="toggle-ear"]').click();
+  await page.waitForFunction(() => document.querySelector('[data-lesson-screen="check"] [data-act="toggle-ear"]')?.getAttribute('aria-pressed') === 'true');
+  await checkHost(page).locator('[data-act="listen"]').waitFor();
+  assert.deepEqual(await choiceLabels(page), ['1', '♭3', '4', '♭5', '5', '♭7']);
+  assert.equal(await checkHost(page).locator('[data-choice="5"]').getAttribute('aria-keyshortcuts'), '6', 'шестой вариант отвечается клавишей 6');
+  const oracle = await fullListen(page);
+  assert.deepEqual(await checkHost(page).locator('[data-choice]').evaluateAll(list => list.map(button => button.getAttribute('aria-keyshortcuts'))), ['1', '2', '3', '4', '5', '6']);
+  await checkHost(page).locator(`[data-choice="${oracle.index}"]`).click();
+  assert.match(await checkHost(page).locator('[data-ck-feedback]').innerText(), /^Верно, с первой попытки\./);
+  await finishEarly(page);
+  const db = await waitCheckRecord(page);
+  const record = db.records[0].result;
+  assert.equal(normalizeDegree(record.answers[0].target), oracle.degree);
+  assert.equal(record.check.ear, true);
+  assert.equal(record.check.version, 'check-v2');
+  return { oracle, check: record.check };
+});
+
 check('ui-check-ear-replay-error-reveal-and-skip-stay-distinct-outcomes', 'ui', async ({ page }) => {
   await openEarCheck(page);
   // 1 — повтор прослушивания не ошибка и не показ.

@@ -31,7 +31,7 @@ describe('данные этапа 2 по таблице R-028', () => {
   const checkOf = (id: string) => { const step = stepOf(id); return step.kind === 'check' ? step.check : null; };
 
   it('этап 2 идёт вторым, этап 1 не тронут', () => {
-    expect(PROGRAM.stages.map(item => item.number)).toEqual([1, 2]);
+    expect(PROGRAM.stages.map(item => item.number).slice(0, 2)).toEqual([1, 2]);
     expect(PROGRAM.stages[1].title).toBe('Паттерны и первая форма');
   });
   it('блоки и шаги по порядку таблицы, число вариантов каждого шага', () => {
