@@ -38,8 +38,8 @@ describe('риффы этапа 2 (B4)', () => {
     return Array.from({ length: timeline.bars }, (_, index) => timeline.steps.filter(step => step.bar === index).map(step => `${step.beatInBar * 4}/${step.grids}${step.note === null ? ':—' : ''}`).join(' '));
   };
 
-  it('каталог: четыре фигуры; риффы без привязки к песне — категория «Риффы», завершения тоникой нет', () => {
-    expect(RIFF_IDS).toEqual(['rock-eighths', 'approach-eighths', 'disco-octaves', 'penta-a']);
+  it('каталог: фигуры этапа 2 входят в список; риффы без привязки к песне — категория «Риффы», завершения тоникой нет', () => {
+    expect(RIFF_IDS).toEqual(expect.arrayContaining(['rock-eighths', 'approach-eighths', 'disco-octaves', 'penta-a']));
     for (const id of RIFF_IDS) expect(riff(id, 'C')).toMatchObject({ category: 'riffs', cadence: 'none', overlap: 'none' });
   });
 
