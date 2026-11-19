@@ -12,6 +12,7 @@ const CONTROL: Record<ExerciseTemplateId, { ids: string; names?: string; degrees
   'position-shift': { ids: 'A:3 A:4 A:5 A:6 A:4 A:5 A:6 A:7 A:5 A:6 A:7 A:8', fingers: '1 2 3 4 1 2 3 4 1 2 3 4', segments: '4 4 4' },
   'note-all-positions': { ids: 'E:8 A:3 D:10 G:5', names: 'C2 C2 C3 C3', degrees: '1 1 1 1', fingers: '- - - -', segments: '4' },
   octaves: { ids: 'E:3 D:5 A:10 G:12', names: 'G1 G2 G2 G3', degrees: '1 1 1 1', fingers: '- - - -', segments: '4' },
+  'interval-from-note': { ids: 'E:8 E:10 A:3 A:5 D:10 D:12 G:5 G:7', names: 'C2 D2 C2 D2 C3 D3 C3 D3', degrees: '1 2 1 2 1 2 1 2', fingers: '1 3 1 3 1 3 1 3', segments: '8' },
   'pentatonic-form': {
     ids: 'E:5 E:8 A:5 A:7 D:5 D:7 G:5 G:7 G:5 D:7 D:5 A:7 A:5 E:8', names: 'A1 C2 D2 E2 G2 A2 C3 D3 C3 A2 G2 E2 D2 C2',
     degrees: '1 b3 4 5 b7 1 b3 4 b3 1 b7 5 4 b3', fingers: '1 4 1 3 1 3 1 3 1 3 1 3 1 4', segments: '14',

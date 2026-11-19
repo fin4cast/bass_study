@@ -95,6 +95,10 @@ function spell(letterIndex: number, pitchClass: number): string {
   return `${letter}${accidental > 0 ? '♯'.repeat(accidental) : '♭'.repeat(-accidental)}`;
 }
 
+/** Название ноты по номеру буквы (C = 0, по кругу) и классу высоты; двойные знаки допустимы (A♭ + малая секунда = B♭♭). */
+export const spellNote = spell;
+export const letterIndex = (letter: string): number => LETTERS.indexOf(letter as (typeof LETTERS)[number]);
+
 /**
  * Написание подхода (B2.3): буква на одну ниже буквы целевой тоники, знак — чтобы получился полутон.
  * К A — G♯, к D — C♯, к C — B, к F — E, к B♭ — A. Подход сверху (тоника на открытой струне, B0.1) — следующая буква с бемолем: к A — B♭, к E — F.

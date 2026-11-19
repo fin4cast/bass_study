@@ -12,7 +12,7 @@ import { degreeFrom, parseChord, type ChordInfo } from '../music/chords';
 import { createSequence, type SequencePattern } from '../training';
 import { TEMPLATE_TASKS, type TemplateTask } from './tasks';
 import { barLayout, isRhythmPatternId, rhythmPattern, RHYTHM_PATTERNS, type RhythmPatternId } from './rhythm';
-import { approachFret, approachName, barTones, chordFamily, lowTonic, openTonic, passingNotes, patternFits, placeTones, toneName, type PassingNote, type Tone, type Tonic } from './bars';
+import { approachFret, approachName, barTones, chordFamily, letterIndex, lowTonic, openTonic, passingNotes, patternFits, placeTones, spellNote, toneName, type PassingNote, type Tone, type Tonic } from './bars';
 
 export { TASK_LINE_MAX, TEMPLATE_TASKS, type TemplateTask } from './tasks';
 
@@ -64,6 +64,11 @@ export const LINE_CHORDS: readonly LineChord[] = ['major-triad', 'minor-triad', 
 export interface LineBar { readonly step: number; readonly chord: LineChord; readonly pattern: ProgressionPattern; readonly rhythm: RhythmPatternId }
 export const LINE_MIN_BARS = 2;
 export const LINE_MAX_BARS = 16;
+/** «Интервал от ноты» (R-028, A8.2): малые и большие секунды, сексты, септимы вверх и вниз; список дополняется без повышения версии. */
+export type IntervalId = 'min2' | 'maj2' | 'min6' | 'maj6' | 'min7' | 'maj7';
+export const INTERVAL_IDS: readonly IntervalId[] = ['min2', 'maj2', 'min6', 'maj6', 'min7', 'maj7'];
+export type IntervalDirection = 'up' | 'down';
+export const INTERVAL_DIRECTIONS: readonly IntervalDirection[] = ['up', 'down'];
 export type PulseNotes = 8 | 16 | 32;
 export const PULSE_NOTES: readonly PulseNotes[] = [8, 16, 32];
 /** Натуральные ноты струны: до 5-го лада у порожка или до 12-го (A6.1). */
@@ -78,6 +83,8 @@ export interface ExerciseParams {
   readonly 'string-crossing': { readonly pattern: CrossingPattern };
   /** Пульс правой рукой на одной ноте (R-028, A5). */
   readonly 'pulse-note': { readonly string: StringId; readonly fret: number; readonly notes: PulseNotes };
+  /** Интервал от ноты: пары «нота — нота интервала» на всех струнах, где форма помещается на ладах 1–12 (A8.2). */
+  readonly 'interval-from-note': { readonly note: string; readonly interval: IntervalId; readonly direction: IntervalDirection };
   /** Круг кварт на струне: двенадцать нот C F B♭ … G на ладах 0–11 (A6.2). */
   readonly 'string-fourths': { readonly string: StringId };
   /** Длинные и короткие ноты: половина прохода звучит полностью, половина — вполовину (A8.1). */
@@ -188,6 +195,7 @@ export const EXERCISE_TEMPLATES: readonly ExerciseTemplate[] = deepFreeze([
   { id: 'string-crossing', category: 'warmup', title: 'Переход между струнами (правая рука)', concepts: ['right-hand'], defaults: { pattern: 'adjacent' } },
   { id: 'pulse-note', category: 'warmup', title: 'Пульс на одной ноте', concepts: ['right-hand'], defaults: { string: 'E', fret: 0, notes: 16 } },
   { id: 'string-fourths', category: 'notes', title: 'Круг кварт на струне', concepts: ['circle-of-fifths', 'semitone'], defaults: { string: 'E' } },
+  { id: 'interval-from-note', category: 'notes', title: 'Интервал от ноты', concepts: ['degrees'], defaults: { note: 'C', interval: 'maj2', direction: 'up' } },
   { id: 'long-short', category: 'warmup', title: 'Длинные и короткие ноты', concepts: ['right-hand'], defaults: { string: 'E', fret: 5 } },
   { id: 'chromatic-shift', category: 'warmup', title: 'Хроматика по позициям', concepts: ['finger-per-fret', 'position-shift', 'semitone'], defaults: { startFret: 5, positions: 3 } },
   { id: 'note-all-positions', category: 'notes', title: 'Одна нота по всему грифу', concepts: ['octave', 'unison'], defaults: { note: 'C' } },
@@ -272,6 +280,7 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
     return { string: oneOf(raw.string, STRINGS, 'Струна'), fret: integer(raw.fret, 0, 12, 'Лад'), notes };
   },
   'string-fourths': raw => ({ string: oneOf(raw.string, STRINGS, 'Струна') }),
+  'interval-from-note': raw => ({ note: noteName(raw.note, 'Нота'), interval: oneOf(raw.interval, INTERVAL_IDS, 'Интервал'), direction: oneOf(raw.direction, INTERVAL_DIRECTIONS, 'Направление') }),
   'long-short': raw => ({ string: oneOf(raw.string, STRINGS, 'Струна'), fret: integer(raw.fret, 0, 12, 'Лад') }),
   'chromatic-shift': raw => {
     const startFret = integer(raw.startFret, 1, 12, 'Первый лад'); const positions = integer(raw.positions, 2, 5, 'Число позиций');
@@ -479,6 +488,16 @@ export function pluckOrder(strings: readonly StringId[], raking: boolean): ('i' 
 type Built = { readonly drafts: readonly Draft[]; readonly segments: readonly string[]; readonly title?: string; readonly overlap?: 'shared' | 'none';
   readonly timing?: readonly { readonly note: number | null; readonly grids: number; readonly tie?: boolean }[]; readonly bars?: readonly BarForms[] };
 
+/** Формы интервалов на квартовом строе (A8.2): смещение по струнам к G и по ладам вверх и вниз. */
+const INTERVAL_FORMS: Readonly<Record<IntervalId, { readonly title: string; readonly number: number; readonly up: { readonly dString: number; readonly dFret: number }; readonly down: { readonly dString: number; readonly dFret: number } }>> = {
+  min2: { title: 'Малая секунда', number: 2, up: { dString: 0, dFret: 1 }, down: { dString: 0, dFret: -1 } },
+  maj2: { title: 'Большая секунда', number: 2, up: { dString: 0, dFret: 2 }, down: { dString: 0, dFret: -2 } },
+  min6: { title: 'Малая секста', number: 6, up: { dString: 1, dFret: 3 }, down: { dString: -1, dFret: -3 } },
+  maj6: { title: 'Большая секста', number: 6, up: { dString: 2, dFret: -1 }, down: { dString: -2, dFret: 1 } },
+  min7: { title: 'Малая септима', number: 7, up: { dString: 2, dFret: 0 }, down: { dString: -2, dFret: 0 } },
+  maj7: { title: 'Большая септима', number: 7, up: { dString: 2, dFret: 1 }, down: { dString: -2, dFret: -1 } },
+};
+
 const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[Id]) => Built } = {
   'chromatic-position': ({ startFret, fingering, direction }) => {
     // Аппликатура 1-2-3-4: четыре лада; 1-2-4: три лада, пальцы 1, 2 и 4 (A7.1). Вниз — те же лады по убыванию, пальцы в обратном порядке.
@@ -507,6 +526,34 @@ const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[I
     })),
     segments: [`Струна ${string} · круг кварт · лады 0–11`], overlap: 'none',
   }),
+  'interval-from-note': ({ note, interval, direction }) => {
+    // A8.2: одна нота и все места грифа на ладах 1–12, где форма интервала помещается; пары по возрастанию высоты исходной ноты.
+    const root = parseNote(note);
+    const structure = createStructure(note, 'major');
+    const form = INTERVAL_FORMS[interval];
+    const { dString, dFret } = form[direction];
+    const sources = STRINGS.flatMap(string => range(1, 12).filter(fret => getPosition(string, fret).pitchClass === root.pitchClass).map(fret => ({ string, fret, midi: getPosition(string, fret).midi })))
+      .sort((a, b) => a.midi - b.midi || stringIndex(a.string) - stringIndex(b.string));
+    const drafts: Draft[] = [];
+    let first: string | null = null;
+    for (const source of sources) {
+      const string = STRINGS[stringIndex(source.string) + dString];
+      const fret = source.fret + dFret;
+      if (!string || fret < 1 || fret > 12) continue;
+      const low = Math.min(source.fret, fret);
+      const target = annotate([[string, fret]], structure)[0];
+      // Буква ноты интервала отстоит от буквы исходной на номер интервала − 1 вверх или вниз; знак — по числу полутонов (допустимы двойные).
+      const name = spellNote(letterIndex(root.letter) + (direction === 'up' ? form.number - 1 : 1 - form.number), target.pitchClass);
+      first ??= name;
+      drafts.push(
+        { position: annotate([[source.string, source.fret]], structure)[0], finger: source.fret - low + 1, segment: 0, degree: '1' },
+        { position: spelled(target, name), finger: fret - low + 1, segment: 0, degree: degreeFrom(note, target.midi) },
+      );
+    }
+    if (!drafts.length) throw new RangeError('Интервал не помещается на ладах 1–12.');
+    const label = `${form.title} ${direction === 'up' ? 'вверх' : 'вниз'}`;
+    return { drafts, segments: [`${label} · ${root.name} → ${first}`], title: `${label} от ${root.name}`, overlap: 'none' };
+  },
   'long-short': ({ string, fret }) => ({
     // A8.1: ноты 0–7 длинные (звучат весь шаг), 8–15 короткие (половина шага); граница совпадает с тактовой чертой в обоих ритмах.
     drafts: Array.from({ length: 16 }, (_, index): Draft => ({
@@ -1174,7 +1221,7 @@ export const TEMPLATE_TARGET_BPM: Readonly<Record<ExerciseTemplateId, number>> =
   'pentatonic-form': 96, 'pentatonic-relative': 92, 'scale-compact': 96, 'blues-scale': 96, 'connect-forms': 92, 'pentatonic-neck': 88,
   'scale-one-string': 88, 'scale-position': 92, 'arpeggio-1358': 96, 'arpeggio-seventh': 92, 'arpeggio-inversion': 88, 'root-five-eight': 100,
   'groups-of-three': 88, thirds: 88, 'form-transpose': 88, 'cycle-fourths': 84, progression: 100, 'song-fragment': 0,
-  'pulse-note': 100, 'chromatic-shift': 96, 'string-naturals': 80, riff: 96, line: 96, 'long-short': 100, 'string-fourths': 80,
+  'pulse-note': 100, 'chromatic-shift': 96, 'string-naturals': 80, riff: 96, line: 96, 'long-short': 100, 'string-fourths': 80, 'interval-from-note': 84,
 });
 /** Цель темпа материала: у фрагмента песни — темп партитуры, у остальных — цель шаблона. */
 export const targetBpmFor = (spec: ExerciseSpec): number => spec.templateId === 'song-fragment' ? spec.params.bpm : TEMPLATE_TARGET_BPM[spec.templateId];
@@ -1245,6 +1292,9 @@ const OPTIONS: { readonly [Id in ExerciseTemplateId]: readonly TemplateOption[] 
     option('direction', 'Направление', DIRECTIONS, direction => (direction === 'up' ? 'вверх' : 'вверх и вниз')),
   ],
   'string-fourths': [option('string', 'Струна', STRINGS)],
+  'interval-from-note': [
+    notes('note', 'Нота'), option('interval', 'Интервал', INTERVAL_IDS, id => INTERVAL_FORMS[id].title.toLowerCase()), option('direction', 'Направление', INTERVAL_DIRECTIONS, direction => (direction === 'up' ? 'вверх' : 'вниз')),
+  ],
   'long-short': [option('string', 'Струна', STRINGS), option('fret', 'Лад', range(0, 12), fret => (fret === 0 ? 'открытая' : String(fret)))],
   'pulse-note': [option('string', 'Струна', STRINGS), option('fret', 'Лад', range(0, 12), fret => (fret === 0 ? 'открытая' : String(fret))), option('notes', 'Нот', PULSE_NOTES)],
   'chromatic-shift': [option('startFret', 'С лада', range(1, 12)), option('positions', 'Позиций', range(2, 5))],
