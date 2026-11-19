@@ -30,25 +30,28 @@ export function todayKey(now: Date = new Date()): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
+/** Шаг, добавленный вручную: без ссылки на программу и без причины места (разминку ставит программа). */
+const isManual = (step: { readonly programStep?: string; readonly role?: string }) => step.programStep === undefined && step.role === undefined;
+
 /**
  * План на сегодня: сохранённый или собранный для нового дня. Новый день собирает программа (`compose`, R-028); из плана
- * прошлого дня переносятся только шаги, добавленные вручную (без `programStep`) и не выполненные. В течение дня план
- * не пересобирается. Всего не больше `MAX_PLAN_STEPS` шагов.
+ * прошлого дня переносятся только шаги, добавленные вручную, и не выполненные: разминка и шаги программы не переносятся.
+ * В течение дня план не пересобирается. Всего не больше `MAX_PLAN_STEPS` шагов.
  */
 export function planForToday(stored: DayPlan | null, today: string, compose: () => readonly NewPlanStep[] = () => []): DayPlan {
   if (stored?.localDate === today) return stored;
-  const carried = stored ? stored.steps.filter(step => step.status !== 'done' && step.programStep === undefined) : [];
+  const carried = stored ? stored.steps.filter(step => step.status !== 'done' && isManual(step)) : [];
   const steps = [...compose(), ...carried.map(({ id, content, minutes }) => ({ id, content, minutes }))].slice(0, MAX_PLAN_STEPS);
   return createPlan(today, steps);
 }
 
 /**
- * План дня после смены отметок «Уже умею»: пока в плане нет выполненных шагов, шаги программы собираются заново,
- * вручную добавленные остаются; после первого выполненного шага план дня не меняется.
+ * План дня после смены отметок «Уже умею» или длины занятия: пока в плане нет выполненных шагов, шаги программы
+ * (с разминкой) собираются заново, вручную добавленные остаются; после первого выполненного шага план дня не меняется.
  */
 export function planAfterSkipChange(stored: DayPlan | null, today: string, compose: () => readonly NewPlanStep[]): DayPlan | null {
   if (!stored || stored.localDate !== today || stored.steps.some(step => step.status === 'done')) return stored;
-  const manual = stored.steps.filter(step => step.programStep === undefined).map(({ id, content, minutes }) => ({ id, content, minutes }));
+  const manual = stored.steps.filter(isManual).map(({ id, content, minutes }) => ({ id, content, minutes }));
   return createPlan(today, [...compose(), ...manual].slice(0, MAX_PLAN_STEPS));
 }
 

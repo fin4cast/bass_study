@@ -7,14 +7,14 @@ import { createExerciseSpec, EXERCISE_TEMPLATES, type ConceptId, type ExerciseCa
 import { builtinLibrary, CATEGORY_ORDER, isPlayed, CATEGORY_TITLES, countByCategory, filterLibrary, userLibrary, type LibraryItem, type UserExercise } from '../../practice/library';
 import {
   addStep, contentExerciseOf, currentStep, doneMinutes, MAX_PLAN_STEPS, plannedMinutes, removeStep, validatePlan,
-  type DayPlan, type PlanStep, type PlanStepContent,
+  type DayPlan, type PlanStep, type PlanStepContent, type PlanStepRole,
 } from '../../practice/plan';
 import { checkExercise, checkId, degreeCheck, type CheckKind, type CheckSpec } from '../../practice/check';
 import { ASSESSMENT_LABELS, exerciseProgress, playedKeys, type Assessment, type PracticeRecord } from '../../practice/results';
 import { DEFAULT_PRACTICE, rhythmPattern, samePractice } from '../../exercises/rhythm';
 import { conceptForExerciseConcept, REFERENCE_CONCEPTS, REFERENCE_LEVELS, type ReferenceConcept, type ReferenceLevel } from '../../practice/concepts';
 import { annotatePositions, getPosition, type StructureId } from '../../music';
-import type { Program, ProgramState } from '../../practice/program';
+import type { Program, ProgramState, SessionMinutes } from '../../practice/program';
 import type { BoardNote } from './mini-board';
 import {
   CHECK_COUNT, CHECK_MINUTES, CONCEPT_LABELS, exercisePlan, exerciseStructure, formatDegree, materialLabel, TEMPLATE_MINUTES,
@@ -34,6 +34,8 @@ export interface LessonState {
   readonly program: Program;
   readonly programState: ProgramState;
   readonly skipped: readonly string[];
+  /** Длина занятия, выбранная на «Сегодня» (R-028, D-052). */
+  readonly sessionMinutes: SessionMinutes;
 }
 export type BasicsView = 'path' | 'knowledge';
 
@@ -150,9 +152,16 @@ export interface StepRow {
   readonly earAvailable: boolean;
   /** Отметка выполненного шага: самооценка игры за дату плана или «выполнено». */
   readonly mark: string | null;
+  /** Причина места словами (R-028, «Пометки»); у текущего шага линии и ручных шагов — `null`. */
+  readonly role: string | null;
   readonly first: boolean;
   readonly last: boolean;
 }
+
+/** Пометка причины места шага плана: закрепление и «пора повторить» — одно слово «повторить». */
+export const ROLE_LABELS: Readonly<Record<PlanStepRole, string | null>> = Object.freeze({
+  warmup: 'разминка', current: null, reinforce: 'повторить', review: 'повторить', variant: 'ещё вариант', ahead: 'дальше', recall: 'вспомнить',
+});
 
 export function planRows(plan: DayPlan, records: readonly PracticeRecord[], userExercises: readonly UserExercise[] = []): readonly StepRow[] {
   const best = new Map(exerciseProgress(records).map(item => [item.exerciseKey, item]));
@@ -168,6 +177,7 @@ export function planRows(plan: DayPlan, records: readonly PracticeRecord[], user
       id: step.id, index, status: step.status, title: stepTitle(step.content, userExercises), meta: `${stepMaterial(step.content)}${tempo}`,
       minutes: step.minutes, check: step.content.kind === 'check', ear: step.content.kind === 'check' ? step.content.spec.ear : null,
       earAvailable: step.content.kind === 'check' && (() => { const material = checkExercise(step.content.spec); return !!material && earSupported(material); })(), mark,
+      role: step.role ? ROLE_LABELS[step.role] : null,
       first: movable[0]?.id === step.id, last: movable.at(-1)?.id === step.id,
     };
   });
@@ -186,12 +196,18 @@ export interface HeroModel {
   readonly stats: readonly { readonly value: string; readonly label: string }[];
 }
 
+/** Шаг занятия «Вспомнить»: ID `r<n>` и шаг программы или разминка (ручные шаги к нему не относятся). */
+const isRecall = (step: PlanStep | null) => !!step && step.id.startsWith('r') && (step.programStep !== undefined || step.role === 'warmup');
+
 export function heroModel(state: Pick<LessonState, 'plan' | 'records' | 'userExercises'> & { readonly firstRun?: boolean }): HeroModel {
   const step = currentStep(state.plan);
   // Первое занятие: план собран программой, ничего не сыграно — одно действие «Начать».
   if (state.firstRun && step?.programStep && state.plan.steps.every(item => item.status !== 'done')) {
-    const titles = state.plan.steps.map(item => stepTitle(item.content, state.userExercises));
-    return { mode: 'first-run', eyebrow: 'Первое занятие', title: 'Занятие 1', meta: `${titles.join(' → ')} · около ${plannedMinutes(state.plan)} мин`,
+    // Первые три разных шага; остальное — числом: длинное занятие иначе не помещается в строку.
+    const titles = [...new Set(state.plan.steps.map(item => stepTitle(item.content, state.userExercises)))];
+    const rest = state.plan.steps.length - 3;
+    const list = `${titles.slice(0, 3).join(' → ')}${rest > 0 ? ` и ещё ${rest} ${rest % 10 === 1 && rest % 100 !== 11 ? 'шаг' : rest % 10 >= 2 && rest % 10 <= 4 && (rest % 100 < 12 || rest % 100 > 14) ? 'шага' : 'шагов'}` : ''}`;
+    return { mode: 'first-run', eyebrow: 'Первое занятие', title: 'Занятие 1', meta: `${list} · около ${plannedMinutes(state.plan)} мин`,
       content: step.content, stepId: step.id, concepts: [], stats: [] };
   }
   let content: PlanStepContent | null = step?.content ?? null;
@@ -208,7 +224,7 @@ export function heroModel(state: Pick<LessonState, 'plan' | 'records' | 'userExe
   if (progress?.bestCleanBpm) stats.push({ value: String(progress.bestCleanBpm), label: 'лучший удобный темп' });
   if (progress) stats.push({ value: String(progress.last.bpm), label: 'темп в прошлый раз' }, { value: ASSESSMENT_LABELS[progress.last.assessment], label: 'твоя отметка' });
   return {
-    mode: 'continue', recall: step?.id.startsWith('r') === true && step.programStep !== undefined, eyebrow: step?.id.startsWith('r') && step.programStep ? `Вспомнить · шаг ${state.plan.steps.indexOf(step) + 1} из ${state.plan.steps.length}` : eyebrow, title: stepTitle(content, state.userExercises), meta: stepMaterial(content),
+    mode: 'continue', recall: isRecall(step), eyebrow: isRecall(step) ? `Вспомнить · шаг ${state.plan.steps.indexOf(step!) + 1} из ${state.plan.steps.length}` : eyebrow, title: stepTitle(content, state.userExercises), meta: stepMaterial(content),
     content, stepId: step && step.content === content ? step.id : null,
     concepts: exercise ? exercisePlan(exercise).concepts.slice(0, 3).map(concept => CONCEPT_LABELS[concept]) : [], stats,
   };

@@ -15,16 +15,21 @@ export type PlanStepContent =
 /** Материал содержимого шага: упражнение или материал проверки по упражнению; у проверки по диапазону — `null`. */
 export const contentExerciseOf = (content: PlanStepContent): ExerciseSpec | null => (content.kind === 'exercise' ? content.spec : checkExercise(content.spec));
 export type PlanStepStatus = 'pending' | 'current' | 'done';
+/** Причина места шага в занятии (R-028, D-052): разминка — без шага программы, остальные — со ссылкой на него. */
+export type PlanStepRole = 'warmup' | 'current' | 'reinforce' | 'review' | 'variant' | 'ahead' | 'recall';
+export const PLAN_STEP_ROLES: readonly PlanStepRole[] = ['warmup', 'current', 'reinforce', 'review', 'variant', 'ahead', 'recall'];
 export interface PlanStep {
   readonly id: string;
   readonly content: PlanStepContent;
   readonly minutes: number;
   readonly status: PlanStepStatus;
-  /** ID шага программы (R-028, `h1-roots.eighths`); у шагов, добавленных из библиотеки вручную, поля нет. */
+  /** ID шага программы (R-028, `h1-roots.eighths`); у шагов, добавленных из библиотеки вручную, и у разминки поля нет. */
   readonly programStep?: string;
+  /** Причина места, которую поставила программа; у шагов, добавленных вручную, поля нет. */
+  readonly role?: PlanStepRole;
 }
 /** Шаг, который принимают `createPlan` и `addStep`: статус назначает план. */
-export type NewPlanStep = { readonly id: string; readonly content: PlanStepContent; readonly minutes: number; readonly programStep?: string };
+export type NewPlanStep = { readonly id: string; readonly content: PlanStepContent; readonly minutes: number; readonly programStep?: string; readonly role?: PlanStepRole };
 export interface DayPlan {
   readonly version: 'plan-v1';
   /** Локальная дата плана YYYY-MM-DD. */
@@ -32,7 +37,7 @@ export interface DayPlan {
   readonly steps: readonly PlanStep[];
 }
 
-export const MAX_PLAN_STEPS = 12;
+export const MAX_PLAN_STEPS = 16;
 const ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 /** ID шага программы: блок и шаг через точку, строчными латиницей, цифрами и дефисом. */
 export const PROGRAM_STEP_ID = /^(?=.{3,64}$)[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -62,15 +67,26 @@ function validateContent(value: unknown): PlanStepContent {
 }
 
 function validateStep(value: unknown): PlanStep {
-  const linked = !!value && typeof value === 'object' && Object.hasOwn(value, 'programStep');
-  const raw = record(value, linked ? ['id', 'content', 'minutes', 'status', 'programStep'] : ['id', 'content', 'minutes', 'status'], 'Шаг плана');
+  const has = (key: string) => !!value && typeof value === 'object' && Object.hasOwn(value, key);
+  const linked = has('programStep');
+  const withRole = has('role');
+  const raw = record(value, ['id', 'content', 'minutes', 'status', ...(linked ? ['programStep'] : []), ...(withRole ? ['role'] : [])], 'Шаг плана');
   if (typeof raw.id !== 'string' || !ID.test(raw.id)) throw new RangeError('Шаг плана: некорректный идентификатор.');
   if (!Number.isInteger(raw.minutes) || (raw.minutes as number) < 1 || (raw.minutes as number) > 60) throw new RangeError('Шаг плана: от 1 до 60 минут.');
   if (raw.status !== 'pending' && raw.status !== 'current' && raw.status !== 'done') throw new RangeError('Шаг плана: неизвестный статус.');
-  const base = { id: raw.id, content: validateContent(raw.content), minutes: raw.minutes as number, status: raw.status as PlanStepStatus };
-  if (!linked) return base;
-  if (typeof raw.programStep !== 'string' || !PROGRAM_STEP_ID.test(raw.programStep)) throw new RangeError('Шаг плана: некорректный ID шага программы.');
-  return { ...base, programStep: raw.programStep };
+  const base: PlanStep = { id: raw.id, content: validateContent(raw.content), minutes: raw.minutes as number, status: raw.status as PlanStepStatus };
+  let step: PlanStep = base;
+  if (linked) {
+    if (typeof raw.programStep !== 'string' || !PROGRAM_STEP_ID.test(raw.programStep)) throw new RangeError('Шаг плана: некорректный ID шага программы.');
+    step = { ...step, programStep: raw.programStep };
+  }
+  if (withRole) {
+    if (typeof raw.role !== 'string' || !PLAN_STEP_ROLES.includes(raw.role as PlanStepRole)) throw new RangeError('Шаг плана: неизвестная причина места.');
+    // Разминка — не шаг программы; остальные причины ставит программа своему шагу.
+    if ((raw.role === 'warmup') === linked) throw new RangeError('Шаг плана: у разминки нет шага программы, у остальных причин он есть.');
+    step = { ...step, role: raw.role as PlanStepRole };
+  }
+  return step;
 }
 
 /** Не больше одного текущего шага; если текущего нет — им становится первый незавершённый. */

@@ -300,6 +300,32 @@ describe('P18-11: «Сегодня» — первое занятие, «Вспо
     expect(hero.eyebrow).toBe('Вспомнить · шаг 1 из 2');
     const normal = heroModel({ plan: createPlan(today, [programStep('d1', 't1-left.quarters')]), records, userExercises: [], firstRun: false });
     expect(normal.recall).toBe(false);
+    // Разминка «Вспомнить» — шаг без программы, но тоже часть занятия после перерыва.
+    const withWarmup = createPlan(today, [{ id: 'r1', content: { kind: 'exercise', spec: createExerciseSpec('chromatic-position') }, minutes: 5, role: 'warmup' }, { ...programStep('r2', 't1-left.quarters'), role: 'recall' }]);
+    expect(heroModel({ plan: withWarmup, records, userExercises: [], firstRun: false }).eyebrow).toBe('Вспомнить · шаг 1 из 2');
+  });
+
+  it('P19: длинное первое занятие — в описании три первых шага и «и ещё N»', () => {
+    const steps = ['t1-left.quarters', 'f1-octave.quarters', 'h1-open.quarters', 't1-left.eighths', 'f1-ea5.naturals'].map((id, index) =>
+      programStep(`d${index + 1}`, id, createExerciseSpec(['chromatic-position', 'octaves', 'progression', 'spider', 'string-naturals'][index] as 'octaves')));
+    const hero = heroModel({ plan: createPlan(today, steps), records: [], userExercises: [], firstRun: true });
+    expect(hero.meta.split(' → ')).toHaveLength(3);
+    expect(hero.meta).toContain('и ещё 2 шага');
+    expect(hero.meta).toContain('около 15 мин');
+  });
+
+  it('P19: строки плана подписывают причину места; у текущего шага линии и ручного шага подписи нет', () => {
+    const spec = createExerciseSpec('chromatic-position');
+    const plan = createPlan(today, [
+      { id: 'd1', content: { kind: 'exercise', spec }, minutes: 5, role: 'warmup' },
+      { ...programStep('d2', 't1-left.quarters'), role: 'current' },
+      { ...programStep('d3', 't1-left.quarters'), role: 'variant' },
+      { ...programStep('d4', 't1-left.eighths'), role: 'ahead' },
+      { ...programStep('d5', 'f1-octave.quarters'), role: 'reinforce' },
+      { ...programStep('d6', 'f1-ea5.naturals'), role: 'review' },
+      { id: 'step-7', content: { kind: 'exercise', spec }, minutes: 3 },
+    ]);
+    expect(planRows(plan, []).map(row => row.role)).toEqual(['разминка', null, 'ещё вариант', 'дальше', 'повторить', 'повторить', null]);
   });
 });
 

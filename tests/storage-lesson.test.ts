@@ -44,7 +44,7 @@ describe('настройки P13: занятие, экран игры, спра�
   it('умолчания и новый стартовый раздел', () => {
     expect(validatePreferences(DEFAULT_PREFERENCES)).toMatchObject({
       activeModule: 'lesson',
-      lesson: { plan: null, tab: 'today', playFrom: null, exerciseSettings: {}, progressTab: 'exercises', progressSource: 'all', basicsView: 'path', skipped: [] },
+      lesson: { plan: null, tab: 'today', playFrom: null, exerciseSettings: {}, progressTab: 'exercises', progressSource: 'all', basicsView: 'path', skipped: [], sessionMinutes: 30 },
       play: { defaultView: 'both', newExerciseView: 'board', countInBars: 1, labels: 'name', bpm: 72, reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6, accompaniment: 'off', accompanimentVolume: 0.5 },
       reference: { mastered: [] },
     });
@@ -54,7 +54,7 @@ describe('настройки P13: занятие, экран игры, спра�
   it('принимает план, «Играть от», виды упражнений и освоенные понятия', () => {
     const plan = createPlan('2026-11-12', [{ id: 'step-1', content: { kind: 'exercise', spec: pentaB }, minutes: 5 }]);
     const value = validatePreferences({ ...clone(DEFAULT_PREFERENCES),
-      lesson: { plan, tab: 'library', playFrom: 'F♯', exerciseSettings: { 'builtin:octaves.G': { view: 'memory', bpm: 80, targetBpm: 96, rhythm: 'quarters', groove: 'shuffle' }, 'user:my-1': { view: 'tab', bpm: null, targetBpm: null, rhythm: 'eighths', groove: null } }, progressTab: 'calendar', progressSource: 'check', basicsView: 'knowledge', skipped: ['t1-left', 'f1-octave'] },
+      lesson: { plan, tab: 'library', playFrom: 'F♯', exerciseSettings: { 'builtin:octaves.G': { view: 'memory', bpm: 80, targetBpm: 96, rhythm: 'quarters', groove: 'shuffle' }, 'user:my-1': { view: 'tab', bpm: null, targetBpm: null, rhythm: 'eighths', groove: null } }, progressTab: 'calendar', progressSource: 'check', basicsView: 'knowledge', skipped: ['t1-left', 'f1-octave'], sessionMinutes: 15 },
       play: { defaultView: 'tab', newExerciseView: null, countInBars: 2, labels: 'finger', bpm: 40, reference: 'off', metronome: 'gap', click: 0, grooveVolume: 1, accompaniment: 'beats', accompanimentVolume: 1 },
       reference: { mastered: REFERENCE_CONCEPTS.slice(0, 3).map(concept => concept.id) } });
     expect(value.lesson.plan).toEqual(plan);
@@ -63,6 +63,8 @@ describe('настройки P13: занятие, экран игры, спра�
     expect(value.play).toMatchObject({ countInBars: 2, reference: 'off', metronome: 'gap', click: 0, grooveVolume: 1, accompaniment: 'beats', accompanimentVolume: 1 });
     expect(value.lesson.basicsView).toBe('knowledge');
     expect(value.lesson.skipped).toEqual(['t1-left', 'f1-octave']);
+    expect(value.lesson.sessionMinutes).toBe(15);
+    expect(DEFAULT_PREFERENCES.lesson.sessionMinutes).toBe(30);
     expect(value.play.newExerciseView).toBeNull();
     expect(Object.isFrozen(value.lesson.exerciseSettings)).toBe(true);
     const many = Object.fromEntries(Array.from({ length: 200 }, (_, index) => [`user:e${index}`, { view: 'board', bpm: null, targetBpm: null, rhythm: 'eighths', groove: null }]));
@@ -95,6 +97,15 @@ describe('настройки P13: занятие, экран игры, спра�
     ['повтор ID блока', (x: any) => { x.lesson.skipped = ['t1-left', 't1-left']; }],
     ['слишком много отметок', (x: any) => { x.lesson.skipped = Array.from({ length: 65 }, (_, index) => `b${index}`); }],
     ['вид «Основ»', (x: any) => { x.lesson.basicsView = 'levels'; }],
+    ['длина занятия не из 15, 30, 45', (x: any) => { x.lesson.sessionMinutes = 20; }],
+    ['длина занятия строкой', (x: any) => { x.lesson.sessionMinutes = '30'; }],
+    ['нет длины занятия', (x: any) => { delete x.lesson.sessionMinutes; }],
+    ['разминка со ссылкой на шаг программы', (x: any) => { x.lesson.plan = { version: 'plan-v1', localDate: '2026-11-12', steps: [
+      { id: 'd1', content: { kind: 'exercise', spec: clone(pentaB) }, minutes: 5, status: 'current', programStep: 't1-left.quarters', role: 'warmup' }] }; }],
+    ['шаг программы с неизвестной причиной', (x: any) => { x.lesson.plan = { version: 'plan-v1', localDate: '2026-11-12', steps: [
+      { id: 'd1', content: { kind: 'exercise', spec: clone(pentaB) }, minutes: 5, status: 'current', programStep: 't1-left.quarters', role: 'bonus' }] }; }],
+    ['причина «ещё вариант» без шага программы', (x: any) => { x.lesson.plan = { version: 'plan-v1', localDate: '2026-11-12', steps: [
+      { id: 'd1', content: { kind: 'exercise', spec: clone(pentaB) }, minutes: 5, status: 'current', role: 'variant' }] }; }],
     ['прежний ключ шаблона', (x: any) => { x.lesson.exerciseSettings = { 'builtin:octaves:G': { view: 'board', bpm: null, targetBpm: null, rhythm: 'eighths', groove: null } }; }],
     ['два текущих шага плана', (x: any) => { x.lesson.plan = { version: 'plan-v1', localDate: '2026-11-12', steps: [
       { id: 'a', content: { kind: 'exercise', spec: clone(pentaB) }, minutes: 3, status: 'current' },

@@ -133,7 +133,7 @@ describe('переход между этапами и «Сегодня»', () =>
   });
   it('«Сегодня» после этапа 1 собирает занятие из шагов этапа 2 с их «как играть»', () => {
     const day = composeDay(PROGRAM, facts({ skippedBlocks: new Set(stage1) }));
-    expect(day.items.map(item => item.step.id)).toEqual(['t2-length.quarters', 'f2-dg.naturals', 'h2-rhythm.eighth-rest']);
+    expect(day.items.filter(item => item.reason === 'current').map(item => item.step.id)).toEqual(['t2-length.quarters', 'f2-dg.naturals', 'h2-rhythm.eighth-rest']);
     expect(day.items.every(item => item.stage === 2)).toBe(true);
   });
   it('счётчики этапа 2: 34 обязательных шага — 8 в технике, 9 в гриф и 17 в аккордах и линиях; песни в счёт не входят', () => {

@@ -19,6 +19,9 @@ const SECTIONS = [
 ];
 /** Первое занятие, собранное программой (R-028): текущие шаги трёх линий этапа 1. */
 const PROGRAM_DAY_ONE = ['Пульс на одной ноте', 'Ноты на струне', 'Игра по последовательности аккордов'];
+/** Занятие 1 при длине 30 минут (R-028): три текущих шага, пять других вариантов и два следующих шага линий. */
+const PROGRAM_DAY_ONE_STEPS = 10;
+const firstDay = db => db.preferences?.lesson?.plan?.steps?.length === PROGRAM_DAY_ONE_STEPS;
 const FIRST_RUN_PLAN = ['Одна нота по всему грифу', 'Октавы: +2 струны, +2 лада', 'Хроматика 1-2-3-4 в позиции'];
 
 async function ready(page) {
@@ -89,7 +92,7 @@ const planTitles = page => home(page).locator('.ls-plan .ls-step-title').allInne
 
 check('library-card-configure-form-b-keeps-form-a-in-plan-and-star-saves-configured-material', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
-  await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'занятие первого дня');
+  await waitDb(page, firstDay, 'занятие первого дня');
   await lessonTab(page, 'Библиотека');
   const card = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: 'Форма пентатоники вверх-вниз', exact: true }) });
   await card.locator('[data-act="toggle-plan"]').click();
@@ -105,7 +108,7 @@ check('library-card-configure-form-b-keeps-form-a-in-plan-and-star-saves-configu
   assert.match(await card.locator('.ls-meta').innerText(), /Em · минорная пентатоника · форма B/);
   assert.equal(await card.locator('[data-act="toggle-plan"]').getAttribute('aria-pressed'), 'false', 'Форма B — другой материал, форма A остаётся в плане');
   await card.locator('[data-act="toggle-plan"]').click();
-  const plan = await waitDb(page, db => db.preferences.lesson.plan.steps.length === 5, 'обе формы в плане');
+  const plan = await waitDb(page, db => db.preferences.lesson.plan.steps.length === PROGRAM_DAY_ONE_STEPS + 2, 'обе формы в плане');
   const shapes = plan.preferences.lesson.plan.steps.filter(step => step.content.spec?.templateId === 'pentatonic-form').map(step => `${step.content.spec.params.root}:${step.content.spec.params.shapeId}`);
   assert.deepEqual(shapes, ['A:penta-a', 'E:penta-b']);
   await card.locator('[data-act="save-start"]').click();
@@ -346,18 +349,22 @@ check('today-first-day-is-composed-by-program-with-one-start-button', 'ui', asyn
   assert.match(hero, /Первое занятие[\s\S]*Занятие 1[\s\S]*Начать[\s\S]*Уже умею: выбрать, с чего начать/i);
   assert.equal(await home(page).locator('.ls-hero [data-act="play"]').count(), 1, 'одна кнопка действия');
   assert.equal(await home(page).locator('.ls-goal-choose, [data-act="goal-start"], [data-act="template"], .ls-recs').count(), 0, 'целей, шаблонов и рекомендаций нет');
-  assert.deepEqual(await planTitles(page), PROGRAM_DAY_ONE);
+  assert.deepEqual((await planTitles(page)).slice(0, 3), PROGRAM_DAY_ONE);
+  assert.equal(await home(page).locator('[data-act="session"][aria-pressed="true"]').innerText(), '30 мин');
+  assert.deepEqual(await home(page).locator('.ls-plan [data-role]').allInnerTexts(), ['ещё вариант', 'ещё вариант', 'ещё вариант', 'ещё вариант', 'ещё вариант', 'дальше', 'дальше']);
   assert.equal((await home(page).locator('[data-stage-line]').innerText()).trim(), 'Этап 1 · пройдено 0 · освоено 0');
-  const db = await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'занятие первого дня');
-  assert.equal(db.version, 16);
-  assert.deepEqual(db.preferences.lesson.plan.steps.map(step => [step.id, step.programStep, step.status]), [
-    ['d1', 't1-pulse.quarters', 'current'], ['d2', 'f1-ea5.naturals', 'pending'], ['d3', 'h1-open.quarters', 'pending'],
+  const db = await waitDb(page, firstDay, 'занятие первого дня');
+  assert.equal(db.version, 17);
+  assert.deepEqual(db.preferences.lesson.plan.steps.slice(0, 3).map(step => [step.id, step.programStep, step.status, step.role]), [
+    ['d1', 't1-pulse.quarters', 'current', 'current'], ['d2', 'f1-ea5.naturals', 'pending', 'current'], ['d3', 'h1-open.quarters', 'pending', 'current'],
   ]);
+  assert.equal(db.preferences.lesson.sessionMinutes, 30);
+  assert.ok(!db.preferences.lesson.plan.steps.some(step => step.role === 'warmup'), 'в первом занятии разминки нет');
   // Занятие 1 по таблице «Путь ученика» (R-028): пульс четвертями на открытой E, ноты струны E до 5-го лада, I–IV–V на открытых струнах в A.
-  assert.deepEqual(db.preferences.lesson.plan.steps.map(step => step.content.spec.params), [
+  assert.deepEqual(db.preferences.lesson.plan.steps.slice(0, 3).map(step => step.content.spec.params), [
     { string: 'E', fret: 0, notes: 16 }, { string: 'E', fretMax: 5 }, { root: 'A', progression: 'I-IV-V', pattern: 'roots', position: 'open' },
   ]);
-  assert.deepEqual(db.preferences.lesson.plan.steps.map(step => step.content.practice.rhythm), ['quarters', 'quarters', 'quarters']);
+  assert.deepEqual(db.preferences.lesson.plan.steps.slice(0, 3).map(step => step.content.practice.rhythm), ['quarters', 'quarters', 'quarters']);
   // «Начать» открывает первый шаг занятия на базовом темпе, без выбора параметров.
   await home(page).locator('[data-key="hero-play"]').click();
   await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
@@ -369,6 +376,33 @@ check('today-first-day-is-composed-by-program-with-one-start-button', 'ui', asyn
   assert.equal(await home(page).getByRole('tab', { name: /^Основы/ }).getAttribute('aria-selected'), 'true');
   await home(page).locator('.ls-pathview').waitFor();
   return { plan: db.preferences.lesson.plan.steps.map(step => step.programStep) };
+});
+
+check('today-session-length-recomposes-plan-before-first-step-and-survives-reload', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await waitDb(page, firstDay, 'занятие первого дня');
+  // 15 минут: план собирается заново, пока ни один шаг не сделан (R-028, «Длина занятия»).
+  await home(page).locator('[data-act="session"][data-value="15"]').click();
+  let db = await waitDb(page, db => db.preferences.lesson.sessionMinutes === 15, 'длина 15 минут');
+  const short = db.preferences.lesson.plan.steps;
+  assert.ok(short.length <= 6 && short.length >= 3, `шагов при 15 минутах: ${short.length}`);
+  assert.deepEqual(short.slice(0, 3).map(step => step.programStep), ['t1-pulse.quarters', 'f1-ea5.naturals', 'h1-open.quarters']);
+  assert.equal(await home(page).locator('[data-act="session"][aria-pressed="true"]').innerText(), '15 мин');
+  await page.reload(); await ready(page);
+  assert.equal(await home(page).locator('[data-act="session"][aria-pressed="true"]').innerText(), '15 мин', 'выбор пережил перезагрузку');
+  assert.equal((await planTitles(page)).length, short.length);
+  // После первого сделанного шага план дня не пересобирается: новая длина — со следующего дня.
+  await home(page).locator('[data-key="hero-play"]').click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  await playOneLoopedPass(page);
+  await page.keyboard.press('KeyZ');
+  await waitDb(page, db => db.preferences.lesson.plan.steps[0].status === 'done', 'первый шаг сделан');
+  await playScene(page).locator('[data-back]').click();
+  await home(page).locator('[data-act="session"][data-value="45"]').click();
+  db = await waitDb(page, db => db.preferences.lesson.sessionMinutes === 45, 'длина 45 минут');
+  assert.deepEqual(db.preferences.lesson.plan.steps.map(step => step.id), short.map(step => step.id), 'план дня не изменился');
+  assert.match(await home(page).locator('.ls-session').innerText(), /со следующего дня/);
+  return { short: short.length };
 });
 
 check('today-start-runs-the-lesson-from-first-to-last-step-without-choosing-parameters', 'ui', async ({ page, origin }) => {
@@ -401,7 +435,7 @@ check('today-next-day-offers-next-variant-and-keeps-manual-steps-and-long-break-
   const card = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: 'Смена позиции по струне', exact: true }) });
   await card.locator('[data-act="toggle-plan"]').click();
   await lessonTab(page, 'Сегодня');
-  await home(page).locator('.ls-plan').getByRole('button', { name: 'Играть: ' + PROGRAM_DAY_ONE[0], exact: true }).click();
+  await home(page).locator('.ls-plan').getByRole('button', { name: 'Играть: ' + PROGRAM_DAY_ONE[0], exact: true }).first().click();
   await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
   await playOneLoopedPass(page);
   await page.keyboard.press('KeyZ');
@@ -411,23 +445,27 @@ check('today-next-day-offers-next-variant-and-keeps-manual-steps-and-long-break-
   await page.clock.setFixedTime(new Date('2026-11-17T10:00:00'));
   await page.reload(); await ready(page);
   let db = await waitDb(page, db => db.preferences.lesson.plan?.localDate === '2026-11-17', 'план нового дня');
-  const first = db.preferences.lesson.plan.steps[0];
+  const [warmup, first] = db.preferences.lesson.plan.steps;
+  assert.deepEqual([warmup.role, warmup.programStep, warmup.minutes], ['warmup', undefined, 5], 'со второго дня занятие начинается с разминки');
+  assert.notEqual(warmup.content.spec.templateId, 'pulse-note', 'разминка не повторяет текущий шаг «Техники»');
   assert.equal(first.programStep, 't1-pulse.quarters');
   assert.equal(first.content.spec.params.string, 'A', 'вариант подставлен: после «Чисто» в первом — второй');
-  assert.deepEqual(db.preferences.lesson.plan.steps.map(step => step.programStep), ['t1-pulse.quarters', 'f1-ea5.naturals', 'h1-open.quarters', undefined]);
+  assert.deepEqual(db.preferences.lesson.plan.steps.slice(1, 4).map(step => step.programStep), ['t1-pulse.quarters', 'f1-ea5.naturals', 'h1-open.quarters']);
+  const manual = db.preferences.lesson.plan.steps.at(-1);
+  assert.deepEqual([manual.programStep, manual.role, manual.content.spec.templateId], [undefined, undefined, 'position-shift'], 'ручной шаг перенесён в конец');
   assert.match((await home(page).locator('.ls-hero').innerText()), /Продолжить/i);
   // Перерыв больше 14 дней: «Вспомнить».
   await page.clock.setFixedTime(new Date('2026-12-20T10:00:00'));
   await page.reload(); await ready(page);
   db = await waitDb(page, db => db.preferences.lesson.plan?.localDate === '2026-12-20', 'план после перерыва');
-  assert.deepEqual(db.preferences.lesson.plan.steps.filter(step => step.programStep).map(step => step.id), ['r1', 'r2', 'r3']);
+  assert.deepEqual(db.preferences.lesson.plan.steps.filter(step => step.role).map(step => [step.id, step.role]), [['r1', 'warmup'], ['r2', 'recall'], ['r3', 'recall'], ['r4', 'recall']]);
   assert.match(await home(page).locator('.ls-hero').innerText(), /Вспомнить/i);
   return { recall: db.preferences.lesson.plan.steps.map(step => step.id) };
 });
 
 check('library-add-to-plan-appears-in-today-and-survives-reload', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
-  await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 3, 'занятие первого дня');
+  await waitDb(page, firstDay, 'занятие первого дня');
   await lessonTab(page, 'Библиотека');
   const title = 'Смена позиции по струне';
   const card = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
@@ -437,10 +475,11 @@ check('library-add-to-plan-appears-in-today-and-survives-reload', 'ui', async ({
   await assertAttribute(card.locator('[data-act="toggle-plan"]'), 'aria-pressed', 'true');
   assert.equal((await card.locator('[data-act="toggle-plan"]').innerText()).trim(), '✓ в плане');
   assert.match(await home(page).locator('[data-toast]').innerText(), new RegExp(`Добавлено в план «Сегодня»: ${title}`));
-  assert.match(await home(page).locator('.ls-planbar').innerText(), new RegExp(`4 шага[\\s\\S]*${title}`));
+  assert.match(await home(page).locator('.ls-planbar').innerText(), new RegExp(`${PROGRAM_DAY_ONE_STEPS + 1} шагов[\\s\\S]*${title}`));
   await lessonTab(page, 'Сегодня');
-  assert.deepEqual(await planTitles(page), [...PROGRAM_DAY_ONE, title]);
-  const db = await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === 4, 'шаг из библиотеки в плане');
+  assert.deepEqual((await planTitles(page)).slice(0, 3), PROGRAM_DAY_ONE);
+  assert.equal((await planTitles(page)).at(-1), title);
+  const db = await waitDb(page, db => db.preferences?.lesson?.plan?.steps?.length === PROGRAM_DAY_ONE_STEPS + 1, 'шаг из библиотеки в плане');
   const added = db.preferences.lesson.plan.steps.at(-1);
   assert.equal(added.content.kind, 'exercise');
   assert.equal(added.status, 'pending');
@@ -448,7 +487,7 @@ check('library-add-to-plan-appears-in-today-and-survives-reload', 'ui', async ({
   await page.reload();
   await ready(page);
   await lessonTab(page, 'Сегодня');
-  assert.deepEqual(await planTitles(page), [...PROGRAM_DAY_ONE, title], 'План после перезагрузки');
+  assert.equal((await planTitles(page)).at(-1), title, 'План после перезагрузки');
   const after = await readDb(page);
   assert.deepEqual(after.preferences.lesson.plan, db.preferences.lesson.plan, 'Перезагрузка не переписывает план');
   return { added: { id: added.id, templateId: added.content.spec.templateId, minutes: added.minutes }, afterReload: await planTitles(page) };
@@ -688,7 +727,7 @@ check('play-right-hand-echo-and-shuffle-groove-on-string-crossing-and-memory-pul
 check('play-chords-panel-disabled-without-chords-and-remembered-with-progression', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
   // Шаг 1 занятия — пульс на открытой струне: аккордов по тактам нет, управление недоступно с пояснением.
-  await home(page).locator('.ls-plan').getByRole('button', { name: 'Играть: ' + PROGRAM_DAY_ONE[0], exact: true }).click();
+  await home(page).locator('.ls-plan').getByRole('button', { name: 'Играть: ' + PROGRAM_DAY_ONE[0], exact: true }).first().click();
   await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
   await playScene(page).locator('[data-panel-toggle]').click();
   const panel = playScene(page).getByRole('group', { name: 'Звук и ритм' });
@@ -697,7 +736,7 @@ check('play-chords-panel-disabled-without-chords-and-remembered-with-progression
   assert.equal(await panel.locator('[data-volume="chords"]').isDisabled(), true);
   await playScene(page).locator('[data-back]').click();
   // Шаг 3 — I–IV–V на открытых струнах: режим выбирается, виден в сводке, запоминается как общая настройка звука.
-  await home(page).locator('.ls-plan').getByRole('button', { name: 'Играть: ' + PROGRAM_DAY_ONE[2], exact: true }).click();
+  await home(page).locator('.ls-plan').getByRole('button', { name: 'Играть: ' + PROGRAM_DAY_ONE[2], exact: true }).first().click();
   await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
   await playScene(page).locator('[data-panel-toggle]').click();
   const chords = playScene(page).getByRole('group', { name: 'Звук и ритм' });

@@ -16,7 +16,7 @@ import { reviewMaterial } from '../ui/check/session';
 import { mountCheck } from '../ui/check/view';
 import { mountLesson } from '../ui/lesson/view';
 import { PROGRAM } from '../practice/program-data';
-import { checkFacts, composeDay, dayPlanSteps, evaluateProgram, lineFacts, playContent, playFacts, stepRefs, stepRuleText, stepStatus, type Block, type PlayStep, type ProgramFacts } from '../practice/program';
+import { checkFacts, composeDay, dayPlanSteps, evaluateProgram, lineFacts, playContent, playFacts, stepRefs, stepRuleText, stepStatus, type Block, type PlayStep, type ProgramFacts, type SessionMinutes } from '../practice/program';
 import { materialId } from '../practice/material';
 import { stepTitle } from '../ui/lesson/model';
 import { createEnginePort, type PlaybackPort } from '../ui/play/port';
@@ -85,7 +85,9 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   const user = () => options.userExercises();
   const lessonPreferences = () => options.preferences().lesson;
   /** План на сегодня: сохранённый или выведенный для нового дня. */
-  const currentPlan = () => planForToday(lessonPreferences().plan, today(), () => dayPlanSteps(composeDay(PROGRAM, programFacts())));
+  /** Шаги программы на сегодня при выбранной длине занятия (R-028, D-052). */
+  const composeSteps = (facts: ProgramFacts = programFacts(), minutes: SessionMinutes = lessonPreferences().sessionMinutes) => dayPlanSteps(composeDay(PROGRAM, facts, { minutes }));
+  const currentPlan = () => planForToday(lessonPreferences().plan, today(), () => composeSteps());
   function savePlan(plan: DayPlan) {
     return options.savePreferences({ lesson: { ...lessonPreferences(), plan } });
   }
@@ -124,8 +126,15 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
       const lesson = lessonPreferences();
       const list = skipped ? [...lesson.skipped.filter(id => id !== blockId), blockId] : lesson.skipped.filter(id => id !== blockId);
       // Отметки меняют текущие шаги линий: невыполненный план дня собирается заново вместе с ними (R-028, «Первый запуск»).
-      const plan = planAfterSkipChange(lesson.plan, today(), () => dayPlanSteps(composeDay(PROGRAM, programFacts(new Set(list)))));
+      const plan = planAfterSkipChange(lesson.plan, today(), () => composeSteps(programFacts(new Set(list))));
       if (!options.savePreferences({ lesson: { ...lesson, skipped: list, plan } })) throw new Error('Отметка не сохранена: эта вкладка сейчас не может записывать.');
+      renderHome();
+    },
+    onSessionMinutes(minutes) {
+      const lesson = lessonPreferences();
+      // До первого сделанного шага план дня собирается заново под новую длину; потом длина действует со следующего дня.
+      const plan = planAfterSkipChange(lesson.plan, today(), () => composeSteps(programFacts(), minutes));
+      if (!options.savePreferences({ lesson: { ...lesson, sessionMinutes: minutes, plan } })) throw new Error('Длина занятия не сохранена: эта вкладка сейчас не может записывать.');
       renderHome();
     },
   });
@@ -179,6 +188,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     return {
       plan: ensurePlan(), records: records(), userExercises: user(), firstRun: records().length === 0, playFrom: prefs.lesson.playFrom, tab: prefs.lesson.tab,
       basicsView: prefs.lesson.basicsView, program: PROGRAM, programState: evaluateProgram(PROGRAM, programFacts()), skipped: prefs.lesson.skipped,
+      sessionMinutes: prefs.lesson.sessionMinutes,
     };
   }
   function renderHome() {

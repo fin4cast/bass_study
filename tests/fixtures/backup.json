@@ -1,6 +1,6 @@
 {
   "format": "bass-study-backup",
-  "schemaVersion": 16,
+  "schemaVersion": 17,
   "preferences": {
     "activeModule": "harmony",
     "lesson": {
@@ -67,7 +67,8 @@
       "progressTab": "exercises",
       "progressSource": "all",
       "basicsView": "path",
-      "skipped": ["t1-left"]
+      "skipped": ["t1-left"],
+      "sessionMinutes": 45
     },
     "play": {
       "defaultView": "both",

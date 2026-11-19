@@ -8,6 +8,7 @@ import './lesson.css';
 import { configureSpec, NOTE_CHOICES, templateOptions, type ExerciseSpec, type TemplateOption } from '../../exercises';
 import { conceptForExerciseConcept, getConcept, conceptBoard, parseConceptText, type ConceptBoard, type ConceptRole } from '../../practice/concepts';
 import { contentExerciseOf, moveStep, plannedMinutes, removeStep, type DayPlan, type PlanStepContent } from '../../practice/plan';
+import { SESSION_MINUTES, type SessionMinutes } from '../../practice/program';
 import { renderPageHeader } from '../../app/page-frame';
 import { bindPageTabs } from '../page-tabs';
 import { escapeHtml as e } from '../html';
@@ -46,6 +47,8 @@ export interface LessonOptions {
   readonly onPlayStep?: (stepId: string, variant: number) => void;
   /** «Уже умею» у блока: включить или снять отметку. */
   readonly onSkipBlock?: (blockId: string, skipped: boolean) => void;
+  /** Длина занятия на «Сегодня» (R-028, D-052). */
+  readonly onSessionMinutes?: (minutes: SessionMinutes) => void;
   readonly state?: LessonState;
 }
 
@@ -212,12 +215,18 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         ${spec ? exerciseBoardMarkup(spec, 700, 28) : ''}`;
     }
 
+    // Длина занятия (R-028): пока ни один шаг не сделан, выбор пересобирает план; потом действует со следующего дня.
+    const started = rows.some(row => row.status === 'done');
+    const sessionMarkup = `<div class="ls-session" role="group" aria-label="Длина занятия">${SESSION_MINUTES.map(minutes =>
+      `<button type="button" class="ls-seg" data-act="session" data-value="${minutes}" data-key="session:${minutes}" aria-pressed="${current.sessionMinutes === minutes}">${minutes} мин</button>`).join('')}
+      ${started ? '<span class="ls-tiny">новая длина — со следующего дня</span>' : ''}</div>`;
     const planMarkup = `<div class="ls-plan-head"><h2>План на сегодня · ${e(total)} мин</h2><span class="ls-sub">${e(rows.length)} ${plural(rows.length, 'шаг', 'шага', 'шагов')}</span></div>
+      ${sessionMarkup}
       ${done ? `<div><div class="ls-meter" aria-hidden="true"><i style="width:${Math.round(done / total * 100)}%"></i></div><span class="ls-tiny">Сыграно ${e(done)} из ${e(total)} мин</span></div>` : ''}
       ${rows.length ? `<ol class="ls-steps">${rows.map(row => `<li class="ls-step is-${row.status}${flashStep === row.id ? ' is-new' : ''}">
         <span class="ls-dot" aria-hidden="true">${row.status === 'done' ? '✓' : row.status === 'current' ? '▶' : e(row.index + 1)}</span>
         <div class="ls-step-body"><div class="ls-step-title">${e(row.title)}</div>
-          <div class="ls-step-meta"><span>${e(row.meta)}</span>${row.status === 'done' ? `<span>· ${e(row.mark ?? 'выполнено')}</span>` : row.status === 'current' ? '<span>· сейчас</span>' : ''}${row.check ? `<button type="button" class="ls-opt" data-act="ear" data-step="${e(row.id)}" data-key="ear:${e(row.id)}" aria-pressed="${row.ear}"${row.earAvailable && row.status !== 'done' ? '' : ' disabled'} title="${row.earAvailable ? 'Опция: сначала прозвучат тоника и нота, потом отвечаешь ступенью' : 'Слух пока только для пентатоник и трезвучий'}">+ слух</button>` : ''}</div></div>
+          <div class="ls-step-meta">${row.role ? `<span class="ls-role" data-role>${e(row.role)}</span>` : ''}<span>${e(row.meta)}</span>${row.status === 'done' ? `<span>· ${e(row.mark ?? 'выполнено')}</span>` : row.status === 'current' ? '<span>· сейчас</span>' : ''}${row.check ? `<button type="button" class="ls-opt" data-act="ear" data-step="${e(row.id)}" data-key="ear:${e(row.id)}" aria-pressed="${row.ear}"${row.earAvailable && row.status !== 'done' ? '' : ' disabled'} title="${row.earAvailable ? 'Опция: сначала прозвучат тоника и нота, потом отвечаешь ступенью' : 'Слух пока только для пентатоник и трезвучий'}">+ слух</button>` : ''}</div></div>
         <div class="ls-step-side"><span class="ls-min">${e(row.minutes)} мин</span>
           ${row.status !== 'done' && !editing ? `<button type="button" class="ls-mini" data-act="play-step" data-step="${e(row.id)}" data-key="play:${e(row.id)}" aria-label="${e(`${row.check ? 'Начать проверку' : 'Играть'}: ${row.title}`)}">▶</button>` : ''}
           ${editing ? `<span class="ls-edit">
@@ -502,6 +511,11 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         }
         case 'toggle-plan': if (content) togglePlan(content); break;
         case 'edit': editing = !editing; render(); break;
+        case 'session': {
+          const minutes = Number(target.dataset.value) as SessionMinutes;
+          if (minutes !== state.sessionMinutes) options.onSessionMinutes?.(minutes);
+          break;
+        }
         case 'edit-today': editing = true; selectTab('today'); render(); container.querySelector<HTMLElement>('[data-key="edit"]')?.focus(); break;
         case 'go-library': selectTab('library'); container.querySelector<HTMLElement>(`#${id}-panel-library`)?.focus({ preventScroll: true }); break;
         case 'go-category': library = { ...DEFAULT_LIBRARY, category: target.dataset.category as LibraryCategory }; selectTab('library'); render(); container.querySelector<HTMLElement>(`[data-key="cat:${library.category}"]`)?.focus(); break;

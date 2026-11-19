@@ -138,7 +138,7 @@ describe('переход между этапами и «Сегодня» (эта
   });
   it('«Сегодня» собирает занятие из шагов этапа 3 с их «как играть»', () => {
     const day = composeDay(PROGRAM, facts({ skippedBlocks: new Set(earlier) }));
-    expect(day.items.map(item => item.step.id)).toEqual(['t3-sixteenths.pulse', 'f3-major.scale', 'h3-minor.i-iv']);
+    expect(day.items.filter(item => item.reason === 'current').map(item => item.step.id)).toEqual(['t3-sixteenths.pulse', 'f3-major.scale', 'h3-minor.i-iv']);
     expect(day.items.every(item => item.stage === 3)).toBe(true);
     const pulse = day.items[0].step;
     expect(pulse.kind === 'play' && pulse.practice.rhythm).toBe('sixteenths');

@@ -13,6 +13,7 @@ import { collectEarResults, createEarQuestionV1, createEarQuestionsV1, isEarQual
 import { exerciseStructure, validateExerciseSpec } from '../exercises';
 import { checkExercise, checkId, validateCheckSpec, type CheckSpec } from '../practice/check';
 import { validatePlan, type DayPlan } from '../practice/plan';
+import { DEFAULT_SESSION_MINUTES, SESSION_MINUTES, type SessionMinutes } from '../practice/program';
 import { validateUserExercise, type UserExercise } from '../practice/library';
 import { materialId } from '../practice/material';
 import { REFERENCE_CONCEPTS } from '../practice/concepts';
@@ -49,6 +50,8 @@ export interface LessonPreferences {
   readonly basicsView: 'path' | 'knowledge';
   /** Блоки программы с отметкой «Уже умею» (ID блоков, R-028). */
   readonly skipped: readonly string[];
+  /** Длина занятия, выбранная на «Сегодня» (R-028, D-052). */
+  readonly sessionMinutes: SessionMinutes;
 }
 /** Что экран игры помнит по упражнению: вид, темп, цель темпа, ритм и подложку. */
 export interface ExerciseSettings {
@@ -133,7 +136,7 @@ export class StudyStorageError extends Error {
 }
 export const MAX_BACKUP_BYTES = 67_108_864;
 /** Version of the IndexedDB schema and the backup format. Raising it starts every older database empty (no migrations). */
-export const STUDY_SCHEMA_VERSION = 16;
+export const STUDY_SCHEMA_VERSION = 17;
 
 const ROOT_IDS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const MODES: readonly QuizMode[] = ['name-note', 'name-degree', 'find-note', 'find-all', 'find-degree', 'find-pitch', 'find-interval'];
@@ -252,7 +255,7 @@ export const DEFAULT_PREFERENCES: AppPreferences = immutable({
   tracks: null, musicBank: null, input: { deviceId: '' },
   rhythm: null,
   activeModule: 'lesson',
-  lesson: { plan: null, tab: 'today', playFrom: null, exerciseSettings: {}, progressTab: 'exercises', progressSource: 'all', basicsView: 'path', skipped: [] },
+  lesson: { plan: null, tab: 'today', playFrom: null, exerciseSettings: {}, progressTab: 'exercises', progressSource: 'all', basicsView: 'path', skipped: [], sessionMinutes: DEFAULT_SESSION_MINUTES },
   play: { defaultView: 'both', newExerciseView: 'board', countInBars: 1, labels: 'name', bpm: 72, reference: 'auto', metronome: 'beats', click: 0.45, grooveVolume: 0.6, accompaniment: 'off', accompanimentVolume: 0.5 },
   reference: { mastered: [] },
   study: { root: 'A', structureId: 'minor-pentatonic', labelMode: 'notes', strings: ['G', 'D', 'A', 'E'], fretMin: 0, fretMax: 12,
@@ -278,7 +281,7 @@ function exerciseKey(value: unknown, label: string): string {
 }
 function exerciseTitle(value: unknown): string { return text(value, 'Название упражнения', 120); }
 function validateLessonPreferences(value: unknown): LessonPreferences {
-  const data = object(value, ['plan', 'tab', 'playFrom', 'exerciseSettings', 'progressTab', 'progressSource', 'basicsView', 'skipped'], 'Настройки занятия');
+  const data = object(value, ['plan', 'tab', 'playFrom', 'exerciseSettings', 'progressTab', 'progressSource', 'basicsView', 'skipped', 'sessionMinutes'], 'Настройки занятия');
   const plan = data.plan === null ? null : rhythmData('План на сегодня', () => validatePlan(data.plan));
   let playFrom: string | null = null;
   if (data.playFrom !== null) {
@@ -293,7 +296,12 @@ function validateLessonPreferences(value: unknown): LessonPreferences {
   return { plan, tab: oneOf(data.tab, ['today', 'library', 'basics'] as const, 'Вкладка занятия'), playFrom, exerciseSettings,
     progressTab: oneOf(data.progressTab, ['exercises', 'calendar'] as const, 'Вкладка прогресса'),
     progressSource: oneOf(data.progressSource, ['play', 'check', 'all'] as const, 'Источник прогресса'),
-    basicsView: oneOf(data.basicsView, ['path', 'knowledge'] as const, 'Вид «Основ»'), skipped: skippedBlocks(data.skipped) };
+    basicsView: oneOf(data.basicsView, ['path', 'knowledge'] as const, 'Вид «Основ»'), skipped: skippedBlocks(data.skipped),
+    sessionMinutes: sessionMinutes(data.sessionMinutes) };
+}
+function sessionMinutes(value: unknown): SessionMinutes {
+  if (!SESSION_MINUTES.includes(value as SessionMinutes)) invalid('Длина занятия: 15, 30 или 45 минут.');
+  return value as SessionMinutes;
 }
 function countInBars(value: unknown): 0 | 1 | 2 {
   if (value !== 0 && value !== 1 && value !== 2) invalid('Отсчёт перед игрой: 0, 1 или 2 такта.');

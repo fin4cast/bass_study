@@ -144,7 +144,9 @@ describe('переход в этап 4 и «Сегодня»', () => {
     // В данных программы у каждой линии этапа есть шаги; правило пустой линии проверяется на программе без блока t4-reach.
     const program = { stages: PROGRAM.stages.map(stage => (stage.number === 4 ? { ...stage, blocks: stage.blocks.filter(block => block.line !== 'technique') } : stage)) };
     const state = evaluateProgram(program, stage3);
-    expect(composeDay(program, stage3).items.map(item => item.step.id)).toEqual(['f4-neck.forms', 'h4-seventh.arpeggio']);
+    const day = composeDay(program, stage3);
+    expect(day.items.filter(item => item.reason === 'current').map(item => item.step.id)).toEqual(['f4-neck.forms', 'h4-seventh.arpeggio']);
+    expect(day.items.some(item => item.block.line === 'technique')).toBe(false);
     const path = pathModel(program, state, new Set(earlier), new Map())[3];
     expect(path.lines[0]).toMatchObject({ id: 'technique', blocks: [], counts: 'шагов нет — место отдаётся закреплению', done: true });
     const overview = programOverview(program, state)[3];

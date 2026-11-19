@@ -341,9 +341,27 @@ describe('P18-11: план нового дня собирает программ
     expect(today.steps.map(step => step.programStep)).toEqual(['t1-left.quarters', 'f1-octave.quarters', undefined]);
   });
 
-  it('в плане не больше 12 шагов', () => {
-    const many = Array.from({ length: 14 }, (_, index) => ({ id: `d${index + 1}`, content: composed[0].content, minutes: 2 }));
-    expect(planForToday(null, TODAY, () => many).steps).toHaveLength(12);
+  it('в плане не больше 16 шагов', () => {
+    const many = Array.from({ length: 18 }, (_, index) => ({ id: `d${index + 1}`, content: composed[0].content, minutes: 2 }));
+    expect(planForToday(null, TODAY, () => many).steps).toHaveLength(16);
+  });
+
+  it('разминка и шаги программы на следующий день не переносятся; ручной шаг переносится', () => {
+    const warmup = { id: 'd1', content: composed[0].content, minutes: 5, role: 'warmup' as const };
+    const program = { id: 'd2', content: composed[0].content, minutes: 2, programStep: 't1-left.quarters', role: 'variant' as const };
+    const manual = { id: 'step-3', content: composed[0].content, minutes: 3 };
+    const yesterday = createPlan('2026-11-15', [warmup, program, manual]);
+    expect(planForToday(yesterday, TODAY).steps.map(step => step.id)).toEqual(['step-3']);
+  });
+
+  it('смена длины до первого сделанного шага пересобирает шаги программы с разминкой, ручные остаются; после — план не меняется', () => {
+    const warmup = { id: 'd0', content: composed[0].content, minutes: 5, role: 'warmup' as const };
+    const manual = { id: 'step-9', content: composed[0].content, minutes: 3 };
+    const stored = createPlan(TODAY, [warmup, ...composed, manual]);
+    const shorter = composed.slice(0, 1);
+    expect(planAfterSkipChange(stored, TODAY, () => shorter)!.steps.map(step => step.id)).toEqual([shorter[0].id, 'step-9']);
+    const started = completeStep(stored, 'd0');
+    expect(planAfterSkipChange(started, TODAY, () => shorter)).toBe(started);
   });
 });
 

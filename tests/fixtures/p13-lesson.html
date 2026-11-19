@@ -74,7 +74,7 @@
       empty: () => ({ plan: createPlan(today), records: demoRecords, userExercises: [], firstRun: false, playFrom: null }),
     };
     const initialTab = ['today', 'library', 'basics'].includes(params.get('tab')) ? params.get('tab') : 'today';
-    const programFields = { basicsView: params.get('view') === 'path' ? 'path' : 'knowledge', program: PROGRAM, skipped: [],
+    const programFields = { basicsView: params.get('view') === 'path' ? 'path' : 'knowledge', program: PROGRAM, skipped: [], sessionMinutes: 30,
       programState: evaluateProgram(PROGRAM, { plays: [], checks: [], lines: [], skippedBlocks: new Set(), today }) };
     let state = { ...demos[demos[params.get('demo')] ? params.get('demo') : 'continue'](), ...programFields, tab: initialTab };
     /** Журнал действий фикстуры: только намерения пользователя, без правильных ответов. */

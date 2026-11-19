@@ -23,9 +23,14 @@ export const MASTERY_DAYS = 2;
 export const REVIEW_DAYS = 14;
 /** Серия проверки пройдена при стольких верных с первой попытки ответах. */
 export const CHECK_PASS = 5;
-/** Занятие добирается закреплением, пока плановое время меньше этого. */
-export const DAY_TARGET_MINUTES = 12;
-export const DAY_MAX_STEPS = 6;
+/** Длина занятия, которую ученик выбирает на «Сегодня» (R-028, D-052). */
+export type SessionMinutes = 15 | 30 | 45;
+export const SESSION_MINUTES: readonly SessionMinutes[] = [15, 30, 45];
+export const DEFAULT_SESSION_MINUTES: SessionMinutes = 30;
+/** Предел числа шагов занятия по его длине. */
+export const SESSION_MAX_STEPS: Readonly<Record<SessionMinutes, number>> = Object.freeze({ 15: 6, 30: 10, 45: 14 });
+/** Плановое время разминки по длине занятия. */
+export const WARMUP_MINUTES: Readonly<Record<SessionMinutes, number>> = Object.freeze({ 15: 3, 30: 5, 45: 5 });
 
 export type LineId = 'technique' | 'fretboard' | 'chords';
 export const LINES: readonly { readonly id: LineId; readonly title: string }[] = Object.freeze([
@@ -360,7 +365,8 @@ export const isDone = (value: Counts) => value.passed + value.skipped >= value.t
 
 /* ---------- Занятие ---------- */
 
-export type DayReason = 'current' | 'reinforce' | 'review' | 'recall';
+/** Причина места шага в занятии (R-028, «Занятие»): `variant` — другой вариант текущего шага, `ahead` — следующий шаг линии. */
+export type DayReason = 'current' | 'reinforce' | 'review' | 'variant' | 'ahead' | 'recall';
 export interface DayItem {
   readonly step: RequiredStep;
   readonly block: Block;
@@ -370,7 +376,16 @@ export interface DayItem {
   readonly minutes: number;
   readonly reason: DayReason;
 }
-export interface DayComposition { readonly mode: 'normal' | 'recall'; readonly items: readonly DayItem[]; readonly minutes: number }
+/** Разминка занятия: материал из пула этапов, не шаг программы. */
+export interface DayWarmup { readonly item: WarmupItem; readonly minutes: number }
+export interface DayComposition {
+  readonly mode: 'normal' | 'recall';
+  readonly warmup: DayWarmup | null;
+  readonly items: readonly DayItem[];
+  /** Плановое время занятия вместе с разминкой. */
+  readonly minutes: number;
+}
+export interface DayOptions { readonly minutes?: SessionMinutes }
 
 /** Плановое время шага: «играть» — такты прохода × 4 с × 3 прохода плюс минута, вверх до минуты, 2–5; проверка — 2; своя линия — 5. */
 export function stepMinutes(step: RequiredStep, variant = 0): number {
@@ -400,18 +415,42 @@ function reinforceVariant(status: StepStatus, count: number): number {
 const variantCount = (step: RequiredStep) => (step.kind === 'play' ? step.variants.length : 1);
 
 /**
- * Состав занятия (R-028): текущие шаги линий в порядке «Техника → Гриф → Аккорды и линии»; вариант — первый без «Чисто».
- * Затем закрепление: шаги «пройден, не освоен», давно не игравшиеся первыми; если таких нет — «пора повторить».
- * Закрепление добавляется, пока время меньше 12 минут, но не больше шести шагов. После перерыва больше 14 дней —
- * «Вспомнить»: последние пройденные шаги линий.
+ * Разминка (R-028, «Занятие»): пул этапов не выше этапа текущего шага «Техники» (без него — все этапы), по кругу по номеру
+ * дня; материал любого варианта текущего шага «Техники» пропускается. Пустой пул — разминки нет.
  */
-export function composeDay(program: Program, facts: ProgramFacts, state: ProgramState = evaluateProgram(program, facts)): DayComposition {
+export function warmupFor(program: Program, state: ProgramState, today: string): WarmupItem | null {
+  const technique = state.current.technique;
+  const limit = technique ? technique.stage : Math.max(...program.stages.map(stage => stage.number));
+  const pool = program.stages.filter(stage => stage.number <= limit).flatMap(stage => stage.warmup ?? []);
+  const skip = new Set(technique?.step.kind === 'play' ? technique.step.variants.map(materialId) : []);
+  for (let offset = 0; offset < pool.length; offset++) {
+    const candidate = pool[(((dayNumber(today) + offset) % pool.length) + pool.length) % pool.length];
+    if (!skip.has(materialId(candidate.spec))) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Состав занятия (R-028, «Занятие»): разминка (кроме первого занятия), затем текущие шаги линий в порядке
+ * «Техника → Гриф → Аккорды и линии» с первым вариантом без «Чисто». Затем, пока время меньше выбранной длины и шагов
+ * меньше предела: закрепление («пройден, не освоен», давно не игравшиеся первыми; если таких нет — «пора повторить»),
+ * другие варианты текущих шагов без «Чисто» по кругу линий, следующий шаг каждой линии. После перерыва больше 14 дней —
+ * «Вспомнить»: разминка и последние пройденные шаги линий.
+ */
+export function composeDay(program: Program, facts: ProgramFacts, options: DayOptions = {}, state: ProgramState = evaluateProgram(program, facts)): DayComposition {
+  const session = options.minutes ?? DEFAULT_SESSION_MINUTES;
+  const limit = SESSION_MAX_STEPS[session];
   const refs = stepRefs(program).filter((ref): ref is StepRef & { step: RequiredStep } => isRequired(ref.step));
   const item = (ref: StepRef & { step: RequiredStep }, variant: number, reason: DayReason): DayItem =>
     ({ step: ref.step, block: ref.block, stage: ref.stage, variant, minutes: stepMinutes(ref.step, variant), reason });
-  const total = (list: readonly DayItem[]) => list.reduce((sum, entry) => sum + entry.minutes, 0);
 
   const dates = [...facts.plays.map(fact => fact.localDate), ...facts.checks.map(fact => fact.localDate), ...facts.lines.map(fact => fact.localDate)];
+  // В первом занятии разминки нет: её материал ещё не знаком.
+  const chosen = dates.length ? warmupFor(program, state, facts.today) : null;
+  const warmup: DayWarmup | null = chosen ? { item: chosen, minutes: WARMUP_MINUTES[session] } : null;
+  const total = (list: readonly DayItem[]) => list.reduce((sum, entry) => sum + entry.minutes, warmup?.minutes ?? 0);
+  const full = (list: readonly DayItem[]) => total(list) >= session || list.length + (warmup ? 1 : 0) >= limit;
+
   const last = latest(dates);
   if (last !== null && daysBetween(last, facts.today) > REVIEW_DAYS) {
     const items: DayItem[] = [];
@@ -427,14 +466,17 @@ export function composeDay(program: Program, facts: ProgramFacts, state: Program
         if (current && isRequired(current.step)) items.push(item(current as StepRef & { step: RequiredStep }, firstUncleanVariant(state.statuses.get(current.step.id)!, variantCount(current.step)), 'recall'));
       }
     }
-    return { mode: 'recall', items, minutes: total(items) };
+    return { mode: 'recall', warmup, items, minutes: total(items) };
   }
 
   const items: DayItem[] = [];
+  const currents: (StepRef & { step: RequiredStep })[] = [];
   for (const line of LINES) {
     const current = state.current[line.id];
     if (!current || !isRequired(current.step)) continue;
-    items.push(item(current as StepRef & { step: RequiredStep }, firstUncleanVariant(state.statuses.get(current.step.id)!, variantCount(current.step)), 'current'));
+    const ref = current as StepRef & { step: RequiredStep };
+    currents.push(ref);
+    items.push(item(ref, firstUncleanVariant(state.statuses.get(ref.step.id)!, variantCount(ref.step)), 'current'));
   }
   const taken = new Set(items.map(entry => entry.step.id));
   const rank = (ref: StepRef, date: string | null) => `${date ?? ''}|${String(ref.index).padStart(6, '0')}`;
@@ -445,24 +487,52 @@ export function composeDay(program: Program, facts: ProgramFacts, state: Program
   const candidates = passed.length ? passed : stale;
   const reason: DayReason = passed.length ? 'reinforce' : 'review';
   for (const ref of candidates) {
-    if (total(items) >= DAY_TARGET_MINUTES || items.length >= DAY_MAX_STEPS) break;
+    if (full(items)) break;
     items.push(item(ref, reinforceVariant(state.statuses.get(ref.step.id)!, variantCount(ref.step)), reason));
   }
-  return { mode: 'normal', items, minutes: total(items) };
+
+  // Ещё вариант: другие варианты текущих шагов без «Чисто», по одному за линию по кругу.
+  const queues = currents.map(ref => {
+    const status = state.statuses.get(ref.step.id)!;
+    const opened = items.find(entry => entry.step === ref.step)!.variant;
+    return { ref, variants: Array.from({ length: variantCount(ref.step) }, (_, index) => index).filter(index => index !== opened && !status.cleanVariants.includes(index)) };
+  });
+  while (!full(items) && queues.some(queue => queue.variants.length)) {
+    for (const queue of queues) {
+      if (full(items)) break;
+      const variant = queue.variants.shift();
+      if (variant !== undefined) items.push(item(queue.ref, variant, 'variant'));
+    }
+  }
+
+  // Дальше: следующие обязательные шаги линий после текущего, ещё не пройденные и не пропущенные, кругами по линиям —
+  // сначала первый следующий шаг каждой линии, затем второй и так далее, пока есть время и место.
+  const open = (candidate: StepRef) => ['new', 'progress'].includes(state.statuses.get(candidate.step.id)!.state);
+  const ahead = currents.map(ref => refs.filter(candidate => candidate.index > ref.index && candidate.block.line === ref.block.line && open(candidate)));
+  for (let round = 0; !full(items) && ahead.some(list => round < list.length); round++) {
+    for (const list of ahead) {
+      if (full(items)) break;
+      const next = list[round];
+      if (next) items.push(item(next, firstUncleanVariant(state.statuses.get(next.step.id)!, variantCount(next.step)), 'ahead'));
+    }
+  }
+  return { mode: 'normal', warmup, items, minutes: total(items) };
 }
 
 /**
  * Занятие как шаги плана дня: упражнение — вариант и «как играть» шага, проверка — описание шага; шаг программы связан с планом
- * через `programStep`. ID шагов: `d<n>` — обычное занятие, `r<n>` — «Вспомнить» после перерыва (по ним экран отличает занятие).
+ * через `programStep`, причина места — `role`. ID шагов: `d<n>` — обычное занятие, `r<n>` — «Вспомнить» после перерыва.
  * «Своя линия» без шаблона в план не попадает.
  */
 export function dayPlanSteps(day: DayComposition): NewPlanStep[] {
   const prefix = day.mode === 'recall' ? 'r' : 'd';
   const steps: NewPlanStep[] = [];
+  // Разминка — первый шаг без ссылки на программу; причина места хранится в `role` (D-052).
+  if (day.warmup) steps.push({ id: `${prefix}1`, content: { kind: 'exercise', spec: day.warmup.item.spec, practice: day.warmup.item.practice }, minutes: day.warmup.minutes, role: 'warmup' });
   for (const item of day.items) {
     const id = `${prefix}${steps.length + 1}`;
-    if (item.step.kind === 'play') steps.push({ id, content: playContent(item.step, item.variant), minutes: item.minutes, programStep: item.step.id });
-    else if (item.step.kind === 'check') steps.push({ id, content: { kind: 'check', spec: item.step.check }, minutes: item.minutes, programStep: item.step.id });
+    if (item.step.kind === 'play') steps.push({ id, content: playContent(item.step, item.variant), minutes: item.minutes, programStep: item.step.id, role: item.reason });
+    else if (item.step.kind === 'check') steps.push({ id, content: { kind: 'check', spec: item.step.check }, minutes: item.minutes, programStep: item.step.id, role: item.reason });
   }
   return steps;
 }
