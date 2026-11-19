@@ -46,15 +46,43 @@ export function barTones(pattern: string, structureId: StructureId): readonly To
   const fifth: Tone = structureId === 'diminished-triad' ? 'b5' : '5';
   const seventh: Tone = structureId === 'major-seventh' ? '7' : 'b7';
   switch (pattern) {
-    case 'roots': case 'roots-approach': return ['1', '1', '1', '1', '1', '1', '1', '1'];
+    // Проходящие (`roots-passing`) стоят в хвосте, ноты формы — тоники (B2.3): тоны аккорда для выбора позиции не нужны.
+    case 'roots': case 'roots-approach': case 'roots-passing': return ['1', '1', '1', '1', '1', '1', '1', '1'];
     case 'root-fifth': return ['1', '1', fifth, fifth, '1', '1', fifth, fifth];
     case 'octaves': return ['1', '8', '1', '8', '1', '8', '1', '8'];
     case 'boogie': return ['1', '3', '5', '6', 'b7', '6', '5', '3'];
     case 'r5b78': return ['1', '1', '5', '5', seventh, seventh, '8', '8'];
     case 'r56': { const sixth: Tone = family === 'major' ? '6' : 'b7'; return ['1', '1', '5', '5', sixth, sixth, '5', '5']; }
     default: // arpeggio, approach
-      return isSeventh(structureId) ? ['1', third, '5', seventh, '8', seventh, '5', third] : ['1', third, '5', third, '1', third, '5', third];
+      return isSeventh(structureId) ? ['1', third, fifth, seventh, '8', seventh, fifth, third] : ['1', third, fifth, third, '1', third, fifth, third];
   }
+}
+
+const SCALE_DEGREES = ['1', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7'] as const;
+const OPEN_MIDI: Readonly<Record<StringId, number>> = { E: 28, A: 33, D: 38, G: 43 };
+
+export interface PassingNote { readonly string: StringId; readonly fret: number; readonly name: string; readonly degree: string }
+
+/**
+ * Проходящие ноты хвоста такта (B2.3, `roots-passing`): до двух нот гаммы строго между тоникой такта и тоникой следующего
+ * такта, в порядке движения; если их больше двух — две последние (ближайшие к следующей тонике). Позиция — на струне
+ * следующей тоники; лад меньше порога (1 в `closed`, 0 в `low`) — на струне E. Ступень — от тоники своего аккорда.
+ * `scale` — ноты гаммы тональности с написанием; пустой список — хвоста нет, такт играется тониками.
+ */
+export function passingNotes(
+  scale: readonly { readonly name: string; readonly pitchClass: number }[], chordRootPitchClass: number,
+  fromMidi: number, toMidi: number, nextTonic: Tonic, low: boolean,
+): PassingNote[] {
+  const lo = Math.min(fromMidi, toMidi), hi = Math.max(fromMidi, toMidi);
+  const between: number[] = [];
+  for (let midi = lo + 1; midi < hi; midi++) if (scale.some(note => note.pitchClass === midi % 12)) between.push(midi);
+  if (toMidi < fromMidi) between.reverse();
+  return between.slice(-2).map(midi => {
+    let string = nextTonic.string, fret = midi - OPEN_MIDI[string];
+    if (fret < (low ? 0 : 1)) { string = 'E'; fret = midi - OPEN_MIDI.E; }
+    if (fret < (low ? 0 : 1) || fret > 24) throw new RangeError('Проходящая нота не помещается на ладах грифа.');
+    return { string, fret, name: scale.find(note => note.pitchClass === midi % 12)!.name, degree: SCALE_DEGREES[(((midi - chordRootPitchClass) % 12) + 12) % 12] };
+  });
 }
 
 const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const;
