@@ -54,8 +54,8 @@ export const FINGERINGS: readonly Fingering[] = ['1234', '124'];
 export const DIRECTIONS: readonly Direction[] = ['up', 'up-down'];
 /** Число нот «Пульса на одной ноте»: 16 — четыре такта четвертями, 8 — «нота — пауза», 32 — два такта шестнадцатыми (A5). */
 /** Риффы (R-028, B4): типовые стилевые фигуры без привязки к песне; список дополняется без повышения версии. */
-export type RiffId = 'rock-eighths' | 'approach-eighths' | 'disco-octaves' | 'penta-a' | 'shift-ab' | 'boogie-12';
-export const RIFF_IDS: readonly RiffId[] = ['rock-eighths', 'approach-eighths', 'disco-octaves', 'penta-a', 'shift-ab', 'boogie-12'];
+export type RiffId = 'rock-eighths' | 'approach-eighths' | 'disco-octaves' | 'penta-a' | 'shift-ab' | 'boogie-12' | 'fourths-cycle' | 'three-forms';
+export const RIFF_IDS: readonly RiffId[] = ['rock-eighths', 'approach-eighths', 'disco-octaves', 'penta-a', 'shift-ab', 'boogie-12', 'fourths-cycle', 'three-forms'];
 /** «Своя линия» (R-028, B5): тональность, лад, позиция и такты — аккорд относительно тоники, рисунок такта и его ритм. */
 export type LineMode = 'major' | 'minor';
 export type LinePosition = 'closed' | 'low';
@@ -1029,6 +1029,8 @@ const eighths = (tone: Tone | 'approach', from: number, count: number): RiffEven
 /** Фигура по аккордам: позиция тоники — `closed` (B0.1), тоны — клетки B0.2 от тоники своего аккорда. `series` — номер такта в серии одинаковых аккордов. */
 interface ChordRiff {
   readonly kind: 'chords'; readonly title: string;
+  /** Подпись такта — имя аккорда без римской цифры («C7»), если у аккордов нет цифр. */
+  readonly plainLabels?: true;
   readonly chords: (root: string) => readonly ChordRef[];
   readonly bar: (index: number, series: number, last: boolean) => readonly RiffEvent[];
 }
@@ -1057,6 +1059,16 @@ export function chordSeries(chords: readonly { readonly root: string; readonly s
 }
 
 const progressionRiff = (progression: ProgressionId) => (root: string) => progressionChordRefs(root, progression);
+/** Четыре доминантсептаккорда по кварте вверх: `root`, затем IV ступень мажора предыдущего (как у `cycle-fourths`). */
+function fourthsCycleChords(root: string): readonly ChordRef[] {
+  const chords: ChordRef[] = [];
+  let name = parseNote(root).name;
+  for (let bar = 0; bar < 4; bar++) {
+    chords.push({ root: name, structureId: 'dominant-seventh', roman: '' });
+    name = createStructure(name, 'major').notes[3].name;
+  }
+  return chords;
+}
 
 /** Фигуры такта по B4: на каждом такте последовательности — своя функция; ритм входит в фигуру. */
 const RIFFS: Readonly<Record<RiffId, RiffFigure>> = {
@@ -1089,6 +1101,21 @@ const RIFFS: Readonly<Record<RiffId, RiffFigure>> = {
       ? [...eighths('1', 0, 2), ...eighths('3', 4, 2), { start: 8, grids: 4, tone: '5' }, { start: 12, grids: 4, tone: null }]
       : (series % 2 === 0 ? (['1', '1', '3', '3', '5', '5', '6', '6'] as const) : (['b7', 'b7', '6', '6', '5', '5', '3', '3'] as const))
         .map((tone, at): RiffEvent => ({ start: at * 2, grids: 2, tone })),
+  },
+  'fourths-cycle': {
+    kind: 'chords', title: 'По кругу кварт', plainLabels: true, chords: fourthsCycleChords,
+    // Длины 3, 1, 2, 2, 4, 2, 2: нечётные события — шаффл недопустим.
+    bar: () => [{ start: 0, grids: 3, tone: '1' }, { start: 3, grids: 1, tone: '1' }, { start: 4, grids: 2, tone: '5' }, { start: 6, grids: 2, tone: 'b7' }, { start: 8, grids: 4, tone: '8' }, { start: 12, grids: 2, tone: 'b7' }, { start: 14, grids: 2, tone: '5' }],
+  },
+  'three-forms': {
+    kind: 'forms', title: 'Через три формы',
+    // Четыре такта i: формы A, B, C и ещё раз C; смена формы — на первой ноте такта.
+    bars: [
+      { form: 'A', events: [fn('E', 0, '1'), fn('E', 3, 'b3'), fn('A', 0, '4'), fn('A', 2, '5'), fn('A', 0, '4'), fn('E', 3, 'b3'), fn('E', 0, '1', 4)] },
+      { form: 'B', events: [fn('A', 2, '5'), fn('A', 5, 'b7'), fn('D', 2, '1'), fn('D', 5, 'b3'), fn('D', 2, '1'), fn('A', 5, 'b7'), fn('A', 2, '5', 4)] },
+      { form: 'C', events: [fn('D', 5, 'b3'), fn('D', 7, '4'), fn('G', 4, '5'), fn('G', 7, 'b7'), fn('G', 4, '5'), fn('D', 7, '4'), fn('D', 5, 'b3', 4)] },
+      { form: 'C', events: [fn('A', 7, '1', 4), fn('D', 5, 'b3'), fn('A', 7, '1'), fn('A', 7, '1', 8)] },
+    ],
   },
   'shift-ab': {
     kind: 'forms', title: 'Переход A→B',
@@ -1136,7 +1163,8 @@ function chordRiffPlan(figure: ChordRiff, root: string): Built {
       timing.push({ note: drafts.length - 1, grids: event.grids });
     }
   });
-  return { drafts, timing, overlap: 'none', title: `Рифф «${figure.title}»`, segments: base.segments };
+  const segments = figure.plainLabels ? chords.map(chord => `${chord.root}${CHORD_SYMBOL[chord.structureId] ?? ''}`) : base.segments;
+  return { drafts, timing, overlap: 'none', title: `Рифф «${figure.title}»`, segments };
 }
 
 /**
