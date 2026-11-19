@@ -2,11 +2,11 @@
  * Данные программы обучения (R-028, D-051): четыре этапа целиком по таблицам R-028; программа появлялась по этапам
  * заходами [P18](../../docs/PLAN.md#p18). Формы хранения после этапа 1 не менялись.
  */
-import { createExerciseSpec, type ExerciseSpec, type IntervalDirection, type IntervalId, type ProgressionId, type ProgressionPattern, type RiffId, type SpiderPattern } from '../exercises';
+import { createExerciseSpec, type ExerciseSpec, type FingerPair, type IntervalDirection, type IntervalId, type ProgressionId, type ProgressionPattern, type RiffId, type SpiderPattern } from '../exercises';
 import { DEFAULT_PRACTICE, type PracticeOptions, type RhythmPatternId } from '../exercises/rhythm';
 import type { CheckSpec } from './check';
 import { PROGRAM_CHECK_COUNT } from './check';
-import type { Block, CheckStep, LineId, LineStep, PlayStep, Program, SongStep, Step } from './program';
+import type { Block, CheckStep, LineId, LineStep, PlayStep, Program, SongStep, Step, WarmupItem } from './program';
 
 const practice = (rhythm: RhythmPatternId, groove: string | null = null): PracticeOptions => Object.freeze({ rhythm, echo: false, groove });
 const QUARTERS = practice('quarters');
@@ -42,7 +42,19 @@ const natural = { type: 'notes', notes: 'natural' } as const;
 const allNotes = { type: 'notes', notes: 'all' } as const;
 const longShort = (string: 'E' | 'A' | 'D') => createExerciseSpec('long-short', { string, fret: 5 });
 const spider = (startFret: number, pattern: SpiderPattern, positions?: number) => createExerciseSpec('spider', positions === undefined ? { startFret, pattern } : { startFret, pattern, positions });
+/** «Паук» по диагонали: по пальцу на струну (часть C). */
+const diagonal = (startFret: number) => createExerciseSpec('spider', { startFret, pattern: '1234', path: 'diagonal' });
 const positionShift = (string: String4) => createExerciseSpec('position-shift', { string });
+/** Смена позиции скачками на 5 ладов с 3-го лада, два скачка (часть C). */
+const jumps = (string: String4) => createExerciseSpec('position-shift', { string, startFret: 3, shifts: 2, jump: 5 });
+/** Переход между струнами с прижатой нотой на 5-м ладу. */
+const fretted = (pattern: 'adjacent' | 'skip') => createExerciseSpec('string-crossing', { pattern, fret: 5 });
+const pairs = (pair: FingerPair) => createExerciseSpec('finger-pairs', { startFret: 5, pair });
+const stretch = (startFret: number) => createExerciseSpec('stretch', { startFret, positions: 3 });
+/** Секвенция группами по гамме от компактной формы. */
+const scaleGroups = (root: string, structureId: 'major' | 'natural-minor', shapeId: 'compact-e' | 'compact-a', group: 3 | 4) =>
+  createExerciseSpec('groups-of-three', { root, structureId, shapeId, group });
+const warm = (spec: ExerciseSpec, how: PracticeOptions = DEFAULT_PRACTICE): WarmupItem => Object.freeze({ spec, practice: how });
 const pentaForm = (root: string, template: 'pentatonic-form' | 'groups-of-three' | 'connect-forms' = 'pentatonic-form', shapeId: 'penta-a' | 'penta-b' = 'penta-a', structureId: 'minor-pentatonic' | 'major-pentatonic' = 'minor-pentatonic') =>
   createExerciseSpec(template, { root, structureId, shapeId });
 const scale = (root: string, structureId: 'major' | 'natural-minor', shapeId: 'compact-e' | 'compact-a', template: 'scale-compact' | 'thirds' = 'scale-compact') => createExerciseSpec(template, { root, structureId, shapeId });
@@ -117,11 +129,13 @@ const STAGE_2: readonly Block[] = [
   block('t2-length', 'Длинные и короткие', 'technique', ['legato-staccato'], [
     play('t2-length.quarters', 'Длинные и короткие ноты четвертями', (['E', 'A', 'D'] as const).map(longShort), QUARTERS),
     play('t2-length.eighths', 'Длинные и короткие ноты восьмыми', (['E', 'A', 'D'] as const).map(longShort)),
+    play('t2-length.fretted', 'Переход между струнами с прижатой нотой восьмыми', [fretted('adjacent'), fretted('skip')]),
   ]),
   block('t2-spider', 'Четыре пальца по грифу', 'technique', [], [
     play('t2-spider.1234', 'Паук 1-2-3-4', [spider(5, '1234'), spider(7, '1234')]),
     play('t2-spider.1324', 'Паук 1-3-2-4', [spider(5, '1324'), spider(7, '1324')]),
     play('t2-spider.1243', 'Паук 1-2-4-3', [spider(5, '1243'), spider(7, '1243')]),
+    play('t2-spider.diagonal', 'Паук по диагонали 1-2-3-4', [diagonal(5), diagonal(7)]),
     play('t2-spider.shift', 'Смена позиции по струне', OPEN_STRINGS.map(positionShift)),
   ]),
   /* ---- Гриф ---- */
@@ -187,19 +201,23 @@ const STAGE_3: readonly Block[] = [
     play('t3-sixteenths.pulse', 'Пульс на одной ноте шестнадцатыми', [pulse('E', 32), pulse('A', 32), pulse('E', 32, 5)], SIXTEENTHS),
     play('t3-sixteenths.chromatic', 'Хроматика в позиции шестнадцатыми', [chromatic(5), chromatic(7)], SIXTEENTHS),
   ]),
-  block('t3-spider', 'Перестановки по грифу', 'technique', [], [
+  block('t3-spider', 'Перестановки по грифу', 'technique', ['finger-independence'], [
     play('t3-spider.1432', 'Паук 1-4-3-2', [spider(5, '1432'), spider(7, '1432')]),
+    play('t3-spider.permutations', 'Паук 2-4-1-3 и 3-1-4-2', [spider(5, '2413'), spider(5, '3142')]),
     play('t3-spider.neck', 'Паук по всему грифу с 1-го лада', [spider(1, '1234', 12), spider(1, '1324', 12)]),
+    play('t3-spider.pairs', 'Пары пальцев 1–3 и 2–4', [pairs('13'), pairs('24')]),
   ]),
   /* ---- Гриф ---- */
   block('f3-major', 'Мажорная гамма', 'fretboard', ['major-formula'], [
     play('f3-major.scale', 'Гамма в одной позиции', [major('C', 'compact-e'), major('G', 'compact-e'), major('D', 'compact-a')]),
     play('f3-major.thirds', 'Терциями по гамме', [major('C', 'compact-e', 'thirds'), major('G', 'compact-e', 'thirds'), major('D', 'compact-a', 'thirds')]),
+    play('f3-major.groups', 'Секвенция группами по три', [scaleGroups('C', 'major', 'compact-e', 3), scaleGroups('G', 'major', 'compact-e', 3), scaleGroups('D', 'major', 'compact-a', 3)]),
     check('f3-major.name-degree', 'Назови ступень по мажорной гамме C', { kind: 'name-degree', area: { type: 'exercise', exercise: major('C', 'compact-e') }, subject: { type: 'degrees', scale: null, targets: null } }),
   ]),
   block('f3-minor', 'Натуральный минор', 'fretboard', ['natural-minor', 'relative-keys'], [
     play('f3-minor.scale', 'Гамма в одной позиции', [minor('A', 'compact-e'), minor('B', 'compact-e'), minor('D', 'compact-a')]),
     play('f3-minor.relative', 'Одни ноты — разные тоники', ['A', 'B'].map(minorRoot => createExerciseSpec('pentatonic-relative', { minorRoot, shapeId: 'penta-a' }))),
+    play('f3-minor.groups', 'Секвенция группами по три', [scaleGroups('A', 'natural-minor', 'compact-e', 3), scaleGroups('B', 'natural-minor', 'compact-e', 3), scaleGroups('D', 'natural-minor', 'compact-a', 3)]),
     check('f3-minor.name-degree', 'Назови ступень: ♭3, ♭6 и ♭7 по гамме A минор', {
       kind: 'name-degree', area: { type: 'exercise', exercise: minor('A', 'compact-e') }, subject: { type: 'degrees', scale: null, targets: ['b3', 'b6', 'b7'] },
     }),
@@ -253,6 +271,12 @@ const intervals = (small: IntervalId, large: IntervalId) => [interval(small, 'up
 const seventh = (root: string, structureId: 'major-seventh' | 'dominant-seventh' | 'minor-seventh' | 'half-diminished-seventh') => createExerciseSpec('arpeggio-seventh', { root, structureId, shapeId: 'compact-e' });
 
 const STAGE_4: readonly Block[] = [
+  /* ---- Техника (P19) ---- */
+  block('t4-reach', 'Растяжка и скачки', 'technique', [], [
+    play('t4-reach.pairs', 'Пары пальцев 1–4 и 3–4', [pairs('14'), pairs('34')]),
+    play('t4-reach.stretch', 'Растяжка тон-тон', [stretch(9), stretch(7)]),
+    play('t4-reach.jumps', 'Смена позиции скачками на 5 ладов', [jumps('E'), jumps('A')]),
+  ]),
   /* ---- Гриф ---- */
   block('f4-neck', 'Пентатоника по грифу', 'fretboard', [], [
     play('f4-neck.forms', 'Формы C, D, E минорной пентатоники', pentaNeckForms(['A', 'B'], ['penta-c', 'penta-d', 'penta-e'])),
@@ -267,6 +291,9 @@ const STAGE_4: readonly Block[] = [
       createExerciseSpec('scale-one-string', { root: 'G', structureId: 'major', string: 'E' }), createExerciseSpec('scale-one-string', { root: 'C', structureId: 'major', string: 'A' }),
       createExerciseSpec('scale-one-string', { root: 'A', structureId: 'natural-minor', string: 'A' }),
     ]),
+    play('f4-positions.two-octaves', 'Гамма в две октавы', [['G', 'major'], ['A', 'natural-minor'], ['C', 'major']].map(([root, structureId]) =>
+      createExerciseSpec('scale-two-octaves', { root, structureId: structureId as 'major' | 'natural-minor' }))),
+    play('f4-positions.neck', 'Гамма по всему грифу', [createExerciseSpec('scale-neck', { root: 'C', structureId: 'major' }), createExerciseSpec('scale-neck', { root: 'A', structureId: 'natural-minor' })]),
     check('f4-positions.name-degree', 'Назови ступень по гамме C мажор в позиции от 2-й ступени', {
       kind: 'name-degree', area: { type: 'exercise', exercise: createExerciseSpec('scale-position', { root: 'C', structureId: 'major', degree: 2 }) }, subject: { type: 'degrees', scale: null, targets: null },
     }),
@@ -281,6 +308,7 @@ const STAGE_4: readonly Block[] = [
   ]),
   block('f4-sequences', 'Секвенции и перенос', 'fretboard', [], [
     play('f4-sequences.groups', 'Группы по три', ['penta-b', 'penta-c'].map(shapeId => createExerciseSpec('groups-of-three', { root: 'A', structureId: 'minor-pentatonic', shapeId: shapeId as 'penta-b' | 'penta-c' }))),
+    play('f4-sequences.groups4', 'Секвенция группами по четыре', [scaleGroups('C', 'major', 'compact-e', 4), scaleGroups('A', 'natural-minor', 'compact-e', 4)]),
     play('f4-sequences.transpose', 'Та же форма от другой тоники', [createExerciseSpec('form-transpose')]),
     play('f4-sequences.cycle', 'Паттерн по квинтовому кругу', ['C', 'G', 'E'].map(root => createExerciseSpec('cycle-fourths', { root }))),
   ]),
@@ -310,11 +338,17 @@ const STAGE_4: readonly Block[] = [
   ]),
 ];
 
+/** Пулы разминки по таблицам этапов R-028: этап добавляет материал к пулам прежних этапов. */
+const WARMUP_1: readonly WarmupItem[] = [warm(chromatic(5), QUARTERS), warm(chromatic(7), QUARTERS), warm(chromatic(9), QUARTERS), warm(crossing('adjacent'))];
+const WARMUP_2: readonly WarmupItem[] = [warm(spider(5, '1234')), warm(diagonal(5)), warm(shift(5))];
+const WARMUP_3: readonly WarmupItem[] = [warm(spider(5, '1324')), warm(spider(5, '2413')), warm(pairs('13')), warm(pairs('24')), warm(fretted('adjacent'))];
+const WARMUP_4: readonly WarmupItem[] = [warm(stretch(7)), warm(jumps('E'))];
+
 export const PROGRAM: Program = Object.freeze({
   stages: Object.freeze([
-    Object.freeze({ number: 1, title: 'Пульс и опора', blocks: Object.freeze(STAGE_1) }),
-    Object.freeze({ number: 2, title: 'Паттерны и первая форма', blocks: Object.freeze(STAGE_2) }),
-    Object.freeze({ number: 3, title: 'Тоны аккорда и свои линии', blocks: Object.freeze(STAGE_3) }),
-    Object.freeze({ number: 4, title: 'Весь гриф', blocks: Object.freeze(STAGE_4) }),
+    Object.freeze({ number: 1, title: 'Пульс и опора', blocks: Object.freeze(STAGE_1), warmup: Object.freeze(WARMUP_1) }),
+    Object.freeze({ number: 2, title: 'Паттерны и первая форма', blocks: Object.freeze(STAGE_2), warmup: Object.freeze(WARMUP_2) }),
+    Object.freeze({ number: 3, title: 'Тоны аккорда и свои линии', blocks: Object.freeze(STAGE_3), warmup: Object.freeze(WARMUP_3) }),
+    Object.freeze({ number: 4, title: 'Весь гриф', blocks: Object.freeze(STAGE_4), warmup: Object.freeze(WARMUP_4) }),
   ]),
 });

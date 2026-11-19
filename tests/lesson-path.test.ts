@@ -22,13 +22,13 @@ describe('путь программы для «Основ»', () => {
     expect(stages[1].lines.map(line => [line.id, line.blocks.map(block => block.id)])).toEqual([
       ['technique', ['t2-length', 't2-spider']], ['fretboard', ['f2-dg', 'f2-all', 'f2-penta']], ['chords', ['h2-rhythm', 'h2-blues', 'h2-approach', 'h2-triad', 'h2-own']],
     ]);
-    expect(stages[1].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 32');
+    expect(stages[1].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 34');
     expect(stages[0].lines.map(line => [line.id, line.blocks.map(block => block.id)])).toEqual([
       ['technique', ['t1-pulse', 't1-crossing', 't1-left']], ['fretboard', ['f1-ea5', 'f1-ea12', 'f1-octave']], ['chords', ['h1-open', 'h1-roots', 'h1-fifth', 'h1-line']],
     ]);
     expect(stages[0].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 29');
-    expect(stages[2].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 32');
-    expect(pathBadge(evaluateProgram(PROGRAM, facts()))).toBe('0/118');
+    expect(stages[2].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 36');
+    expect(pathBadge(evaluateProgram(PROGRAM, facts()))).toBe('0/130');
   });
 
   it('шаг «Своя линия» знает объём конструктора: h1-line — 1, h2-own — 2, h3-line — 3; у прочих шагов объёма нет', () => {

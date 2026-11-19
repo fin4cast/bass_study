@@ -34,7 +34,7 @@ export const LINES: readonly { readonly id: LineId; readonly title: string }[] =
 
 /** Шаблоны, у которых «освоен» считает только проходы в виде «По памяти» (R-028); часть из них появится вместе с шаблонами. */
 export const MEMORY_TEMPLATE_IDS: ReadonlySet<string> = new Set([
-  'pentatonic-form', 'pentatonic-relative', 'scale-compact', 'scale-position', 'blues-scale', 'arpeggio-1358', 'arpeggio-seventh', 'arpeggio-inversion',
+  'pentatonic-form', 'pentatonic-relative', 'scale-compact', 'scale-position', 'scale-two-octaves', 'scale-neck', 'blues-scale', 'arpeggio-1358', 'arpeggio-seventh', 'arpeggio-inversion',
   'note-all-positions', 'octaves', 'string-naturals', 'string-fourths', 'interval-from-note',
 ]);
 
@@ -67,7 +67,10 @@ export interface Block {
   readonly cards: readonly string[];
   readonly steps: readonly Step[];
 }
-export interface Stage { readonly number: number; readonly title: string; readonly blocks: readonly Block[] }
+/** Материал разминки (R-028, «Занятие»): не шаг программы, а кандидат на первое место занятия. */
+export interface WarmupItem { readonly spec: ExerciseSpec; readonly practice: PracticeOptions }
+/** `warmup` — материал, который этап добавляет к пулу разминки прежних этапов; нет — этап ничего не добавляет. */
+export interface Stage { readonly number: number; readonly title: string; readonly blocks: readonly Block[]; readonly warmup?: readonly WarmupItem[] }
 export interface Program { readonly stages: readonly Stage[] }
 
 export interface StepRef { readonly stage: number; readonly block: Block; readonly step: Step; readonly index: number }

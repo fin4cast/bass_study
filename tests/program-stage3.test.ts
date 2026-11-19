@@ -12,9 +12,9 @@ import { rhythmPatternsFor } from '../src/exercises/rhythm';
  */
 const STAGE_3: readonly (readonly [string, string, string, number])[] = [
   ['t3-sixteenths', 't3-sixteenths.pulse', 'play', 3], ['t3-sixteenths', 't3-sixteenths.chromatic', 'play', 2],
-  ['t3-spider', 't3-spider.1432', 'play', 2], ['t3-spider', 't3-spider.neck', 'play', 2],
-  ['f3-major', 'f3-major.scale', 'play', 3], ['f3-major', 'f3-major.thirds', 'play', 3], ['f3-major', 'f3-major.name-degree', 'check', 0],
-  ['f3-minor', 'f3-minor.scale', 'play', 3], ['f3-minor', 'f3-minor.relative', 'play', 2], ['f3-minor', 'f3-minor.name-degree', 'check', 0],
+  ['t3-spider', 't3-spider.1432', 'play', 2], ['t3-spider', 't3-spider.permutations', 'play', 2], ['t3-spider', 't3-spider.neck', 'play', 2], ['t3-spider', 't3-spider.pairs', 'play', 2],
+  ['f3-major', 'f3-major.scale', 'play', 3], ['f3-major', 'f3-major.thirds', 'play', 3], ['f3-major', 'f3-major.groups', 'play', 3], ['f3-major', 'f3-major.name-degree', 'check', 0],
+  ['f3-minor', 'f3-minor.scale', 'play', 3], ['f3-minor', 'f3-minor.relative', 'play', 2], ['f3-minor', 'f3-minor.groups', 'play', 3], ['f3-minor', 'f3-minor.name-degree', 'check', 0],
   ['f3-penta', 'f3-penta.form-b', 'play', 3], ['f3-penta', 'f3-penta.link', 'play', 3], ['f3-penta', 'f3-penta.major', 'play', 2], ['f3-penta', 'f3-penta.find-degree', 'check', 0],
   ['h3-minor', 'h3-minor.i-iv', 'play', 6], ['h3-minor', 'h3-minor.i-v-i', 'play', 6], ['h3-minor', 'h3-minor.i-vii-vi-v', 'play', 6], ['h3-minor', 'h3-minor.arpeggio', 'play', 6],
   ['h3-diatonic', 'h3-diatonic.diatonic', 'play', 4], ['h3-diatonic', 'h3-diatonic.pop1', 'play', 6], ['h3-diatonic', 'h3-diatonic.pop2', 'play', 6], ['h3-diatonic', 'h3-diatonic.roman-root', 'check', 0],
@@ -49,13 +49,18 @@ describe('данные этапа 3 по таблице R-028', () => {
     expect(block('f3-minor').cards).toEqual(['natural-minor', 'relative-keys']);
     expect(block('h3-diatonic').cards).toEqual(['triad']);
     expect(block('h3-blues').cards).toEqual(['blues-scale']);
-    for (const id of ['t3-sixteenths', 't3-spider', 'f3-penta', 'h3-minor', 'h3-passing', 'h3-line']) expect(block(id).cards, `у блока ${id} карточек нет`).toEqual([]);
+    expect(block('t3-spider').cards).toEqual(['finger-independence']);
+    for (const id of ['t3-sixteenths', 'f3-penta', 'h3-minor', 'h3-passing', 'h3-line']) expect(block(id).cards, `у блока ${id} карточек нет`).toEqual([]);
   });
   it('техника: пульс шестнадцатыми на открытых E, A и E/5; паук 1-4-3-2 с 5-го и 7-го лада; паук по всему грифу с 1-го лада на 12 позиций', () => {
     expect(variants('t3-sixteenths.pulse')).toEqual(['pulse-note.E.0.32', 'pulse-note.A.0.32', 'pulse-note.E.5.32']);
     expect(variants('t3-sixteenths.chromatic')).toEqual(['chromatic-position.5.1234.up', 'chromatic-position.7.1234.up']);
     expect(variants('t3-spider.1432')).toEqual(['spider.5.5.1432.straight', 'spider.7.5.1432.straight']);
     expect(variants('t3-spider.neck')).toEqual(['spider.1.12.1234.straight', 'spider.1.12.1324.straight']);
+    expect(variants('t3-spider.permutations')).toEqual(['spider.5.5.2413.straight', 'spider.5.5.3142.straight']);
+    expect(variants('t3-spider.pairs')).toEqual(['finger-pairs.5.13', 'finger-pairs.5.24']);
+    expect(variants('f3-major.groups')).toEqual(['groups-of-three.C.major.compact-e.3', 'groups-of-three.G.major.compact-e.3', 'groups-of-three.D.major.compact-a.3']);
+    expect(variants('f3-minor.groups')).toEqual(['groups-of-three.A.natural-minor.compact-e.3', 'groups-of-three.B.natural-minor.compact-e.3', 'groups-of-three.D.natural-minor.compact-a.3']);
   });
   it('гриф: гаммы C и G от струны E, D от струны A; минор Am, Bm от E, Dm от A; формы B, связки A→B, мажорная форма A', () => {
     expect(variants('f3-major.scale')).toEqual(['scale-compact.C.major.compact-e', 'scale-compact.G.major.compact-e', 'scale-compact.D.major.compact-a']);
@@ -138,14 +143,14 @@ describe('переход между этапами и «Сегодня» (эта
     const pulse = day.items[0].step;
     expect(pulse.kind === 'play' && pulse.practice.rhythm).toBe('sixteenths');
   });
-  it('счётчики этапа 3 по таблице: 4 шага техники, 10 — гриф, 18 — аккорды и линии; песни в счёт не входят', () => {
+  it('счётчики этапа 3 по таблице: 6 шагов техники, 12 — гриф, 18 — аккорды и линии; песни в счёт не входят', () => {
     const state = evaluateProgram(PROGRAM, facts());
     const table = STAGE_3.filter(row => row[2] !== 'song');
     expect(state.stageCounts.get(3)).toMatchObject({ total: table.length, passed: 0 });
     const lineOf = (block: string) => PROGRAM.stages[2].blocks.find(item => item.id === block)!.line;
     expect(['technique', 'fretboard', 'chords'].map(line => state.lineCounts.get(`3:${line}`)!.total)).toEqual(
       ['technique', 'fretboard', 'chords'].map(line => table.filter(row => lineOf(row[0]) === line).length));
-    expect(['technique', 'fretboard', 'chords'].map(line => state.lineCounts.get(`3:${line}`)!.total)).toEqual([4, 10, 18]);
+    expect(['technique', 'fretboard', 'chords'].map(line => state.lineCounts.get(`3:${line}`)!.total)).toEqual([6, 12, 18]);
   });
 });
 

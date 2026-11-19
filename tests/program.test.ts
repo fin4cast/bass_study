@@ -74,7 +74,7 @@ describe('статусы шага «играть» (R-028)', () => {
   });
 
   it('у шаблонов «по памяти» в «освоен» считаются только проходы в этом виде, в «пройден» — любые', () => {
-    expect(MEMORY_TEMPLATE_IDS.size).toBe(13);
+    expect(MEMORY_TEMPLATE_IDS.size).toBe(15);
     const memory = program(block('b', 'fretboard', [playStep('b.mem', [octaves('G'), octaves('A')])]));
     const plays = (view: PlayFact['view']) => [fact(octaves('G'), { view, localDate: day(-1) }), fact(octaves('A'), { view })];
     expect(stateOf(memory, 'b.mem', facts({ plays: plays('both') })).state).toBe('passed');

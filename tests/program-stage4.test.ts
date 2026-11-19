@@ -13,10 +13,12 @@ import { pathModel, stageTransitions } from '../src/ui/lesson/path';
  * от `program-data.ts`; порядок вариантов — тоника снаружи, вторая ось внутри; позиция не названа — нижняя, затем закрытая.
  */
 const STAGE_4: readonly (readonly [string, string, string, number])[] = [
+  ['t4-reach', 't4-reach.pairs', 'play', 2], ['t4-reach', 't4-reach.stretch', 'play', 2], ['t4-reach', 't4-reach.jumps', 'play', 2],
   ['f4-neck', 'f4-neck.forms', 'play', 6], ['f4-neck', 'f4-neck.links', 'play', 8], ['f4-neck', 'f4-neck.neck', 'play', 3], ['f4-neck', 'f4-neck.find-degree', 'check', 0],
-  ['f4-positions', 'f4-positions.position', 'play', 9], ['f4-positions', 'f4-positions.string', 'play', 3], ['f4-positions', 'f4-positions.name-degree', 'check', 0],
+  ['f4-positions', 'f4-positions.position', 'play', 9], ['f4-positions', 'f4-positions.string', 'play', 3],
+  ['f4-positions', 'f4-positions.two-octaves', 'play', 3], ['f4-positions', 'f4-positions.neck', 'play', 2], ['f4-positions', 'f4-positions.name-degree', 'check', 0],
   ['f4-intervals', 'f4-intervals.seconds', 'play', 4], ['f4-intervals', 'f4-intervals.sixths', 'play', 4], ['f4-intervals', 'f4-intervals.sevenths', 'play', 4], ['f4-intervals', 'f4-intervals.find-degree', 'check', 0],
-  ['f4-sequences', 'f4-sequences.groups', 'play', 2], ['f4-sequences', 'f4-sequences.transpose', 'play', 1], ['f4-sequences', 'f4-sequences.cycle', 'play', 3],
+  ['f4-sequences', 'f4-sequences.groups', 'play', 2], ['f4-sequences', 'f4-sequences.groups4', 'play', 2], ['f4-sequences', 'f4-sequences.transpose', 'play', 1], ['f4-sequences', 'f4-sequences.cycle', 'play', 3],
   ['h4-seventh', 'h4-seventh.arpeggio', 'play', 12], ['h4-seventh', 'h4-seventh.inversions', 'play', 6], ['h4-seventh', 'h4-seventh.riff', 'play', 2], ['h4-seventh', 'h4-seventh.name-degree', 'check', 0],
   ['h4-iivi', 'h4-iivi.roots', 'play', 6], ['h4-iivi', 'h4-iivi.arpeggio', 'play', 6], ['h4-iivi', 'h4-iivi.approach', 'play', 6],
   ['h4-walking', 'h4-walking.iivi', 'play', 6], ['h4-walking', 'h4-walking.blues', 'play', 6],
@@ -39,15 +41,15 @@ describe('данные этапа 4 по таблице R-028', () => {
   it('блоки и шаги по порядку таблицы, число вариантов каждого шага', () => {
     expect(stage.map(ref => [ref.block.id, ref.step.id, ref.step.kind, ref.step.kind === 'play' ? ref.step.variants.length : 0])).toEqual(STAGE_4.map(row => [...row]));
   });
-  it('у «Техники» этапа 4 блоков нет; блоки по линиям и карточки из таблицы', () => {
+  it('у «Техники» этапа 4 — блок «Растяжка и скачки» (P19); блоки по линиям и карточки из таблицы', () => {
     const blocks = PROGRAM.stages[3].blocks;
-    expect(blocks.filter(block => block.line === 'technique')).toEqual([]);
+    expect(blocks.filter(block => block.line === 'technique').map(block => block.id)).toEqual(['t4-reach']);
     expect(blocks.filter(block => block.line === 'fretboard').map(block => block.id)).toEqual(['f4-neck', 'f4-positions', 'f4-intervals', 'f4-sequences']);
     expect(blocks.filter(block => block.line === 'chords').map(block => block.id)).toEqual(['h4-seventh', 'h4-iivi', 'h4-walking', 'h4-line']);
     const block = (id: string) => blocks.find(item => item.id === id)!;
     expect(block('f4-intervals').cards).toEqual(['seconds', 'sixths', 'sevenths']);
     expect(block('h4-seventh').cards).toEqual(['seventh-chords', 'inversions']);
-    for (const id of ['f4-neck', 'f4-positions', 'f4-sequences', 'h4-iivi', 'h4-walking', 'h4-line']) expect(block(id).cards, `у блока ${id} карточек нет`).toEqual([]);
+    for (const id of ['t4-reach', 'f4-neck', 'f4-positions', 'f4-sequences', 'h4-iivi', 'h4-walking', 'h4-line']) expect(block(id).cards, `у блока ${id} карточек нет`).toEqual([]);
   });
   it('пентатоника по грифу: формы C, D, E и связки по тоникам Am, затем Bm; по всему грифу Am, Bm, Gm', () => {
     expect(variants('f4-neck.forms')).toEqual(['A', 'B'].flatMap(root => ['penta-c', 'penta-d', 'penta-e'].map(shape => `pentatonic-form.${root}.minor-pentatonic.${shape}`)));
@@ -57,12 +59,20 @@ describe('данные этапа 4 по таблице R-028', () => {
   it('позиции гамм: тональность снаружи, ступень внутри; гамма на струне — G на E, C на A, Am на A', () => {
     expect(variants('f4-positions.position')).toEqual([['C', 'major'], ['A', 'natural-minor'], ['G', 'major']].flatMap(([root, structure]) => [1, 2, 5].map(degree => `scale-position.${root}.${structure}.${degree}`)));
     expect(variants('f4-positions.string')).toEqual(['scale-one-string.G.major.E', 'scale-one-string.C.major.A', 'scale-one-string.A.natural-minor.A']);
+    expect(variants('f4-positions.two-octaves')).toEqual(['scale-two-octaves.G.major', 'scale-two-octaves.A.natural-minor', 'scale-two-octaves.C.major']);
+    expect(variants('f4-positions.neck')).toEqual(['scale-neck.C.major', 'scale-neck.A.natural-minor']);
+  });
+  it('растяжка и скачки (P19): пары 1–4 и 3–4 с 5-го лада; растяжка с 9-го и 7-го лада; скачки на 5 ладов на E и A', () => {
+    expect(variants('t4-reach.pairs')).toEqual(['finger-pairs.5.14', 'finger-pairs.5.34']);
+    expect(variants('t4-reach.stretch')).toEqual(['stretch.9.3', 'stretch.7.3']);
+    expect(variants('t4-reach.jumps')).toEqual(['position-shift.E.3.2.5', 'position-shift.A.3.2.5']);
   });
   it('интервалы от C: малая и большая вверх, затем малая и большая вниз; секвенции и перенос', () => {
     expect(variants('f4-intervals.seconds')).toEqual(['min2.up', 'maj2.up', 'min2.down', 'maj2.down'].map(text => `interval-from-note.C.${text}`));
     expect(variants('f4-intervals.sixths')).toEqual(['min6.up', 'maj6.up', 'min6.down', 'maj6.down'].map(text => `interval-from-note.C.${text}`));
     expect(variants('f4-intervals.sevenths')).toEqual(['min7.up', 'maj7.up', 'min7.down', 'maj7.down'].map(text => `interval-from-note.C.${text}`));
     expect(variants('f4-sequences.groups')).toEqual(['penta-b', 'penta-c'].map(shape => `groups-of-three.A.minor-pentatonic.${shape}.3`));
+    expect(variants('f4-sequences.groups4')).toEqual(['groups-of-three.C.major.compact-e.4', 'groups-of-three.A.natural-minor.compact-e.4']);
     expect(variants('f4-sequences.transpose')).toEqual(['form-transpose.minor-pentatonic.penta-a.A-D-E']);
     expect(variants('f4-sequences.cycle')).toEqual(['C', 'G', 'E'].map(root => `cycle-fourths.${root}.4`));
   });
@@ -119,30 +129,28 @@ describe('переход в этап 4 и «Сегодня»', () => {
   const facts = (over: Partial<ProgramFacts> = {}): ProgramFacts => ({ plays: [], checks: [], lines: [], skippedBlocks: new Set(), today: '2026-11-20', ...over });
   const stage3 = facts({ skippedBlocks: new Set(earlier) });
 
-  it('после этапов 1–3 текущие шаги — у «Грифа» и «Аккордов и линий»; у «Техники» шага нет', () => {
+  it('после этапов 1–3 текущие шаги — у всех трёх линий этапа 4', () => {
     const current = evaluateProgram(PROGRAM, stage3).current;
-    expect([current.technique?.step.id ?? null, current.fretboard?.step.id, current.chords?.step.id]).toEqual([null, 'f4-neck.forms', 'h4-seventh.arpeggio']);
+    expect([current.technique?.step.id, current.fretboard?.step.id, current.chords?.step.id]).toEqual(['t4-reach.pairs', 'f4-neck.forms', 'h4-seventh.arpeggio']);
   });
-  it('«Сегодня» собирает занятие из двух шагов; место «Техники» отдано закреплению, а кандидатов нет', () => {
-    const day = composeDay(PROGRAM, stage3);
-    expect(day.items.map(item => item.step.id)).toEqual(['f4-neck.forms', 'h4-seventh.arpeggio']);
-    expect(day.items.every(item => item.stage === 4)).toBe(true);
-  });
-  it('счётчики этапа 4 по таблице: 0 шагов техники, 14 — гриф, 11 — аккорды и линии; песни в счёт не входят', () => {
+  it('счётчики этапа 4 по таблице: 3 шага техники, 17 — гриф, 11 — аккорды и линии; песни в счёт не входят', () => {
     const state = evaluateProgram(PROGRAM, facts());
     const table = STAGE_4.filter(row => row[2] !== 'song');
     expect(state.stageCounts.get(4)).toMatchObject({ total: table.length, passed: 0 });
-    expect(['technique', 'fretboard', 'chords'].map(line => state.lineCounts.get(`4:${line}`)!.total)).toEqual([0, 14, 11]);
-    expect(table).toHaveLength(25);
+    expect(['technique', 'fretboard', 'chords'].map(line => state.lineCounts.get(`4:${line}`)!.total)).toEqual([3, 17, 11]);
+    expect(table).toHaveLength(31);
   });
   it('линия без шагов в «Основах» и в «Прогрессе»: «шагов нет — место отдаётся закреплению», она пройдена; сообщений о переходе — две', () => {
-    const state = evaluateProgram(PROGRAM, stage3);
-    const path = pathModel(PROGRAM, state, new Set(earlier), new Map())[3];
+    // В данных программы у каждой линии этапа есть шаги; правило пустой линии проверяется на программе без блока t4-reach.
+    const program = { stages: PROGRAM.stages.map(stage => (stage.number === 4 ? { ...stage, blocks: stage.blocks.filter(block => block.line !== 'technique') } : stage)) };
+    const state = evaluateProgram(program, stage3);
+    expect(composeDay(program, stage3).items.map(item => item.step.id)).toEqual(['f4-neck.forms', 'h4-seventh.arpeggio']);
+    const path = pathModel(program, state, new Set(earlier), new Map())[3];
     expect(path.lines[0]).toMatchObject({ id: 'technique', blocks: [], counts: 'шагов нет — место отдаётся закреплению', done: true });
-    const overview = programOverview(PROGRAM, state)[3];
+    const overview = programOverview(program, state)[3];
     expect(overview.lines[0]).toMatchObject({ id: 'technique', steps: [], counts: 'шагов нет — место отдаётся закреплению' });
     expect(lineCountsLabel({ passed: 0, skipped: 0, mastered: 0, review: 0, total: 0 })).toBe('шагов нет — место отдаётся закреплению');
-    const lines = stageTransitions(PROGRAM, state);
+    const lines = stageTransitions(program, state);
     expect(lines).toHaveLength(2);
     expect(lines.every(line => line.includes('теперь этап 4'))).toBe(true);
   });

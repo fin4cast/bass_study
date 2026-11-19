@@ -11,8 +11,8 @@ import type { PlayRecord } from '../src/practice/results';
  * независимо от `program-data.ts`; позиция последовательности не названа — тональность в нижней позиции, затем в закрытой.
  */
 const STAGE_2: readonly (readonly [string, string, string, number])[] = [
-  ['t2-length', 't2-length.quarters', 'play', 3], ['t2-length', 't2-length.eighths', 'play', 3],
-  ['t2-spider', 't2-spider.1234', 'play', 2], ['t2-spider', 't2-spider.1324', 'play', 2], ['t2-spider', 't2-spider.1243', 'play', 2], ['t2-spider', 't2-spider.shift', 'play', 4],
+  ['t2-length', 't2-length.quarters', 'play', 3], ['t2-length', 't2-length.eighths', 'play', 3], ['t2-length', 't2-length.fretted', 'play', 2],
+  ['t2-spider', 't2-spider.1234', 'play', 2], ['t2-spider', 't2-spider.1324', 'play', 2], ['t2-spider', 't2-spider.1243', 'play', 2], ['t2-spider', 't2-spider.diagonal', 'play', 2], ['t2-spider', 't2-spider.shift', 'play', 4],
   ['f2-dg', 'f2-dg.naturals', 'play', 2], ['f2-dg', 'f2-dg.name-note', 'check', 0],
   ['f2-all', 'f2-all.note', 'play', 6], ['f2-all', 'f2-all.fourths', 'play', 2], ['f2-all', 'f2-all.find-all', 'check', 0], ['f2-all', 'f2-all.name-note', 'check', 0],
   ['f2-penta', 'f2-penta.form', 'play', 3], ['f2-penta', 'f2-penta.groups', 'play', 3], ['f2-penta', 'f2-penta.find-degree', 'check', 0],
@@ -52,6 +52,8 @@ describe('данные этапа 2 по таблице R-028', () => {
   it('варианты в порядке таблицы: струны E, A, D; пауки с 5-го и 7-го лада; D и G; круг кварт на E и A; формы A в Am, Bm, Gm; риффы', () => {
     expect(variants('t2-length.quarters')).toEqual(['E', 'A', 'D'].map(string => `long-short.${string}.5`));
     expect(variants('t2-spider.1324')).toEqual(['spider.5.5.1324.straight', 'spider.7.5.1324.straight']);
+    expect(variants('t2-spider.diagonal')).toEqual(['spider.5.5.1234.diagonal', 'spider.7.5.1234.diagonal']);
+    expect(variants('t2-length.fretted')).toEqual(['string-crossing.adjacent.5', 'string-crossing.skip.5']);
     expect(variants('t2-spider.shift')).toEqual(['E', 'A', 'D', 'G'].map(string => `position-shift.${string}.3.2.1`));
     expect(variants('f2-dg.naturals')).toEqual(['string-naturals.D.12', 'string-naturals.G.12']);
     expect(variants('f2-all.note')).toEqual(['C', 'G', 'D', 'A', 'F', 'Bb'].map(note => `note-all-positions.${note}`));
@@ -134,9 +136,9 @@ describe('переход между этапами и «Сегодня»', () =>
     expect(day.items.map(item => item.step.id)).toEqual(['t2-length.quarters', 'f2-dg.naturals', 'h2-rhythm.eighth-rest']);
     expect(day.items.every(item => item.stage === 2)).toBe(true);
   });
-  it('счётчики этапа 2: 32 обязательных шага — 6 в технике, 9 в гриф и 17 в аккордах и линиях; песни в счёт не входят', () => {
+  it('счётчики этапа 2: 34 обязательных шага — 8 в технике, 9 в гриф и 17 в аккордах и линиях; песни в счёт не входят', () => {
     const state = evaluateProgram(PROGRAM, facts());
-    expect(state.stageCounts.get(2)).toMatchObject({ total: 32, passed: 0 });
-    expect(['technique', 'fretboard', 'chords'].map(line => state.lineCounts.get(`2:${line}`)!.total)).toEqual([6, 9, 17]);
+    expect(state.stageCounts.get(2)).toMatchObject({ total: 34, passed: 0 });
+    expect(['technique', 'fretboard', 'chords'].map(line => state.lineCounts.get(`2:${line}`)!.total)).toEqual([8, 9, 17]);
   });
 });
