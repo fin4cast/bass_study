@@ -337,7 +337,7 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     const scopeToggle = scopeApplies(settings.kind) && !material.review && !material.series ? `<button type="button" class="ck-toggle" data-act="toggle-scope" data-key="toggle-scope" aria-pressed="${settings.scope === 'chromatic'}"${fresh ? '' : ' disabled'} title="${e(fresh ? 'Все ноты участка формы, а не только ноты структуры' : 'Ноты меняются до первого ответа серии или после итога')}">◫ Все ноты участка</button>` : '';
     return `<div class="ck-progress"><strong>${summary ? `Итог · ${e(list.length)} из ${e(list.length)}` : `Вопрос ${e(index + 1)} из ${e(questionCount(run))}`}</strong>${dotsMarkup(list, summary ? null : index)}</div>
       <div class="ck-tools">${kindSelect}${intervalSelect}${scopeToggle}
-        ${summary ? '' : `${degreeKind ? `<button type="button" class="ck-toggle" data-act="toggle-ear" data-key="toggle-ear" aria-pressed="${earOn}"${canToggleEar ? '' : ' disabled'} title="${e(!material.earQuality ? 'Слух пока только для пентатоник и трезвучий' : canToggleEar ? 'Слух — опция вопроса: сначала тоника, потом нота' : 'Слух меняется до первого ответа серии')}">♪ <b>+ слух</b></button>` : ''}
+        ${summary ? '' : `${degreeKind ? `<button type="button" class="ck-toggle" data-act="toggle-ear" data-key="toggle-ear" aria-pressed="${earOn}"${canToggleEar ? '' : ' disabled'} title="${e(!material.earQuality ? 'Слух только для пентатоник, трезвучий, септаккордов и блюзовой гаммы' : canToggleEar ? 'Слух — опция вопроса: сначала тоника, потом нота' : 'Слух меняется до первого ответа серии')}">♪ <b>+ слух</b></button>` : ''}
         ${run.mode === 'board' && !material.series ? `<button type="button" class="ck-toggle" data-act="toggle-contour" data-key="toggle-contour" aria-pressed="${contour}" title="Подсказка: контуры позиций материала без подписей">◌ Контуры формы</button>` : ''}
         <button type="button" class="text-button" data-act="finish" data-key="finish" title="Незаданные вопросы попадут в итог как «без ответа»">Завершить серию</button>`}</div>`;
   }
@@ -487,7 +487,7 @@ export function mountCheck(container: HTMLElement, options: CheckOptions) {
     if (active) container.querySelector<HTMLElement>(`[data-key="${CSS.escape(active)}"]:not(:disabled)`)?.focus({ preventScroll: true });
   }
   function idleText(current: CheckRun) {
-    if (current.mode === 'ear') return answersOpen(current) ? 'Выбери ступень: кнопка или клавиша 1–5.' : 'Нажми «Прослушать» — ответы откроются после конца сигнала.';
+    if (current.mode === 'ear') return answersOpen(current) ? `Выбери ступень: кнопка или клавиша 1–${current.ear.currentQuestion.choices.length}.` : 'Нажми «Прослушать» — ответы откроются после конца сигнала.';
     if (current.mode === 'board') return current.quiz.currentQuestion.mode === 'find-all'
       ? `Отмечай позиции по одной: найдено ${current.quiz.answerState.selectedPositionIds.length} из ${current.quiz.currentQuestion.expectedPositionIds.length}.`
       : 'Кликни позицию на грифе или выбери её стрелками и нажми Enter.';

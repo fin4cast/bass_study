@@ -1,11 +1,23 @@
 import { createStructure, formatDegree } from '../music';
 import type { RouteRef } from '../route';
 
-/** Трезвучия — исходный слух R-016; пентатоники — ступени «Проверь себя» (R-016, расширение P13). */
-export type EarQuality = 'major' | 'minor' | 'minor-pentatonic' | 'major-pentatonic';
-export type EarDegree = '1' | '2' | '3' | 'b3' | '4' | '5' | '6' | 'b7';
-const EAR_STRUCTURES = { major: 'major-triad', minor: 'minor-triad', 'minor-pentatonic': 'minor-pentatonic', 'major-pentatonic': 'major-pentatonic' } as const;
+/**
+ * Трезвучия — исходный слух R-016; пентатоники — ступени «Проверь себя» (R-016, расширение P13); уменьшённое трезвучие,
+ * септаккорды и блюзовая гамма — P16-10. Значение — идентификатор структуры, у мажорного и минорного трезвучия прежние имена.
+ */
+const EAR_STRUCTURES = {
+  major: 'major-triad', minor: 'minor-triad', 'minor-pentatonic': 'minor-pentatonic', 'major-pentatonic': 'major-pentatonic',
+  'diminished-triad': 'diminished-triad', 'major-seventh': 'major-seventh', 'dominant-seventh': 'dominant-seventh', 'minor-seventh': 'minor-seventh',
+  'half-diminished-seventh': 'half-diminished-seventh', blues: 'blues',
+} as const;
+export type EarQuality = keyof typeof EAR_STRUCTURES;
+export type EarDegree = '1' | '2' | '3' | 'b3' | '4' | 'b5' | '5' | '6' | 'b7' | '7';
 export const isEarQuality = (value: unknown): value is EarQuality => typeof value === 'string' && Object.hasOwn(EAR_STRUCTURES, value);
+/** Слуховое качество материала по структуре упражнения; `null` — слуха нет. Единственный источник списка структур со слухом. */
+export function earQualityFor(structureId: string): EarQuality | null {
+  const found = (Object.keys(EAR_STRUCTURES) as EarQuality[]).find(quality => EAR_STRUCTURES[quality] === structureId);
+  return found ?? null;
+}
 export interface EarContext { readonly root: string; readonly quality: EarQuality; readonly referenceMidi: number }
 export interface EarConfig { readonly root: string; readonly quality: EarQuality; readonly count: number; readonly seed: number; readonly referenceMidi?: number; readonly routeRef?: RouteRef | null }
 export interface EarQuestion {
@@ -66,7 +78,7 @@ function initialAnswer(): EarAnswerState {
 }
 
 export function createEarQuestionV1(config: Omit<EarConfig, 'count'>): EarQuestion {
-  if (!isEarQuality(config.quality)) throw new RangeError('Выберите трезвучие или пентатонику.');
+  if (!isEarQuality(config.quality)) throw new RangeError('Выберите структуру со слухом: трезвучие, септаккорд, пентатонику или блюзовую гамму.');
   const structure = createStructure(config.root, EAR_STRUCTURES[config.quality]);
   // Для трезвучий это прежний выбор из трёх ступеней: сохранённые вопросы v1 воспроизводятся без изменений.
   const selected = structure.notes[Math.floor(seedValue(config.seed) / 0x100000000 * structure.notes.length)];

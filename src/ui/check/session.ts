@@ -5,7 +5,7 @@
  * Модуль без DOM и звука: время передаётся явно, правильный ответ наружу выдаётся только после ответа, показа или итога.
  */
 import {
-  beginEarListen, cancelEarListen, completeEarListen, nextEarQuestion, revealEarAnswer, skipEarQuestion, startEarSession, submitEarAnswer,
+  beginEarListen, cancelEarListen, completeEarListen, earQualityFor, nextEarQuestion, revealEarAnswer, skipEarQuestion, startEarSession, submitEarAnswer,
   type EarQuality, type EarSession,
 } from '../../ear';
 import type { ExercisePlan } from '../../exercises';
@@ -68,9 +68,6 @@ export interface CheckMaterial {
   readonly series: boolean;
 }
 
-const EAR_QUALITY: Partial<Record<MusicalStructure['id'], EarQuality>> = {
-  'minor-pentatonic': 'minor-pentatonic', 'major-pentatonic': 'major-pentatonic', 'major-triad': 'major', 'minor-triad': 'minor',
-};
 const STRING_ORDER: readonly StringId[] = ['E', 'A', 'D', 'G'];
 
 function area(positions: readonly AnnotatedPosition[], structure: MusicalStructure): readonly AnnotatedPosition[] {
@@ -103,7 +100,7 @@ export function checkMaterial(input: CheckSpec): CheckMaterial {
   if (!positions.length) throw new RangeError('В материале нет нот выбранной структуры.');
   const window = boardWindow(positions.map(position => position.fret), 6);
   return Object.freeze({
-    spec, plan, structure, positions: Object.freeze(positions), chromatic: area(positions, structure), earQuality: EAR_QUALITY[structure.id] ?? null,
+    spec, plan, structure, positions: Object.freeze(positions), chromatic: area(positions, structure), earQuality: earQualityFor(structure.id),
     fretMin: window.fretMin, fretMax: window.fretMax, root: structure.root, key: keyName(structure), material: materialLabel(exercise),
     count: spec.count, review: false, series: false,
   });
@@ -158,7 +155,7 @@ export function startRun(material: CheckMaterial, mode: CheckMode, seed: number,
     return { mode, quiz: startCheckQuiz({ ...material.spec, count: Math.max(CHECK_COUNT_MIN, count) }, seed) };
   }
   if (mode === 'ear') {
-    if (!material.earQuality) throw new RangeError('Слух пока работает только для пентатоник и трезвучий.');
+    if (!material.earQuality) throw new RangeError('Слух работает только для пентатоник, трезвучий, септаккордов и блюзовой гаммы.');
     return { mode, ear: startEarSession({ root: material.root, quality: material.earQuality, count, seed }) };
   }
   const kind = settings?.kind ?? (mode === 'board' ? 'find-degree' : 'name-degree');

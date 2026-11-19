@@ -547,7 +547,7 @@ function validateEarResult(value: unknown, root: string, quality: EarQuality, re
   if (raw.kind !== 'ear' || raw.source !== 'audio-choice') invalid('Неверное происхождение слухового результата.');
   const questionData = object(raw.question, EAR_QUESTION_KEYS, 'Слуховой вопрос');
   const seed = number(questionData.seed, 0, 0xffffffff, 'Seed слухового вопроса');
-  array(questionData.choices, 5, 'Варианты слухового ответа').forEach(choice => object(choice, ['id', 'label'], 'Вариант слухового ответа'));
+  array(questionData.choices, 6, 'Варианты слухового ответа').forEach(choice => object(choice, ['id', 'label'], 'Вариант слухового ответа'));
   const question = check === 'stored' ? questionData as unknown as ReturnType<typeof createEarQuestionV1> : createEarQuestionV1({ root, quality, referenceMidi, seed });
   if (check === 'full' && !same(questionData, question)) invalid('Слуховая цель, написание, октава или варианты не соответствуют исходному вопросу.');
   const listens = array(raw.listenEvents, Number.MAX_SAFE_INTEGER, 'Прослушивания').map((item): EarListenEvent => {
