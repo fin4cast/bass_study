@@ -34,6 +34,7 @@ const isDiminished = (structureId: StructureId) => structureId === 'diminished-t
  * `r5b78` и `r56` — любой аккорд, кроме уменьшённых.
  */
 export function patternFits(pattern: string, structureId: StructureId): boolean {
+  if (pattern === 'walking') return !isDiminished(structureId);
   if (pattern === 'boogie') return structureId === 'major-triad' || structureId === 'dominant-seventh';
   if (pattern === 'r5b78' || pattern === 'r56') return !isDiminished(structureId);
   return true;
@@ -47,6 +48,8 @@ export function barTones(pattern: string, structureId: StructureId): readonly To
   const seventh: Tone = structureId === 'major-seventh' ? '7' : 'b7';
   switch (pattern) {
     // Проходящие (`roots-passing`) стоят в хвосте, ноты формы — тоники (B2.3): тоны аккорда для выбора позиции не нужны.
+    // Шагающий бас: для выбора нижней позиции — ноты обоих видов такта серии (нечётного и чётного), чтобы аккорд лёг на один лад тоники.
+    case 'walking': return [...new Set([...walkingTones(structureId, 0), ...walkingTones(structureId, 1)])];
     case 'roots': case 'roots-approach': case 'roots-passing': return ['1', '1', '1', '1', '1', '1', '1', '1'];
     case 'root-fifth': return ['1', '1', fifth, fifth, '1', '1', fifth, fifth];
     case 'octaves': return ['1', '8', '1', '8', '1', '8', '1', '8'];
@@ -84,6 +87,21 @@ export function passingNotes(
     return { string, fret, name: scale.find(note => note.pitchClass === midi % 12)!.name, degree: SCALE_DEGREES[(((midi - chordRootPitchClass) % 12) + 12) % 12] };
   });
 }
+
+/**
+ * Четыре четверти шагающего баса (B2.4). Такт серии одинаковых аккордов (с нуля): чётный по счёту с нуля — 1, 3/♭3, 5, x;
+ * нечётный — y, x, 5, 3/♭3. x и y зависят от вида аккорда: мажорное трезвучие 6 и 8, доминантсептаккорд 6 и ♭7,
+ * большой септаккорд 6 и 7, минорные — ♭7 и 8.
+ */
+export function walkingTones(structureId: StructureId, seriesIndex: number): readonly [Tone, Tone, Tone, Tone] {
+  const minor = chordFamily(structureId) === 'minor';
+  const third: Tone = minor ? 'b3' : '3';
+  const x: Tone = minor ? 'b7' : '6';
+  const y: Tone = minor ? '8' : structureId === 'dominant-seventh' ? 'b7' : structureId === 'major-seventh' ? '7' : '8';
+  return seriesIndex % 2 === 0 ? ['1', third, '5', x] : [y, x, '5', third];
+}
+/** Форма E шагающего баса: каждая нота четверти дважды. */
+export const walkingBar = (structureId: StructureId, seriesIndex: number): Tone[] => walkingTones(structureId, seriesIndex).flatMap(tone => [tone, tone]);
 
 const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const;
 const NATURAL_PITCH: Readonly<Record<string, number>> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
