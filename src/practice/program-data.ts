@@ -339,7 +339,7 @@ const STAGE_4: readonly Block[] = [
 ];
 
 /** Пулы разминки по таблицам этапов R-028: этап добавляет материал к пулам прежних этапов. */
-const WARMUP_1: readonly WarmupItem[] = [warm(chromatic(5), QUARTERS), warm(chromatic(7), QUARTERS), warm(chromatic(9), QUARTERS), warm(crossing('adjacent'))];
+const WARMUP_1: readonly WarmupItem[] = [...OPEN_STRINGS.map(string => warm(pulse(string), QUARTERS)), warm(chromatic(5), QUARTERS), warm(chromatic(7), QUARTERS), warm(chromatic(9), QUARTERS), warm(crossing('adjacent'))];
 const WARMUP_2: readonly WarmupItem[] = [warm(spider(5, '1234')), warm(diagonal(5)), warm(shift(5))];
 const WARMUP_3: readonly WarmupItem[] = [warm(spider(5, '1324')), warm(spider(5, '2413')), warm(pairs('13')), warm(pairs('24')), warm(fretted('adjacent'))];
 const WARMUP_4: readonly WarmupItem[] = [warm(stretch(7)), warm(jumps('E'))];

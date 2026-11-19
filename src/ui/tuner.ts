@@ -38,6 +38,8 @@ export function openTuner(options: TunerOptions): TunerHandle {
   let lastHint = '';
   let request = 0;
   let timer: ReturnType<typeof setInterval> | null = null;
+  /** Новое показание с прежними отметками струн: отметка «в строю» держится, пока окно открыто (R-020). */
+  const keepTuned = (): TunerState => Object.freeze({ ...createTunerState(), tuned: tuner.tuned });
 
   const dialog = document.createElement('dialog');
   dialog.className = 'tuner-dialog';
@@ -105,7 +107,7 @@ export function openTuner(options: TunerOptions): TunerHandle {
     if (!open) return;
     request++; monitor.stop();
     if (timer) clearInterval(timer); timer = null;
-    tuner = createTunerState(); notice = reason; failure = '';
+    tuner = keepTuned(); notice = reason; failure = '';
     render();
   }
   async function connect() {
@@ -117,7 +119,7 @@ export function openTuner(options: TunerOptions): TunerHandle {
       render();
       await pending;
       if (!open || current !== request) return;
-      tuner = createTunerState();
+      tuner = keepTuned();
       if (timer) clearInterval(timer);
       timer = setInterval(tick, 100);
       void refreshDevices();

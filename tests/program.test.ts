@@ -6,7 +6,7 @@ import { getConcept } from '../src/practice/concepts';
 import { materialId } from '../src/practice/material';
 import { PROGRAM } from '../src/practice/program-data';
 import {
-  BASE_BPM, checkFacts, composeDay, daysBetween, evaluateProgram, isDone, isRequired, MEMORY_TEMPLATE_IDS, playContent, playFacts, stepMinutes, stepRefs, stepRuleText, dayPlanSteps,
+  BASE_BPM, checkFacts, composeDay, daysBetween, evaluateProgram, isDone, isRequired, MEMORY_TEMPLATE_IDS, playContent, playFacts, stepMinutes, stepRefs, stepRuleText, dayPlanSteps, STEP_MAX_MINUTES,
   type Block, type CheckFact, type LineFact, type PlayFact, type PlayStep, type Program, type ProgramFacts, type Step,
 } from '../src/practice/program';
 import type { PlayRecord } from '../src/practice/results';
@@ -285,12 +285,12 @@ describe('занятие (R-028)', () => {
   it('разминка — со второго дня: пул этапов до этапа текущей «Техники», по кругу дней, без материала текущего шага техники', () => {
     const warm = (spec: ExerciseSpec) => ({ spec, practice: QUARTERS });
     const prog: Program = { stages: [
-      { number: 1, title: '1', blocks: [block('t', 'technique', [step('t.a', [chromatic(5), chromatic(9)])])], warmup: [warm(chromatic(5)), warm(chromatic(7)), warm(chromatic(11))] },
+      { number: 1, title: '1', blocks: [block('t', 'technique', [step('t.a', [chromatic(5), chromatic(9)], QUARTERS)])], warmup: [warm(chromatic(5)), warm(chromatic(7)), warm(chromatic(11))] },
       { number: 2, title: '2', blocks: [block('u', 'technique', [step('u.a', octaves('A'))])], warmup: [warm(chromatic(3))] },
     ] };
     const someday = (offset: number) => composeDay(prog, facts({ plays: [fact(octaves('E'), { localDate: day(offset - 1) })], today: day(offset) }), { minutes: 30 });
     const chosen = [0, 1, 2, 3, 4, 5].map(offset => materialId(someday(offset).warmup!.item.spec));
-    // 5-й лад — вариант текущего шага техники: вместо него берётся следующий по кругу; пул этапа 2 ещё недоступен.
+    // 5-й лад с теми же четвертями засчитался бы текущему шагу техники: вместо него берётся следующий по кругу; пул этапа 2 ещё недоступен.
     expect(new Set(chosen)).toEqual(new Set([materialId(chromatic(7)), materialId(chromatic(11))]));
     expect(chosen[0]).not.toBe(chosen[1]);
     const first = someday(0);
@@ -302,7 +302,7 @@ describe('занятие (R-028)', () => {
     expect(steps[0].programStep).toBeUndefined();
     expect(steps.slice(1).every(item => item.programStep !== undefined && item.role !== undefined)).toBe(true);
     // Когда «Техника» перешла в этап 2, пул этапа 2 добавляется к пулу этапа 1.
-    const later = [0, 1, 2, 3].map(offset => composeDay(prog, facts({ plays: [fact(chromatic(5), { localDate: day(offset - 1) }), fact(chromatic(9), { localDate: day(offset - 1) })], today: day(offset) })).warmup!.item.spec);
+    const later = [0, 1, 2, 3].map(offset => composeDay(prog, facts({ plays: [fact(chromatic(5), { practice: QUARTERS, localDate: day(offset - 1) }), fact(chromatic(9), { practice: QUARTERS, localDate: day(offset - 1) })], today: day(offset) })).warmup!.item.spec);
     expect(later.map(materialId)).toContain(materialId(chromatic(3)));
   });
 
@@ -470,7 +470,7 @@ describe('данные программы (этап 1, заход B)', () => {
     const first = composeDay(PROGRAM, facts());
     expect(first.warmup).toBeNull();
     expect(first.items.slice(0, 3).map(item => item.step.id)).toEqual(['t1-pulse.quarters', 'f1-ea5.naturals', 'h1-open.quarters']);
-    expect(first.items.slice(0, 3).every(item => item.variant === 0 && item.minutes >= 2 && item.minutes <= 5)).toBe(true);
+    expect(first.items.slice(0, 3).every(item => item.variant === 0 && item.minutes >= 2 && item.minutes <= STEP_MAX_MINUTES)).toBe(true);
     // 30 минут по умолчанию: другие варианты пульса, нот и блюза, затем следующие шаги линий.
     expect(first.items.slice(3).map(item => [item.step.id, item.variant, item.reason])).toEqual([
       ['t1-pulse.quarters', 1, 'variant'], ['f1-ea5.naturals', 1, 'variant'], ['h1-open.quarters', 1, 'variant'],
@@ -544,6 +544,52 @@ describe('правило зачёта шага словами', () => {
   });
 });
 
+describe('ревью P19: длина занятия, «Своя линия» и разминка', () => {
+  const step = (id: string, spec: ExerciseSpec | ExerciseSpec[], practice?: PracticeOptions) => playStep(id, Array.isArray(spec) ? spec : [spec], practice);
+
+  it.each([15, 30, 45] as const)('первый день по данным набирает выбранную длину %i мин: время шагов растёт до длины, не больше 10 минут на шаг', minutes => {
+    const day = composeDay(PROGRAM, facts(), { minutes });
+    expect(day.minutes).toBe(minutes);
+    expect(day.items.every(item => item.minutes <= STEP_MAX_MINUTES)).toBe(true);
+    expect(dayPlanSteps(day).reduce((sum, item) => sum + item.minutes, 0)).toBe(minutes);
+  });
+
+  it('растяжение не превышает 10 минут на шаг: один шаг при 45 минутах — 10 минут', () => {
+    const day = composeDay(program(block('t', 'technique', [step('t.a', chromatic(5))])), facts(), { minutes: 45 });
+    expect(day.items.map(item => item.minutes)).toEqual([STEP_MAX_MINUTES]);
+  });
+
+  it('«Своя линия» вне текущего места не берётся в «дальше»: её минуты не уходят в строку, которой нет в плане', () => {
+    const line = { kind: 'line' as const, id: 'c.line', title: 'Своя линия', rule: 'h1-line' as const };
+    const prog = program(block('c', 'chords', [step('c.a', createExerciseSpec('progression')), line, step('c.b', octaves('D'))]));
+    const day = composeDay(prog, facts(), { minutes: 45 });
+    expect(day.items.map(item => [item.step.id, item.reason])).toEqual([['c.a', 'current'], ['c.b', 'ahead']]);
+    expect(dayPlanSteps(day).reduce((sum, item) => sum + item.minutes, 0)).toBe(day.minutes);
+  });
+
+  it('разминка не продвигает непройденный шаг: после пульса четвертями — пульс, а не хроматика будущего шага «Левая рука»', () => {
+    const pulsed = (['E', 'A'] as const).map(string => fact(createExerciseSpec('pulse-note', { string, fret: 0, notes: 16 }), { practice: QUARTERS, localDate: day(-1) }));
+    const left = stepRefs(PROGRAM).find(ref => ref.step.id === 't1-left.quarters')!.step;
+    const leftIds = new Set(left.kind === 'play' ? left.variants.map(materialId) : []);
+    for (let offset = 0; offset < 8; offset++) {
+      const result = composeDay(PROGRAM, facts({ plays: pulsed, today: day(offset) }));
+      expect(evaluateProgram(PROGRAM, facts({ plays: pulsed })).current.technique?.step.id).toBe('t1-pulse.eighths');
+      expect(result.warmup, `день +${offset}`).not.toBeNull();
+      expect(leftIds.has(materialId(result.warmup!.item.spec)), `день +${offset}`).toBe(false);
+      expect(result.warmup!.item.spec.templateId).toBe('pulse-note');
+    }
+  });
+
+  it('разминка занимает место в пределе шагов: шагов плана не больше 6, 10 или 14 вместе с ней', () => {
+    const pulsed = (['E', 'A'] as const).map(string => fact(createExerciseSpec('pulse-note', { string, fret: 0, notes: 16 }), { practice: QUARTERS, localDate: day(-1) }));
+    for (const [minutes, limit] of [[15, 6], [30, 10], [45, 14]] as const) {
+      const steps = dayPlanSteps(composeDay(PROGRAM, facts({ plays: pulsed }), { minutes }));
+      expect(steps[0].role).toBe('warmup');
+      expect(steps.length, `${minutes} мин`).toBeLessThanOrEqual(limit);
+    }
+  });
+});
+
 describe('занятие как шаги плана', () => {
   it('обычный день: ID d<n>, программный шаг, вариант и «как играть» в содержимом, проверка — описанием шага', () => {
     const day = composeDay(PROGRAM, facts());
@@ -551,11 +597,11 @@ describe('занятие как шаги плана', () => {
     expect(steps.slice(0, 3).map(step => [step.id, step.programStep, step.role])).toEqual([['d1', 't1-pulse.quarters', 'current'], ['d2', 'f1-ea5.naturals', 'current'], ['d3', 'h1-open.quarters', 'current']]);
     expect(steps[3]).toMatchObject({ id: 'd4', programStep: 't1-pulse.quarters', role: 'variant' });
     expect(steps[1].content).toMatchObject({ kind: 'exercise', practice: { rhythm: 'quarters' } });
-    expect(steps.every(step => step.minutes >= 2 && step.minutes <= 5)).toBe(true);
+    expect(steps.every(step => step.minutes >= 2 && step.minutes <= STEP_MAX_MINUTES)).toBe(true);
     const withCheck = composeDay(PROGRAM, facts({ plays: (['E', 'A'] as const).map(string => fact(createExerciseSpec('string-naturals', { string, fretMax: 5 }), { practice: QUARTERS, bpm: 80 })) }));
     const check = dayPlanSteps(withCheck).find(step => step.programStep === 'f1-ea5.name-note');
     expect(check?.content.kind).toBe('check');
-    expect(check?.minutes).toBe(2);
+    expect(check?.minutes).toBeGreaterThanOrEqual(2);
   });
 
   it('после перерыва: ID r<n> — «Вспомнить»', () => {

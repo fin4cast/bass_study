@@ -416,19 +416,29 @@ const variantCount = (step: RequiredStep) => (step.kind === 'play' ? step.varian
 
 /**
  * Разминка (R-028, «Занятие»): пул этапов не выше этапа текущего шага «Техники» (без него — все этапы), по кругу по номеру
- * дня; материал любого варианта текущего шага «Техники» пропускается. Пустой пул — разминки нет.
+ * дня; материал, который засчитался бы непройденному шагу, пропускается. Нечего взять — разминки нет.
  */
 export function warmupFor(program: Program, state: ProgramState, today: string): WarmupItem | null {
   const technique = state.current.technique;
   const limit = technique ? technique.stage : Math.max(...program.stages.map(stage => stage.number));
   const pool = program.stages.filter(stage => stage.number <= limit).flatMap(stage => stage.warmup ?? []);
-  const skip = new Set(technique?.step.kind === 'play' ? technique.step.variants.map(materialId) : []);
+  // Разминка не продвигает непройденный шаг (в том числе текущий шаг «Техники»): материал с «как играть», которые
+  // засчитались бы такому шагу, пропускается — иначе шаг проходится раньше, чем ученик дошёл до блока и его карточек.
+  const plays = stepRefs(program).filter((ref): ref is StepRef & { step: PlayStep } => ref.step.kind === 'play');
+  const familiar = (candidate: WarmupItem) => {
+    const id = materialId(candidate.spec);
+    return plays.every(ref => !samePractice(ref.step.practice, candidate.practice) || !ref.step.variants.some(variant => materialId(variant) === id)
+      || ['passed', 'mastered', 'skipped'].includes(state.statuses.get(ref.step.id)!.state));
+  };
   for (let offset = 0; offset < pool.length; offset++) {
     const candidate = pool[(((dayNumber(today) + offset) % pool.length) + pool.length) % pool.length];
-    if (!skip.has(materialId(candidate.spec))) return candidate;
+    if (familiar(candidate)) return candidate;
   }
   return null;
 }
+
+/** Плановое время шага после растяжения до выбранной длины занятия: не больше этого. */
+export const STEP_MAX_MINUTES = 10;
 
 /**
  * Состав занятия (R-028, «Занятие»): разминка (кроме первого занятия), затем текущие шаги линий в порядке
@@ -450,12 +460,32 @@ export function composeDay(program: Program, facts: ProgramFacts, options: DayOp
   const warmup: DayWarmup | null = chosen ? { item: chosen, minutes: WARMUP_MINUTES[session] } : null;
   const total = (list: readonly DayItem[]) => list.reduce((sum, entry) => sum + entry.minutes, warmup?.minutes ?? 0);
   const full = (list: readonly DayItem[]) => total(list) >= session || list.length + (warmup ? 1 : 0) >= limit;
+  // «Своя линия» строится в конструкторе, а не в плане: в добор и «Вспомнить» она не берётся — иначе её минуты и место
+  // занимались бы строкой, которой в плане нет. Текущий шаг линии показывается отдельной строкой «Построить».
+  const planned = (ref: StepRef & { step: RequiredStep }) => ref.step.kind !== 'line';
+  /**
+   * Если шаги кончились раньше выбранной длины, плановое время шагов плана растёт по минуте по кругу до длины занятия,
+   * не больше `STEP_MAX_MINUTES` на шаг: больше проходов того же материала, а не пустые минуты.
+   */
+  const stretch = (list: readonly DayItem[]): DayItem[] => {
+    const out = list.map(entry => ({ ...entry }));
+    let sum = total(out);
+    for (let grew = true; sum < session && grew;) {
+      grew = false;
+      for (const entry of out) {
+        if (sum >= session) break;
+        if (entry.step.kind === 'line' || entry.minutes >= STEP_MAX_MINUTES) continue;
+        entry.minutes += 1; sum += 1; grew = true;
+      }
+    }
+    return out;
+  };
 
   const last = latest(dates);
   if (last !== null && daysBetween(last, facts.today) > REVIEW_DAYS) {
     const items: DayItem[] = [];
     for (const line of LINES) {
-      const passed = refs.filter(ref => ref.block.line === line.id && ['passed', 'mastered'].includes(state.statuses.get(ref.step.id)!.state));
+      const passed = refs.filter(ref => ref.block.line === line.id && planned(ref) && ['passed', 'mastered'].includes(state.statuses.get(ref.step.id)!.state));
       const ref = passed.at(-1);
       if (ref) {
         const status = state.statuses.get(ref.step.id)!;
@@ -466,7 +496,8 @@ export function composeDay(program: Program, facts: ProgramFacts, options: DayOp
         if (current && isRequired(current.step)) items.push(item(current as StepRef & { step: RequiredStep }, firstUncleanVariant(state.statuses.get(current.step.id)!, variantCount(current.step)), 'recall'));
       }
     }
-    return { mode: 'recall', warmup, items, minutes: total(items) };
+    const recall = stretch(items);
+    return { mode: 'recall', warmup, items: recall, minutes: total(recall) };
   }
 
   const items: DayItem[] = [];
@@ -484,8 +515,9 @@ export function composeDay(program: Program, facts: ProgramFacts, options: DayOp
     .sort((a, b) => rank(a, state.statuses.get(a.step.id)!.lastDate).localeCompare(rank(b, state.statuses.get(b.step.id)!.lastDate)));
   const stale = refs.filter(ref => !taken.has(ref.step.id) && state.statuses.get(ref.step.id)!.review)
     .sort((a, b) => rank(a, state.statuses.get(a.step.id)!.lastMasteryDate).localeCompare(rank(b, state.statuses.get(b.step.id)!.lastMasteryDate)));
-  const candidates = passed.length ? passed : stale;
-  const reason: DayReason = passed.length ? 'reinforce' : 'review';
+  const reinforce = passed.filter(planned);
+  const candidates = reinforce.length ? reinforce : stale.filter(planned);
+  const reason: DayReason = reinforce.length ? 'reinforce' : 'review';
   for (const ref of candidates) {
     if (full(items)) break;
     items.push(item(ref, reinforceVariant(state.statuses.get(ref.step.id)!, variantCount(ref.step)), reason));
@@ -508,7 +540,7 @@ export function composeDay(program: Program, facts: ProgramFacts, options: DayOp
   // Дальше: следующие обязательные шаги линий после текущего, ещё не пройденные и не пропущенные, кругами по линиям —
   // сначала первый следующий шаг каждой линии, затем второй и так далее, пока есть время и место.
   const open = (candidate: StepRef) => ['new', 'progress'].includes(state.statuses.get(candidate.step.id)!.state);
-  const ahead = currents.map(ref => refs.filter(candidate => candidate.index > ref.index && candidate.block.line === ref.block.line && open(candidate)));
+  const ahead = currents.map(ref => refs.filter(candidate => candidate.index > ref.index && candidate.block.line === ref.block.line && open(candidate) && planned(candidate)));
   for (let round = 0; !full(items) && ahead.some(list => round < list.length); round++) {
     for (const list of ahead) {
       if (full(items)) break;
@@ -516,7 +548,8 @@ export function composeDay(program: Program, facts: ProgramFacts, options: DayOp
       if (next) items.push(item(next, firstUncleanVariant(state.statuses.get(next.step.id)!, variantCount(next.step)), 'ahead'));
     }
   }
-  return { mode: 'normal', warmup, items, minutes: total(items) };
+  const day = stretch(items);
+  return { mode: 'normal', warmup, items: day, minutes: total(day) };
 }
 
 /**

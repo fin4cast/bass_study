@@ -271,30 +271,51 @@ check('ui-tuner-from-today-shows-A1-in-tune-and-close-releases-input', 'ui', asy
   await connectTuner(page, context, origin);
   await page.waitForFunction(() => document.querySelector('[data-tuner="hint"]')?.textContent === 'A1 в строю.', undefined, { timeout: 8000 });
   assert.equal(await tuner(page).locator('[data-tuner="note"]').innerText(), 'A1');
+  const centsText = await tuner(page).locator('[data-tuner="cents"]').innerText();
   assert.equal(await tuner(page).locator('.tuner-strings li[data-string="A"]').getAttribute('data-tuned'), '');
   assert.equal(await calls(page), 1);
+  // «Отключить» освобождает вход, но отметка настроенной струны держится, пока окно открыто (R-020).
+  await tuner(page).locator('[data-tuner="stop"]').click();
+  assert.equal(await liveTracks(page), 0);
+  assert.equal(await tuner(page).locator('.tuner-strings li[data-string="A"]').getAttribute('data-tuned'), '');
   // Закрытие освобождает вход, фокус возвращается на кнопку.
   await tuner(page).locator('[data-tuner="close"]').click();
   assert.equal(await tuner(page).count(), 0);
   assert.equal(await liveTracks(page), 0);
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.act), 'tuner');
-  return { hint: 'A1 в строю.', tracksAfterClose: 0 };
+  return { hint: 'A1 в строю.', centsText, tracksAfterClose: 0 };
 });
 
-check('ui-tuner-E1-ten-cents-sharp-says-loosen-and-escape-closes', 'ui', async ({ page, context, origin }) => {
+check('ui-tuner-E1-thirty-cents-sharp-says-loosen-and-escape-closes', 'ui', async ({ page, context, origin }) => {
   await openTuner(page);
   await connectTuner(page, context, origin);
   await page.waitForFunction(() => document.querySelector('[data-tuner="hint"]')?.textContent === 'E1 выше — отпусти.', undefined, { timeout: 8000 });
   const cents = Number((await tuner(page).locator('[data-tuner="cents"]').innerText()).match(/^\+([\d,]+)/)[1].replace(',', '.'));
-  near(cents, 10, 3);
+  // Тракт поддельного устройства Edge на 41 Гц точен примерно до ±0,35 Гц (≈ ±15 центов, см. native-low-E1): проверяется направление.
+  near(cents, 30, 15);
   await page.keyboard.press('Escape');
   assert.equal(await tuner(page).count(), 0);
   assert.equal(await liveTracks(page), 0);
   return { cents };
 }, { signal: 'e1-sharp' });
 
+check('native-tuner-hidden-tab-stops-tracks-keeps-marks-and-return-needs-explicit-connect', 'native', async ({ withNativeBrowser }) => withNativeBrowser(async ({ page, context }) => {
+  await openTuner(page);
+  await connectTuner(page, context, new URL(page.url()).origin);
+  await page.waitForFunction(() => document.querySelector('[data-tuner="hint"]')?.textContent === 'A1 в строю.', undefined, { timeout: 8000 });
+  const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront();
+  await page.waitForFunction(() => document.hidden && document.querySelector('dialog.tuner-dialog')?.dataset.tunerState === 'stopped', undefined, { polling: 100 });
+  assert.equal(await liveTracks(page), 0);
+  await page.bringToFront(); await page.waitForFunction(() => !document.hidden); await delay(250);
+  assert.equal(await calls(page), 1, 'возврат на вкладку сам не подключает');
+  assert.equal(await tuner(page).locator('.tuner-strings li[data-string="A"]').getAttribute('data-tuned'), '');
+  await tuner(page).locator('[data-tuner="close"]').click();
+  return { stoppedTracks: true, explicitReconnectRequired: true, marksKept: true };
+}));
+
 markFullOnly(checks, [
   'native-real-hidden-tab-stops-all-tracks-and-return-needs-explicit-connect',
+  'native-tuner-hidden-tab-stops-tracks-keeps-marks-and-return-needs-explicit-connect',
 ], FULL_ONLY.hiddenTab);
 markFullOnly(checks, [
   'native-low-E1-WAV-keeps-sounding-octave',
@@ -309,6 +330,6 @@ markFullOnly(checks, [
   'ui-device-preferences-reload-and-restore-never-capture',
   'ui-module-leave-stops-native-tracks-and-return-does-not-auto-connect',
   'ui-noise-uncertainty-layout-and-non-grading-labels-are-visible',
-  'ui-tuner-E1-ten-cents-sharp-says-loosen-and-escape-closes',
+  'ui-tuner-E1-thirty-cents-sharp-says-loosen-and-escape-closes',
 ], FULL_ONLY.smoke);
 await runInputBrowserChecks(checks);
