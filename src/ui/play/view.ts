@@ -80,7 +80,7 @@ export interface MountPlayOptions {
    * остановка, ±, стрелки, поле), чтобы хост не перезаписывал запомненное тем, что не менялось.
    */
   readonly onSettingsChange?: (settings: PlaySettings, labels: Exclude<BoardLabelMode, 'none'>, changed: readonly (keyof PlaySettings | 'labels')[]) => void;
-  /** «Как играть» шага цели: другое «как играть» видно у таймера — такой подход в цель не засчитается. */
+  /** «Как играть» шага программы: другое «как играть» видно у таймера — такой подход в шаг не засчитается. */
   readonly requiredPractice?: { readonly rhythm: RhythmPatternId; readonly echo: boolean; readonly groove: string | null } | null;
   /**
    * «Сначала услышь»: экран сам проигрывает эталон тем же портом (один проход без отсчёта и клика,
@@ -799,7 +799,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     const key = listening ? 'listening' : `${state.status}|${ordinal}|${listenNote}`;
     if (key !== srKey) { srKey = key; setText(at('[data-sr]'), announce); }
   }
-  /** Шаг цели засчитывается только своим «как играть»: другое — видно у таймера. */
+  /** Шаг программы засчитывается только своим «как играть»: другое — видно у таймера. */
   let practiceMemo: { key: string; plan: ExercisePlan; value: PracticeOptions } | null = null;
   function requiredPracticeNote() {
     const required = options.requiredPractice;
@@ -811,7 +811,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     const current = practiceMemo.value;
     if (current.rhythm === required.rhythm && current.echo === required.echo && current.groove === required.groove) return '';
     const how = [rhythmPattern(required.rhythm).label.toLowerCase(), required.echo ? 'эхо' : '', required.groove ? `под ${presetName(required.groove as RhythmPresetId).toLowerCase()}` : 'без подложки'].filter(Boolean).join(', ');
-    return `Шаг цели — ${how}; подход по-другому в цель не засчитается.`;
+    return `Шаг программы — ${how}; подход по-другому в шаг не засчитается.`;
   }
   function setText(element: Element, text: string) { if (element.textContent !== text) element.textContent = text; }
   function volumePatch(kind: string, value: number): Partial<PlaySettings> {
