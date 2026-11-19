@@ -1745,6 +1745,9 @@ markFullOnly(checks, ['play-self-assessment-clean-is-saved-and-visible-in-progre
 markFullOnly(checks, ['play-keys-work-after-mouse-clicks-rating-view-panel-and-timer-counts-rated-approach', 'play-slow-rating-opens-next-time-4-bpm-lower-even-after-sound-change',
   'play-enter-after-key-rating-with-focus-on-play-button-opens-next-step', 'plan-step-timer-and-next-step-after-rating'], FULL_ONLY.smoke);
 markFullOnly(checks, ['play-task-lines-fit-1280x720-for-every-library-template'], FULL_ONLY.smoke);
+// Экономия времени быстрого набора перед заходом F (P18): граничный случай полуночи и подробный вариант петли на подходе — в полный набор;
+// основные потоки экрана игры (смена варианта, оценка с сохранением, панель «Звук и ритм») остаются в быстром.
+markFullOnly(checks, ['play-after-midnight-rating-does-not-close-a-step-of-the-new-days-plan', 'play-loop-approach-rated-once-after-stop-with-keys-and-loop-on-current-bar'], FULL_ONLY.smoke);
 markFullOnly(checks, ['native-real-hidden-tab-pauses-play-and-resumes-only-by-action'], FULL_ONLY.hiddenTab);
 markFullOnly(checks, ['live-play-sounds-reached-notes-on-audio-clock-and-pause-cancels-scheduled-voices'], FULL_ONLY.liveAudio);
 markFullOnly(checks, ['play-right-hand-echo-and-shuffle-groove-on-string-crossing-and-memory-pulse', 'play-approach-continues-until-rated-and-partial-first-pass-is-rated-not-whole',
