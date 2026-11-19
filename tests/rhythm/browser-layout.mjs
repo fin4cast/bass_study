@@ -613,12 +613,17 @@ check('product-photo-panel-uses-local-images-and-keeps-shared-controls-compact',
       dialWidth: tempoDial.width,
       faderHeight: bounds.master.height,
       channelWidth: instrumentChannels[0].strip.width,
+      // Каналы занимают ширину до общего фейдера целиком либо упёрлись в предел шага 154 px.
+      channelsFill: instrumentChannels.every(channel => channel.strip.width >= 153)
+        || Math.abs(instrumentChannels.at(-1).strip.right - instrumentChannels[0].strip.left - (channels.at(-1).strip.left - faders.x)) <= 12,
       master: channels.at(-1).strip,
     };
   }
+  // Каналы заполняют микшер своей вкладки (P20): у метронома их три, у ритм-секции — по числу дорожек,
+  // поэтому шаг каналов разный; общий фейдер при смене вкладки остаётся на месте.
   function assertSharedMixer(metronome, rhythm) {
-    near(metronome.channelWidth, rhythm.channelWidth, 1);
     for (const key of ['x', 'y', 'width', 'height']) near(metronome.master[key], rhythm.master[key], 1);
+    assert.ok(metronome.channelsFill && rhythm.channelsFill, 'Каналы заполняют микшер без пустого места сбоку');
   }
 
   for (const theme of ['light', 'dark']) {
