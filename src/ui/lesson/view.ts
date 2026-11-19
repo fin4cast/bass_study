@@ -22,9 +22,10 @@ import {
 import { CATEGORY_ORDER, CATEGORY_TITLES } from '../../practice/library';
 import { currentLineStep, pathBadge, pathModel, stageLine, stageTransitions, type PathStep } from './path';
 import {
-  builderAddBar, builderKind, builderMarkup, builderMode, builderPattern, builderRemoveBar, builderRoot, builderSpec, builderStep, builderVolume, initialBuilder, toggleBuilder, type BuilderState,
+  builderAddBar, builderKind, builderMarkup, builderMode, builderPattern, builderRemoveBar, builderRhythm, builderRoot, builderSpec, builderStep, builderVolume, initialBuilder, toggleBuilder, type BuilderState,
 } from './line-builder';
 import type { LineChord, ProgressionPattern } from '../../exercises';
+import type { RhythmPatternId } from '../../exercises/rhythm';
 
 export type { LessonState, LessonTab } from './model';
 
@@ -54,6 +55,8 @@ const TABS: readonly { key: LessonTab; label: string; hint: string }[] = [
   { key: 'basics', label: 'Основы', hint: 'Цели — шаги к навыку, уровни — теория по порядку. Ничего не заблокировано.' },
 ];
 const ROOTS = NOTE_CHOICES;
+/** Объём конструктора из атрибута кнопки: 1, 2 или 3. */
+const volumeOf = (value: string | undefined): 1 | 2 | 3 => (value === '3' ? 3 : value === '2' ? 2 : 1);
 const KIND_LABEL = { concept: 'понятие', exercise: 'упражнение', check: 'проверка' } as const;
 const plural = (count: number, one: string, few: string, many: string) => {
   const a = count % 10, b = count % 100;
@@ -509,10 +512,10 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         case 'go-path': setBasicsView('path'); basicsMode = 'path'; selectTab('basics'); render(); container.querySelector<HTMLElement>('[data-key^="path-play:"]')?.focus(); break;
         case 'path-stage': pathStage = Number(target.dataset.value); render(); break;
         case 'path-variant': pathPicks.set(target.dataset.stepId!, Number(target.dataset.value)); render(); break;
-        case 'path-build': builder = builderVolume(toggleBuilder(builder, true), target.dataset.volume === '2' ? 2 : 1); selectTab('library'); render(); container.querySelector<HTMLElement>('[data-key="builder-root"]')?.focus(); break;
+        case 'path-build': builder = builderVolume(toggleBuilder(builder, true), volumeOf(target.dataset.volume)); selectTab('library'); render(); container.querySelector<HTMLElement>('[data-key="builder-root"]')?.focus(); break;
         case 'path-song': toast('Фрагменты своих песен сохраняются в разделе «Песни»: выбери такты партии и нажми «Разучить как упражнение».'); break;
         case 'builder-toggle': builder = toggleBuilder(builder); render(); break;
-        case 'builder-volume': builder = builderVolume(builder, Number(target.dataset.value) === 2 ? 2 : 1); render(); break;
+        case 'builder-volume': builder = builderVolume(builder, volumeOf(target.dataset.value)); render(); break;
         case 'builder-add': builder = builderAddBar(builder); render(); break;
         case 'builder-remove': builder = builderRemoveBar(builder, Number(target.dataset.bar)); render(); break;
         case 'builder-play': try { options.onPlay({ kind: 'exercise', spec: builderSpec(builder) }, null); } catch (failure) { builder = { ...builder, error: failure instanceof Error ? failure.message : String(failure) }; render(); } break;
@@ -566,6 +569,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     if (control.dataset.control === 'builder-mode') { builder = builderMode(builder, control.value === 'minor' ? 'minor' : 'major'); render(); return; }
     if (control.dataset.control === 'builder-step') { builder = builderStep(builder, Number(control.dataset.bar), Number(control.value)); render(); return; }
     if (control.dataset.control === 'builder-kind') { builder = builderKind(builder, Number(control.dataset.bar), control.value as LineChord); render(); return; }
+    if (control.dataset.control === 'builder-rhythm') { builder = builderRhythm(builder, Number(control.dataset.bar), control.value as RhythmPatternId); render(); return; }
     if (control.dataset.control === 'builder-pattern') { builder = builderPattern(builder, Number(control.dataset.bar), control.value as ProgressionPattern); render(); return; }
     if (control.dataset.control === 'card-param') { configureCard(state, control.dataset.card!, control.dataset.param!, control.value); return; }
     if (control.dataset.control === 'structure') library = { ...library, structureId: (control.value || null) as LibraryControls['structureId'] };

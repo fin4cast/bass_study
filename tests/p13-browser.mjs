@@ -1073,12 +1073,23 @@ check('library-line-builder-assembles-saves-as-own-exercise-and-plays-it', 'ui',
   assert.deepEqual(await builder.locator('.ls-bb-chord').allInnerTexts(), ['A · I', 'F♯m · vi', 'E · V', 'A · I', 'A · I']);
   assert.ok((await builder.locator('[data-control="builder-pattern"][data-bar="1"]').locator('option').allInnerTexts()).includes('тоники с подходом'));
   await builder.locator('[data-control="builder-pattern"][data-bar="1"]').selectOption('roots-approach');
-  // «Сыграть» открывает экран игры с этой линией: 40 нот (пять тактов по восемь).
+  // Объём 3: ритм на такт, виды m7 и maj7, «тоники с проходящими»; смена объёма начинает с I–IV–V–I в той же тональности.
+  await builder.locator('[data-act="builder-volume"][data-value="3"]').click();
+  assert.deepEqual(await builder.locator('.ls-bb-chord').allInnerTexts(), ['A · I', 'D · IV', 'E · V', 'A · I']);
+  assert.equal(await builder.locator('[data-control="builder-rhythm"]').count(), 4);
+  assert.ok((await builder.locator('[data-control="builder-kind"][data-bar="1"]').locator('option').allInnerTexts()).some(text => /maj7/.test(text)));
+  await builder.locator('[data-control="builder-kind"][data-bar="1"]').selectOption('major-seventh');
+  await builder.locator('[data-control="builder-rhythm"][data-bar="0"]').selectOption('quarter-rest');
+  assert.ok((await builder.locator('[data-control="builder-pattern"][data-bar="2"]').locator('option').allInnerTexts()).includes('тоники с проходящими'));
+  await builder.locator('[data-control="builder-pattern"][data-bar="2"]').selectOption('roots-passing');
+  await builder.locator('[data-act="builder-add"]').click();
+  assert.deepEqual(await builder.locator('.ls-bb-chord').allInnerTexts(), ['A · I', 'Dmaj7 · IVmaj7', 'E · V', 'A · I', 'A · I']);
+  // «Сыграть» открывает экран игры с этой линией: 35 нот — такт с четвертной паузой даёт три атаки, остальные четыре по восемь.
   await home(page).locator('.ls-builder [data-act="builder-play"]').click();
   await playScene(page).locator('[data-title]').waitFor();
   assert.match(await playScene(page).innerText(), /Своя линия/);
-  assert.match(await playScene(page).locator('[data-sub]').innerText(), /40 нот/);
-  return { chords: ['A · I', 'F♯m · vi', 'E · V', 'A · I', 'A · I'] };
+  assert.match(await playScene(page).locator('[data-sub]').innerText(), /35 нот/);
+  return { chords: ['A · I', 'Dmaj7 · IVmaj7', 'E · V', 'A · I', 'A · I'] };
 });
 
 /* ---------- Проверка по диапазону (R-028, A9) ---------- */

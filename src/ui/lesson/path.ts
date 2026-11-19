@@ -5,11 +5,14 @@
 import { checkExercise } from '../../practice/check';
 import { getConcept } from '../../practice/concepts';
 import {
-  LINES, STATE_LABELS, countsLabel, isDone, isRequired, statusLabel, stepRefs, type Block, type Counts, type LineId, type Program, type ProgramState, type Step, type StepState,
+  LINES, STATE_LABELS, countsLabel, isDone, isRequired, statusLabel, stepRefs, type Block, type Counts, type LineId, type OwnLineRule, type Program, type ProgramState, type Step, type StepState,
 } from '../../practice/program';
 import { materialLabel } from './material';
 
 export { STATE_LABELS, countsLabel };
+
+/** Объём конструктора по правилу шага «Своя линия» (R-028, B5.4): шаги этапов 3 и 4 строятся в объёме 3. */
+export const lineStepVolume = (rule: OwnLineRule): 1 | 2 | 3 => (rule === 'h1-line' ? 1 : rule === 'h2-own' ? 2 : 3);
 
 export interface PathVariant { readonly label: string; readonly clean: boolean }
 export interface PathStep {
@@ -24,8 +27,8 @@ export interface PathStep {
   readonly variants: readonly PathVariant[];
   /** Вариант, который откроется: выбранный или первый без «Чисто». */
   readonly selected: number;
-  /** Объём конструктора «Своей линии» для шага `line` (1 — `h1-line`, 2 — `h2-own`); у остальных шагов `null`. */
-  readonly builderVolume: 1 | 2 | null;
+  /** Объём конструктора «Своей линии» для шага `line` (1 — `h1-line`, 2 — `h2-own`, 3 — `h3-line` и `h4-line`); у остальных шагов `null`. */
+  readonly builderVolume: 1 | 2 | 3 | null;
 }
 export interface PathBlock {
   readonly id: string;
@@ -60,7 +63,7 @@ export function pathModel(program: Program, state: ProgramState, skipped: Readon
     const selected = picked !== undefined && picked >= 0 && picked < variants.length ? picked : Math.max(0, firstOpen);
     const label = status ? statusLabel(status) : STATE_LABELS.new;
     return { id: step.id, kind: step.kind, title: step.title, state: stateName, label, review: status?.review ?? false, current: currentIds.has(step.id), variants, selected,
-      builderVolume: step.kind === 'line' ? (step.rule === 'h1-line' ? 1 : step.rule === 'h2-own' ? 2 : null) : null };
+      builderVolume: step.kind === 'line' ? lineStepVolume(step.rule) : null };
   };
   const blockView = (block: Block): PathBlock => ({
     id: block.id, title: block.title, counts: countsLabel(state.blockCounts.get(block.id)!), skipped: skipped.has(block.id),
@@ -102,11 +105,11 @@ export function stageTransitions(program: Program, state: ProgramState): readonl
 }
 
 /** Текущий шаг «Своя линия»: в план дня он не входит (строится в конструкторе), поэтому «Сегодня» предлагает его отдельной строкой. */
-export function currentLineStep(state: ProgramState): { id: string; title: string; volume: 1 | 2 | null } | null {
+export function currentLineStep(state: ProgramState): { id: string; title: string; volume: 1 | 2 | 3 } | null {
   for (const ref of Object.values(state.current)) {
     const step = ref?.step;
     if (step?.kind !== 'line') continue;
-    return { id: step.id, title: step.title, volume: step.rule === 'h1-line' ? 1 : step.rule === 'h2-own' ? 2 : null };
+    return { id: step.id, title: step.title, volume: lineStepVolume(step.rule) };
   }
   return null;
 }

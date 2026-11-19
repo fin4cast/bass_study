@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildExercise } from '../src/exercises';
 import {
-  addBar, lineSpec, lineVolume, newLineDraft, patternsFor, removeBar, setBarKind, setBarPattern, setBarStep, setLineMode, setLineRoot, stepChoices, transposeLine, VOLUME_2_MAX_BARS,
+  addBar, chordsFor, LINE_RHYTHMS, lineSpec, lineVolume, maxBarsFor, newLineDraft, patternsFor, removeBar, setBarKind, setBarPattern, setBarRhythm, setBarStep, setLineMode, setLineRoot, stepChoices, transposeLine, VOLUME_2_MAX_BARS,
 } from '../src/practice/line-builder';
-import { builderAddBar, builderKind, builderLabels, builderMarkup, builderMode, builderRemoveBar, builderStep, builderVolume, initialBuilder, toggleBuilder } from '../src/ui/lesson/line-builder';
+import { PROGRESSION_PATTERNS, patternFits, LINE_MAX_BARS } from '../src/exercises';
+import { builderAddBar, builderKind, builderLabels, builderMarkup, builderMode, builderRemoveBar, builderRhythm, builderStep, builderVolume, initialBuilder, toggleBuilder } from '../src/ui/lesson/line-builder';
 import { evaluateProgram, lineFacts, type Program, type ProgramFacts } from '../src/practice/program';
 import type { PlayRecord } from '../src/practice/results';
 
@@ -139,5 +140,65 @@ describe('панель конструктора: объём 1 и объём 2', 
     small = builderRemoveBar(builderRemoveBar(small, 0), 0);
     expect(builderRemoveBar(small, 0).error).toMatch(/не меньше 2/);
     expect(builderMode(builderStep(builderKind(changed, 1, 'minor-triad'), 1, 2), 'minor').draft).toMatchObject({ mode: 'minor' });
+  });
+});
+
+describe('конструктор объёма 3 (R-028, B5.4): все рисунки, ритм на такт, m7 и maj7, до шестнадцати тактов', () => {
+  it('виды аккорда: объём 2 — три, объём 3 — пять; предел тактов — предел формы', () => {
+    expect(chordsFor(2)).toEqual(['major-triad', 'minor-triad', 'dominant-seventh']);
+    expect(chordsFor(3)).toEqual(['major-triad', 'minor-triad', 'dominant-seventh', 'minor-seventh', 'major-seventh']);
+    expect([maxBarsFor(2), maxBarsFor(3)]).toEqual([VOLUME_2_MAX_BARS, LINE_MAX_BARS]);
+    expect(LINE_MAX_BARS).toBe(16);
+  });
+  it('m7 и maj7 ставятся только в объёме 3; несовместимый рисунок сменяется «тониками»', () => {
+    const draft = newLineDraft('C');
+    expect(() => setBarKind(draft, 1, 'minor-seventh', 2)).toThrow(RangeError);
+    const seventh = setBarKind(setBarPattern(draft, 1, 'boogie'), 1, 'minor-seventh', 3);
+    expect(seventh.bars[1]).toMatchObject({ chord: 'minor-seventh', pattern: 'roots' });
+    expect(builderLabels(setBarKind(setBarStep(draft, 1, 2), 1, 'major-seventh', 3))[1]).toBe('Dmaj7 · IImaj7');
+    expect(lineVolume(seventh)).toBe(3);
+  });
+  it('набор рисунков объёма 3 — все допустимые аккорду (без жёсткого списка)', () => {
+    for (const chord of chordsFor(3)) expect(patternsFor(3, chord)).toEqual(PROGRESSION_PATTERNS.filter(pattern => patternFits(pattern, chord)));
+    expect(patternsFor(3, 'major-triad')).toContain('roots-passing');
+    expect(patternsFor(2, 'major-triad')).not.toContain('roots-passing');
+  });
+  it('до шестнадцати тактов; семнадцатый отклоняется, описание строится на каждом размере', () => {
+    let draft = newLineDraft('C');
+    while (draft.bars.length < LINE_MAX_BARS) draft = addBar(draft, 3);
+    expect(draft.bars).toHaveLength(16);
+    expect(() => addBar(draft, 3)).toThrow(/не больше 16/);
+    expect(buildExercise(lineSpec(draft)).notes).toHaveLength(128);
+    expect(() => addBar(setBarRhythm(newLineDraft('C'), 0, 'quarters'), 2)).not.toThrow();
+  });
+  it('ритм такта: любой рисунок без свинга; свинг и неизвестный ритм отклоняются; ритм меняет объём и ноты', () => {
+    expect(LINE_RHYTHMS.map(item => item.id)).not.toContain('shuffle');
+    expect(LINE_RHYTHMS.map(item => item.id)).toContain('tied-syncopation');
+    const draft = setBarRhythm(newLineDraft('G'), 0, 'quarter-rest');
+    expect(draft.bars[0].rhythm).toBe('quarter-rest');
+    expect(lineVolume(draft)).toBe(3);
+    expect(() => setBarRhythm(draft, 0, 'shuffle')).toThrow(RangeError);
+    expect(() => setBarRhythm(draft, 9, 'quarters')).toThrow(RangeError);
+    expect(() => buildExercise(lineSpec(draft))).not.toThrow();
+  });
+  it('рисунок с проходящими и ритм на такт строятся в линии: гамма — по ладу линии', () => {
+    let draft = setLineMode(newLineDraft('A'), 'minor');
+    draft = setBarPattern(setBarStep(draft, 1, 5), 0, 'roots-passing');
+    const plan = buildExercise(lineSpec(draft));
+    expect(plan.notes.filter(note => note.segment === 0).slice(6).map(note => note.name)).toEqual(['B1', 'C2']);
+  });
+  it('панель объёма 3: ритм на такт, виды m7 и maj7, кнопка добавления доступна до шестнадцати', () => {
+    const state = builderVolume(toggleBuilder(initialBuilder(), true), 3);
+    const markup = builderMarkup(state, 'b');
+    for (const control of ['builder-rhythm', 'builder-kind', 'builder-step', 'minor-seventh', 'major-seventh', 'Объём 3']) expect(markup).toContain(control);
+    expect(markup.match(/data-control="builder-rhythm"/g)).toHaveLength(4);
+    expect(builderMarkup(builderVolume(toggleBuilder(initialBuilder(), true), 2), 'b')).not.toContain('builder-rhythm');
+    let grown = state;
+    for (let i = 0; i < 12; i++) grown = builderAddBar(grown);
+    expect(grown.draft.bars).toHaveLength(16);
+    expect(builderAddBar(grown).error).toMatch(/не больше 16/);
+    expect(builderKind(state, 1, 'major-seventh').draft.bars[1].chord).toBe('major-seventh');
+    expect(builderRhythm(state, 2, 'syncopation').draft.bars[2].rhythm).toBe('syncopation');
+    expect(builderKind(builderVolume(toggleBuilder(initialBuilder(), true), 2), 1, 'major-seventh').error).toMatch(/объёме 2/);
   });
 });
