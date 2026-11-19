@@ -291,3 +291,8 @@
   .pl-area { gap: 10px; }
   .pl-title { font-size: 22px; }
 }
+
+/* Переход к следующему шагу плана из шапки и подсказка рисунка ритма. */
+.pl-nav { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pl-skip { padding-block: 2px; }
+.pl-rhythm-hint { color: var(--text-secondary); }

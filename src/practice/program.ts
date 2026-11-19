@@ -195,9 +195,10 @@ export function checkFacts(records: readonly PracticeRecord[]): CheckFact[] {
 export const STATE_LABELS: Readonly<Record<StepState, string>> = Object.freeze({
   new: 'не начат', progress: 'в работе', passed: 'пройден', mastered: 'освоен', skipped: 'пропущен',
 });
-/** «пройдено 5 · пропущено 2 · освоено 1 из 9» (и «повторить N», если есть). */
+/** «пройдено 5 из 9 · пропущено 2 · освоено 1 · повторить 1»: нулевые «пропущено», «освоено» и «повторить» не пишутся. */
 export function countsLabel(counts: Counts): string {
-  return `пройдено ${counts.passed} · пропущено ${counts.skipped} · освоено ${counts.mastered}${counts.review ? ` · повторить ${counts.review}` : ''} из ${counts.total}`;
+  const extra = ([['пропущено', counts.skipped], ['освоено', counts.mastered], ['повторить', counts.review]] as const).filter(([, value]) => value > 0);
+  return [`пройдено ${counts.passed} из ${counts.total}`, ...extra.map(([label, value]) => `${label} ${value}`)].join(' · ');
 }
 /** Подпись линии: у линии без шагов (у «Техники» этапа 4) счётчиков нет — место отдаётся закреплению (R-028). */
 export const lineCountsLabel = (counts: Counts): string => (counts.total === 0 ? 'шагов нет — место отдаётся закреплению' : countsLabel(counts));

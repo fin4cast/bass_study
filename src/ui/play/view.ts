@@ -91,6 +91,8 @@ export interface MountPlayOptions {
   readonly onConcept?: (id: ConceptId) => void;
   /** «Следующий шаг плана →» после оценки подхода. */
   readonly onNextStep?: () => void;
+  /** «Следующий шаг →» в шапке (клавиша N): без оценки, шаг остаётся невыполненным. */
+  readonly onSkipStep?: () => void;
   /** «Отметить шаг выполненным» после оценки «С ошибками» или «Не успевал». */
   readonly onCompleteStep?: () => void;
 }
@@ -142,7 +144,7 @@ const TEMPLATE = `
 <section class="pl-scene" data-status="stopped" aria-label="Экран игры">
   <header class="pl-head">
     <div class="pl-head-copy">
-      <button type="button" class="pl-back" data-back></button>
+      <div class="pl-nav"><button type="button" class="pl-back" data-back></button><button type="button" class="secondary-button button-compact pl-skip" data-skip-step aria-keyshortcuts="N" title="Открыть следующий шаг плана; этот останется невыполненным" hidden>Следующий шаг →<kbd aria-hidden="true">N</kbd></button></div>
       <div class="pl-title-row"><h1 class="pl-title" data-title></h1><span class="pl-sub" data-sub></span><span class="pl-chips" data-chips></span></div>
       <div class="pl-variant" data-variant-box hidden><span class="pl-variant-caption">Вариант</span><span class="pl-variant-fields" data-variant-fields></span><span class="pl-variant-error" role="alert" data-variant-error></span></div>
       <dl class="pl-task" data-task-box aria-label="Задание" hidden>
@@ -162,7 +164,7 @@ const TEMPLATE = `
     <div class="pl-area" data-area="board">
       <div class="pl-strip">
         <div class="pl-now"><span data-now-caption>Сейчас</span><strong data-now>—</strong><span data-now-detail></span></div>
-        <div class="pl-rhythm"><header><span>Ритм такта</span><span data-bar-label="board"></span></header><div class="pl-fit" data-rhythm="board"></div></div>
+        <div class="pl-rhythm"><header><span>Ритм такта<span class="pl-rhythm-hint" data-rhythm-hint></span></span><span data-bar-label="board"></span></header><div class="pl-fit" data-rhythm="board"></div></div>
       </div>
       <div class="pl-fit pl-board" data-board="board"></div>
       <div class="pl-row" data-slot="board"></div>
@@ -190,7 +192,7 @@ const TEMPLATE = `
         <div class="pl-mcell"><span data-mem-bar-caption>Сейчас</span><strong data-mem-bar>—</strong><span data-mem-detail></span></div>
         <div class="pl-mcell"><span data-mem-junction-caption>Переход</span><strong data-mem-junction></strong><span data-mem-junction-detail></span></div>
       </div>
-      <div class="pl-rhythm"><header><span>Ритм такта</span><span data-bar-label="memory"></span></header><div class="pl-fit" data-rhythm="memory"></div></div>
+      <div class="pl-rhythm"><header><span>Ритм такта<span class="pl-rhythm-hint" data-rhythm-hint></span></span><span data-bar-label="memory"></span></header><div class="pl-fit" data-rhythm="memory"></div></div>
       <div class="pl-row" data-slot="memory"></div>
     </div>
   </div>
@@ -435,6 +437,9 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     const n = noteSteps(line);
     const pattern = plan?.timing ? (plan.spec.templateId === 'song-fragment' ? 'ритм партитуры' : 'ритм риффа') : line ? rhythmPattern(line.pattern).label.toLowerCase() : '';
     at('[data-sub]').textContent = plan && line ? `${n} ${plural(n, 'нота', 'ноты', 'нот')} · ${pattern} · ${line.bars} ${plural(line.bars, 'такт', 'такта', 'тактов')}${line.echo ? ' · эхо' : ''}` : '';
+    // Как играть рисунок: «четверти» и «восьмые» объясняются словами счёта (рифф и фрагмент играют свой ритм).
+    const hint = plan && line && !plan.timing ? rhythmPattern(line.pattern).hint : '';
+    for (const element of scene.querySelectorAll<HTMLElement>('[data-rhythm-hint]')) element.textContent = hint ? ` · ${hint}` : '';
   }
 
   function conceptNodes(text: string): Node[] {
@@ -928,6 +933,10 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       applyVariant(param, value);
     }
   }
+  /** «Следующий шаг →» в шапке: есть другой невыполненный шаг плана. */
+  function renderSkip() {
+    at<HTMLButtonElement>('[data-skip-step]').hidden = !(planStep?.hasNext && options.onSkipStep);
+  }
   /** После оценки: следующий шаг плана (Enter), ещё подход, отметить шаг выполненным. */
   function renderNextActions() {
     const box = rateEl.querySelector<HTMLElement>('[data-next-actions]')!;
@@ -1167,6 +1176,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     else if (data.after === 'again') { closeRate(); at<HTMLButtonElement>('[data-play]').focus(); }
     else if (data.after === 'complete') { options.onCompleteStep?.(); button.disabled = true; }
     else if (data.back !== undefined) options.onBack?.();
+    else if (data.skipStep !== undefined) options.onSkipStep?.();
     else if (data.listen !== undefined) void listen();
     else if (data.concept) options.onConcept?.(data.concept as ConceptId);
     else if (data.conceptOpen !== undefined && concept) options.onConcept?.(concept.id);
@@ -1224,6 +1234,10 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     if (event.key === 'Enter' && rated && planStep?.hasNext && options.onNextStep && !rateEl.hidden) {
       if (!allowsTransportShortcut(event, scene)) return;
       event.preventDefault(); options.onNextStep(); return;
+    }
+    if (event.code === 'KeyN' && planStep?.hasNext && options.onSkipStep) {
+      if (!allowsSceneKey(event, scene)) return;
+      event.preventDefault(); options.onSkipStep(); return;
     }
     if (event.code === 'KeyL' || event.code === 'KeyM' || event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
       const arrows = event.code === 'ArrowLeft' || event.code === 'ArrowRight';
@@ -1283,7 +1297,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     setView(next) { if (!disposed) setView(next); },
     getView: () => view,
     getSettings: () => settings,
-    setPlanStep(info) { planStep = info; renderNextActions(); if (!disposed) renderTransport(); },
+    setPlanStep(info) { planStep = info; renderSkip(); renderNextActions(); if (!disposed) renderTransport(); },
     setRule(text) { if (disposed) return; const rule = at('[data-rule]'); rule.textContent = text ?? ''; rule.hidden = !text; },
     setVisible(next) {
       if (disposed || next === visible) return;

@@ -19,6 +19,8 @@ export interface RhythmCell {
 export interface RhythmPattern {
   readonly id: RhythmPatternId;
   readonly label: string;
+  /** Как играть рисунок словами счёта: подпись строки ритма на экране игры. */
+  readonly hint: string;
   /** Ячейки по кругу; сумма длительностей — 1, 2, 4, 8 или 16 шестнадцатых (рисунок укладывается в такт целое число раз). */
   readonly cells: readonly RhythmCell[];
   /** Свинг слабой восьмой, % (50 — ровно). */
@@ -32,16 +34,16 @@ const cellsOf = (notation: string): readonly RhythmCell[] => notation.split(' ')
 });
 
 export const RHYTHM_PATTERNS: readonly RhythmPattern[] = Object.freeze(([
-  { id: 'eighths', label: 'Восьмые', cells: cellsOf('n2'), swing: 50 },
-  { id: 'quarters', label: 'Четверти', cells: cellsOf('n4'), swing: 50 },
-  { id: 'sixteenths', label: 'Шестнадцатые', cells: cellsOf('n1'), swing: 50 },
-  { id: 'syncopation', label: 'Синкопа 8–4–8', cells: cellsOf('n2 n4 n2'), swing: 50 },
-  { id: 'shuffle', label: 'Шаффл (свинг-восьмые)', cells: cellsOf('n2'), swing: 66 },
-  { id: 'quarter-two-eighths', label: 'Четверть и две восьмые', cells: cellsOf('n4 n2 n2'), swing: 50 },
-  { id: 'note-rest', label: 'Нота — пауза', cells: cellsOf('n4 r4'), swing: 50 },
-  { id: 'quarter-rest', label: 'С четвертной паузой', cells: cellsOf('n4 n4 n4 r4'), swing: 50 },
-  { id: 'eighth-rest', label: 'С восьмой паузой', cells: cellsOf('n4 r2 n2'), swing: 50 },
-  { id: 'tied-syncopation', label: 'Синкопа с лигой', cells: cellsOf('n4 n2 n2 t2 n2 n4'), swing: 50 },
+  { id: 'eighths', label: 'Восьмые', hint: 'две ноты на счёт: «1 и, 2 и…» — на щелчок и ровно между щелчками', cells: cellsOf('n2'), swing: 50 },
+  { id: 'quarters', label: 'Четверти', hint: 'одна нота на каждый счёт «1, 2, 3, 4» — на каждый щелчок метронома', cells: cellsOf('n4'), swing: 50 },
+  { id: 'sixteenths', label: 'Шестнадцатые', hint: 'четыре ноты на счёт: «1 е и а»', cells: cellsOf('n1'), swing: 50 },
+  { id: 'syncopation', label: 'Синкопа 8–4–8', hint: 'восьмая, четверть, восьмая: средняя нота начинается между щелчками', cells: cellsOf('n2 n4 n2'), swing: 50 },
+  { id: 'shuffle', label: 'Шаффл (свинг-восьмые)', hint: 'две ноты на счёт, первая длиннее второй: «та-а-та»', cells: cellsOf('n2'), swing: 66 },
+  { id: 'quarter-two-eighths', label: 'Четверть и две восьмые', hint: 'на «1» одна нота, на «2» — две: «1, 2 и»', cells: cellsOf('n4 n2 n2'), swing: 50 },
+  { id: 'note-rest', label: 'Нота — пауза', hint: 'нота на «1», на «2» тишина — заглуши струну', cells: cellsOf('n4 r4'), swing: 50 },
+  { id: 'quarter-rest', label: 'С четвертной паузой', hint: 'ноты на «1, 2, 3», на «4» тишина', cells: cellsOf('n4 n4 n4 r4'), swing: 50 },
+  { id: 'eighth-rest', label: 'С восьмой паузой', hint: 'нота на «1», на «2» тишина, нота на «и»', cells: cellsOf('n4 r2 n2'), swing: 50 },
+  { id: 'tied-syncopation', label: 'Синкопа с лигой', hint: 'нота на «2 и» тянется через «3» — на «3» не щипай', cells: cellsOf('n4 n2 n2 t2 n2 n4'), swing: 50 },
 ] satisfies RhythmPattern[]).map(pattern => Object.freeze({ ...pattern, cells: Object.freeze([...pattern.cells]) })));
 
 export const isRhythmPatternId = (value: unknown): value is RhythmPatternId => RHYTHM_PATTERNS.some(pattern => pattern.id === value);

@@ -22,12 +22,12 @@ describe('путь программы для «Основ»', () => {
     expect(stages[1].lines.map(line => [line.id, line.blocks.map(block => block.id)])).toEqual([
       ['technique', ['t2-length', 't2-spider']], ['fretboard', ['f2-dg', 'f2-all', 'f2-penta']], ['chords', ['h2-rhythm', 'h2-blues', 'h2-approach', 'h2-triad', 'h2-own']],
     ]);
-    expect(stages[1].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 34');
+    expect(stages[1].counts).toBe('пройдено 0 из 34');
     expect(stages[0].lines.map(line => [line.id, line.blocks.map(block => block.id)])).toEqual([
       ['technique', ['t1-pulse', 't1-crossing', 't1-left']], ['fretboard', ['f1-ea5', 'f1-ea12', 'f1-octave']], ['chords', ['h1-open', 'h1-roots', 'h1-fifth', 'h1-line']],
     ]);
-    expect(stages[0].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 29');
-    expect(stages[2].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 36');
+    expect(stages[0].counts).toBe('пройдено 0 из 29');
+    expect(stages[2].counts).toBe('пройдено 0 из 36');
     expect(pathBadge(evaluateProgram(PROGRAM, facts()))).toBe('0/130');
   });
 
@@ -38,8 +38,8 @@ describe('путь программы для «Основ»', () => {
   });
 
   it('счётчик по-русски: пропущено и «повторить» показываются, когда они есть', () => {
-    expect(countsLabel({ passed: 5, skipped: 2, mastered: 1, review: 0, total: 9 })).toBe('пройдено 5 · пропущено 2 · освоено 1 из 9');
-    expect(countsLabel({ passed: 5, skipped: 0, mastered: 3, review: 2, total: 9 })).toBe('пройдено 5 · пропущено 0 · освоено 3 · повторить 2 из 9');
+    expect(countsLabel({ passed: 5, skipped: 2, mastered: 1, review: 0, total: 9 })).toBe('пройдено 5 из 9 · пропущено 2 · освоено 1');
+    expect(countsLabel({ passed: 5, skipped: 0, mastered: 3, review: 2, total: 9 })).toBe('пройдено 5 из 9 · освоено 3 · повторить 2');
   });
 
   it('текущие шаги линий отмечены, вариант по умолчанию — первый без «Чисто»', () => {

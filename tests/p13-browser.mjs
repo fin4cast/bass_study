@@ -97,8 +97,16 @@ check('library-card-configure-form-b-keeps-form-a-in-plan-and-star-saves-configu
   const card = home(page).locator('.ls-lib-card').filter({ has: page.getByRole('heading', { name: 'Форма пентатоники вверх-вниз', exact: true }) });
   await card.locator('[data-act="toggle-plan"]').click();
   await assertAttribute(card.locator('[data-act="toggle-plan"]'), 'aria-pressed', 'true');
+  // Мини-гриф одного масштаба на всех карточках: настройка не меняет его размер и место (P20).
+  const boardBox = () => card.evaluate(element => {
+    const board = element.querySelector('.ls-board').getBoundingClientRect(), own = element.getBoundingClientRect();
+    return { x: Math.round(board.left - own.left), y: Math.round(board.top - own.top), width: Math.round(board.width), height: Math.round(board.height) };
+  });
+  const boardBefore = await boardBox();
+  assert.equal(new Set(await home(page).locator('.ls-lib-card .mini-board').evaluateAll(boards => boards.map(board => board.getAttribute('viewBox')))).size, 1, 'одна геометрия мини-грифа');
   await card.locator('[data-act="configure"]').click();
   const shape = card.locator('[data-control="card-param"][data-param="shapeId"]');
+  assert.deepEqual(await boardBox(), boardBefore, 'строка настройки открывается под грифом');
   // Пользователь меняет значение со списка в фокусе (клавиатурой или мышью).
   await shape.focus();
   await shape.selectOption('penta-b');
@@ -106,6 +114,8 @@ check('library-card-configure-form-b-keeps-form-a-in-plan-and-star-saves-configu
   assert.ok(await card.locator('[data-control="card-param"][data-param="shapeId"]').evaluate(element => document.activeElement === element), 'Фокус на списке формы');
   await card.locator('[data-control="card-param"][data-param="root"]').selectOption('E');
   assert.match(await card.locator('.ls-meta').innerText(), /Em · минорная пентатоника · форма B/);
+  const boardAfter = await boardBox();
+  assert.deepEqual([boardAfter.x, boardAfter.width, boardAfter.height], [boardBefore.x, boardBefore.width, boardBefore.height], 'другая форма — те же размеры грифа');
   assert.equal(await card.locator('[data-act="toggle-plan"]').getAttribute('aria-pressed'), 'false', 'Форма B — другой материал, форма A остаётся в плане');
   await card.locator('[data-act="toggle-plan"]').click();
   const plan = await waitDb(page, db => db.preferences.lesson.plan.steps.length === PROGRAM_DAY_ONE_STEPS + 2, 'обе формы в плане');
@@ -425,6 +435,26 @@ check('today-start-runs-the-lesson-from-first-to-last-step-without-choosing-para
   assert.equal(db.preferences.lesson.plan.steps[0].status, 'done');
   assert.ok(db.history.every(entry => entry.result?.assessment === 'clean'));
   return { steps: db.preferences.lesson.plan.steps.map(step => step.status) };
+});
+
+check('play-next-step-button-and-n-key-open-next-step-without-rating', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await home(page).locator('[data-key="hero-play"]').click();
+  await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
+  const skip = playScene(page).locator('[data-skip-step]');
+  assert.equal(await skip.isVisible(), true, 'кнопка «Следующий шаг →» видна без оценки');
+  assert.equal(await skip.getAttribute('aria-keyshortcuts'), 'N');
+  await page.keyboard.press('KeyN');
+  await page.waitForFunction(title => document.querySelector('[data-lesson-screen="play"] [data-title]')?.textContent === title, PROGRAM_DAY_ONE[1]);
+  let db = await waitDb(page, db => db.preferences.lesson.plan.steps[1].status === 'current', 'второй шаг стал текущим');
+  assert.equal(db.preferences.lesson.plan.steps[0].status, 'pending', 'пропущенный шаг не отмечен выполненным');
+  assert.equal(db.history.length, 0, 'без игры в историю ничего не пишется');
+  await playScene(page).locator('[data-skip-step]').click();
+  await page.waitForFunction(title => document.querySelector('[data-lesson-screen="play"] [data-title]')?.textContent === title, PROGRAM_DAY_ONE[2]);
+  db = await waitDb(page, db => db.preferences.lesson.plan.steps[2].status === 'current', 'третий шаг стал текущим');
+  assert.deepEqual(db.preferences.lesson.plan.steps.slice(0, 2).map(step => step.status), ['pending', 'pending']);
+  assert.match(await playScene(page).locator('[data-rhythm-hint]').first().innerText(), /нота на каждый счёт «1, 2, 3, 4»/, 'четверти объяснены словами счёта');
+  return { steps: db.preferences.lesson.plan.steps.slice(0, 3).map(step => step.status) };
 });
 
 check('today-next-day-offers-next-variant-and-keeps-manual-steps-and-long-break-recalls', 'ui', async ({ page, origin }) => {
@@ -1622,7 +1652,7 @@ check('basics-path-opens-step-on-base-tempo-with-rule-and-rated-variant-shows-in
   await lessonTab(page, 'Основы');
   assert.equal(await home(page).locator('[data-act="basics-view"][data-value="path"]').getAttribute('aria-pressed'), 'true', 'по умолчанию — путь');
   assert.deepEqual(await home(page).locator('.ls-pline h3').allInnerTexts(), ['Техника', 'Гриф', 'Аккорды и линии']);
-  assert.match(await home(page).locator('.ls-path-head .ls-sub').first().innerText(), /пройдено 0 · пропущено 0 · освоено 0 из 29/);
+  assert.match(await home(page).locator('.ls-path-head .ls-sub').first().innerText(), /пройдено 0 из 29$/);
   assert.equal(await pathStatus(page, 't1-left.quarters'), 'не начат');
   // Текущие шаги трёх линий отмечены.
   assert.deepEqual(await home(page).locator('.ls-pstep.is-current').evaluateAll(items => items.map(item => item.dataset.stepId)), ['t1-pulse.quarters', 'f1-ea5.naturals', 'h1-open.quarters']);
@@ -1655,7 +1685,7 @@ check('basics-path-stage-3-tab-lists-blocks-and-opens-a-step-with-passing-notes'
   await lessonTab(page, 'Основы');
   await home(page).locator('[data-act="path-stage"][data-value="3"]').click();
   assert.equal(await home(page).locator('.ls-path-head h2').innerText(), 'Этап 3 · Тоны аккорда и свои линии');
-  assert.match(await home(page).locator('.ls-path-head .ls-sub').first().innerText(), /пройдено 0 · пропущено 0 · освоено 0 из 36/);
+  assert.match(await home(page).locator('.ls-path-head .ls-sub').first().innerText(), /пройдено 0 из 36$/);
   assert.deepEqual(await home(page).locator('.ls-pblock').evaluateAll(blocks => blocks.map(block => block.dataset.block)),
     ['t3-sixteenths', 't3-spider', 'f3-major', 'f3-minor', 'f3-penta', 'h3-minor', 'h3-diatonic', 'h3-passing', 'h3-blues', 'h3-line']);
   // Этап 4: у «Техники» — блок «Растяжка и скачки» (P19).
@@ -1721,14 +1751,14 @@ check('basics-path-two-variants-pass-the-step-and-two-days-master-it', 'ui', asy
   await playVariant(1);
   await lessonTab(page, 'Основы');
   assert.equal(await pathStatus(page, 't1-left.quarters'), 'пройден');
-  assert.match(await home(page).locator('.ls-pblock[data-block="t1-left"] header .ls-sub').innerText(), /пройдено 1 · пропущено 0 · освоено 0 из 3/);
+  assert.match(await home(page).locator('.ls-pblock[data-block="t1-left"] header .ls-sub').innerText(), /пройдено 1 из 3$/);
   await page.clock.setFixedTime(new Date('2026-11-17T10:00:00'));
   await page.reload(); await ready(page);
   await playVariant(0);
   await playVariant(1);
   await lessonTab(page, 'Основы');
   assert.match(await pathStatus(page, 't1-left.quarters'), /^освоен · \d+$/);
-  assert.match(await home(page).locator('.ls-pblock[data-block="t1-left"] header .ls-sub').innerText(), /пройдено 1 · пропущено 0 · освоено 1 из 3/);
+  assert.match(await home(page).locator('.ls-pblock[data-block="t1-left"] header .ls-sub').innerText(), /пройдено 1 из 3 · освоено 1$/);
   return { status: await pathStatus(page, 't1-left.quarters') };
 });
 
@@ -1744,7 +1774,7 @@ check('progress-shows-program-status-after-a-lesson-pass-and-reload', 'ui', asyn
   const progress = page.locator('[data-page-frame="progress"]');
   const row = progress.locator('.pg-pstep[data-step-id="t1-pulse.quarters"]');
   await row.waitFor();
-  assert.match(await progress.locator('.pg-stage-head').first().innerText(), /Этап 1 · Пульс и опора\s+пройдено 0 · пропущено 0 · освоено 0 из 29/);
+  assert.match(await progress.locator('.pg-stage-head').first().innerText(), /Этап 1 · Пульс и опора\s+пройдено 0 из 29/);
   assert.equal(await row.locator('.pg-pstatus').innerText(), 'в работе');
   assert.match(await row.innerText(), /сыграно 1 из 4 · лучший чистый темп 200/);
   assert.equal(await progress.locator('.pg-pstep[data-step-id="h1-roots.eighths"] .pg-pstatus').innerText(), 'не начат');

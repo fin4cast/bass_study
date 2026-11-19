@@ -206,6 +206,21 @@ export function planAfterNext(plan: DayPlan, stepId: string | null): DayPlan {
   return completeIfOpen(plan, stepId);
 }
 
+/**
+ * «Следующий шаг →» в шапке экрана игры без оценки: шаг остаётся невыполненным, открывается следующий
+ * невыполненный шаг после него (по кругу). `null` — других невыполненных шагов нет.
+ */
+export function stepAfter(plan: DayPlan, stepId: string | null): { readonly stepId: string; readonly content: PlanStepContent } | null {
+  const index = stepId ? plan.steps.findIndex(step => step.id === stepId) : -1;
+  if (index < 0) return null;
+  const count = plan.steps.length;
+  for (let offset = 1; offset < count; offset++) {
+    const step = plan.steps[(index + offset) % count];
+    if (step.status !== 'done') return { stepId: step.id, content: step.content };
+  }
+  return null;
+}
+
 /** Номер шага в плане для подписей «шаг 2 из 4». */
 export function stepPosition(plan: DayPlan, stepId: string | null): { readonly index: number; readonly total: number } | null {
   if (!stepId) return null;

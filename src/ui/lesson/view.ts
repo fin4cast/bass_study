@@ -57,7 +57,7 @@ export interface LessonOptions {
 const TABS: readonly { key: LessonTab; label: string; hint: string }[] = [
   { key: 'today', label: 'Сегодня', hint: 'Сел с басом — вот что играть сейчас.' },
   { key: 'library', label: 'Библиотека', hint: 'Играй сразу или добавляй в план на сегодня.' },
-  { key: 'basics', label: 'Основы', hint: 'Цели — шаги к навыку, уровни — теория по порядку. Ничего не заблокировано.' },
+  { key: 'basics', label: 'Основы', hint: 'Путь — программа по этапам, Знания — понятия по уровням. Любой шаг открывается сразу.' },
 ];
 const ROOTS = NOTE_CHOICES;
 /** Объём конструктора из атрибута кнопки: 1, 2 или 3. */
@@ -67,6 +67,8 @@ const plural = (count: number, one: string, few: string, many: string) => {
   const a = count % 10, b = count % 100;
   return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many;
 };
+/** Ладов в окне мини-грифа карточки библиотеки. */
+const LIBRARY_SPAN = 13;
 const ROLE_KIND: Readonly<Record<ConceptRole, BoardNote['kind']>> = { root: 'root', target: 'b', shared: 'shared', plain: 'plain' };
 let instances = 0;
 
@@ -171,6 +173,17 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const marker = Math.max(9, Math.min(options.marker, cell * .82));
     return `<div class="ls-board">${boardSvg({ ...window, notes, width: options.width, marker, labels: options.labels ?? true, ariaLabel: options.aria, decorative: options.decorative })}</div>`;
   }
+  /**
+   * Мини-гриф карточки библиотеки: один масштаб на всех карточках — окно в 13 ладов (0–12, для высоких позиций
+   * сдвигается) и точки одного размера, поэтому смена параметров двигает ноты, а не гриф. Цвета — только тоника
+   * и остальные ноты: роли связок и сравнений объясняет легенда экрана игры, а не миниатюра.
+   */
+  function libraryBoard(notes: readonly BoardNote[], frets: readonly number[]) {
+    const fretMax = Math.min(24, Math.max(LIBRARY_SPAN - 1, ...frets));
+    const fretMin = Math.max(0, Math.min(fretMax - LIBRARY_SPAN + 1, ...frets));
+    const plain = notes.map(note => ({ ...note, kind: note.kind === 'root' || note.root ? 'root' as const : 'plain' as const, root: false }));
+    return `<div class="ls-board">${boardSvg({ fretMin, fretMax, notes: plain, width: 300, marker: 14, labels: false, decorative: true })}</div>`;
+  }
   const legend = (items: readonly { kind: BoardNote['kind']; label: string }[]) =>
     `<div class="ls-legend">${items.map(item => `<span><i class="mb-swatch mb-swatch-${item.kind}" aria-hidden="true"></i>${e(item.label)}</span>`).join('')}</div>`;
   function exerciseBoardMarkup(spec: ExerciseSpec, width: number, marker: number, labels: 'name' | 'finger' = 'name') {
@@ -243,14 +256,15 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
 
     regions.today.innerHTML = `<div class="ls-today-grid">
         <div class="ls-col"><section class="ls-card ls-hero feature-panel" aria-label="Главное действие">${heroMarkup}</section>
+          <section class="ls-card ls-plan${editing ? ' is-editing' : ''}" aria-label="План на сегодня">${planMarkup}</section></div>
+        <div class="ls-col ls-today-side">
           ${stage ? `<p class="ls-stage-line" data-stage-line>${e(stage)}</p>` : ''}
           ${transitions.map(text => `<p class="ls-stage-line" data-stage-transition>${e(text)}</p>`).join('')}
-          ${lineStep && lineStep.volume ? `<p class="ls-stage-line" data-line-step><span>Своя линия: ${e(lineStep.title)}</span> <button type="button" class="secondary-button button-compact" data-act="path-build" data-step-id="${e(lineStep.id)}" data-volume="${lineStep.volume}" data-key="today-build" aria-label="${e(`Построить: ${lineStep.title}`)}">▶ Построить</button></p>` : ''}</div>
-        <section class="ls-card ls-plan${editing ? ' is-editing' : ''}" aria-label="План на сегодня">${planMarkup}</section>
-      </div>
-      <section class="ls-card ls-libstrip" aria-label="Библиотека"><strong>Библиотека</strong><span class="ls-sub">${e(items.length)} ${plural(items.length, 'упражнение', 'упражнения', 'упражнений')} · ${CATEGORY_ORDER.length} категорий</span>
-        <div class="ls-chips">${CATEGORY_ORDER.map(category => `<button type="button" class="ls-chip ls-chip-link" data-act="go-category" data-category="${e(category)}" data-key="cat-strip:${e(category)}">${e(CATEGORY_TITLES[category])}</button>`).join('')}</div>
-        <button type="button" class="secondary-button" data-act="go-library" data-key="strip-library">Открыть библиотеку →</button></section>`;
+          ${lineStep && lineStep.volume ? `<p class="ls-stage-line" data-line-step><span>Своя линия: ${e(lineStep.title)}</span> <button type="button" class="secondary-button button-compact" data-act="path-build" data-step-id="${e(lineStep.id)}" data-volume="${lineStep.volume}" data-key="today-build" aria-label="${e(`Построить: ${lineStep.title}`)}">▶ Построить</button></p>` : ''}
+          <section class="ls-card ls-libstrip" aria-label="Библиотека"><div class="ls-libstrip-head"><strong>Библиотека</strong><span class="ls-sub">${e(items.length)} ${plural(items.length, 'упражнение', 'упражнения', 'упражнений')} · ${CATEGORY_ORDER.length} категорий</span></div>
+            <div class="ls-chips">${CATEGORY_ORDER.map(category => `<button type="button" class="ls-chip ls-chip-link" data-act="go-category" data-category="${e(category)}" data-key="cat-strip:${e(category)}">${e(CATEGORY_TITLES[category])}</button>`).join('')}</div>
+            <button type="button" class="secondary-button button-compact" data-act="go-library" data-key="strip-library">Открыть библиотеку →</button></section></div>
+      </div>`;
   }
 
   /* ---------- Библиотека ---------- */
@@ -283,7 +297,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         <label class="ls-field ls-end">Порядок <select data-control="sort" data-key="ctl-sort"><option value="recommended"${library.sort === 'recommended' ? ' selected' : ''}>сначала рекомендуемые</option><option value="played"${library.sort === 'played' ? ' selected' : ''}>сначала в работе</option><option value="catalogue"${library.sort === 'catalogue' ? ' selected' : ''}>по порядку каталога</option></select></label>
       </div>
       <div class="ls-filters"><div class="ls-field"><span>Понятие</span><div class="ls-chips">${LIBRARY_CONCEPTS.map(concept => `<button type="button" class="ls-chip ls-chip-filter" data-act="concept-filter" data-value="${e(concept)}" data-key="cf:${e(concept)}" aria-pressed="${library.concept === concept}">${e(CONCEPT_LABELS[concept])}</button>`).join('')}</div></div>
-        <div class="ls-count ls-end"><span role="status">Показано ${e(model.cards.length)} из ${e(model.total)}</span><button type="button" class="ls-link" data-act="reset" data-key="reset">Сбросить</button></div></div>`;
+        <div class="ls-count ls-end"><span class="ls-legend-inline" aria-hidden="true"><i class="mb-swatch mb-swatch-root"></i>тоника <i class="mb-swatch"></i>ноты упражнения</span><span role="status">Показано ${e(model.cards.length)} из ${e(model.total)}</span><button type="button" class="ls-link" data-act="reset" data-key="reset">Сбросить</button></div></div>`;
     const cards = model.cards.map(card => {
       const data = exerciseBoard(contentExerciseOf(card.content)!, 'none');
       const saving = saveDraft?.key === card.id;
@@ -299,14 +313,12 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
       const open = configuring === card.id && card.builtin;
       const configureButton = card.builtin ? `<button type="button" class="ls-link ls-config-btn" data-act="configure" data-card="${e(card.id)}" data-key="cfg:${e(card.id)}" aria-expanded="${open}" aria-controls="${id}-cfg-${e(card.id)}">${card.configured ? 'Настроено' : 'Настроить'}</button>` : '';
       return `<article class="ls-card ls-lib-card${card.inPlan ? ' in-plan' : ''}${card.featured ? ' is-featured' : ''}">
-        <div>${card.featured ? '<span class="ls-flag">Рекомендуем</span>' : ''}${card.builtin ? '' : '<span class="ls-flag ls-flag-own">Своё</span>'}<h3>${e(card.title)}</h3><p class="ls-meta">${e(card.category)} · ${e(card.material)}</p>${configureButton}</div>
-        ${open && card.content.kind === 'exercise' ? configRow(card.id, card.content.spec, card.configured) : ''}
-        ${board(data.notes, data.frets, { width: 300, marker: 17, labels: false, decorative: true })}
-        ${transpose}
+        <div class="ls-lib-head">${card.featured ? '<span class="ls-flag">Рекомендуем</span>' : ''}${card.builtin ? '' : '<span class="ls-flag ls-flag-own">Своё</span>'}<h3>${e(card.title)}</h3><p class="ls-meta">${e(card.category)} · ${e(card.material)}</p></div>
+        ${libraryBoard(data.notes, data.frets)}
+        <div class="ls-lib-extra">${configureButton}${open && card.content.kind === 'exercise' ? configRow(card.id, card.content.spec, card.configured) : ''}${transpose}${save}</div>
         <div class="ls-chips">${card.concepts.map(concept => `<span class="ls-chip ls-chip-concept">${e(concept)}</span>`).join('')}<span class="ls-chip">${e(card.minutes)} мин</span></div>
         <div class="ls-card-foot"><span class="ls-best">${card.bestBpm ? `лучший темп <b>${e(card.bestBpm)}</b>` : card.played ? 'в работе' : 'ещё не играл'}${card.playedToday ? ' · сегодня ✓' : ''}</span>
           <span class="ls-card-btns"><button type="button" class="primary-button button-compact" data-act="play" data-ref="${ref(card.content)}" data-key="lib-play:${e(card.id)}" aria-label="${e(`Играть: ${card.title}`)}">▶ Играть</button>${addButton(card.content, true, '+ в план')}${saveButton}</span></div>
-        ${save}
       </article>`;
     }).join('') || '<div class="ls-none">Под эти фильтры ничего нет. Сбрось фильтры или выбери другую категорию.</div>';
     const bar = strip.count
@@ -368,9 +380,12 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
       : step.kind === 'song' ? `<button type="button" class="secondary-button button-compact" data-act="path-song" data-step-id="${e(step.id)}" data-key="path-song:${e(step.id)}" aria-label="${e(`Своя песня: ${step.title}`)}">Фрагменты из «Песен»</button>` : '';
     const play = step.kind === 'play' || step.kind === 'check'
       ? `<button type="button" class="${step.current ? 'primary-button' : 'secondary-button'} button-compact" data-act="path-play" data-step-id="${e(step.id)}" data-key="path-play:${e(step.id)}" aria-label="${e(`${step.kind === 'check' ? 'Проверь себя' : 'Играть'}: ${step.title}`)}">${step.kind === 'check' ? '▶ Проверь себя' : '▶ Играть'}</button>` : '';
+    const mark = step.current ? '▶' : step.state === 'passed' || step.state === 'mastered' ? '✓' : step.state === 'skipped' ? '–' : '';
     return `<li class="ls-pstep is-${step.state}${step.current ? ' is-current' : ''}" data-step-id="${e(step.id)}">
-      <div class="ls-pstep-main"><b>${e(step.title)}</b><span class="ls-chip ls-chip-status" data-status="${e(step.state)}">${e(step.label)}</span>${step.review ? '<span class="ls-chip ls-chip-review">пора повторить</span>' : ''}${step.current ? '<span class="ls-chip ls-chip-concept">сейчас</span>' : ''}</div>
-      <div class="ls-pstep-side">${chips}${play}${build}</div></li>`;
+      <span class="ls-pmark" aria-hidden="true">${mark}</span>
+      <div class="ls-pstep-main"><b>${e(step.title)}</b><span class="ls-chip ls-chip-status" data-status="${e(step.state)}">${e(step.label)}</span>${step.review ? '<span class="ls-chip ls-chip-review">пора повторить</span>' : ''}${step.current ? '<span class="ls-chip ls-chip-now">сейчас</span>' : ''}</div>
+      <div class="ls-pstep-act">${play}${build}</div>
+      ${chips ? `<div class="ls-pstep-vars">${chips}</div>` : ''}</li>`;
   }
   function renderPath(current: LessonState) {
     const stages = pathModel(current.program, current.programState, new Set(current.skipped), pathPicks);
@@ -379,12 +394,12 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const lines = stage.lines.map(line => `<section class="ls-pline${line.done ? ' is-done' : ''}" aria-label="${e(line.title)}"><div class="ls-pline-head"><h3>${e(line.title)}</h3><span class="ls-sub">${e(line.counts)}</span></div>
       ${line.blocks.map(block => `<article class="ls-pblock${block.skipped ? ' is-skipped' : ''}" data-block="${e(block.id)}">
         <header><h4>${e(block.title)}</h4><span class="ls-sub">${e(block.counts)}</span>
-          <button type="button" class="ls-opt" data-act="path-skip" data-block="${e(block.id)}" data-key="skip:${e(block.id)}" aria-pressed="${block.skipped}" title="Отметить блок без игры; отметку можно снять">Уже умею</button></header>
+          <button type="button" class="ls-opt" data-act="path-skip" data-block="${e(block.id)}" data-key="skip:${e(block.id)}" aria-pressed="${block.skipped}" title="Отметить блок без игры; отметку можно снять">${block.skipped ? '✓ Уже умею' : 'Уже умею'}</button></header>
         ${block.cards.length ? `<p class="ls-pcards">Сначала прочитай: ${block.cards.map(card => `<button type="button" class="ls-link" data-act="concept" data-concept="${e(card.id)}" data-key="pcard:${e(block.id)}:${e(card.id)}">${e(card.title)}</button>`).join(', ')}</p>` : ''}
         <ol class="ls-psteps">${block.steps.map(pathStepMarkup).join('')}</ol></article>`).join('')}</section>`).join('');
-    regions.basics.innerHTML = `${basicsToggle('path')}<section class="ls-card ls-pathview" aria-label="Путь программы">
-      <div class="ls-path-head"><h2>Этап ${e(stage.number)} · ${e(stage.title)}</h2><span class="ls-sub">${e(stage.counts)}</span>${tabs}</div>
-      <p class="ls-path-note">Линии идут параллельно: у каждой свой текущий шаг. Любой шаг открывается сразу; отметки «Чисто / С ошибками / Не успевал» ставишь ты.</p>
+    regions.basics.innerHTML = `<div class="ls-path-top">${basicsToggle('path')}${tabs}</div><section class="ls-pathview" aria-label="Путь программы">
+      <div class="ls-path-head"><h2>Этап ${e(stage.number)} · ${e(stage.title)}</h2><span class="ls-sub">${e(stage.counts)}</span></div>
+      <p class="ls-path-note">Три линии идут параллельно, у каждой свой текущий шаг (▶). Любой шаг открывается сразу; отметку «Чисто / С ошибками / Не успевал» после прохода ставишь ты.</p>
       ${lines}</section>`;
   }
 

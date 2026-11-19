@@ -433,7 +433,7 @@ check('six-sections-share-page-title-position-and-side-column-width', async ({ p
     titles[id] = await heading();
   }
   await navigate(page, 'lesson');
-  sides.lesson = await width(main.locator('.ls-plan'));
+  sides.lesson = await width(main.locator('.ls-today-side'));
   await navigate(page, 'foundation');
   await settings(page);
   sides.foundation = await width(page.locator('#study-settings'));

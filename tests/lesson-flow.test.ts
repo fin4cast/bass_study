@@ -10,7 +10,7 @@ import { MAX_EXERCISE_VIEWS, type ExerciseView, type PlayPreferences } from '../
 import { backupFileName, backupVersion } from '../src/app/backup';
 import {
   addToPlan, bpmForExercise, planAfterSkipChange, checkEntry, checkForKey, describeProgressRow, exerciseKey, fromPlayDefaults, hasPlayed, nextPlanStep, planAfterCheck, planAfterRating,
-  planForToday, planStepInfo, playRatingEntry, plannedProgressIds, rememberExerciseSettings, EMPTY_EXERCISE_SETTINGS, playSettingsFor, repeatContent, specForKey, stepPosition, todayKey, toPlayDefaults, variantChange, viewForExercise,
+  planForToday, planStepInfo, playRatingEntry, plannedProgressIds, rememberExerciseSettings, EMPTY_EXERCISE_SETTINGS, playSettingsFor, repeatContent, specForKey, stepAfter, stepPosition, todayKey, toPlayDefaults, variantChange, viewForExercise,
 } from '../src/app/lesson-flow';
 import { difficultyId, progressRows } from '../src/ui/progress/model';
 import { DEFAULT_PREFERENCES } from '../src/storage/model';
@@ -155,6 +155,18 @@ describe('план после самооценки и проверки', () => {
     expect(finished.steps.every(step => step.status === 'done')).toBe(true);
     expect(nextPlanStep(finished)).toBeNull();
     expect(planAfterCheck(plan, null)).toBe(plan);
+  });
+
+  it('«Следующий шаг →» без оценки: следующий невыполненный по кругу, шаг остаётся невыполненным', () => {
+    expect(stepAfter(plan, first.id)).toEqual({ stepId: second.id, content: second.content });
+    // Выполненные пропускаются, после последнего — снова с начала плана.
+    const secondDone = completeStep(plan, second.id);
+    expect(stepAfter(secondDone, first.id)?.stepId).toBe(plan.steps[2].id);
+    expect(stepAfter(plan, last.id)?.stepId).toBe(first.id);
+    const onlyLast = plan.steps.slice(0, 3).reduce((value, step) => completeStep(value, step.id), plan);
+    expect(stepAfter(onlyLast, last.id)).toBeNull();
+    expect(stepAfter(plan, null)).toBeNull();
+    expect(stepAfter(plan, 'missing')).toBeNull();
   });
 
   it('номер шага для подписей', () => {

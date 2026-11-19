@@ -24,7 +24,7 @@ import { mountPlay, type PlayHandle, type RateEvent } from '../ui/play/view';
 import { mountReference } from '../ui/reference/view';
 import { openTuner, type TunerHandle } from '../ui/tuner';
 import {
-  addToPlan, bpmAfterRating, checkEntry, exerciseKey, exerciseSettingsPatch, hasPlayed, nextPlanStep, planAfterCheck, planAfterNext, planAfterSkipChange, planAfterRating, planForToday, planStepInfo, variantChange,
+  addToPlan, bpmAfterRating, checkEntry, exerciseKey, exerciseSettingsPatch, hasPlayed, nextPlanStep, planAfterCheck, planAfterNext, planAfterSkipChange, planAfterRating, planForToday, planStepInfo, stepAfter, variantChange,
   checkForKey, playRatingEntry, playSettingsFor, plannedProgressIds, rememberExerciseSettings, repeatContent, specForKey, stepPosition, todayKey, viewForExercise,
 } from './lesson-flow';
 
@@ -326,6 +326,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
       },
       onConcept: id => openConceptPanel(id),
       onNextStep: () => nextFromPlay(),
+      onSkipStep: () => skipFromPlay(),
       onCompleteStep: () => {
         const current = play;
         const stored = current ? planOf(current.planDate) : null;
@@ -374,6 +375,14 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     if (!play) return;
     refreshRule();
     play.handle.setPlanStep(planStepInfo(currentPlan(), planOf(play.planDate) ? play.stepId : null, play.keys, records()));
+  }
+
+  /** «Следующий шаг →» в шапке без оценки: шаг остаётся невыполненным, открывается следующий невыполненный. */
+  function skipFromPlay() {
+    const current = play;
+    const stored = current?.stepId ? planOf(current.planDate) : null;
+    const next = stored ? stepAfter(stored, current!.stepId) : null;
+    if (next) open(next.content, next.stepId);
   }
 
   /** «Следующий шаг плана →»: текущий шаг выполнен, открывается следующий невыполненный шаг. */

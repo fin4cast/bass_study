@@ -53,6 +53,8 @@
 
 /* Сегодня */
 .lesson-view .ls-today-grid { display: grid; grid-template-columns: minmax(0, 1fr) var(--aside-width); gap: 16px; align-items: start; }
+.lesson-view .ls-today-side { gap: 12px; }
+.lesson-view .ls-today-side .ls-stage-line { padding: 0; }
 .lesson-view .ls-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .lesson-view .ls-hero { display: flex; flex-direction: column; gap: 12px; border-color: var(--board-top); background: var(--board-top); }
 .lesson-view .feature-panel { --ls-info: var(--board-same); --ls-info-soft: rgb(164 204 226 / .12); }
@@ -89,9 +91,10 @@
 .lesson-view .ls-role { display: inline-block; border-radius: var(--radius-pill); padding: 0 7px; font-size: var(--text-2xs); font-weight: 650; line-height: 1.6; color: var(--ls-info); background: var(--ls-info-soft); vertical-align: 1px; }
 .lesson-view .ls-step.is-current .ls-role { color: var(--accent); background: var(--text-inverse); }
 .lesson-view .ls-empty { font-size: var(--text-xs); color: var(--text-secondary); border: 1px dashed var(--border-strong); border-radius: var(--radius-l); padding: 12px; }
-.lesson-view .ls-libstrip { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; padding: 12px 16px; }
-.lesson-view .ls-libstrip strong { font-size: var(--text-m); }
-.lesson-view .ls-libstrip .ls-chips { flex: 1; min-width: 0; }
+.lesson-view .ls-libstrip { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px; }
+.lesson-view .ls-libstrip-head { display: flex; align-items: baseline; gap: 6px 12px; flex-wrap: wrap; }
+.lesson-view .ls-libstrip-head strong { font-size: var(--text-m); }
+.lesson-view .ls-libstrip > .secondary-button { align-self: flex-start; }
 
 /* Библиотека */
 .lesson-view .ls-lib-body { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -108,7 +111,13 @@
 .lesson-view .ls-count { font-size: var(--text-xs); color: var(--text-secondary); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .lesson-view .ls-end { margin-left: auto; }
 .lesson-view .ls-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(228px, 1fr)); gap: 12px; align-content: start; padding: 2px; }
-.lesson-view .ls-lib-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+/* Пять строк карточки — шапка, гриф, настройка, понятия, кнопки — общие для ряда (subgrid): грифы соседних карточек на одной высоте. */
+.lesson-view .ls-lib-card { display: grid; grid-row: span 5; grid-template-rows: subgrid; row-gap: 8px; padding: 12px; }
+.lesson-view .ls-lib-head { min-width: 0; }
+.lesson-view .ls-lib-extra { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.lesson-view .ls-lib-card > .ls-chips { align-content: flex-start; }
+.lesson-view .ls-legend-inline { display: inline-flex; align-items: center; gap: 2px 6px; }
+.lesson-view .ls-legend-inline .mb-swatch { margin-right: 0; }
 .lesson-view .ls-lib-card.in-plan { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .lesson-view .ls-lib-card.is-featured { border-color: var(--ls-gold); }
 .lesson-view .ls-lib-card.is-featured.in-plan { border-color: var(--accent); }
@@ -125,8 +134,7 @@
 .lesson-view .ls-save { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; }
 .lesson-view .ls-save input { width: 100%; }
 .lesson-view .ls-save .ls-field { flex: 1 1 100%; }
-.lesson-view .ls-config-btn { margin-top: 2px; }
-.lesson-view .ls-config { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: flex-end; padding: 8px; border-radius: var(--radius-m); background: var(--surface-muted); }
+.lesson-view .ls-config { align-self: stretch; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: flex-end; padding: 8px; border-radius: var(--radius-m); background: var(--surface-muted); }
 .lesson-view .ls-config .ls-field { flex-direction: column; align-items: stretch; gap: 2px; }
 .lesson-view .ls-field-error { color: var(--danger-text); font-size: var(--text-xs); max-width: 24ch; }
 .lesson-view .ls-none { grid-column: 1 / -1; border: 1px dashed var(--border-strong); border-radius: var(--radius-l); padding: 24px; text-align: center; color: var(--text-secondary); font-size: var(--text-s); }
@@ -199,34 +207,54 @@
 .lesson-view .ls-finger { display: inline-block; padding: 0 3px; border: 1px solid var(--border-strong); border-radius: 4px; font-size: var(--text-2xs); font-weight: 700; vertical-align: 1px; }
 .lesson-view .ls-play-text { font-size: var(--text-xs); }
 
-/* «Основы» · путь программы (R-028) */
-.lesson-view .ls-pathview { display: flex; flex-direction: column; gap: 14px; }
+/* «Основы» · путь программы (R-028): этап → линии → блоки → шаги. Строка шага — одна сетка:
+   отметка · название и статус · кнопка справа; варианты — второй строкой под названием. */
+.lesson-view .ls-path-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.lesson-view .ls-path-top .ls-basics-toggle { margin-bottom: 0; }
+.lesson-view .ls-pathview { display: flex; flex-direction: column; gap: 18px; }
 .lesson-view .ls-path-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 .lesson-view .ls-path-head h2 { font-size: var(--text-l); font-weight: var(--weight-heading); }
-.lesson-view .ls-stage-tabs { margin-left: auto; }
-.lesson-view .ls-pline { display: flex; flex-direction: column; gap: 8px; }
-.lesson-view .ls-pline-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
-.lesson-view .ls-pline-head h3 { font-size: var(--text-m); font-weight: var(--weight-heading); }
-.lesson-view .ls-pline.is-done .ls-pline-head h3::after { content: ' ✓'; color: var(--accent-text); }
-.lesson-view .ls-pblock { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-l); padding: 10px 12px; }
-.lesson-view .ls-pblock.is-skipped { border-style: dashed; opacity: .85; }
-.lesson-view .ls-pblock > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
-.lesson-view .ls-pblock > header h4 { font-size: var(--text-s); font-weight: var(--weight-heading); }
+.lesson-view .ls-pathview > .ls-path-note { border-top: 0; padding-top: 0; margin-top: -10px; }
+.lesson-view .ls-pline { display: flex; flex-direction: column; gap: 10px; }
+.lesson-view .ls-pline-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding-bottom: 6px; border-bottom: 2px solid var(--border); }
+.lesson-view .ls-pline-head h3 { font-size: var(--text-l); font-weight: var(--weight-heading); color: var(--accent-text); }
+.lesson-view .ls-pline.is-done .ls-pline-head h3::after { content: ' ✓'; }
+.lesson-view .ls-pblock { display: flex; flex-direction: column; gap: 4px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-l); padding: 12px 14px; }
+.lesson-view .ls-pblock.is-skipped { border-style: dashed; background: none; }
+.lesson-view .ls-pblock > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+.lesson-view .ls-pblock > header h4 { margin: 0; font-size: var(--text-m); font-weight: var(--weight-heading); }
 .lesson-view .ls-pblock > header .ls-opt { margin-left: auto; }
-.lesson-view .ls-pcards { font-size: var(--text-xs); color: var(--text-secondary); }
-.lesson-view .ls-psteps { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0; padding: 0; }
-.lesson-view .ls-pstep { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 6px 8px; border-radius: var(--radius-m); }
-.lesson-view .ls-pstep.is-current { background: var(--accent-soft); }
-.lesson-view .ls-pstep-main { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
-.lesson-view .ls-pstep-side { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
-.lesson-view .ls-chip-status { border-color: var(--border-strong); color: var(--text-secondary); }
-.lesson-view .ls-pstep.is-passed .ls-chip-status, .lesson-view .ls-pstep.is-mastered .ls-chip-status { border-color: var(--accent); color: var(--accent-text); background: var(--accent-soft); }
+.lesson-view .ls-pcards { font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 4px; }
+.lesson-view .ls-psteps { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; }
+.lesson-view .ls-pstep { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; grid-template-areas: "mark main act" ". vars act"; align-items: center; gap: 4px 12px; padding: 8px 8px; border-top: 1px solid var(--border); }
+.lesson-view .ls-pstep:first-child { border-top: 0; }
+.lesson-view .ls-pstep.is-current { background: var(--accent-soft); border-radius: var(--radius-m); border-top-color: transparent; }
+.lesson-view .ls-pstep.is-current + .ls-pstep { border-top-color: transparent; }
+.lesson-view .ls-pmark { grid-area: mark; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; border: 1.5px solid var(--border-strong); color: var(--text-secondary); }
+.lesson-view .ls-pstep:is(.is-passed, .is-mastered) .ls-pmark { background: var(--accent); border-color: var(--accent); color: var(--text-inverse); }
+.lesson-view .ls-pstep.is-current .ls-pmark { border-color: var(--accent); color: var(--accent-text); border-width: 2px; }
+.lesson-view .ls-pstep.is-skipped .ls-pmark { border-style: dashed; }
+.lesson-view .ls-pstep-main { grid-area: main; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+.lesson-view .ls-pstep-main b { font-weight: 650; }
+.lesson-view .ls-pstep-vars { grid-area: vars; min-width: 0; }
+.lesson-view .ls-pstep-act { grid-area: act; display: flex; justify-content: flex-end; }
+.lesson-view .ls-pstep-act > button { min-width: 136px; }
+.lesson-view .ls-chip-status { border-color: var(--border-strong); color: var(--text-secondary); background: none; font-weight: 500; }
+.lesson-view .ls-chip-status[data-status="new"] { border-color: transparent; padding-inline: 0; font-size: var(--text-2xs); }
+.lesson-view .ls-pstep:is(.is-passed, .is-mastered) .ls-chip-status { border-color: var(--accent); color: var(--accent-text); background: var(--accent-soft); font-weight: 600; }
+.lesson-view .ls-chip-now { color: var(--text-inverse); background: var(--accent); }
 .lesson-view .ls-chip-review { border-color: var(--warning-text); color: var(--warning-text); }
-.lesson-view .ls-vchips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-.lesson-view .ls-vchip { border: 1px solid var(--border-strong); border-radius: var(--radius-pill); background: none; color: var(--text-secondary); padding: 1px 9px; font-size: var(--text-2xs); cursor: pointer; }
+.lesson-view .ls-vchips { display: flex; flex-wrap: wrap; gap: 4px; }
+.lesson-view .ls-vchip { border: 1px solid var(--border-strong); border-radius: var(--radius-pill); background: var(--surface); color: var(--text-secondary); padding: 1px 9px; font-size: var(--text-2xs); cursor: pointer; }
+.lesson-view .ls-vchip:hover { color: var(--text-primary); border-color: var(--accent); }
 .lesson-view .ls-vchip.is-on { border-color: var(--accent); color: var(--text-primary); background: var(--accent-soft); font-weight: 600; }
+.lesson-view .ls-vchip.is-clean { border-style: solid; }
 .lesson-view .ls-stage-line { font-size: var(--text-xs); color: var(--text-secondary); padding: 0 4px; }
 .lesson-view .ls-vone { font-size: var(--text-2xs); }
+@media (max-width: 760px) {
+  .lesson-view .ls-pstep { grid-template-columns: 22px minmax(0, 1fr); grid-template-areas: "mark main" ". vars" ". act"; }
+  .lesson-view .ls-pstep-act { justify-content: flex-start; }
+}
 
 @media (max-width: 1180px) {
   .lesson-view .ls-lib-body { grid-template-columns: 176px minmax(0, 1fr); }
