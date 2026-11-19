@@ -33,6 +33,7 @@ export const CONCEPT_LABELS: Readonly<Record<ConceptId, string>> = Object.freeze
   progression: 'последовательность',
   blues: 'блюз',
   'right-hand': 'правая рука',
+  'finger-independence': 'независимость пальцев',
 });
 
 export { STRUCTURE_LABELS };
@@ -49,6 +50,7 @@ export const TEMPLATE_MINUTES: Readonly<Record<ExerciseTemplateId, number>> = Ob
   'scale-position': 4, 'arpeggio-1358': 4, 'root-five-eight': 3, 'groups-of-three': 4, thirds: 4, 'form-transpose': 3, 'cycle-fourths': 4,
   'pulse-note': 2, 'chromatic-shift': 4, 'string-naturals': 3, 'long-short': 3, 'string-fourths': 3, 'interval-from-note': 4,
   line: 5, riff: 4, spider: 4, 'blues-scale': 3, 'arpeggio-seventh': 4, 'arpeggio-inversion': 3, progression: 4, 'string-crossing': 3, 'song-fragment': 4,
+  'finger-pairs': 3, stretch: 3, 'scale-two-octaves': 4, 'scale-neck': 5,
 });
 export const CHECK_MINUTES = 3;
 export const CHECK_COUNT = 6;
@@ -94,12 +96,20 @@ export function materialLabel(spec: ExerciseSpec): string {
     case 'long-short': return spec.params.fret === 0 ? `открытая струна ${spec.params.string} · длинные и короткие` : `струна ${spec.params.string} · лад ${spec.params.fret} · длинные и короткие`;
     case 'chromatic-shift': return `лады ${spec.params.startFret}–${spec.params.startFret + spec.params.positions + 2} · ${spec.params.positions} позиций`;
     case 'string-naturals': return `струна ${spec.params.string} · натуральные ноты · лады 0–${spec.params.fretMax}`;
-    case 'position-shift': return `струна ${spec.params.string} · лады ${spec.params.startFret}–${spec.params.startFret + spec.params.shifts + 3}`;
+    case 'position-shift': return `струна ${spec.params.string} · лады ${spec.params.startFret}–${spec.params.startFret + spec.params.shifts * spec.params.jump + 3}${spec.params.jump > 1 ? ` · скачки на ${spec.params.jump}` : ''}`;
+    case 'finger-pairs': return `пальцы ${[...spec.params.pair].join('–')} · с ${spec.params.startFret}-го лада`;
+    case 'stretch': return `пальцы 1-2-4 через лад · лады ${spec.params.startFret - spec.params.positions + 1}–${spec.params.startFret + 4}`;
+    case 'scale-two-octaves': return `${note(spec.params.root)} · ${STRUCTURE_LABELS[spec.params.structureId]} · две октавы от ${formatPosition(first.id)}`;
+    case 'scale-neck': return `${note(spec.params.root)} · ${STRUCTURE_LABELS[spec.params.structureId]} · ${plan.segments.length} позиций`;
     case 'note-all-positions': return `нота ${note(spec.params.note)} · все струны`;
     case 'octaves': return `нота ${note(spec.params.note)} · струны E и A`;
-    case 'pentatonic-form': case 'groups-of-three': {
+    case 'pentatonic-form': {
       const structure = createStructure(spec.params.root, spec.params.structureId);
       return `${keyName(structure)} · ${STRUCTURE_LABELS[structure.id]} · форма ${SHAPE_LETTER[spec.params.shapeId]}`;
+    }
+    case 'groups-of-three': {
+      const structure = createStructure(spec.params.root, spec.params.structureId);
+      return `${keyName(structure)} · ${STRUCTURE_LABELS[structure.id]} · форма ${SHAPE_LETTER[spec.params.shapeId]} · по ${spec.params.group}`;
     }
     case 'pentatonic-relative': {
       const major = createStructure(spec.params.minorRoot, 'natural-minor').notes[2].name;
@@ -120,8 +130,8 @@ export function materialLabel(spec: ExerciseSpec): string {
     case 'form-transpose': return `форма ${SHAPE_LETTER[spec.params.shapeId]} · ${spec.params.roots.map(note).join(' → ')}`;
     case 'cycle-fourths': return `R–5–8 · ${plan.segments.map(segment => segment.label.split(' · ')[0]).join(', ')}`;
     case 'song-fragment': return `${spec.params.source.trackName} · такты ${spec.params.source.fromBar}–${spec.params.source.toBar}${spec.params.key ? ` · ${spec.params.key}` : ''}`;
-    case 'string-crossing': return `открытые струны · ${CROSSING_LABELS[spec.params.pattern]} · пальцы i–m`;
-    case 'spider': return `пальцы ${[...spec.params.pattern].join('-')} · лады ${spec.params.startFret}–${spec.params.startFret + spec.params.positions + 2}`;
+    case 'string-crossing': return `${spec.params.fret === 0 ? 'открытые струны' : `лад ${spec.params.fret}`} · ${CROSSING_LABELS[spec.params.pattern]} · пальцы i–m`;
+    case 'spider': return `пальцы ${[...spec.params.pattern].join('-')}${spec.params.path === 'diagonal' ? ' · по диагонали' : ''} · лады ${spec.params.startFret}–${spec.params.startFret + spec.params.positions + 2}`;
     case 'blues-scale': return `${note(spec.params.root)} · блюзовая гамма · от ${formatPosition(first.id)}`;
     case 'arpeggio-seventh': return `${keyName(createStructure(spec.params.root, spec.params.structureId))} · от ${formatPosition(first.id)}`;
     case 'arpeggio-inversion': return `${keyName(createStructure(spec.params.root, spec.params.structureId))} · ${spec.params.inversion}-е обращение · от ${formatPosition(first.id)}`;

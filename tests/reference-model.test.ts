@@ -99,7 +99,7 @@ describe('список и поиск', () => {
   it('группы уровней со счётчиком освоенного и повтором октавы в «Интервалах»', () => {
     const groups = levelGroups(REFERENCE_CONCEPTS, new Set(['semitone', 'octave']));
     expect(groups.map(group => group.title)).toEqual(['Ориентация', 'Интервалы как формы', 'Ступени и гаммы', 'Тоны аккорда', 'Ритм · параллельно', 'Чтение · параллельно']);
-    expect(groups[0]).toMatchObject({ total: 14, mastered: 2 });
+    expect(groups[0]).toMatchObject({ total: 15, mastered: 2 });
     expect(groups[1].items.filter(item => item.alias).map(item => item.concept.id)).toEqual(['octave']);
     expect(levelLabel(2)).toBe('Уровень 2 · Ступени и гаммы');
     expect(levelLabel('rhythm')).toBe('Ритм · параллельно');

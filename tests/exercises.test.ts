@@ -122,6 +122,53 @@ const CONTROL: Record<ExerciseTemplateId, { ids: string; names?: string; degrees
     ids: 'E:8 A:10 D:10 A:10 E:1 A:3 D:3 A:3 E:6 A:8 D:8 A:8 E:11 A:13 D:13 A:13', names: 'C2 G2 C3 G2 F1 C2 F2 C2 B♭1 F2 B♭2 F2 E♭2 B♭2 E♭3 B♭2',
     degrees: '1 5 1 5 1 5 1 5 1 5 1 5 1 5 1 5', fingers: '- - - - - - - - - - - - - - - -', segments: '4 4 4 4',
   },
+  // Часть C: пара 1–3 с 5-го лада — a-b-a-b на каждой струне E→G, затем G→E.
+  'finger-pairs': {
+    ids: 'E:5 E:7 E:5 E:7 A:5 A:7 A:5 A:7 D:5 D:7 D:5 D:7 G:5 G:7 G:5 G:7 G:5 G:7 G:5 G:7 D:5 D:7 D:5 D:7 A:5 A:7 A:5 A:7 E:5 E:7 E:5 E:7',
+    names: 'A1 B1 A1 B1 D2 E2 D2 E2 G2 A2 G2 A2 C3 D3 C3 D3 C3 D3 C3 D3 G2 A2 G2 A2 D2 E2 D2 E2 A1 B1 A1 B1',
+    fingers: Array(16).fill('1 3').join(' '), segments: '16 16',
+  },
+  // Часть C: растяжка с 7-го лада, три позиции 7, 6, 5: лады p, p+2, p+4 пальцами 1-2-4; нечётная позиция — G→E вниз.
+  stretch: {
+    ids: 'E:7 E:9 E:11 A:7 A:9 A:11 D:7 D:9 D:11 G:7 G:9 G:11 G:10 G:8 G:6 D:10 D:8 D:6 A:10 A:8 A:6 E:10 E:8 E:6 E:5 E:7 E:9 A:5 A:7 A:9 D:5 D:7 D:9 G:5 G:7 G:9',
+    names: 'B1 C♯2 E♭2 E2 F♯2 A♭2 A2 B2 C♯3 D3 E3 F♯3 F3 E♭3 C♯3 C3 B♭2 A♭2 G2 F2 E♭2 D2 C2 B♭1 A1 B1 C♯2 D2 E2 F♯2 G2 A2 B2 C3 D3 E3',
+    fingers: [...Array(4).fill('1 2 4'), ...Array(4).fill('4 2 1'), ...Array(4).fill('1 2 4')].join(' '), segments: '12 12 12',
+  },
+  // Часть C: G мажор в две октавы по три ноты на струну, сдвиг по струне G, туда-обратно.
+  'scale-two-octaves': {
+    ids: 'E:3 E:5 E:7 A:3 A:5 A:7 D:4 D:5 D:7 G:4 G:5 G:7 G:9 G:11 G:12 G:11 G:9 G:7 G:5 G:4 D:7 D:5 D:4 A:7 A:5 A:3 E:7 E:5',
+    names: 'G1 A1 B1 C2 D2 E2 F♯2 G2 A2 B2 C3 D3 E3 F♯3 G3 F♯3 E3 D3 C3 B2 A2 G2 F♯2 E2 D2 C2 B1 A1',
+    degrees: '1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 7 6 5 4 3 2 1 7 6 5 4 3 2',
+    fingers: '1 2 4 1 2 4 1 2 4 1 2 4 1 3 4 3 1 4 2 1 4 2 1 4 2 1 4 2', segments: '28',
+  },
+  // Часть C: C мажор по всему грифу — позиции от F (1–4) вверх, G (2–5) вниз, A (5–8) вверх, B (7–10) вниз, D (9–12) вверх, E (12–15) вниз; C пропущена.
+  'scale-neck': {
+    ids: 'E:1 E:3 E:5 A:2 A:3 A:5 D:2 D:3 D:5 G:2 G:4 '
+      + 'G:5 G:4 G:2 D:5 D:3 D:2 A:5 A:3 A:2 E:5 E:3 '
+      + 'E:5 E:7 E:8 A:5 A:7 A:8 D:5 D:7 D:9 G:5 G:7 '
+      + 'G:10 G:9 G:7 D:10 D:9 D:7 A:10 A:8 A:7 E:10 E:8 E:7 '
+      + 'E:10 E:12 A:8 A:10 A:12 D:9 D:10 D:12 G:9 G:10 G:12 '
+      + 'G:14 G:12 D:15 D:14 D:12 A:15 A:14 A:12 E:15 E:13 E:12',
+    names: 'F1 G1 A1 B1 C2 D2 E2 F2 G2 A2 B2 '
+      + 'C3 B2 A2 G2 F2 E2 D2 C2 B1 A1 G1 '
+      + 'A1 B1 C2 D2 E2 F2 G2 A2 B2 C3 D3 '
+      + 'F3 E3 D3 C3 B2 A2 G2 F2 E2 D2 C2 B1 '
+      + 'D2 E2 F2 G2 A2 B2 C3 D3 E3 F3 G3 '
+      + 'A3 G3 F3 E3 D3 C3 B2 A2 G2 F2 E2',
+    degrees: '4 5 6 7 1 2 3 4 5 6 7 '
+      + '1 7 6 5 4 3 2 1 7 6 5 '
+      + '6 7 1 2 3 4 5 6 7 1 2 '
+      + '4 3 2 1 7 6 5 4 3 2 1 7 '
+      + '2 3 4 5 6 7 1 2 3 4 5 '
+      + '6 5 4 3 2 1 7 6 5 4 3',
+    fingers: '1 3 4 2 3 4 2 3 4 2 4 '
+      + '4 3 1 4 2 1 4 2 1 4 2 '
+      + '1 3 4 1 3 4 1 3 4 1 3 '
+      + '4 3 1 4 3 1 4 2 1 4 2 1 '
+      + '2 4 1 2 4 1 2 4 1 2 4 '
+      + '3 1 4 3 1 4 3 1 4 2 1',
+    segments: '11 11 11 12 11 11',
+  },
 };
 
 const segmentSizes = (segments: readonly number[]) => {
@@ -685,5 +732,96 @@ describe('ключ «Своей линии» (R-028, B5.5)', () => {
     // Разный состав — разный ключ; перенос в другую тональность — другой ключ с тем же хешем тела.
     expect(materialId(createExerciseSpec('line', { bars: [...bars].reverse() } as never))).not.toBe(materialId(spec));
     expect(materialId(createExerciseSpec('line', { bars, root: 'A' } as never)).split('.').at(-1)).toBe(materialId(spec).split('.').at(-1));
+  });
+});
+
+describe('часть C (P19): техника и гаммы', () => {
+  const plan = (templateId: Parameters<typeof createExerciseSpec>[0], params: Record<string, unknown>) => buildExercise(createExerciseSpec(templateId, params as never));
+  const idsOf = (value: ReturnType<typeof buildExercise>) => value.notes.map(note => note.id).join(' ');
+  const namesOf = (value: ReturnType<typeof buildExercise>) => value.notes.map(note => note.name).join(' ');
+  const fingersOf = (value: ReturnType<typeof buildExercise>) => value.notes.map(note => note.finger ?? '-').join(' ');
+
+  it('новые параметры идут последними и входят в ключ материала', async () => {
+    const { materialId } = await import('../src/practice/material');
+    expect(materialId(createExerciseSpec('spider'))).toBe('spider.5.5.1234.straight');
+    expect(materialId(createExerciseSpec('string-crossing'))).toBe('string-crossing.adjacent.0');
+    expect(materialId(createExerciseSpec('position-shift'))).toBe('position-shift.A.3.2.1');
+    expect(materialId(createExerciseSpec('groups-of-three'))).toBe('groups-of-three.A.minor-pentatonic.penta-a.3');
+  });
+
+  it('паук по диагонали: по пальцу на струну E→G, затем G→E', () => {
+    const value = plan('spider', { startFret: 5, positions: 2, pattern: '1234', path: 'diagonal' });
+    expect(idsOf(value)).toBe('E:5 A:6 D:7 G:8 G:5 D:6 A:7 E:8 E:6 A:7 D:8 G:9 G:6 D:7 A:8 E:9');
+    expect(namesOf(value)).toBe('A1 E♭2 A2 E♭3 C3 A♭2 E2 C2 B♭1 E2 B♭2 E3 C♯3 A2 F2 C♯2');
+    expect(fingersOf(value)).toBe('1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4');
+    expect(value.title).toBe('Паук по диагонали');
+  });
+
+  it('паук 2-4-1-3 прямо и все 24 порядка пальцев', async () => {
+    const { SPIDER_PATTERNS } = await import('../src/exercises');
+    expect(new Set(SPIDER_PATTERNS).size).toBe(24);
+    expect(SPIDER_PATTERNS.slice(0, 4)).toEqual(['1234', '1324', '1243', '1432']);
+    for (const pattern of SPIDER_PATTERNS) expect([...pattern].sort().join('')).toBe('1234');
+    const value = plan('spider', { startFret: 5, positions: 2, pattern: '2413' });
+    expect(idsOf(value).split(' ').slice(0, 4).join(' ')).toBe('E:6 E:8 E:5 E:7');
+    expect(namesOf(value).split(' ').slice(0, 4).join(' ')).toBe('B♭1 C2 A1 B1');
+    expect(fingersOf(value).split(' ').slice(0, 4).join(' ')).toBe('2 4 1 3');
+  });
+
+  it('переход с прижатой нотой: тот же рисунок на ладу, палец 1, правая рука i–m', () => {
+    const value = plan('string-crossing', { pattern: 'adjacent', fret: 5 });
+    expect(namesOf(value)).toBe('A1 D2 A1 D2 D2 G2 D2 G2 G2 C3 G2 C3 C3 G2 C3 G2');
+    expect(fingersOf(value)).toBe(Array(16).fill('1').join(' '));
+    expect(value.notes.map(note => note.pluck).join('')).toBe('imimimimimimimim');
+    expect(() => createExerciseSpec('string-crossing', { fret: 13 })).toThrow(RangeError);
+  });
+
+  it('смена позиции скачками на 5 ладов', () => {
+    const value = plan('position-shift', { string: 'A', startFret: 3, shifts: 2, jump: 5 });
+    expect(namesOf(value)).toBe('C2 C♯2 D2 E♭2 F2 F♯2 G2 A♭2 B♭2 B2 C3 C♯3');
+    expect(fingersOf(value)).toBe('1 2 3 4 1 2 3 4 1 2 3 4');
+    expect(value.overlap).toBe('none');
+    expect(() => createExerciseSpec('position-shift', { jump: 4 as never })).toThrow(RangeError);
+    expect(() => createExerciseSpec('position-shift', { startFret: 12, shifts: 2, jump: 7 })).toThrow(RangeError);
+    expect(configureSpec(createExerciseSpec('position-shift', { startFret: 12 }), 'jump', 7).params).toMatchObject({ jump: 7, startFret: 12, shifts: 1 });
+  });
+
+  it('растяжка: ноты мизинцем помечены, позиции идут к порожку и не ниже 1-го лада', () => {
+    const value = plan('stretch', { startFret: 7, positions: 3 });
+    expect(value.notes.filter(note => note.stretch).every(note => note.finger === 4)).toBe(true);
+    expect(value.notes.filter(note => note.stretch)).toHaveLength(12);
+    expect(() => createExerciseSpec('stretch', { startFret: 2, positions: 3 })).toThrow(RangeError);
+    expect(configureSpec(createExerciseSpec('stretch'), 'startFret', 2).params).toMatchObject({ startFret: 2, positions: 2 });
+  });
+
+  it('секвенция группами по 3 и 4 по компактной форме мажора', () => {
+    expect(namesOf(plan('groups-of-three', { root: 'C', structureId: 'major', shapeId: 'compact-e', group: 3 })))
+      .toBe('C2 D2 E2 D2 E2 F2 E2 F2 G2 F2 G2 A2 G2 A2 B2 A2 B2 C3');
+    const four = plan('groups-of-three', { root: 'C', structureId: 'major', shapeId: 'compact-e', group: 4 });
+    expect(namesOf(four)).toBe('C2 D2 E2 F2 D2 E2 F2 G2 E2 F2 G2 A2 F2 G2 A2 B2 G2 A2 B2 C3');
+    expect(four.title).toBe('Группы по четыре');
+    expect(() => createExerciseSpec('groups-of-three', { structureId: 'major', shapeId: 'penta-a' })).toThrow(RangeError);
+    expect(() => createExerciseSpec('groups-of-three', { structureId: 'minor-pentatonic', shapeId: 'compact-e' })).toThrow(RangeError);
+    expect(configureSpec(createExerciseSpec('groups-of-three'), 'structureId', 'major').params).toMatchObject({ structureId: 'major', shapeId: 'compact-e' });
+  });
+
+  it('A минор в две октавы: группы 1-3-4, растяжки тон-тон на D и G', () => {
+    const value = plan('scale-two-octaves', { root: 'A', structureId: 'natural-minor' });
+    const up = value.notes.slice(0, 15);
+    expect(up.map(note => note.id).join(' ')).toBe('E:5 E:7 E:8 A:5 A:7 A:8 D:5 D:7 D:9 G:5 G:7 G:9 G:10 G:12 G:14');
+    expect(up.map(note => note.name).join(' ')).toBe('A1 B1 C2 D2 E2 F2 G2 A2 B2 C3 D3 E3 F3 G3 A3');
+    expect(up.map(note => note.finger).join(' ')).toBe('1 3 4 1 3 4 1 2 4 1 2 4 1 2 4');
+    expect(up.filter(note => note.stretch).map(note => note.id).join(' ')).toBe('D:9 G:9 G:14');
+  });
+
+  it('гамма в две октавы и по всему грифу строится во всех 12 тониках мажора и минора', () => {
+    for (const root of ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B']) for (const structureId of ['major', 'natural-minor'] as const) {
+      const two = plan('scale-two-octaves', { root, structureId });
+      expect(two.notes.length, `${root} ${structureId}`).toBe(28);
+      expect(two.notes[14].midi - two.notes[0].midi).toBe(24);
+      const neck = plan('scale-neck', { root, structureId });
+      expect(neck.segments.length, `${root} ${structureId}`).toBeGreaterThanOrEqual(5);
+      expect(neck.notes.every(note => note.fret >= 0 && note.fret <= 24)).toBe(true);
+    }
   });
 });

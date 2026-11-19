@@ -41,9 +41,9 @@ function textsOf(concept: ReferenceConcept): string[] {
 }
 
 describe('справочник R-027: состав', () => {
-  it('38 понятий по уровням макета (D-049 — блюзовая гамма, септаккорды, обращения, последовательность; D-050 — правая рука; R-028 — настройка, посадка, правая и левая рука, легато и стаккато; длительности и паузы, лига и синкопа), 8 полных карточек, у каждого одна карточка', () => {
+  it('39 понятий по уровням макета (P19 — независимость пальцев и растяжка; D-049 — блюзовая гамма, септаккорды, обращения, последовательность; D-050 — правая рука; R-028 — настройка, посадка, правая и левая рука, легато и стаккато; длительности и паузы, лига и синкопа), 8 полных карточек, у каждого одна карточка', () => {
     expect(REFERENCE_CONCEPTS.map(concept => concept.id)).toEqual([
-      'semitone', 'accidentals', 'enharmonic', 'octave', 'unison', 'octave-numbers', 'alternate-plucking', 'raking', 'muting', 'tuning', 'posture', 'right-hand-basics', 'left-hand-basics', 'legato-staccato',
+      'semitone', 'accidentals', 'enharmonic', 'octave', 'unison', 'octave-numbers', 'alternate-plucking', 'raking', 'muting', 'tuning', 'posture', 'right-hand-basics', 'left-hand-basics', 'finger-independence', 'legato-staccato',
       'fourth', 'fifth', 'thirds', 'seconds', 'sixths', 'sevenths',
       'degree', 'major-formula', 'natural-minor', 'relative-keys', 'pentatonic', 'shared-notes', 'blues-scale',
       'triad', 'seventh-chords', 'inversions', 'chord-progression', 'slash-chord',
@@ -200,7 +200,7 @@ describe('справочник R-027: упражнения и проверка',
 
   it('каждое понятие каталога упражнений ведёт к одной карточке справочника', () => {
     const catalogue = [...new Set(EXERCISE_TEMPLATES.flatMap(template => template.concepts))].sort();
-    expect(catalogue).toHaveLength(22);
+    expect(catalogue).toHaveLength(23);
     const owners = new Map<ConceptId, string[]>();
     for (const concept of REFERENCE_CONCEPTS) {
       for (const id of concept.exerciseConcepts ?? []) owners.set(id, [...(owners.get(id) ?? []), concept.id]);
@@ -241,7 +241,7 @@ describe('справочник R-027: поиск', () => {
 
   it('пустой запрос возвращает все понятия по порядку', () => {
     expect(findConcepts('')).toBe(REFERENCE_CONCEPTS);
-    expect(ids('   ')).toHaveLength(38);
+    expect(ids('   ')).toHaveLength(39);
   });
 
   it('находит по названию, ключевым словам и ступеням; регистр и ё/е не мешают', () => {

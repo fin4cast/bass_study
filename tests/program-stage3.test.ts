@@ -54,8 +54,8 @@ describe('данные этапа 3 по таблице R-028', () => {
   it('техника: пульс шестнадцатыми на открытых E, A и E/5; паук 1-4-3-2 с 5-го и 7-го лада; паук по всему грифу с 1-го лада на 12 позиций', () => {
     expect(variants('t3-sixteenths.pulse')).toEqual(['pulse-note.E.0.32', 'pulse-note.A.0.32', 'pulse-note.E.5.32']);
     expect(variants('t3-sixteenths.chromatic')).toEqual(['chromatic-position.5.1234.up', 'chromatic-position.7.1234.up']);
-    expect(variants('t3-spider.1432')).toEqual(['spider.5.5.1432', 'spider.7.5.1432']);
-    expect(variants('t3-spider.neck')).toEqual(['spider.1.12.1234', 'spider.1.12.1324']);
+    expect(variants('t3-spider.1432')).toEqual(['spider.5.5.1432.straight', 'spider.7.5.1432.straight']);
+    expect(variants('t3-spider.neck')).toEqual(['spider.1.12.1234.straight', 'spider.1.12.1324.straight']);
   });
   it('гриф: гаммы C и G от струны E, D от струны A; минор Am, Bm от E, Dm от A; формы B, связки A→B, мажорная форма A', () => {
     expect(variants('f3-major.scale')).toEqual(['scale-compact.C.major.compact-e', 'scale-compact.G.major.compact-e', 'scale-compact.D.major.compact-a']);

@@ -51,8 +51,8 @@ describe('данные этапа 2 по таблице R-028', () => {
   });
   it('варианты в порядке таблицы: струны E, A, D; пауки с 5-го и 7-го лада; D и G; круг кварт на E и A; формы A в Am, Bm, Gm; риффы', () => {
     expect(variants('t2-length.quarters')).toEqual(['E', 'A', 'D'].map(string => `long-short.${string}.5`));
-    expect(variants('t2-spider.1324')).toEqual(['spider.5.5.1324', 'spider.7.5.1324']);
-    expect(variants('t2-spider.shift')).toEqual(['E', 'A', 'D', 'G'].map(string => `position-shift.${string}.3.2`));
+    expect(variants('t2-spider.1324')).toEqual(['spider.5.5.1324.straight', 'spider.7.5.1324.straight']);
+    expect(variants('t2-spider.shift')).toEqual(['E', 'A', 'D', 'G'].map(string => `position-shift.${string}.3.2.1`));
     expect(variants('f2-dg.naturals')).toEqual(['string-naturals.D.12', 'string-naturals.G.12']);
     expect(variants('f2-all.note')).toEqual(['C', 'G', 'D', 'A', 'F', 'Bb'].map(note => `note-all-positions.${note}`));
     expect(variants('f2-all.fourths')).toEqual(['string-fourths.E', 'string-fourths.A']);

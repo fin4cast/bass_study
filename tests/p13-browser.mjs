@@ -1504,10 +1504,11 @@ async function openLibraryPlay(page, title) {
 check('play-task-lines-show-three-rows-in-all-views-and-fit-1280x720-on-the-longest-text', 'ui', async ({ page, origin }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await openApp(page, origin);
-  await openLibraryPlay(page, 'Переход между струнами (правая рука)');
-  await assertTaskLinesFit(page, 'Переход между струнами');
+  // Самые длинные строки задания — у «Длинных и коротких нот» (117 и 114 знаков).
+  await openLibraryPlay(page, 'Длинные и короткие ноты');
+  await assertTaskLinesFit(page, 'Длинные и короткие ноты');
   const text = await playScene(page).locator('[data-task="do"]').innerText();
-  assert.match(text, /открытые струны/i, 'строка относится к этому шаблону');
+  assert.match(text, /длинно.*коротко/i, 'строка относится к этому шаблону');
   return { text };
 });
 

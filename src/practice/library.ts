@@ -71,7 +71,7 @@ export function validateUserExercise(value: unknown): UserExercise {
 /** Параметр тоники шаблона, если он есть (у «Хроматики» и «Смены позиции» тоники нет). */
 const ROOT_PARAM: Partial<Record<ExerciseTemplateId, 'root' | 'minorRoot' | 'note'>> = {
   'note-all-positions': 'note', octaves: 'note', 'interval-from-note': 'note', 'pentatonic-form': 'root', 'pentatonic-relative': 'minorRoot', 'scale-compact': 'root',
-  'connect-forms': 'root', 'pentatonic-neck': 'root', 'scale-one-string': 'root', 'scale-position': 'root', 'arpeggio-1358': 'root',
+  'connect-forms': 'root', 'pentatonic-neck': 'root', 'scale-one-string': 'root', 'scale-position': 'root', 'scale-two-octaves': 'root', 'scale-neck': 'root', 'arpeggio-1358': 'root',
   'root-five-eight': 'root', 'groups-of-three': 'root', thirds: 'root', 'cycle-fourths': 'root',
   'blues-scale': 'root', 'arpeggio-seventh': 'root', 'arpeggio-inversion': 'root', progression: 'root', riff: 'root',
 };

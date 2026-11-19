@@ -62,7 +62,7 @@ describe('данные этапа 4 по таблице R-028', () => {
     expect(variants('f4-intervals.seconds')).toEqual(['min2.up', 'maj2.up', 'min2.down', 'maj2.down'].map(text => `interval-from-note.C.${text}`));
     expect(variants('f4-intervals.sixths')).toEqual(['min6.up', 'maj6.up', 'min6.down', 'maj6.down'].map(text => `interval-from-note.C.${text}`));
     expect(variants('f4-intervals.sevenths')).toEqual(['min7.up', 'maj7.up', 'min7.down', 'maj7.down'].map(text => `interval-from-note.C.${text}`));
-    expect(variants('f4-sequences.groups')).toEqual(['penta-b', 'penta-c'].map(shape => `groups-of-three.A.minor-pentatonic.${shape}`));
+    expect(variants('f4-sequences.groups')).toEqual(['penta-b', 'penta-c'].map(shape => `groups-of-three.A.minor-pentatonic.${shape}.3`));
     expect(variants('f4-sequences.transpose')).toEqual(['form-transpose.minor-pentatonic.penta-a.A-D-E']);
     expect(variants('f4-sequences.cycle')).toEqual(['C', 'G', 'E'].map(root => `cycle-fourths.${root}.4`));
   });

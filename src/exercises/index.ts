@@ -20,13 +20,30 @@ export type ExerciseCategory = 'warmup' | 'notes' | 'forms' | 'connections' | 'p
 export type ConceptId =
   | 'finger-per-fret' | 'position-shift' | 'semitone' | 'octave' | 'unison' | 'degrees' | 'pentatonic' | 'relative-keys'
   | 'scale-formula' | 'shared-notes' | 'form-system' | 'triad' | 'fifth' | 'sequence' | 'third' | 'transposition' | 'circle-of-fifths'
-  | 'seventh-chord' | 'inversion' | 'progression' | 'blues' | 'right-hand';
+  | 'seventh-chord' | 'inversion' | 'progression' | 'blues' | 'right-hand' | 'finger-independence';
 
 type Pentatonic = 'minor-pentatonic' | 'major-pentatonic';
 type Scale = 'major' | 'natural-minor';
 type Triad = 'major-triad' | 'minor-triad' | 'diminished-triad';
 type Seventh = 'major-seventh' | 'dominant-seventh' | 'minor-seventh' | 'half-diminished-seventh';
-export type SpiderPattern = '1234' | '1324' | '1243' | '1432';
+/** Порядок пальцев «паука»: все 24 перестановки 1-2-3-4 (P19, часть C). */
+export type SpiderPattern =
+  | '1234' | '1324' | '1243' | '1432' | '1342' | '1423'
+  | '2134' | '2143' | '2314' | '2341' | '2413' | '2431'
+  | '3124' | '3142' | '3214' | '3241' | '3412' | '3421'
+  | '4123' | '4132' | '4213' | '4231' | '4312' | '4321';
+/** Путь «паука»: прямо — четыре пальца на струне; по диагонали — по пальцу на струну E→G и обратно. */
+export type SpiderPath = 'straight' | 'diagonal';
+export const SPIDER_PATHS: readonly SpiderPath[] = ['straight', 'diagonal'];
+/** Шаг сдвига «Смены позиции по струне», лады: 1 — соседняя позиция, дальше — скачки. */
+export type ShiftJump = 1 | 2 | 3 | 5 | 7 | 12;
+export const SHIFT_JUMPS: readonly ShiftJump[] = [1, 2, 3, 5, 7, 12];
+/** Пара пальцев левой руки для упражнения на независимость. */
+export type FingerPair = '12' | '13' | '14' | '23' | '24' | '34';
+export const FINGER_PAIRS: readonly FingerPair[] = ['12', '13', '14', '23', '24', '34'];
+/** Число нот в группе секвенции. */
+export type SequenceGroup = 3 | 4;
+export const SEQUENCE_GROUPS: readonly SequenceGroup[] = [3, 4];
 export type ProgressionId = 'I-IV-V' | 'ii-V-I' | 'blues-12' | 'I-V-vi-IV' | 'I-vi-IV-V' | 'i-iv-v' | 'i-iv' | 'i-V-i' | 'i-VII-VI-V' | 'diatonic';
 export type ProgressionPattern = 'roots' | 'root-fifth' | 'octaves' | 'arpeggio' | 'approach' | 'boogie' | 'r5b78' | 'r56' | 'roots-approach' | 'roots-passing' | 'walking';
 /**
@@ -78,9 +95,14 @@ export const PROGRESSION_POSITIONS: readonly ProgressionPosition[] = ['closed', 
 
 export interface ExerciseParams {
   readonly 'chromatic-position': { readonly startFret: number; readonly fingering: Fingering; readonly direction: Direction };
-  readonly 'position-shift': { readonly string: StringId; readonly startFret: number; readonly shifts: number };
-  readonly spider: { readonly startFret: number; readonly positions: number; readonly pattern: SpiderPattern };
-  readonly 'string-crossing': { readonly pattern: CrossingPattern };
+  readonly 'position-shift': { readonly string: StringId; readonly startFret: number; readonly shifts: number; readonly jump: ShiftJump };
+  readonly spider: { readonly startFret: number; readonly positions: number; readonly pattern: SpiderPattern; readonly path: SpiderPath };
+  /** Лад 0 — открытые струны; 1–12 — нота на этом ладу первым пальцем (P19). */
+  readonly 'string-crossing': { readonly pattern: CrossingPattern; readonly fret: number };
+  /** Пары пальцев: a-b-a-b на каждой струне E→G и обратно (P19). */
+  readonly 'finger-pairs': { readonly startFret: number; readonly pair: FingerPair };
+  /** Растяжка «тон-тон» 1-2-4 по позициям от середины грифа к порожку (P19). */
+  readonly stretch: { readonly startFret: number; readonly positions: number };
   /** Пульс правой рукой на одной ноте (R-028, A5). */
   readonly 'pulse-note': { readonly string: StringId; readonly fret: number; readonly notes: PulseNotes };
   /** Интервал от ноты: пары «нота — нота интервала» на всех струнах, где форма помещается на ладах 1–12 (A8.2). */
@@ -103,11 +125,16 @@ export interface ExerciseParams {
   readonly 'pentatonic-neck': { readonly root: string; readonly structureId: Pentatonic };
   readonly 'scale-one-string': { readonly root: string; readonly structureId: Scale; readonly string: StringId };
   readonly 'scale-position': { readonly root: string; readonly structureId: Scale; readonly degree: number };
+  /** Гамма в две октавы по три ноты на струну со сдвигом по струне G (P19). */
+  readonly 'scale-two-octaves': { readonly root: string; readonly structureId: Scale };
+  /** Гамма по всему грифу: позиции «палец на лад» змейкой (P19). */
+  readonly 'scale-neck': { readonly root: string; readonly structureId: Scale };
   readonly 'arpeggio-1358': { readonly root: string; readonly structureId: Triad; readonly shapeId: CompactShape };
   readonly 'arpeggio-seventh': { readonly root: string; readonly structureId: Seventh; readonly shapeId: CompactShape };
   readonly 'arpeggio-inversion': { readonly root: string; readonly structureId: Triad; readonly inversion: number };
   readonly 'root-five-eight': { readonly root: string; readonly string: 'E' | 'A' };
-  readonly 'groups-of-three': { readonly root: string; readonly structureId: Pentatonic; readonly shapeId: PentaShape };
+  /** Секвенция группами по 3 или 4: пентатоника — формы `penta-*`, гаммы — компактные формы (P19). */
+  readonly 'groups-of-three': { readonly root: string; readonly structureId: Pentatonic | Scale; readonly shapeId: PentaShape | CompactShape; readonly group: SequenceGroup };
   readonly thirds: { readonly root: string; readonly structureId: Scale; readonly shapeId: CompactShape };
   readonly 'form-transpose': { readonly structureId: Pentatonic; readonly shapeId: PentaShape; readonly roots: readonly string[] };
   readonly 'cycle-fourths': { readonly root: string; readonly count: number };
@@ -178,7 +205,13 @@ export interface ExerciseTemplate<Id extends ExerciseTemplateId = ExerciseTempla
 }
 
 const STRINGS: readonly StringId[] = ['E', 'A', 'D', 'G'];
-export const SPIDER_PATTERNS: readonly SpiderPattern[] = ['1234', '1324', '1243', '1432'];
+/** Сначала четыре прежних порядка (в списке «Пальцы» они остаются первыми), затем остальные по возрастанию. */
+export const SPIDER_PATTERNS: readonly SpiderPattern[] = [
+  '1234', '1324', '1243', '1432', '1342', '1423',
+  '2134', '2143', '2314', '2341', '2413', '2431',
+  '3124', '3142', '3214', '3241', '3412', '3421',
+  '4123', '4132', '4213', '4231', '4312', '4321',
+];
 export const PROGRESSION_IDS: readonly ProgressionId[] = ['I-IV-V', 'ii-V-I', 'blues-12', 'I-V-vi-IV', 'I-vi-IV-V', 'i-iv-v', 'i-iv', 'i-V-i', 'i-VII-VI-V', 'diatonic'];
 export const PROGRESSION_PATTERNS: readonly ProgressionPattern[] = ['roots', 'root-fifth', 'octaves', 'arpeggio', 'approach', 'boogie', 'r5b78', 'r56', 'roots-approach', 'roots-passing', 'walking'];
 export { patternFits } from './bars';
@@ -190,9 +223,11 @@ const SHAPE_LETTER: Record<PentaShape, string> = { 'penta-a': 'A', 'penta-b': 'B
 
 export const EXERCISE_TEMPLATES: readonly ExerciseTemplate[] = deepFreeze([
   { id: 'chromatic-position', category: 'warmup', title: 'Хроматика 1-2-3-4 в позиции', concepts: ['finger-per-fret', 'semitone'], defaults: { startFret: 5, fingering: '1234', direction: 'up' } },
-  { id: 'position-shift', category: 'warmup', title: 'Смена позиции по струне', concepts: ['position-shift', 'finger-per-fret'], defaults: { string: 'A', startFret: 3, shifts: 2 } },
-  { id: 'spider', category: 'warmup', title: 'Паук: четыре пальца по грифу', concepts: ['finger-per-fret', 'position-shift'], defaults: { startFret: 5, positions: 5, pattern: '1234' } },
-  { id: 'string-crossing', category: 'warmup', title: 'Переход между струнами (правая рука)', concepts: ['right-hand'], defaults: { pattern: 'adjacent' } },
+  { id: 'position-shift', category: 'warmup', title: 'Смена позиции по струне', concepts: ['position-shift', 'finger-per-fret'], defaults: { string: 'A', startFret: 3, shifts: 2, jump: 1 } },
+  { id: 'spider', category: 'warmup', title: 'Паук: четыре пальца по грифу', concepts: ['finger-per-fret', 'position-shift'], defaults: { startFret: 5, positions: 5, pattern: '1234', path: 'straight' } },
+  { id: 'string-crossing', category: 'warmup', title: 'Переход между струнами (правая рука)', concepts: ['right-hand'], defaults: { pattern: 'adjacent', fret: 0 } },
+  { id: 'finger-pairs', category: 'warmup', title: 'Пары пальцев', concepts: ['finger-independence', 'finger-per-fret'], defaults: { startFret: 5, pair: '13' } },
+  { id: 'stretch', category: 'warmup', title: 'Растяжка тон-тон', concepts: ['finger-independence', 'position-shift'], defaults: { startFret: 7, positions: 3 } },
   { id: 'pulse-note', category: 'warmup', title: 'Пульс на одной ноте', concepts: ['right-hand'], defaults: { string: 'E', fret: 0, notes: 16 } },
   { id: 'string-fourths', category: 'notes', title: 'Круг кварт на струне', concepts: ['circle-of-fifths', 'semitone'], defaults: { string: 'E' } },
   { id: 'interval-from-note', category: 'notes', title: 'Интервал от ноты', concepts: ['degrees'], defaults: { note: 'C', interval: 'maj2', direction: 'up' } },
@@ -209,11 +244,13 @@ export const EXERCISE_TEMPLATES: readonly ExerciseTemplate[] = deepFreeze([
   { id: 'pentatonic-neck', category: 'connections', title: 'Пентатоника по всему грифу', concepts: ['form-system', 'shared-notes', 'pentatonic'], defaults: { root: 'A', structureId: 'minor-pentatonic' } },
   { id: 'scale-one-string', category: 'positions', title: 'Гамма на одной струне', concepts: ['scale-formula', 'semitone'], defaults: { root: 'C', structureId: 'major', string: 'A' } },
   { id: 'scale-position', category: 'positions', title: 'Гамма в позиции «палец на лад»', concepts: ['finger-per-fret', 'scale-formula', 'degrees'], defaults: { root: 'C', structureId: 'major', degree: 1 } },
+  { id: 'scale-two-octaves', category: 'positions', title: 'Гамма в две октавы', concepts: ['scale-formula', 'position-shift', 'degrees'], defaults: { root: 'G', structureId: 'major' } },
+  { id: 'scale-neck', category: 'positions', title: 'Гамма по всему грифу', concepts: ['scale-formula', 'form-system', 'position-shift'], defaults: { root: 'C', structureId: 'major' } },
   { id: 'arpeggio-1358', category: 'arpeggios', title: 'Арпеджио 1–3–5–8', concepts: ['triad', 'degrees'], defaults: { root: 'C', structureId: 'major-triad', shapeId: 'compact-e' } },
   { id: 'arpeggio-seventh', category: 'arpeggios', title: 'Арпеджио септаккорда 1–3–5–7', concepts: ['seventh-chord', 'degrees'], defaults: { root: 'C', structureId: 'dominant-seventh', shapeId: 'compact-e' } },
   { id: 'arpeggio-inversion', category: 'arpeggios', title: 'Обращение трезвучия', concepts: ['inversion', 'triad'], defaults: { root: 'C', structureId: 'major-triad', inversion: 1 } },
   { id: 'root-five-eight', category: 'arpeggios', title: 'Root–5–8', concepts: ['fifth', 'octave'], defaults: { root: 'C', string: 'A' } },
-  { id: 'groups-of-three', category: 'sequences', title: 'Группы по три', concepts: ['sequence', 'pentatonic'], defaults: { root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a' } },
+  { id: 'groups-of-three', category: 'sequences', title: 'Секвенция группами', concepts: ['sequence', 'pentatonic'], defaults: { root: 'A', structureId: 'minor-pentatonic', shapeId: 'penta-a', group: 3 } },
   { id: 'thirds', category: 'sequences', title: 'Терциями по гамме', concepts: ['third', 'sequence'], defaults: { root: 'C', structureId: 'major', shapeId: 'compact-e' } },
   { id: 'form-transpose', category: 'transposition', title: 'Та же форма от другой тоники', concepts: ['transposition', 'pentatonic'], defaults: { structureId: 'minor-pentatonic', shapeId: 'penta-a', roots: ['A', 'D', 'E'] } },
   { id: 'progression', category: 'progressions', title: 'Игра по последовательности аккордов', concepts: ['progression', 'degrees'], defaults: { root: 'C', progression: 'I-IV-V', pattern: 'roots', position: 'closed' } },
@@ -270,10 +307,18 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
   'chromatic-position': raw => ({ startFret: integer(raw.startFret, 1, 21, 'Первый лад'), fingering: oneOf(raw.fingering, FINGERINGS, 'Аппликатура'), direction: oneOf(raw.direction, DIRECTIONS, 'Направление') }),
   'position-shift': raw => {
     const startFret = integer(raw.startFret, 1, 20, 'Первый лад'); const shifts = integer(raw.shifts, 1, 4, 'Число сдвигов');
-    if (startFret + shifts + 3 > 24) throw new RangeError('Последняя группа должна помещаться на ладах до 24.');
-    return { string: oneOf(raw.string, STRINGS, 'Струна'), startFret, shifts };
+    const jump = integer(raw.jump, 1, 12, 'Шаг сдвига') as ShiftJump;
+    if (!SHIFT_JUMPS.includes(jump)) throw new RangeError('Шаг сдвига: допустимо 1, 2, 3, 5, 7 или 12 ладов.');
+    if (startFret + shifts * jump + 3 > 24) throw new RangeError('Последняя группа должна помещаться на ладах до 24.');
+    return { string: oneOf(raw.string, STRINGS, 'Струна'), startFret, shifts, jump };
   },
-  'string-crossing': raw => ({ pattern: oneOf(raw.pattern, CROSSING_PATTERNS, 'Рисунок правой руки') }),
+  'string-crossing': raw => ({ pattern: oneOf(raw.pattern, CROSSING_PATTERNS, 'Рисунок правой руки'), fret: integer(raw.fret, 0, 12, 'Лад') }),
+  'finger-pairs': raw => ({ startFret: integer(raw.startFret, 1, 12, 'Первый лад'), pair: oneOf(raw.pair, FINGER_PAIRS, 'Пара пальцев') }),
+  stretch: raw => {
+    const startFret = integer(raw.startFret, 1, 12, 'Первый лад'); const positions = integer(raw.positions, 1, 5, 'Число позиций');
+    if (startFret - positions + 1 < 1) throw new RangeError('Растяжка идёт к порожку: последняя позиция должна начинаться не ниже 1-го лада.');
+    return { startFret, positions };
+  },
   'pulse-note': raw => {
     const notes = integer(raw.notes, 8, 32, 'Число нот') as PulseNotes;
     if (!PULSE_NOTES.includes(notes)) throw new RangeError('Число нот: допустимо 8, 16 или 32.');
@@ -295,7 +340,7 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
   spider: raw => {
     const startFret = integer(raw.startFret, 1, 12, 'Первый лад'); const positions = integer(raw.positions, 2, 12, 'Число позиций');
     if (startFret + positions + 2 > 16) throw new RangeError('Паук должен заканчиваться не дальше 16-го лада.');
-    return { startFret, positions, pattern: oneOf(raw.pattern, SPIDER_PATTERNS, 'Порядок пальцев') };
+    return { startFret, positions, pattern: oneOf(raw.pattern, SPIDER_PATTERNS, 'Порядок пальцев'), path: oneOf(raw.path, SPIDER_PATHS, 'Путь') };
   },
   'note-all-positions': raw => ({ note: noteName(raw.note, 'Нота') }),
   octaves: raw => ({ note: noteName(raw.note, 'Нота') }),
@@ -307,11 +352,19 @@ const PARAM_RULES: { readonly [Id in ExerciseTemplateId]: (raw: Record<string, u
   'pentatonic-neck': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, ['minor-pentatonic', 'major-pentatonic'], 'Структура') }),
   'scale-one-string': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, ['major', 'natural-minor'], 'Структура'), string: oneOf(raw.string, STRINGS, 'Струна') }),
   'scale-position': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, ['major', 'natural-minor'], 'Структура'), degree: integer(raw.degree, 1, 7, 'Ступень позиции') }),
+  'scale-two-octaves': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, ['major', 'natural-minor'], 'Структура') }),
+  'scale-neck': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, ['major', 'natural-minor'], 'Структура') }),
   'arpeggio-1358': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, TRIADS, 'Структура'), shapeId: oneOf(raw.shapeId, ['compact-e', 'compact-a'], 'Форма') }),
   'arpeggio-seventh': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, SEVENTHS, 'Структура'), shapeId: oneOf(raw.shapeId, ['compact-e', 'compact-a'], 'Форма') }),
   'arpeggio-inversion': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, TRIADS, 'Структура'), inversion: integer(raw.inversion, 1, 2, 'Обращение') }),
   'root-five-eight': raw => ({ root: noteName(raw.root, 'Тоника'), string: oneOf(raw.string, ['E', 'A'], 'Струна') }),
-  'groups-of-three': raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, ['minor-pentatonic', 'major-pentatonic'], 'Структура'), shapeId: oneOf(raw.shapeId, PENTA_SHAPES, 'Форма') }),
+  'groups-of-three': raw => {
+    const structureId = oneOf(raw.structureId, ['minor-pentatonic', 'major-pentatonic', 'major', 'natural-minor'], 'Структура');
+    // Пентатоника строится по формам `penta-*`, гаммы — по компактным формам (часть C).
+    const shapes: readonly (PentaShape | CompactShape)[] = structureId.endsWith('pentatonic') ? PENTA_SHAPES : ['compact-e', 'compact-a'];
+    const group = integer(raw.group, 3, 4, 'Нот в группе') as SequenceGroup;
+    return { root: noteName(raw.root, 'Тоника'), structureId, shapeId: oneOf(raw.shapeId, shapes, 'Форма'), group };
+  },
   thirds: raw => ({ root: noteName(raw.root, 'Тоника'), structureId: oneOf(raw.structureId, ['major', 'natural-minor'], 'Структура'), shapeId: oneOf(raw.shapeId, ['compact-e', 'compact-a'], 'Форма') }),
   'form-transpose': raw => {
     if (!Array.isArray(raw.roots) || raw.roots.length < 2 || raw.roots.length > 6) throw new RangeError('Тоники: нужен список из 2–6 нот.');
@@ -586,17 +639,48 @@ const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[I
       segments: [`Струна ${string} · натуральные ноты · лады 0–${fretMax}`], overlap: 'none',
     };
   },
-  'position-shift': ({ string, startFret, shifts }) => ({
-    drafts: Array.from({ length: shifts + 1 }, (_, shift) => [0, 1, 2, 3].map(offset => ({ position: chromatic(string, startFret + shift + offset), finger: offset + 1, segment: shift, degree: null }))).flat(),
-    segments: Array.from({ length: shifts + 1 }, (_, shift) => `Лады ${startFret + shift}–${startFret + shift + 3}`),
+  'position-shift': ({ string, startFret, shifts, jump }) => ({
+    // Группа k начинается на ладу f + k·j (часть C): шаг 1 — соседняя позиция, больше — скачок позиции.
+    drafts: Array.from({ length: shifts + 1 }, (_, shift) => [0, 1, 2, 3].map(offset => ({ position: chromatic(string, startFret + shift * jump + offset), finger: offset + 1, segment: shift, degree: null }))).flat(),
+    segments: Array.from({ length: shifts + 1 }, (_, shift) => `Лады ${startFret + shift * jump}–${startFret + shift * jump + 3}`),
+    // Скачок от 4 ладов: у групп нет общих ладов.
+    ...(jump > 3 ? { overlap: 'none' as const } : {}),
   }),
-  'string-crossing': ({ pattern }) => {
+  'string-crossing': ({ pattern, fret }) => {
     const order = CROSSING_ORDER[pattern];
     const plucks = pluckOrder(order, pattern === 'raking');
+    // Лад 0 — открытые струны без пальца; с ладом нота прижимается первым пальцем и переставляется по струнам.
+    const title = fret === 0 ? CROSSING_TITLES[pattern] : `${CROSSING_TITLES[pattern]} · лад ${fret}`;
     return {
-      drafts: order.map((string, index) => ({ position: annotate([[string, 0]], OPEN_STRINGS)[0], finger: null, segment: Math.floor(index / 8), degree: null, pluck: plucks[index] })),
-      segments: [CROSSING_TITLES[pattern], CROSSING_TITLES[pattern]], overlap: 'none',
+      drafts: order.map((string, index) => ({
+        position: fret === 0 ? annotate([[string, 0]], OPEN_STRINGS)[0] : chromatic(string, fret), finger: fret === 0 ? null : 1,
+        segment: Math.floor(index / 8), degree: null, pluck: plucks[index],
+      })),
+      segments: [title, title], overlap: 'none',
     };
+  },
+  'finger-pairs': ({ startFret, pair }) => {
+    const [a, b] = [...pair].map(Number);
+    const drafts: Draft[] = [];
+    [STRINGS, [...STRINGS].reverse()].forEach((strings, segment) => {
+      for (const string of strings) for (const finger of [a, b, a, b]) drafts.push({ position: chromatic(string, startFret + finger - 1), finger, segment, degree: null });
+    });
+    const label = `Пальцы ${a}–${b} · лады ${startFret + a - 1} и ${startFret + b - 1}`;
+    return { drafts, segments: [`${label} · E → G`, `${label} · G → E`], overlap: 'none' };
+  },
+  stretch: ({ startFret, positions }) => {
+    // Позиции от середины грифа к порожку: лады p, p+2, p+4 пальцами 1, 2, 4; нота мизинцем — растяжка.
+    const drafts: Draft[] = []; const segments: string[] = [];
+    for (let index = 0; index < positions; index++) {
+      const fret = startFret - index;
+      const up = index % 2 === 0;
+      const cells: readonly (readonly [number, number])[] = up ? [[0, 1], [2, 2], [4, 4]] : [[4, 4], [2, 2], [0, 1]];
+      for (const string of up ? STRINGS : [...STRINGS].reverse()) for (const [offset, finger] of cells) {
+        drafts.push({ position: chromatic(string, fret + offset), finger, segment: index, degree: null, stretch: finger === 4 });
+      }
+      segments.push(`Лады ${fret}–${fret + 4} · ${up ? 'E → G' : 'G → E'}`);
+    }
+    return { drafts, segments, overlap: 'none' };
   },
   'song-fragment': ({ title, bars, source, key }) => {
     const drafts: Draft[] = [];
@@ -621,17 +705,25 @@ const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[I
       segments: bars.map((bar, index) => `${bar.chord ?? '—'} · такт ${source.fromBar + index}`),
     };
   },
-  spider: ({ startFret, positions, pattern }) => {
+  spider: ({ startFret, positions, pattern, path }) => {
     const fingers = [...pattern].map(Number);
     const drafts: Draft[] = [];
     const segments: string[] = [];
     for (let index = 0; index < positions; index++) {
       const fret = startFret + index;
+      if (path === 'diagonal') {
+        // По пальцу на струну: E→G, затем G→E; j-й струне хода — j-й палец порядка (часть C).
+        for (const strings of [STRINGS, [...STRINGS].reverse()]) strings.forEach((string, at) => {
+          drafts.push({ position: chromatic(string, fret + fingers[at] - 1), finger: fingers[at], segment: index, degree: null });
+        });
+        segments.push(`Лады ${fret}–${fret + 3} · по диагонали`);
+        continue;
+      }
       const strings = index % 2 === 0 ? STRINGS : [...STRINGS].reverse();
       for (const string of strings) for (const finger of fingers) drafts.push({ position: chromatic(string, fret + finger - 1), finger, segment: index, degree: null });
       segments.push(`Лады ${fret}–${fret + 3} · ${index % 2 === 0 ? 'E → G' : 'G → E'}`);
     }
-    return { drafts, segments, overlap: 'none' };
+    return { drafts, segments, overlap: 'none', ...(path === 'diagonal' ? { title: 'Паук по диагонали' } : {}) };
   },
   'note-all-positions': ({ note }) => {
     const structure = createStructure(note, 'major');
@@ -701,6 +793,39 @@ const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[I
       segments: [`Позиция от ${structure.notes[degree - 1].name} (ступень ${formatDegree(structure.notes[degree - 1].degree)}) · лады ${best.window}–${best.window + 3}${best.stretches ? ` · растяжек: ${best.stretches}` : ''}`],
     };
   },
+  'scale-two-octaves': ({ root, structureId }) => {
+    // Часть C: 15 нот от тоники на E по три на струну (E, A, D, G, G со сдвигом); пальцы — по смещениям ладов группы.
+    const structure = createStructure(root, structureId);
+    const start = getPosition('E', rootFrets(root, 'E', 1, 12)[0]).midi;
+    const pitches = new Set(structure.notes.map(note => note.pitchClass));
+    const scale: number[] = [];
+    for (let midi = start; scale.length < 15; midi++) if (pitches.has(midi % 12)) scale.push(midi);
+    const groups: readonly StringId[] = ['E', 'A', 'D', 'G', 'G'];
+    const up = groups.flatMap((string, index): Draft[] => {
+      const frets = scale.slice(index * 3, index * 3 + 3).map(midi => midi - getPosition(string, 0).midi);
+      const offsets = frets.map(fret => fret - frets[0]);
+      const fingers = offsets[2] === 4 ? [1, 2, 4] : offsets.map(offset => offset + 1);
+      return frets.map((fret, at) => ({
+        position: annotate([[string, fret]], structure)[0], finger: fingers[at], segment: 0, stretch: offsets[2] === 4 && at === 2,
+      }));
+    });
+    const frets = up.map(draft => draft.position.fret);
+    return { drafts: [...up, ...up.slice(1, -1).reverse()], segments: [`Две октавы · по три ноты на струну · лады ${Math.min(...frets)}–${Math.max(...frets)}`] };
+  },
+  'scale-neck': ({ root, structureId }) => {
+    // Часть C: позиции «палец на лад» по возрастанию окна; окно, совпавшее с предыдущим, пропускается; «змейка».
+    const structure = createStructure(root, structureId);
+    const all = structure.notes.map(note => {
+      const start = rootFrets(note.name, 'E', 1, 12)[0];
+      const candidates = [start, start - 1].filter(window => window >= 1).map(window => scalePosition(structure, start, window));
+      return { note, start, best: candidates.reduce((a, b) => b.stretches < a.stretches ? b : a) };
+    }).sort((a, b) => a.best.window - b.best.window || a.start - b.start);
+    const chain = all.filter((entry, index) => index === 0 || entry.best.window !== all[index - 1].best.window);
+    return {
+      drafts: chain.flatMap(({ best }, index) => (index % 2 === 0 ? best.drafts : [...best.drafts].reverse()).map(draft => ({ ...draft, segment: index }))),
+      segments: chain.map(({ note, best }, index) => `Позиция от ${note.name} · лады ${best.window}–${best.window + 3} · ${index % 2 === 0 ? 'вверх' : 'вниз'}`),
+    };
+  },
   'arpeggio-1358': ({ root, structureId, shapeId }) => {
     const box = lowestBox(root, structureId, shapeId);
     return { drafts: fromBox(box, sequence(box, 'round-trip'), 0), segments: [`Лады ${box.window.fretMin}–${box.window.fretMax}`] };
@@ -714,9 +839,13 @@ const BUILDERS: { readonly [Id in ExerciseTemplateId]: (params: ExerciseParams[I
     const fret = rootFrets(root, string, 1, 22)[0];
     return { drafts: rootFiveEight(root, string, fret, 0), segments: [`${parseNote(root).name} · ${string}/${fret}`] };
   },
-  'groups-of-three': ({ root, structureId, shapeId }) => {
+  'groups-of-three': ({ root, structureId, shapeId, group }) => {
     const box = lowestBox(root, structureId, shapeId);
-    return { drafts: fromBox(box, sequence(box, 'groups-of-three'), 0), segments: [formLabel(box)] };
+    // Перекрывающиеся группы по g нот вверх (g = 3 — паттерн R-007 `groups-of-three`).
+    const unique = ascending(box);
+    const notes = unique.slice(0, unique.length - group + 1).flatMap((_, index) => unique.slice(index, index + group));
+    const label = shapeId.startsWith('penta-') ? formLabel(box) : `Лады ${box.window.fretMin}–${box.window.fretMax}`;
+    return { drafts: fromBox(box, notes, 0), segments: [label], title: `Группы по ${group === 3 ? 'три' : 'четыре'}` };
   },
   thirds: ({ root, structureId, shapeId }) => {
     const box = lowestBox(root, structureId, shapeId);
@@ -1271,6 +1400,7 @@ export const TEMPLATE_TARGET_BPM: Readonly<Record<ExerciseTemplateId, number>> =
   'scale-one-string': 88, 'scale-position': 92, 'arpeggio-1358': 96, 'arpeggio-seventh': 92, 'arpeggio-inversion': 88, 'root-five-eight': 100,
   'groups-of-three': 88, thirds: 88, 'form-transpose': 88, 'cycle-fourths': 84, progression: 100, 'song-fragment': 0,
   'pulse-note': 100, 'chromatic-shift': 96, 'string-naturals': 80, riff: 96, line: 96, 'long-short': 100, 'string-fourths': 80, 'interval-from-note': 84,
+  'finger-pairs': 96, stretch: 80, 'scale-two-octaves': 84, 'scale-neck': 80,
 });
 /** Цель темпа материала: у фрагмента песни — темп партитуры, у остальных — цель шаблона. */
 export const targetBpmFor = (spec: ExerciseSpec): number => spec.templateId === 'song-fragment' ? spec.params.bpm : TEMPLATE_TARGET_BPM[spec.templateId];
@@ -1279,7 +1409,7 @@ export const targetBpmFor = (spec: ExerciseSpec): number => spec.templateId === 
 const TONIC_CADENCE: ReadonlySet<ExerciseTemplateId> = new Set<ExerciseTemplateId>([
   'pentatonic-form', 'pentatonic-relative', 'scale-compact', 'blues-scale', 'connect-forms', 'pentatonic-neck', 'scale-one-string',
   'scale-position', 'arpeggio-1358', 'arpeggio-seventh', 'arpeggio-inversion', 'root-five-eight', 'groups-of-three', 'thirds',
-  'form-transpose', 'cycle-fourths',
+  'form-transpose', 'cycle-fourths', 'scale-two-octaves', 'scale-neck',
 ]);
 
 /**
@@ -1290,7 +1420,7 @@ const TONIC_CADENCE: ReadonlySet<ExerciseTemplateId> = new Set<ExerciseTemplateI
 export function exerciseStructure(spec: ExerciseSpec): MusicalStructure | null {
   switch (spec.templateId) {
     case 'pentatonic-form': case 'scale-compact': case 'connect-forms': case 'pentatonic-neck': case 'scale-one-string':
-    case 'scale-position': case 'arpeggio-1358': case 'groups-of-three': case 'thirds':
+    case 'scale-position': case 'arpeggio-1358': case 'groups-of-three': case 'thirds': case 'scale-two-octaves': case 'scale-neck':
       return createStructure(spec.params.root, spec.params.structureId);
     case 'arpeggio-seventh': case 'arpeggio-inversion':
       return createStructure(spec.params.root, spec.params.structureId);
@@ -1348,9 +1478,20 @@ const OPTIONS: { readonly [Id in ExerciseTemplateId]: readonly TemplateOption[] 
   'pulse-note': [option('string', 'Струна', STRINGS), option('fret', 'Лад', range(0, 12), fret => (fret === 0 ? 'открытая' : String(fret))), option('notes', 'Нот', PULSE_NOTES)],
   'chromatic-shift': [option('startFret', 'С лада', range(1, 12)), option('positions', 'Позиций', range(2, 5))],
   'string-naturals': [option('string', 'Струна', STRINGS), option('fretMax', 'До лада', NATURALS_FRET_MAX)],
-  'position-shift': [option('string', 'Струна', STRINGS), option('startFret', 'С лада', range(1, 12)), option('shifts', 'Сдвигов', range(1, 4))],
-  'string-crossing': [option('pattern', 'Рисунок', CROSSING_PATTERNS, pattern => CROSSING_TITLES[pattern].toLowerCase())],
-  spider: [option('startFret', 'С лада', range(1, 12)), option('positions', 'Позиций', range(2, 12)), option('pattern', 'Пальцы', SPIDER_PATTERNS, pattern => [...pattern].join('-'))],
+  'position-shift': [
+    option('string', 'Струна', STRINGS), option('startFret', 'С лада', range(1, 12)), option('shifts', 'Сдвигов', range(1, 4)),
+    option('jump', 'Шаг', SHIFT_JUMPS, jump => (jump === 1 ? 'на лад' : `скачок на ${jump}`)),
+  ],
+  'string-crossing': [
+    option('pattern', 'Рисунок', CROSSING_PATTERNS, pattern => CROSSING_TITLES[pattern].toLowerCase()),
+    option('fret', 'Лад', range(0, 12), fret => (fret === 0 ? 'открытые' : String(fret))),
+  ],
+  spider: [
+    option('startFret', 'С лада', range(1, 12)), option('positions', 'Позиций', range(2, 12)), option('pattern', 'Пальцы', SPIDER_PATTERNS, pattern => [...pattern].join('-')),
+    option('path', 'Путь', SPIDER_PATHS, path => (path === 'straight' ? 'прямо' : 'по диагонали')),
+  ],
+  'finger-pairs': [option('startFret', 'С лада', range(1, 12)), option('pair', 'Пальцы', FINGER_PAIRS, pair => [...pair].join('–'))],
+  stretch: [option('startFret', 'С лада', range(1, 12)), option('positions', 'Позиций', range(1, 5))],
   'note-all-positions': [notes('note', 'Нота')],
   octaves: [notes('note', 'Нота')],
   'pentatonic-form': pentaForm,
@@ -1361,11 +1502,17 @@ const OPTIONS: { readonly [Id in ExerciseTemplateId]: readonly TemplateOption[] 
   'pentatonic-neck': [notes('root'), structures(PENTA_STRUCTURES)],
   'scale-one-string': [notes('root'), structures(SCALE_STRUCTURES), option('string', 'Струна', STRINGS)],
   'scale-position': [notes('root'), structures(SCALE_STRUCTURES), option('degree', 'Позиция', range(1, 7), degree => `от ${degree}-й ступени`)],
+  'scale-two-octaves': [notes('root'), structures(SCALE_STRUCTURES)],
+  'scale-neck': [notes('root'), structures(SCALE_STRUCTURES)],
   'arpeggio-1358': [notes('root'), structures(TRIADS), compactShape],
   'arpeggio-seventh': [notes('root'), structures(SEVENTHS), compactShape],
   'arpeggio-inversion': [notes('root'), structures(TRIADS), option('inversion', 'Обращение', [1, 2], inversion => `${inversion}-е`)],
   'root-five-eight': [notes('root'), option('string', 'Струна', ['E', 'A'])],
-  'groups-of-three': pentaForm,
+  'groups-of-three': [
+    notes('root'), structures([...PENTA_STRUCTURES, ...SCALE_STRUCTURES]),
+    option('shapeId', 'Форма', [...PENTA_SHAPES, ...COMPACT_SHAPES], shape => (shape.startsWith('penta-') ? `форма ${SHAPE_LETTER[shape as PentaShape]}` : shape === 'compact-e' ? 'от струны E' : 'от струны A')),
+    option('group', 'Группа', SEQUENCE_GROUPS, group => `по ${group}`),
+  ],
   thirds: [notes('root'), structures(SCALE_STRUCTURES), compactShape],
   'form-transpose': [structures(PENTA_STRUCTURES), pentaShape],
   'cycle-fourths': [notes('root'), option('count', 'Тоник', range(2, 12))],
@@ -1392,10 +1539,18 @@ export function configureSpec(spec: ExerciseSpec, param: string, value: string |
     const patches: Record<string, unknown>[] = [];
     if (spec.templateId === 'chromatic-shift') patches.push({ positions: Math.max(2, 14 - Number(params.startFret)) }, { startFret: Math.max(1, 14 - Number(params.positions)) });
     if (spec.templateId === 'spider') patches.push({ positions: Math.max(2, 14 - Number(params.startFret)) }, { startFret: Math.max(1, 14 - Number(params.positions)) });
+    if (spec.templateId === 'position-shift') {
+      // Скачок не помещается: сначала меньше сдвигов, потом ниже первый лад.
+      const jump = Number(params.jump);
+      for (let shifts = Number(params.shifts) - 1; shifts >= 1; shifts--) patches.push({ shifts });
+      patches.push({ startFret: Math.max(1, 21 - Number(params.shifts) * jump) }, { shifts: 1, startFret: Math.max(1, 21 - jump) });
+    }
+    if (spec.templateId === 'stretch') patches.push({ positions: Math.min(5, Number(params.startFret)) }, { startFret: Math.max(Number(params.positions), 1) });
     if (spec.templateId === 'progression') patches.push({ pattern: 'roots' }, { position: 'closed' }, { progression: 'blues-12' });
     if ('shapeId' in params) {
-      const shapes = String(params.shapeId).startsWith('penta-') ? PENTA_SHAPES : COMPACT_SHAPES;
-      for (const shapeId of shapes) patches.push({ shapeId });
+      // Форма — по структуре: пентатоника по формам `penta-*`, гаммы и аккорды — по компактным.
+      const pentatonic = typeof params.structureId === 'string' ? params.structureId.endsWith('pentatonic') : String(params.shapeId).startsWith('penta-');
+      for (const shapeId of pentatonic ? PENTA_SHAPES : COMPACT_SHAPES) patches.push({ shapeId });
     }
     // Выбранный пользователем параметр не подстраивается — только зависимые.
     for (const patch of patches.filter(candidate => !(param in candidate))) {
