@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { DEFAULT_EDGE_PATH, launchIsolatedEdge, NAVIGATION_TIMEOUT_MS, openNativePage } from './native-edge.mjs';
 
-const WAV_SIGNALS = { a1: 55, 'low-e': 41.2034446141, harmonics: 41.2034446141, noise: 0, 'out-of-range': 500, clipping: 55 };
+// e1-sharp — E1 на 10 центов выше: проверка стрелки тюнера (D-052).
+const WAV_SIGNALS = { a1: 55, 'e1-sharp': 41.2034446141 * 2 ** (10 / 1200), 'low-e': 41.2034446141, harmonics: 41.2034446141, noise: 0, 'out-of-range': 500, clipping: 55 };
 function makeWav(signal) {
   const rate = 44100, count = rate * 4, buffer = Buffer.alloc(44 + count * 2); let seed = 0x789abc;
   buffer.write('RIFF'); buffer.writeUInt32LE(36 + count * 2, 4); buffer.write('WAVEfmt ', 8); buffer.writeUInt32LE(16, 16); buffer.writeUInt16LE(1, 20); buffer.writeUInt16LE(1, 22); buffer.writeUInt32LE(rate, 24); buffer.writeUInt32LE(rate * 2, 28); buffer.writeUInt16LE(2, 32); buffer.writeUInt16LE(16, 34); buffer.write('data', 36); buffer.writeUInt32LE(count * 2, 40);

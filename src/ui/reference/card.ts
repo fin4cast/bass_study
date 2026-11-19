@@ -4,7 +4,7 @@
  * хранится только в данных модуля и не попадает в DOM до выбора варианта.
  */
 import { escapeHtml } from '../html';
-import { B_H_NOTE, LABEL_KINDS, OCTAVE_TABLE, conceptBoard, getConcept, type ConceptCheck, type ConceptRole } from '../../practice/concepts';
+import { B_H_NOTE, LABEL_KINDS, OCTAVE_TABLE, conceptBoard, getConcept, type ConceptCheck, type ConceptRole, type ReferenceSection } from '../../practice/concepts';
 import type { ExerciseTemplateId } from '../../exercises';
 import {
   LENS_LABELS, SECTION_NOTES, availableLens, boardSvg, conceptTextHtml, levelLabel, relatedExercises,
@@ -16,7 +16,7 @@ export interface CardHandlers {
   readonly onMastered?: (id: string, value: boolean) => void;
   readonly onListen?: (concept: ReferenceConcept) => void;
   readonly onPlayTemplate?: (templateId: ExerciseTemplateId) => void;
-  readonly onOpenSection?: (section: 'rhythm' | 'songs') => void;
+  readonly onOpenSection?: (section: ReferenceSection) => void;
 }
 
 const ROLE_SWATCH: Readonly<Record<ConceptRole, string>> = { root: 'is-root', target: 'is-target', plain: 'is-plain', shared: 'is-shared' };
@@ -148,7 +148,7 @@ export function createCardController(host: HTMLElement, scope: string, handlers:
     }
     if (target.hasAttribute('data-listen')) { handlers.onListen?.(concept); return; }
     if (target.dataset.template) { handlers.onPlayTemplate?.(target.dataset.template as ExerciseTemplateId); return; }
-    if (target.dataset.section) handlers.onOpenSection?.(target.dataset.section as 'rhythm' | 'songs');
+    if (target.dataset.section) handlers.onOpenSection?.(target.dataset.section as ReferenceSection);
   }
   host.addEventListener('click', onClick);
   /** Состояние «Послушать» на текущей карточке: кнопка нажата, пока звук идёт; рядом — пояснение. */

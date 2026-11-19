@@ -249,6 +249,50 @@ check('native-real-hidden-tab-stops-all-tracks-and-return-needs-explicit-connect
   await openInput(page); await connectUi(page, context, origin); const other = await context.newPage(); await other.goto('about:blank'); await other.bringToFront(); await page.waitForFunction(() => document.hidden && document.querySelector('[data-input-mount]').dataset.inputState === 'stopped', undefined, { polling: 100 }); assert.equal(await liveTracks(page), 0); await page.bringToFront(); await page.waitForFunction(() => !document.hidden); await delay(250); assert.equal(await calls(page), 1); await action(page, 'connect').click(); await stateIs(page, 'running'); assert.equal(await calls(page), 2); await action(page, 'stop').click(); assert.equal(await liveTracks(page), 0); return { actualDocumentHidden: true, method: 'Isolated Edge/CDP noDefaults:true with native fake WAV device; real tab activation', stoppedTracks: true, explicitReconnectRequired: true };
 }));
 
+/* ---------- Тюнер (R-020, D-052): окно поверх «Занятия» ---------- */
+
+const tuner = page => page.locator('dialog.tuner-dialog');
+async function openTuner(page) {
+  await ready(page);
+  await page.locator('[data-lesson-screen="home"] [data-act="tuner"]').click();
+  await tuner(page).waitFor();
+}
+async function connectTuner(page, context, origin) {
+  await allow(context, origin);
+  await tuner(page).locator('[data-tuner="connect"]').click();
+  await page.waitForFunction(() => document.querySelector('dialog.tuner-dialog')?.dataset.tunerState === 'running');
+}
+
+check('ui-tuner-from-today-shows-A1-in-tune-and-close-releases-input', 'ui', async ({ page, context, origin }) => {
+  await openTuner(page);
+  // Открытие окна доступ к аудио не запрашивает: только кнопка «Подключить».
+  assert.equal(await calls(page), 0);
+  assert.match(await tuner(page).innerText(), /не проверен на настоящем басе/);
+  await connectTuner(page, context, origin);
+  await page.waitForFunction(() => document.querySelector('[data-tuner="hint"]')?.textContent === 'A1 в строю.', undefined, { timeout: 8000 });
+  assert.equal(await tuner(page).locator('[data-tuner="note"]').innerText(), 'A1');
+  assert.equal(await tuner(page).locator('.tuner-strings li[data-string="A"]').getAttribute('data-tuned'), '');
+  assert.equal(await calls(page), 1);
+  // Закрытие освобождает вход, фокус возвращается на кнопку.
+  await tuner(page).locator('[data-tuner="close"]').click();
+  assert.equal(await tuner(page).count(), 0);
+  assert.equal(await liveTracks(page), 0);
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset.act), 'tuner');
+  return { hint: 'A1 в строю.', tracksAfterClose: 0 };
+});
+
+check('ui-tuner-E1-ten-cents-sharp-says-loosen-and-escape-closes', 'ui', async ({ page, context, origin }) => {
+  await openTuner(page);
+  await connectTuner(page, context, origin);
+  await page.waitForFunction(() => document.querySelector('[data-tuner="hint"]')?.textContent === 'E1 выше — отпусти.', undefined, { timeout: 8000 });
+  const cents = Number((await tuner(page).locator('[data-tuner="cents"]').innerText()).match(/^\+([\d,]+)/)[1].replace(',', '.'));
+  near(cents, 10, 3);
+  await page.keyboard.press('Escape');
+  assert.equal(await tuner(page).count(), 0);
+  assert.equal(await liveTracks(page), 0);
+  return { cents };
+}, { signal: 'e1-sharp' });
+
 markFullOnly(checks, [
   'native-real-hidden-tab-stops-all-tracks-and-return-needs-explicit-connect',
 ], FULL_ONLY.hiddenTab);
@@ -265,5 +309,6 @@ markFullOnly(checks, [
   'ui-device-preferences-reload-and-restore-never-capture',
   'ui-module-leave-stops-native-tracks-and-return-does-not-auto-connect',
   'ui-noise-uncertainty-layout-and-non-grading-labels-are-visible',
+  'ui-tuner-E1-ten-cents-sharp-says-loosen-and-escape-closes',
 ], FULL_ONLY.smoke);
 await runInputBrowserChecks(checks);

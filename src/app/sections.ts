@@ -40,7 +40,8 @@ export function createSectionAudio(sections: AppSections, options: SectionAudioO
         case 'rhythm': return active === 'harmony';
         case 'tracks': return active === 'tracks' && studio?.view === 'audio';
         case 'scores': return active === 'tracks' && studio?.view === 'scores';
-        case 'input': return active === 'settings';
+        // Аудиовход: «Настройки → Аудиовход» или окно тюнера поверх «Занятия» (R-020, D-052).
+        case 'input': return active === 'settings' || (active === 'lesson' && Boolean(lesson?.tunerOpen));
       }
     },
     participants: {
@@ -53,7 +54,7 @@ export function createSectionAudio(sections: AppSections, options: SectionAudioO
       rhythm: reason => reason === 'owner' ? sections.rhythm?.pause('audio-owner') : reason === 'section' ? sections.rhythm?.pause('module') : sections.rhythm?.stop(),
       tracks: () => sections.studio?.stop('audio'),
       scores: () => sections.studio?.stop('scores'),
-      input: () => sections.input?.stop(),
+      input: () => { sections.input?.stop(); sections.lesson?.stopTuner(); },
     },
     cancelScorePreparation: () => sections.studio?.cancelScorePreparation(),
   });

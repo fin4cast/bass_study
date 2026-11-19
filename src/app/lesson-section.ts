@@ -22,6 +22,7 @@ import { stepTitle } from '../ui/lesson/model';
 import { createEnginePort, type PlaybackPort } from '../ui/play/port';
 import { mountPlay, type PlayHandle, type RateEvent } from '../ui/play/view';
 import { mountReference } from '../ui/reference/view';
+import { openTuner, type TunerHandle } from '../ui/tuner';
 import {
   addToPlan, bpmAfterRating, checkEntry, exerciseKey, exerciseSettingsPatch, hasPlayed, nextPlanStep, planAfterCheck, planAfterNext, planAfterSkipChange, planAfterRating, planForToday, planStepInfo, variantChange,
   checkForKey, playRatingEntry, playSettingsFor, plannedProgressIds, rememberExerciseSettings, repeatContent, specForKey, stepPosition, todayKey, viewForExercise,
@@ -44,8 +45,10 @@ export interface LessonSectionOptions {
   readonly saveHistory: (entry: HistoryEntry) => void;
   /** Своё упражнение; бросает ошибку, если вкладка не может записать. */
   readonly saveExercise: (spec: ExerciseSpec, name: string) => void;
-  readonly claimAudio: (owner: 'play' | 'check' | 'reference') => boolean;
-  readonly forgetAudio: (owner: 'play' | 'check' | 'reference') => void;
+  readonly claimAudio: (owner: 'play' | 'check' | 'reference' | 'input') => boolean;
+  readonly forgetAudio: (owner: 'play' | 'check' | 'reference' | 'input') => void;
+  /** Сохранённый аудиовход «Настроек»: с него начинает тюнер. */
+  readonly inputDevice?: () => string;
   /** Панель справочника поверх экрана; `onClose` — после закрытия и возврата фокуса. */
   readonly openReferencePanel: (conceptId: string, returnFocus: HTMLElement | null, from: string, onClose: () => void) => void;
   readonly onMastered: (id: string, value: boolean) => void;
@@ -79,6 +82,16 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
   /** `keys` — все варианты материала, открытые на этом экране: таймер шага не обнуляется при смене лада (P18-04). */
   let play: { handle: PlayHandle; port: PlaybackPort; spec: ExerciseSpec; key: string; keys: readonly string[]; stepId: string | null; planDate: string | null; practice: PracticeOptions | null; program: { step: PlayStep; block: Block } | null } | null = null;
   let check: { spec: CheckSpec | null; stepId: string | null; planDate: string | null; origin: LessonOrigin | null } | null = null;
+  /** Окно тюнера (R-020, D-052): открыто поверх «Занятия», вход — владелец звука `input`. */
+  let tuner: TunerHandle | null = null;
+  function openTunerWindow() {
+    if (tuner?.isOpen || disposed) return;
+    tuner = openTuner({
+      deviceId: options.inputDevice?.() ?? '',
+      onBeforeStart: () => options.claimAudio('input'),
+      onClosed() { tuner = null; options.forgetAudio('input'); },
+    });
+  }
 
   const today = () => todayKey();
   const records = () => options.records();
@@ -122,6 +135,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     onSaveExercise(spec, name) { options.saveExercise(spec, name); },
     onBasicsViewChange(basicsView) { options.savePreferences({ lesson: { ...lessonPreferences(), basicsView } }); },
     onPlayStep(stepId, variant) { openProgramStep(stepId, variant); },
+    onTuner() { openTunerWindow(); },
     onSkipBlock(blockId, skipped) {
       const lesson = lessonPreferences();
       const list = skipped ? [...lesson.skipped.filter(id => id !== blockId), blockId] : lesson.skipped.filter(id => id !== blockId);
@@ -170,7 +184,8 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     mastered: options.preferences().reference.mastered,
     onMastered: options.onMastered,
     onPlayTemplate: templateId => openTemplate(templateId),
-    onOpenSection: options.onOpenSection,
+    // Тюнер открывается поверх «Занятия» на месте; «Ритм» и «Песни» — другие разделы.
+    onOpenSection: section => (section === 'tuner' ? openTunerWindow() : options.onOpenSection(section)),
     onBeforeListen: () => options.claimAudio('reference'),
     onListenEnd: () => options.forgetAudio('reference'),
     backLabel: '← Занятие',
@@ -427,7 +442,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
       if (disposed || next === visible) return;
       visible = next;
       container.hidden = !next;
-      if (!next) reference.stopListening();
+      if (!next) { reference.stopListening(); tuner?.close(); }
       play?.handle.setVisible(next && screen === 'play');
       checkView.setVisible(next && screen === 'check');
       if (next && screen === 'home' && homeStale) renderHome();
@@ -436,6 +451,10 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     stopPlay() { play?.handle.stop(); },
     stopCheck() { checkView.stop(); },
     stopReference() { reference.stopListening(); },
+    /** Тюнер открыт: владелец `input` может звучать в «Занятии». */
+    get tunerOpen() { return Boolean(tuner?.isOpen); },
+    openTuner() { openTunerWindow(); },
+    stopTuner() { tuner?.stop('Звук занял другой раздел: вход отключён. Для нового подключения нажми «Подключить».'); },
     /** Открыть упражнение по ключу (из «Прогресса»); `bpm` — темп строки прогресса. */
     openExercise(key: string, bpm: number | null) {
       if (key.startsWith('check:')) {
@@ -490,6 +509,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     /** Восстановление или применение настроек: подэкраны закрываются, главная строится заново. */
     reset() {
       if (screen === 'check') checkView.stop();
+      tuner?.close();
       check = null;
       disposePlay();
       reference.update({ mastered: options.preferences().reference.mastered });
@@ -498,6 +518,7 @@ export function createLessonSection(container: HTMLElement, options: LessonSecti
     dispose() {
       if (disposed) return;
       disposed = true;
+      tuner?.close();
       disposePlay();
       checkView.dispose();
       reference.dispose();

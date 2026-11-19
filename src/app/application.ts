@@ -346,7 +346,12 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     onBeforeListen: () => audio.claim('reference'),
     onListenEnd: () => audio.forget('reference'),
     onPlayTemplate(templateId) { referencePanel.close(); switchModule('lesson'); sections.lesson?.openTemplate(templateId); },
-    onOpenSection(section) { referencePanel.close(); switchModule(section === 'rhythm' ? 'harmony' : 'tracks'); },
+    onOpenSection(section) {
+      referencePanel.close();
+      // Тюнер — окно поверх «Занятия» (D-052); «Ритм» и «Песни» — разделы.
+      if (section === 'tuner') { switchModule('lesson'); sections.lesson?.openTuner(); return; }
+      switchModule(section === 'rhythm' ? 'harmony' : 'tracks');
+    },
     onOpenFull(id) { switchModule('lesson'); sections.lesson?.openConcept(id); },
     onClose() { const closed = panelClosed; panelClosed = null; closed?.(); },
   });
@@ -363,6 +368,7 @@ export function mountApplication(app: HTMLElement, installed: readonly AppSectio
     saveExercise,
     claimAudio: owner => audio.claim(owner),
     forgetAudio: owner => audio.forget(owner),
+    inputDevice: () => preferences.value.input.deviceId,
     openReferencePanel(conceptId, returnFocus, from, onClose) {
       panelClosed = onClose;
       referencePanel.open(conceptId, returnFocus, from);

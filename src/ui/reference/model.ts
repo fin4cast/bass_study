@@ -14,7 +14,7 @@ import {
 export const SEARCH_ICON = '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4.5 4.5"/></svg>';
 export const LENS_LABELS: Readonly<Record<ReferenceLens, string>> = Object.freeze({ notes: 'Ноты', intervals: 'Интервалы', degrees: 'Ступени', 'chord-tones': 'Тоны аккорда' });
 export const PART_TITLES = Object.freeze({ degree: 'ступень', roman: 'римская цифра — аккорд на ступени', finger: 'палец' });
-export const SECTION_NOTES: Readonly<Record<ReferenceSection, string>> = Object.freeze({ rhythm: 'вне каталога · раздел «Ритм»', songs: 'вне каталога · раздел «Песни»' });
+export const SECTION_NOTES: Readonly<Record<ReferenceSection, string>> = Object.freeze({ rhythm: 'вне каталога · раздел «Ритм»', songs: 'вне каталога · раздел «Песни»', tuner: 'вне каталога · окно поверх занятия' });
 
 /** Разметка текста карточки: позиции, ступени, римские цифры, пальцы и выделение. */
 export function conceptTextHtml(text: string): string {

@@ -47,6 +47,8 @@ export interface LessonOptions {
   readonly onPlayStep?: (stepId: string, variant: number) => void;
   /** «Уже умею» у блока: включить или снять отметку. */
   readonly onSkipBlock?: (blockId: string, skipped: boolean) => void;
+  /** «Настроить бас»: окно тюнера поверх «Занятия» (R-020, D-052). */
+  readonly onTuner?: () => void;
   /** Длина занятия на «Сегодня» (R-028, D-052). */
   readonly onSessionMinutes?: (minutes: SessionMinutes) => void;
   readonly state?: LessonState;
@@ -201,16 +203,17 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
       const content = hero.content!;
       heroMarkup = `<div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
         <div class="ls-actions"><button type="button" class="primary-button button-large" data-act="play" data-ref="${ref(content)}" data-step="${e(hero.stepId ?? '')}" data-key="hero-play">Начать</button>
+          <button type="button" class="secondary-button" data-act="tuner" data-key="hero-tuner">Настроить бас</button>
           <button type="button" class="ls-link" data-act="go-path" data-key="hero-path">Уже умею: выбрать, с чего начать</button></div>`;
     } else if (hero.mode === 'empty') {
       heroMarkup = `<div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
-        <div class="ls-actions"><button type="button" class="secondary-button" data-act="go-library" data-key="hero-library">Открыть библиотеку →</button></div>`;
+        <div class="ls-actions"><button type="button" class="secondary-button" data-act="go-library" data-key="hero-library">Открыть библиотеку →</button><button type="button" class="secondary-button" data-act="tuner" data-key="hero-tuner">Настроить бас</button></div>`;
     } else {
       const content = hero.content!;
       const spec = contentExerciseOf(content);
       heroMarkup = `<div class="ls-hero-top"><div><span class="ls-eyebrow">${e(hero.eyebrow)}</span><h2>${e(hero.title)}</h2><p class="ls-sub">${e(hero.meta)}</p></div>
           <div class="ls-chips">${hero.concepts.map(concept => `<span class="ls-chip ls-chip-concept">${e(concept)}</span>`).join('')}</div></div>
-        <div class="ls-actions"><button type="button" class="primary-button button-large" data-act="play" data-ref="${ref(content)}" data-step="${e(hero.stepId ?? '')}" data-key="hero-play">▶ ${content.kind === 'check' ? 'Проверь себя' : 'Играть'}</button>
+        <div class="ls-actions"><button type="button" class="primary-button button-large" data-act="play" data-ref="${ref(content)}" data-step="${e(hero.stepId ?? '')}" data-key="hero-play">▶ ${content.kind === 'check' ? 'Проверь себя' : 'Играть'}</button><button type="button" class="secondary-button" data-act="tuner" data-key="hero-tuner">Настроить бас</button>
           ${hero.stats.length ? `<div class="ls-stats">${hero.stats.map(stat => `<span><b>${e(stat.value)}</b>${e(stat.label)}</span>`).join('')}</div>` : '<div class="ls-stats"><span class="ls-sub">Отметку «Чисто / С ошибками / Не успевал» поставишь после прохода.</span></div>'}</div>
         ${spec ? exerciseBoardMarkup(spec, 700, 28) : ''}`;
     }
@@ -511,6 +514,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         }
         case 'toggle-plan': if (content) togglePlan(content); break;
         case 'edit': editing = !editing; render(); break;
+        case 'tuner': options.onTuner?.(); break;
         case 'session': {
           const minutes = Number(target.dataset.value) as SessionMinutes;
           if (minutes !== state.sessionMinutes) options.onSessionMinutes?.(minutes);

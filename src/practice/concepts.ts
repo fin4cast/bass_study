@@ -51,7 +51,8 @@ export interface ConceptCheck {
   readonly explanation: string;
 }
 
-export type ReferenceSection = 'rhythm' | 'songs';
+/** Ссылка карточки вне каталога: раздел «Ритм», «Песни» или окно тюнера (D-052). */
+export type ReferenceSection = 'rhythm' | 'songs' | 'tuner';
 export type ConceptExtra = 'octave-table' | 'b-h-note' | 'label-kinds';
 
 interface ConceptCardBase {
@@ -286,6 +287,7 @@ export const REFERENCE_CONCEPTS: readonly ReferenceConcept[] = deepFreeze<Refere
       name: 'Бас настраивают по четырём открытым струнам: **E, A, D, G** — от самой низкой к высокой, каждая на кварту выше предыдущей. Тюнер показывает, ниже или выше нужной ноты звучит струна.',
       why: 'Расстроенный бас ломает все упражнения: ноты на грифе перестают совпадать с названиями в приложении.',
       related: ['pulse-note'],
+      sections: [{ section: 'tuner', title: 'Тюнер · «Настроить бас»' }],
       check: check('Какие струны у четырёхструнного баса, от низкой к высокой?', ['E, A, D, G', 'G, D, A, E', 'E, B, G, D'], 0, 'Открытые струны — E1, A1, D2, G2; приложение считает именно этот строй.'),
     }),
   },
