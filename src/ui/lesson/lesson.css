@@ -114,6 +114,7 @@
 .lesson-view .ls-best b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
 .lesson-view .ls-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: auto; flex-wrap: wrap; }
 .lesson-view .ls-card-btns { display: flex; gap: 6px; }
+.lesson-view .ls-transpose { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; }
 .lesson-view .ls-save { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; }
 .lesson-view .ls-save input { width: 100%; }
 .lesson-view .ls-save .ls-field { flex: 1 1 100%; }

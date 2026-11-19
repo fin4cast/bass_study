@@ -16,7 +16,7 @@ import { boardSvg, boardWindow, type BoardNote } from './mini-board';
 import {
   basicsBadge, basicsCourse, basicsStepPosition, checkContent, contentMinutes, currentBasicsStep, DEFAULT_LIBRARY, exerciseBoard, heroModel,
   configuredItems, LIBRARY_CONCEPTS, LIBRARY_STRUCTURES, libraryItems, libraryModel, nextExerciseStep, pendingMatches, planRows, planStrip,
-  searchBasics, setStepMinutes, stepMaterial, stepTitle, togglePlanContent, toggleStepEar,
+  searchBasics, setStepMinutes, stepMaterial, stepTitle, togglePlanContent, toggleStepEar, transposedLineContent,
   type BasicsLevel, type BasicsStep, type BasicsView, type LessonState, type LessonTab, type LibraryCategory, type LibraryControls,
 } from './model';
 import { CATEGORY_ORDER, CATEGORY_TITLES } from '../../practice/library';
@@ -82,6 +82,8 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
   let saveDraft: { key: string; name: string } | null = null;
   /** Конструктор «Своей линии» во вкладке «Библиотека». */
   let builder: BuilderState = initialBuilder();
+  /** Выбранная тональность переноса у карточек своих линий (не хранится). */
+  const transposeRoots = new Map<string, string>();
   /** Материал, настроенный на встроенных карточках библиотеки (по id карточки), и открытая строка настройки. */
   let cardSpecs = new Map<string, ExerciseSpec>();
   let configuring: string | null = null;
@@ -277,12 +279,18 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
         ? `<form class="ls-save" data-save="${e(card.id)}"><label class="ls-field">Название <input type="text" maxlength="80" required value="${e(saveDraft!.name)}" data-save-name data-key="save-name:${e(card.id)}"></label><button type="submit" class="primary-button button-compact">Сохранить</button><button type="button" class="secondary-button button-compact" data-act="save-cancel" data-key="save-cancel">Отмена</button></form>`
         : '') : '';
       const saveButton = options.onSaveExercise && card.builtin && !saving ? `<button type="button" class="ls-mini ls-save-btn" data-act="save-start" data-card="${e(card.id)}" data-ref="${ref(card.content)}" data-key="save:${e(card.id)}" aria-label="${e(`Сохранить как своё: ${card.title}`)}" title="Сохранить как своё упражнение">☆</button>` : '';
+      // Своя линия: сыграть её в другой тональности без сохранения (B5.5); так шаг `h4-line` набирает тональности.
+      const ownLine = !card.builtin && card.content.kind === 'exercise' && card.content.spec.templateId === 'line' ? card.content.spec : null;
+      const transpose = ownLine
+        ? `<div class="ls-transpose"><label class="ls-field">В тональности <select data-control="line-transpose" data-card="${e(card.id)}" data-key="lt:${e(card.id)}">${ROOTS.map(root => `<option value="${e(root)}"${root === (transposeRoots.get(card.id) ?? ownLine.params.root) ? ' selected' : ''}>${e(root)}</option>`).join('')}</select></label>
+          <button type="button" class="secondary-button button-compact" data-act="play-transposed" data-card="${e(card.id)}" data-ref="${ref(card.content)}" data-key="lt-play:${e(card.id)}" aria-label="${e(`Сыграть в другой тональности: ${card.title}`)}">▶ В другой тональности</button></div>` : '';
       const open = configuring === card.id && card.builtin;
       const configureButton = card.builtin ? `<button type="button" class="ls-link ls-config-btn" data-act="configure" data-card="${e(card.id)}" data-key="cfg:${e(card.id)}" aria-expanded="${open}" aria-controls="${id}-cfg-${e(card.id)}">${card.configured ? 'Настроено' : 'Настроить'}</button>` : '';
       return `<article class="ls-card ls-lib-card${card.inPlan ? ' in-plan' : ''}${card.featured ? ' is-featured' : ''}">
         <div>${card.featured ? '<span class="ls-flag">Рекомендуем</span>' : ''}${card.builtin ? '' : '<span class="ls-flag ls-flag-own">Своё</span>'}<h3>${e(card.title)}</h3><p class="ls-meta">${e(card.category)} · ${e(card.material)}</p>${configureButton}</div>
         ${open && card.content.kind === 'exercise' ? configRow(card.id, card.content.spec, card.configured) : ''}
         ${board(data.notes, data.frets, { width: 300, marker: 17, labels: false, decorative: true })}
+        ${transpose}
         <div class="ls-chips">${card.concepts.map(concept => `<span class="ls-chip ls-chip-concept">${e(concept)}</span>`).join('')}<span class="ls-chip">${e(card.minutes)} мин</span></div>
         <div class="ls-card-foot"><span class="ls-best">${card.bestBpm ? `лучший темп <b>${e(card.bestBpm)}</b>` : card.played ? 'в работе' : 'ещё не играл'}${card.playedToday ? ' · сегодня ✓' : ''}</span>
           <span class="ls-card-btns"><button type="button" class="primary-button button-compact" data-act="play" data-ref="${ref(card.content)}" data-key="lib-play:${e(card.id)}" aria-label="${e(`Играть: ${card.title}`)}">▶ Играть</button>${addButton(card.content, true, '+ в план')}${saveButton}</span></div>
@@ -486,6 +494,12 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
       switch (target.dataset.act) {
         case 'play': if (content) options.onPlay(content, stepId); break;
         case 'play-step': if (step) options.onPlay(step.content, step.id); break;
+        case 'play-transposed': {
+          if (content?.kind !== 'exercise') break;
+          const select = container.querySelector<HTMLSelectElement>(`[data-control="line-transpose"][data-card="${CSS.escape(target.dataset.card!)}"]`);
+          options.onPlay(transposedLineContent(content.spec, select?.value ?? NOTE_CHOICES[0]), null);
+          break;
+        }
         case 'toggle-plan': if (content) togglePlan(content); break;
         case 'edit': editing = !editing; render(); break;
         case 'edit-today': editing = true; selectTab('today'); render(); container.querySelector<HTMLElement>('[data-key="edit"]')?.focus(); break;
@@ -571,6 +585,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     if (control.dataset.control === 'builder-kind') { builder = builderKind(builder, Number(control.dataset.bar), control.value as LineChord); render(); return; }
     if (control.dataset.control === 'builder-rhythm') { builder = builderRhythm(builder, Number(control.dataset.bar), control.value as RhythmPatternId); render(); return; }
     if (control.dataset.control === 'builder-pattern') { builder = builderPattern(builder, Number(control.dataset.bar), control.value as ProgressionPattern); render(); return; }
+    if (control.dataset.control === 'line-transpose') { transposeRoots.set(control.dataset.card!, control.value); return; }
     if (control.dataset.control === 'card-param') { configureCard(state, control.dataset.card!, control.dataset.param!, control.value); return; }
     if (control.dataset.control === 'structure') library = { ...library, structureId: (control.value || null) as LibraryControls['structureId'] };
     if (control.dataset.control === 'sort') library = { ...library, sort: control.value as LibraryControls['sort'] };

@@ -1089,6 +1089,19 @@ check('library-line-builder-assembles-saves-as-own-exercise-and-plays-it', 'ui',
   await playScene(page).locator('[data-title]').waitFor();
   assert.match(await playScene(page).innerText(), /Своя линия/);
   assert.match(await playScene(page).locator('[data-sub]').innerText(), /35 нот/);
+  // Сохранённая линия играется в другой тональности без сохранения (B5.5): новое упражнение в «Своих» не появляется.
+  await playScene(page).locator('[data-back]').click();
+  await lessonTab(page, 'Библиотека');
+  await home(page).getByRole('button', { name: /^Свои/ }).click();
+  const own = home(page).locator('.ls-lib-card').first();
+  await own.locator('[data-control="line-transpose"]').selectOption('D');
+  await own.getByRole('button', { name: /в другой тональности/i }).click();
+  await playScene(page).locator('[data-title]').waitFor();
+  assert.match(await playScene(page).locator('[data-sub]').innerText(), /32 ноты · ритм риффа · 4 такта/);
+  await playScene(page).locator('[data-back]').click();
+  await lessonTab(page, 'Библиотека');
+  await home(page).getByRole('button', { name: /^Свои/ }).click();
+  assert.deepEqual(await home(page).locator('.ls-lib-card h3').allInnerTexts(), ['Моя линия в A']);
   return { chords: ['A · I', 'Dmaj7 · IVmaj7', 'E · V', 'A · I', 'A · I'] };
 });
 

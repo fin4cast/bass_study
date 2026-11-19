@@ -40,6 +40,7 @@ export type BasicsView = 'path' | 'knowledge';
 /* ---------- Ключи и подписи шагов ---------- */
 
 import { exerciseKey, materialId, sameSpec } from '../../practice/material';
+import { transposeLine } from '../../practice/line-builder';
 export { exerciseKey, materialId };
 
 export const CHECK_KIND_TITLES: Readonly<Record<CheckKind, string>> = Object.freeze({
@@ -535,3 +536,12 @@ export function searchBasics(query: string, levels: readonly BasicsLevel[], item
 export const TEMPLATE_TITLES: Readonly<Record<ExerciseTemplateId, string>> = Object.freeze(Object.fromEntries(EXERCISE_TEMPLATES.map(template => [template.id, template.title])) as Record<ExerciseTemplateId, string>);
 
 export const ASSESSMENT_SCALE: readonly Assessment[] = Object.freeze(['clean', 'errors', 'slow']);
+
+/**
+ * «Своя линия» в другой тональности (R-028, B5.5; шаг `h4-line`): тело линии — лад, позиция и такты — то же, позиции тоник
+ * пересчитываются заново. Материал играется без сохранения (ключ `builtin:line.…`), а проходы разных тональностей одной
+ * линии засчитываются шагу как проходы одного состава тактов.
+ */
+export function transposedLineContent(spec: ExerciseSpec, root: string): Extract<PlanStepContent, { kind: 'exercise' }> {
+  return { kind: 'exercise', spec: transposeLine(spec, root) };
+}

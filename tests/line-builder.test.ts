@@ -7,6 +7,8 @@ import { PROGRESSION_PATTERNS, patternFits, LINE_MAX_BARS } from '../src/exercis
 import { builderAddBar, builderKind, builderLabels, builderMarkup, builderMode, builderRemoveBar, builderRhythm, builderStep, builderVolume, initialBuilder, toggleBuilder } from '../src/ui/lesson/line-builder';
 import { evaluateProgram, lineFacts, type Program, type ProgramFacts } from '../src/practice/program';
 import type { PlayRecord } from '../src/practice/results';
+import { exerciseKey, materialId } from '../src/practice/material';
+import { transposedLineContent } from '../src/ui/lesson/model';
 
 describe('конструктор «Своей линии» (R-028, B5.4)', () => {
   it('объём 1: тональность и четыре такта I–IV–V–I мажорными трезвучиями, рисунки этапа 1, восьмые', () => {
@@ -200,5 +202,37 @@ describe('конструктор объёма 3 (R-028, B5.4): все рисун
     expect(builderKind(state, 1, 'major-seventh').draft.bars[1].chord).toBe('major-seventh');
     expect(builderRhythm(state, 2, 'syncopation').draft.bars[2].rhythm).toBe('syncopation');
     expect(builderKind(builderVolume(toggleBuilder(initialBuilder(), true), 2), 1, 'major-seventh').error).toMatch(/объёме 2/);
+  });
+});
+
+describe('перенос «Своей линии» в другую тональность (B5.5, шаг h4-line)', () => {
+  const spec = lineSpec(setBarKind(setBarStep(newLineDraft('G'), 1, 5), 1, 'major-seventh', 3));
+  const own = [{ version: 'user-exercise-v1' as const, id: 'my-line', name: 'Моя линия', spec, createdAt: '2026-11-17T10:00:00.000Z' }];
+
+  it('материал с тем же телом и другим root; ключ встроенный, не своё упражнение', () => {
+    const moved = transposedLineContent(spec, 'A').spec;
+    expect(moved.templateId === 'line' && moved.params).toMatchObject({ root: 'A', mode: 'major', position: 'closed', bars: spec.templateId === 'line' ? spec.params.bars : [] });
+    // Хеш состава тактов тот же, тональность другая: ключи различаются только root.
+    expect(materialId(spec).split('.').slice(-1)).toEqual(materialId(moved).split('.').slice(-1));
+    expect(exerciseKey(spec, own)).toBe('user:my-line');
+    expect(exerciseKey(moved, own)).toMatch(/^builtin:line\.A\.major\.closed\.[0-9a-f]{16}$/);
+  });
+  it('позиции тоник пересчитываются: тональность A стоит на E:5, D — на A:5, E — на A:7', () => {
+    const plan = buildExercise(transposedLineContent(spec, 'A').spec);
+    expect([0, 1, 2, 3].map(bar => plan.notes.find(note => note.segment === bar)!.id)).toEqual(['E:5', 'A:5', 'A:7', 'E:5']);
+  });
+  it('переносится только «Своя линия»', () => {
+    expect(() => transposedLineContent({ version: 'exercise-v1', templateId: 'octaves', params: { note: 'G' } } as never, 'A')).toThrow(RangeError);
+  });
+  it('h4-line: проходы одного состава тактов в двух тональностях — «пройден», в трёх в два дня — «освоен»', () => {
+    const program: Program = { stages: [{ number: 4, title: 'Этап', blocks: [{ id: 'h4-line', title: 'Линия', line: 'chords', cards: [], steps: [{ kind: 'line', id: 'h4-line.own', title: 'Линия в трёх тональностях', rule: 'h4-line' }] }] }] };
+    const record = (root: string, day: string): PlayRecord => ({
+      kind: 'play', id: `p-${root}-${day}`, exerciseKey: `builtin:${materialId(transposedLineContent(spec, root).spec)}`, title: 'Своя линия', spec: transposedLineContent(spec, root).spec,
+      assessment: 'clean', bpm: 60, activeMs: 60000, localDate: day, occurredAt: `${day}T10:00:00.000Z`, view: 'both', wholePass: true, practice: { rhythm: 'eighths', echo: false, groove: null },
+    });
+    const state = (records: PlayRecord[]) => evaluateProgram(program, { plays: [], checks: [], lines: lineFacts(records), skippedBlocks: new Set(), today: '2026-11-20' }).statuses.get('h4-line.own')!.state;
+    expect(state([record('G', '2026-11-10')])).toBe('progress');
+    expect(state([record('G', '2026-11-10'), record('A', '2026-11-10')])).toBe('passed');
+    expect(state([record('G', '2026-11-10'), record('A', '2026-11-10'), record('D', '2026-11-11')])).toBe('mastered');
   });
 });
