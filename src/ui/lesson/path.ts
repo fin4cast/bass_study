@@ -5,7 +5,7 @@
 import { checkExercise } from '../../practice/check';
 import { getConcept } from '../../practice/concepts';
 import {
-  LINES, STATE_LABELS, countsLabel, isDone, isRequired, statusLabel, stepRefs, type Block, type Counts, type LineId, type OwnLineRule, type Program, type ProgramState, type Step, type StepState,
+  LINES, STATE_LABELS, countsLabel, isDone, lineCountsLabel, isRequired, statusLabel, stepRefs, type Block, type Counts, type LineId, type OwnLineRule, type Program, type ProgramState, type Step, type StepState,
 } from '../../practice/program';
 import { materialLabel } from './material';
 
@@ -73,7 +73,7 @@ export function pathModel(program: Program, state: ProgramState, skipped: Readon
   return program.stages.map(stage => ({
     number: stage.number, title: stage.title, counts: countsLabel(state.stageCounts.get(stage.number)!),
     lines: LINES.map(line => ({
-      id: line.id, title: line.title, counts: countsLabel(state.lineCounts.get(`${stage.number}:${line.id}`)!), done: isDone(state.lineCounts.get(`${stage.number}:${line.id}`)!),
+      id: line.id, title: line.title, counts: lineCountsLabel(state.lineCounts.get(`${stage.number}:${line.id}`)!), done: isDone(state.lineCounts.get(`${stage.number}:${line.id}`)!),
       blocks: stage.blocks.filter(block => block.line === line.id).map(blockView),
     })),
   }));

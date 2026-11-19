@@ -16,9 +16,9 @@ const model = (input: ProgramFacts = facts(), picks = new Map<string, number>())
 const stepOf = (stages: ReturnType<typeof model>, id: string) => stages.flatMap(stage => stage.lines.flatMap(line => line.blocks.flatMap(block => block.steps))).find(step => step.id === id)!;
 
 describe('путь программы для «Основ»', () => {
-  it('этап 1: три линии с блоками, счётчики и бейдж без истории; этапы 2 и 3 следом', () => {
+  it('этап 1: три линии с блоками, счётчики и бейдж без истории; этапы 2–4 следом', () => {
     const stages = model();
-    expect(stages).toHaveLength(3);
+    expect(stages).toHaveLength(4);
     expect(stages[1].lines.map(line => [line.id, line.blocks.map(block => block.id)])).toEqual([
       ['technique', ['t2-length', 't2-spider']], ['fretboard', ['f2-dg', 'f2-all', 'f2-penta']], ['chords', ['h2-rhythm', 'h2-blues', 'h2-approach', 'h2-triad', 'h2-own']],
     ]);
@@ -28,7 +28,7 @@ describe('путь программы для «Основ»', () => {
     ]);
     expect(stages[0].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 29');
     expect(stages[2].counts).toBe('пройдено 0 · пропущено 0 · освоено 0 из 32');
-    expect(pathBadge(evaluateProgram(PROGRAM, facts()))).toBe('0/93');
+    expect(pathBadge(evaluateProgram(PROGRAM, facts()))).toBe('0/118');
   });
 
   it('шаг «Своя линия» знает объём конструктора: h1-line — 1, h2-own — 2, h3-line — 3; у прочих шагов объёма нет', () => {

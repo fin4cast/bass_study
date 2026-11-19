@@ -1,8 +1,8 @@
 /**
- * Данные программы обучения (R-028, D-051). Программа появляется по этапам: здесь этапы 1–3 целиком по таблицам R-028;
- * следующий этап добавляется своим заходом [P18](../../docs/PLAN.md#p18). Формы хранения после этапа 1 не меняются.
+ * Данные программы обучения (R-028, D-051): четыре этапа целиком по таблицам R-028; программа появлялась по этапам
+ * заходами [P18](../../docs/PLAN.md#p18). Формы хранения после этапа 1 не менялись.
  */
-import { createExerciseSpec, type ExerciseSpec, type ProgressionId, type ProgressionPattern, type RiffId, type SpiderPattern } from '../exercises';
+import { createExerciseSpec, type ExerciseSpec, type IntervalDirection, type IntervalId, type ProgressionId, type ProgressionPattern, type RiffId, type SpiderPattern } from '../exercises';
 import { DEFAULT_PRACTICE, type PracticeOptions, type RhythmPatternId } from '../exercises/rhythm';
 import type { CheckSpec } from './check';
 import { PROGRAM_CHECK_COUNT } from './check';
@@ -176,6 +176,7 @@ const STAGE_2: readonly Block[] = [
 ];
 
 const SIXTEENTHS = practice('sixteenths');
+const QUARTERS_UNDER_SHUFFLE = practice('quarters', 'shuffle');
 const SHUFFLE = practice('shuffle');
 const major = (root: string, shapeId: 'compact-e' | 'compact-a', template: 'scale-compact' | 'thirds' = 'scale-compact') => scale(root, 'major', shapeId, template);
 const minor = (root: string, shapeId: 'compact-e' | 'compact-a') => scale(root, 'natural-minor', shapeId);
@@ -241,10 +242,79 @@ const STAGE_3: readonly Block[] = [
   ]),
 ];
 
+/** Тональности внутри, форма снаружи не используется: порядок вариантов этапа 4 — тоника снаружи, вторая ось внутри (R-028, решения для этапа 4). */
+const pentaNeckForms = (roots: readonly string[], shapes: readonly ('penta-c' | 'penta-d' | 'penta-e')[]) =>
+  roots.flatMap(root => shapes.map(shapeId => createExerciseSpec('pentatonic-form', { root, structureId: 'minor-pentatonic', shapeId })));
+const connectForms = (roots: readonly string[], shapes: readonly ('penta-b' | 'penta-c' | 'penta-d' | 'penta-e')[]) =>
+  roots.flatMap(root => shapes.map(shapeId => createExerciseSpec('connect-forms', { root, structureId: 'minor-pentatonic', shapeId })));
+const interval = (interval: IntervalId, direction: IntervalDirection) => createExerciseSpec('interval-from-note', { note: 'C', interval, direction });
+/** Малая и большая вверх, затем малая и большая вниз от C. */
+const intervals = (small: IntervalId, large: IntervalId) => [interval(small, 'up'), interval(large, 'up'), interval(small, 'down'), interval(large, 'down')];
+const seventh = (root: string, structureId: 'major-seventh' | 'dominant-seventh' | 'minor-seventh' | 'half-diminished-seventh') => createExerciseSpec('arpeggio-seventh', { root, structureId, shapeId: 'compact-e' });
+
+const STAGE_4: readonly Block[] = [
+  /* ---- Гриф ---- */
+  block('f4-neck', 'Пентатоника по грифу', 'fretboard', [], [
+    play('f4-neck.forms', 'Формы C, D, E минорной пентатоники', pentaNeckForms(['A', 'B'], ['penta-c', 'penta-d', 'penta-e'])),
+    play('f4-neck.links', 'Связки B→C, C→D, D→E, E→A', connectForms(['A', 'B'], ['penta-b', 'penta-c', 'penta-d', 'penta-e'])),
+    play('f4-neck.neck', 'Пентатоника по всему грифу', ['A', 'B', 'G'].map(root => createExerciseSpec('pentatonic-neck', { root, structureId: 'minor-pentatonic' }))),
+    check('f4-neck.find-degree', 'Найди ступень по всему грифу', { kind: 'find-degree', area: { type: 'exercise', exercise: createExerciseSpec('pentatonic-neck', { root: 'A', structureId: 'minor-pentatonic' }) }, subject: { type: 'degrees', scale: null, targets: null } }),
+  ]),
+  block('f4-positions', 'Позиции гамм', 'fretboard', [], [
+    play('f4-positions.position', 'Гамма в позиции от 1-й, 2-й и 5-й ступени', [['C', 'major'], ['A', 'natural-minor'], ['G', 'major']].flatMap(([root, structureId]) =>
+      [1, 2, 5].map(degree => createExerciseSpec('scale-position', { root, structureId: structureId as 'major' | 'natural-minor', degree })))),
+    play('f4-positions.string', 'Гамма на одной струне', [
+      createExerciseSpec('scale-one-string', { root: 'G', structureId: 'major', string: 'E' }), createExerciseSpec('scale-one-string', { root: 'C', structureId: 'major', string: 'A' }),
+      createExerciseSpec('scale-one-string', { root: 'A', structureId: 'natural-minor', string: 'A' }),
+    ]),
+    check('f4-positions.name-degree', 'Назови ступень по гамме C мажор в позиции от 2-й ступени', {
+      kind: 'name-degree', area: { type: 'exercise', exercise: createExerciseSpec('scale-position', { root: 'C', structureId: 'major', degree: 2 }) }, subject: { type: 'degrees', scale: null, targets: null },
+    }),
+  ]),
+  block('f4-intervals', 'Интервалы', 'fretboard', ['seconds', 'sixths', 'sevenths'], [
+    play('f4-intervals.seconds', 'Секунды от C четвертями', intervals('min2', 'maj2'), QUARTERS),
+    play('f4-intervals.sixths', 'Сексты от C четвертями', intervals('min6', 'maj6'), QUARTERS),
+    play('f4-intervals.sevenths', 'Септимы от C четвертями', intervals('min7', 'maj7'), QUARTERS),
+    check('f4-intervals.find-degree', 'Найди ступень: 2, 6 и 7 по гамме C мажор', {
+      kind: 'find-degree', area: { type: 'exercise', exercise: scale('C', 'major', 'compact-a') }, subject: { type: 'degrees', scale: null, targets: ['2', '6', '7'] },
+    }),
+  ]),
+  block('f4-sequences', 'Секвенции и перенос', 'fretboard', [], [
+    play('f4-sequences.groups', 'Группы по три', ['penta-b', 'penta-c'].map(shapeId => createExerciseSpec('groups-of-three', { root: 'A', structureId: 'minor-pentatonic', shapeId: shapeId as 'penta-b' | 'penta-c' }))),
+    play('f4-sequences.transpose', 'Та же форма от другой тоники', [createExerciseSpec('form-transpose')]),
+    play('f4-sequences.cycle', 'Паттерн по квинтовому кругу', ['C', 'G', 'E'].map(root => createExerciseSpec('cycle-fourths', { root }))),
+  ]),
+  /* ---- Аккорды и линии ---- */
+  block('h4-seventh', 'Септаккорды и обращения', 'chords', ['seventh-chords', 'inversions'], [
+    // Четвертями: те же доминантсептаккорды A и G восьмыми уже играются в h3-blues, а проход засчитывается одному шагу.
+    play('h4-seventh.arpeggio', 'Арпеджио maj7, 7, m7 и m7♭5 четвертями', ['C', 'G', 'A'].flatMap(root => (['major-seventh', 'dominant-seventh', 'minor-seventh', 'half-diminished-seventh'] as const).map(structureId => seventh(root, structureId))), QUARTERS),
+    play('h4-seventh.inversions', 'Обращения 1-е и 2-е', ['C', 'G', 'D'].flatMap(root => [1, 2].map(inversion => createExerciseSpec('arpeggio-inversion', { root, structureId: 'major-triad', inversion })))),
+    play('h4-seventh.riff', 'Рифф по кругу кварт', ['C', 'G'].map(root => riff(root, 'fourths-cycle'))),
+    check('h4-seventh.name-degree', 'Назови ступень: ♭7 и 7 по септаккорду от C', {
+      kind: 'name-degree', area: range(['A', 'D', 'G'], 2, 5), subject: { type: 'degrees', scale: { root: 'C', degrees: ['1', '3', '5', 'b7', '7'] }, targets: ['b7', '7'] },
+    }),
+  ]),
+  block('h4-iivi', 'ii–V–I', 'chords', [], [
+    play('h4-iivi.roots', 'ii–V–I тониками', lowThenClosed(['C', 'F', 'B♭'], 'ii-V-I', 'roots')),
+    play('h4-iivi.arpeggio', 'ii–V–I рисунком «арпеджио»', lowThenClosed(['C', 'F', 'B♭'], 'ii-V-I', 'arpeggio')),
+    play('h4-iivi.approach', 'ii–V–I рисунком «арпеджио и подходы»', lowThenClosed(['C', 'F', 'B♭'], 'ii-V-I', 'approach')),
+  ]),
+  block('h4-walking', 'Шагающий бас', 'chords', [], [
+    play('h4-walking.iivi', 'ii–V–I шагающим басом четвертями', lowThenClosed(['C', 'F', 'B♭'], 'ii-V-I', 'walking'), QUARTERS),
+    play('h4-walking.blues', '12 тактов шагающим басом четвертями под подложку «шаффл»', lowThenClosed(['F', 'B♭', 'G'], 'blues-12', 'walking'), QUARTERS_UNDER_SHUFFLE),
+  ]),
+  block('h4-line', 'Линия в трёх тональностях', 'chords', [], [
+    play('h4-line.riff', 'Рифф через три формы', ['A', 'B'].map(root => riff(root, 'three-forms'))),
+    own('h4-line.own', 'Своя линия в трёх тональностях', 'h4-line'),
+    song('h4-line.song', 'Фрагмент своей песни'),
+  ]),
+];
+
 export const PROGRAM: Program = Object.freeze({
   stages: Object.freeze([
     Object.freeze({ number: 1, title: 'Пульс и опора', blocks: Object.freeze(STAGE_1) }),
     Object.freeze({ number: 2, title: 'Паттерны и первая форма', blocks: Object.freeze(STAGE_2) }),
     Object.freeze({ number: 3, title: 'Тоны аккорда и свои линии', blocks: Object.freeze(STAGE_3) }),
+    Object.freeze({ number: 4, title: 'Весь гриф', blocks: Object.freeze(STAGE_4) }),
   ]),
 });

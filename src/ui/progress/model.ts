@@ -10,7 +10,7 @@ import {
   type Assessment, type CheckOutcome, type CheckRecord, type Difficulty, type ManualArea, type ManualRecord, type PlayRecord, type PracticeRecord, type SourceFilter,
 } from '../../practice/results';
 import type { FretboardReview } from '../../practice/history';
-import { countsLabel, LINES, statusLabel, type Program, type ProgramState, type Step, type StepState } from '../../practice/program';
+import { countsLabel, LINES, lineCountsLabel, statusLabel, type Program, type ProgramState, type Step, type StepState } from '../../practice/program';
 
 export const DAY_MS = 86_400_000;
 const DATE_KEY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -398,7 +398,7 @@ export function programOverview(program: Program, state: ProgramState): readonly
   return program.stages.map(stage => ({
     number: stage.number, title: stage.title, counts: countsLabel(state.stageCounts.get(stage.number)!),
     lines: LINES.map(line => ({
-      id: line.id, title: line.title, counts: countsLabel(state.lineCounts.get(`${stage.number}:${line.id}`)!),
+      id: line.id, title: line.title, counts: lineCountsLabel(state.lineCounts.get(`${stage.number}:${line.id}`)!),
       steps: stage.blocks.filter(block => block.line === line.id).flatMap(block => block.steps.map(stepRow).filter((row): row is ProgramStepRow => row !== null)),
     })),
   }));

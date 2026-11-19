@@ -191,6 +191,8 @@ export const STATE_LABELS: Readonly<Record<StepState, string>> = Object.freeze({
 export function countsLabel(counts: Counts): string {
   return `пройдено ${counts.passed} · пропущено ${counts.skipped} · освоено ${counts.mastered}${counts.review ? ` · повторить ${counts.review}` : ''} из ${counts.total}`;
 }
+/** Подпись линии: у линии без шагов (у «Техники» этапа 4) счётчиков нет — место отдаётся закреплению (R-028). */
+export const lineCountsLabel = (counts: Counts): string => (counts.total === 0 ? 'шагов нет — место отдаётся закреплению' : countsLabel(counts));
 /** Статус шага словами: «освоен · 84» — с лучшим чистым темпом. */
 export function statusLabel(status: StepStatus): string {
   return status.state === 'mastered' && status.bestCleanBpm ? `${STATE_LABELS.mastered} · ${status.bestCleanBpm}` : STATE_LABELS[status.state];

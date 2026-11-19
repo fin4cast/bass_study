@@ -356,7 +356,8 @@ describe('данные программы (этап 1, заход B)', () => {
 
   it('у каждого блока есть линия, шаги и существующие карточки; у каждой линии этапа есть блоки', () => {
     for (const stage of PROGRAM.stages) {
-      for (const line of ['technique', 'fretboard', 'chords']) expect(stage.blocks.some(item => item.line === line), `${stage.number}:${line}`).toBe(true);
+      // У «Техники» этапа 4 шагов нет (R-028): её место в занятии отдаётся закреплению.
+      for (const line of ['technique', 'fretboard', 'chords']) if (stage.number !== 4 || line !== 'technique') expect(stage.blocks.some(item => item.line === line), `${stage.number}:${line}`).toBe(true);
       for (const item of stage.blocks) {
         expect(item.steps.length, item.id).toBeGreaterThan(0);
         for (const card of item.cards) expect(getConcept(card), `${item.id}: карточка ${card}`).not.toBeNull();
