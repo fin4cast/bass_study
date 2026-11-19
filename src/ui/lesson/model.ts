@@ -390,6 +390,8 @@ const LEVEL_ORDER: Partial<Record<string, readonly string[]>> = {
  * или повторяет материал другого понятия: во всём курсе у каждого понятия свой материал (D-049).
  */
 const STEP_EXERCISE: Partial<Record<string, () => ExerciseSpec>> = {
+  sixths: () => createExerciseSpec('interval-from-note', { interval: 'maj6' }),
+  sevenths: () => createExerciseSpec('interval-from-note', { interval: 'min7' }),
   accidentals: () => createExerciseSpec('note-all-positions', { note: 'F♯' }),
   enharmonic: () => createExerciseSpec('note-all-positions', { note: 'B♭' }),
   unison: () => createExerciseSpec('note-all-positions', { note: 'C' }),
