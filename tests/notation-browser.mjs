@@ -151,13 +151,14 @@ check('real-audio-clock-fragment-cursor-count-in-pause-stop-with-one-player', 'f
 // проверяется изолированной fixture выше. Курсор TAB, текущая нота на грифе и текст прогресса — одна общая позиция.
 const playScene = page => page.locator('[data-lesson-screen="play"] .pl-scene');
 const playStatus = (page, status, timeout = 10000) => page.waitForFunction(value => document.querySelector('[data-lesson-screen="play"] .pl-scene')?.dataset.status === value, status, { timeout });
-async function openLibraryExercise(page, title, view) {
+/** `screenTitle` — заголовок экрана игры, если он не совпадает с названием карточки шаблона. */
+async function openLibraryExercise(page, title, view, screenTitle = title) {
   await page.waitForFunction(() => document.querySelector('[data-lesson-screen="home"] .ls-plan, [data-lesson-screen="home"] .ls-hero'), null, { timeout: 20000 });
   const home = page.locator('[data-lesson-screen="home"]');
   await home.getByRole('tab', { name: /^Библиотека/ }).click();
   await home.getByRole('button', { name: `Играть: ${title}`, exact: true }).click();
   await playScene(page).locator('[data-title]').waitFor();
-  assert.equal(await playScene(page).locator('[data-title]').innerText(), title);
+  assert.equal(await playScene(page).locator('[data-title]').innerText(), screenTitle);
   await playScene(page).locator(`[data-view="${view}"]`).click();
   await playScene(page).locator(`[data-view="${view}"][aria-pressed="true"]`).waitFor();
 }
@@ -199,7 +200,7 @@ check('built-app-play-tab-frets-count-labels-and-bar-lines-follow-the-exercise',
 });
 
 check('built-app-play-one-shared-cursor-for-tab-board-and-progress-with-repeated-positions', 'ui', async ({ page }) => {
-  await openLibraryExercise(page, 'Группы по три', 'both');
+  await openLibraryExercise(page, 'Секвенция группами', 'both', 'Группы по три');
   assert.match(await playScene(page).locator('[data-sound-summary]').innerText(), /отсчёт 1/);
   await playScene(page).locator('[data-play]').click();
   await playStatus(page, 'counting');

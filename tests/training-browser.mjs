@@ -381,11 +381,12 @@ check('repeat-errors-from-progress-asks-only-error-positions-in-original-context
 check('sequence-templates-on-play-screen-follow-independent-routes', async ({ page, origin }) => {
   await openApp(page, origin);
   const home = page.locator('[data-lesson-screen="home"]');
-  const play = async title => {
+  // Карточка библиотеки названа по шаблону, экран игры — по материалу («Секвенция группами» → «Группы по три»).
+  const play = async (title, screenTitle = title) => {
     await home.getByRole('tab', { name: /^Библиотека/ }).click();
     await home.getByRole('button', { name: `Играть: ${title}`, exact: true }).click();
     await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene [data-title]').waitFor();
-    assert.equal(await playScene(page).locator('[data-title]').innerText(), title);
+    assert.equal(await playScene(page).locator('[data-title]').innerText(), screenTitle);
     return tabRoute(page);
   };
   const chromatic = await play('Хроматика 1-2-3-4 в позиции');
@@ -393,7 +394,7 @@ check('sequence-templates-on-play-screen-follow-independent-routes', async ({ pa
   assert.equal(await playScene(page).locator('[data-back]').innerText(), '← Занятие');
   await playScene(page).locator('[data-back]').click();
 
-  const groups = await play('Группы по три');
+  const groups = await play('Секвенция группами', 'Группы по три');
   const up = ascendingByPitch(A_MINOR_FORM_A);
   const expected = up.slice(0, -2).flatMap((_, index) => up.slice(index, index + 3));
   assert.ok(groups.length >= 12, `На первой странице TAB видно ${groups.length} нот`);
