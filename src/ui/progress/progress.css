@@ -3,7 +3,10 @@
 .p13-progress .pg-program[hidden] { display: none; }
 .p13-progress .pg-note[hidden] { display: none; }
 /* Без истории список не растягивается на весь экран: программа стоит сразу под пояснением. */
-.p13-progress.is-empty .pg-grid-a { flex: none; }
+.p13-progress.is-empty :is(.pg-panel, .pg-grid-a) { flex: none; }
+/* У summary с display: flex Chromium не рисует маркер раскрытия: рисуем свой. */
+.p13-progress :is(.pg-program-sum, .pg-pline > summary)::before { content: '▸'; flex: none; color: var(--text-secondary); }
+.p13-progress :is(.pg-program-all, .pg-pline)[open] > summary::before { transform: rotate(90deg); }
 .p13-progress .pg-program-all { border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--surface-raised); }
 .p13-progress .pg-program-sum { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 10px 14px; font-size: var(--text-l); }
 .p13-progress .pg-program-sum b { font-weight: var(--weight-heading); }

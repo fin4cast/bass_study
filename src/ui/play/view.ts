@@ -165,7 +165,7 @@ const TEMPLATE = `
     <div class="pl-head-tools">
       <button type="button" class="text-button pl-listen" data-listen aria-pressed="false" title="Эталон звучит до игры: один проход без отсчёта; пробел или Esc — остановить">♪ Сначала услышь</button>
       <div class="pl-seg" role="group" aria-label="Подписи на грифе" data-labels>${LABEL_MODES.map(mode => `<button type="button" data-label="${escapeHtml(mode.id)}" aria-pressed="false">${escapeHtml(mode.label)}</button>`).join('')}</div>
-      <p class="pl-labels-note" data-labels-note role="status" hidden></p>
+      <p class="pl-labels-note" data-labels-note role="status"></p>
     </div>
   </header>
   <div class="pl-views"><span class="pl-views-caption">Вид · от подсказки к памяти</span><div class="pl-seg pl-seg-views" role="group" aria-label="Вид экрана игры">${PLAY_VIEWS.map((view, index) => `<button type="button" data-view="${escapeHtml(view.id)}" aria-pressed="false" aria-keyshortcuts="${index + 1}" title="${escapeHtml(view.hint)}"><i>${index + 1}</i>${escapeHtml(view.label)}</button>`).join('')}</div></div>
@@ -253,6 +253,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   container.innerHTML = TEMPLATE;
   const scene = container.querySelector<HTMLElement>('.pl-scene')!;
   const labelsId = `pl-lr-${++playMounts}`;
+  let labelsNoteTimer = 0;
   const at = <T extends Element = HTMLElement>(selector: string) => scene.querySelector<T>(selector)!;
   const all = <T extends Element = HTMLElement>(selector: string) => [...scene.querySelectorAll<T>(selector)];
 
@@ -532,17 +533,17 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       button.setAttribute('aria-pressed', String(mode === effectiveLabels()));
     });
   }
+  /** Строка причины — живая область, которая не прячется через display: пустая, она схлопывается по CSS (`:empty`); гаснет сама через несколько секунд. */
   function hideLabelsNote() {
-    const note = at('[data-labels-note]');
-    note.hidden = true;
-    note.textContent = '';
+    window.clearTimeout(labelsNoteTimer);
+    at('[data-labels-note]').textContent = '';
   }
   function setLabels(mode: Exclude<BoardLabelMode, 'none'>) {
     if (!labelAvailable(mode)) {
       // Режим не меняется; причина показывается текстом рядом с подписями, а не только в подсказке.
-      const note = at('[data-labels-note]');
-      note.hidden = false;
-      note.textContent = mode === 'name' ? '' : LABEL_REASONS[mode];
+      hideLabelsNote();
+      at('[data-labels-note]').textContent = mode === 'name' ? '' : LABEL_REASONS[mode];
+      labelsNoteTimer = window.setTimeout(hideLabelsNote, 6000);
       return;
     }
     labels = mode;
@@ -1358,6 +1359,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
       controller.abort();
+      window.clearTimeout(labelsNoteTimer);
       if (ownPort) port.dispose();
       container.replaceChildren();
     },

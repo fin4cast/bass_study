@@ -109,8 +109,8 @@ check('product-songs-without-file-dim-range-and-playback-until-a-score-loads', '
       range: style('[data-mb="from"]', 'opacity'),
       playback: style('.studio-playback', 'opacity'),
       seek: style('[data-mb="seek"]', 'opacity'),
-      loop: style('label.mb-check:has([data-mb="loop"])', 'color', 'cursor'),
-      position: style('[data-mb="position"]', 'color'),
+      playButton: style('[data-mb="play"]', 'backgroundColor', 'borderTopColor'),
+      loop: style('label.mb-check:has([data-mb="loop"])', 'cursor'),
     };
   });
   const empty = await look();
@@ -122,6 +122,9 @@ check('product-songs-without-file-dim-range-and-playback-until-a-score-loads', '
   assert.ok(Number(empty.range.opacity) < 1 && Number(empty.playback.opacity) < 1 && Number(empty.seek.opacity) < 1, 'без файла поля фрагмента, позиция и кнопки проигрывания приглушены');
   assert.deepEqual([loaded.range.opacity, loaded.playback.opacity, loaded.seek.opacity], ['1', '1', '1'], 'с файлом ничего не приглушено');
   assert.equal(empty.loop.cursor, 'default', '«Повтор» без файла не выглядит нажимаемым');
+  // Выключенная кнопка без класса вида («Выбрать») получает тот же фон и рамку, что выключенный «Старт», а не фон рабочего поля.
+  assert.equal(empty.apply.backgroundColor, empty.playButton.backgroundColor, '«Выбрать» без файла — фон выключенной кнопки');
+  assert.notEqual(empty.apply.backgroundColor, loaded.apply.backgroundColor, 'с файлом «Выбрать» возвращает фон рабочей кнопки');
   return { empty: empty.apply, loaded: loaded.apply };
 });
 

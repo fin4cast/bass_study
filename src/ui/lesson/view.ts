@@ -420,9 +420,13 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const stepItem = (item: BasicsStep) => {
       const canAdd = item.content !== null;
       const on = canAdd && inPlan(item.content!);
-      // Название понятия стоит в заголовке группы, поэтому у понятия и проверки плитка называет только вид шага; полное название — в aria-label.
+      // Название понятия стоит в заголовке группы, поэтому у понятия и «Вопроса карточки» плитка называет только вид шага; у упражнения и проверки ступеней
+      // (`tracked`) название своё. Полное имя со статусом и материалом — в aria-label: он заменяет видимый текст.
+      const ownTitle = item.kind === 'exercise' || (item.kind === 'check' && item.tracked);
+      const material = item.kind === 'exercise' && item.content ? stepMaterial(item.content) : '';
+      const accessibleName = `${KIND_LABEL[item.kind]}: ${item.title}${item.done ? ', пройден' : ''}${material ? `, ${material}` : ''}`;
       return `<li class="ls-st k-${item.kind}${item.done ? ' is-done' : ''}${item.key === step.key ? ' is-current' : ''}${canAdd ? ' can-add' : ''}">
-        <button type="button" class="ls-st-btn" data-act="basics-step" data-value="${e(item.key)}" data-key="st:${e(item.key)}" aria-current="${item.key === step.key ? 'step' : 'false'}" aria-label="${e(`${KIND_LABEL[item.kind]}: ${item.title}`)}"><small>${KIND_LABEL[item.kind]}${item.done ? ' ✓' : ''}</small>${item.kind === 'exercise' ? `<span>${e(item.title)}</span>${item.content ? `<em class="ls-st-mat">${e(stepMaterial(item.content))}</em>` : ''}` : ''}</button>
+        <button type="button" class="ls-st-btn" data-act="basics-step" data-value="${e(item.key)}" data-key="st:${e(item.key)}" aria-current="${item.key === step.key ? 'step' : 'false'}" aria-label="${e(accessibleName)}"><small>${KIND_LABEL[item.kind]}${item.done ? ' ✓' : ''}</small>${ownTitle ? `<span>${e(item.title)}</span>` : ''}${material ? `<em class="ls-st-mat">${e(material)}</em>` : ''}</button>
         ${canAdd ? `<button type="button" class="ls-mini ls-st-add" data-act="toggle-plan" data-ref="${ref(item.content!)}" data-key="st-add:${e(item.key)}" aria-pressed="${on}" aria-label="${e(`${on ? 'Убрать из плана' : 'Добавить в план'}: ${item.title}`)}" title="${on ? 'В плане «Сегодня» — нажми, чтобы убрать' : `В план «Сегодня» · ${contentMinutes(item.content!)} мин`}">${on ? '✓' : '+'}</button>` : ''}</li>`;
     };
     // Шаги одного понятия идут подряд: одна строка на понятие вместо трёх плиток с повтором названия.
@@ -593,7 +597,14 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
           break;
         }
         case 'level': basicsLevel = target.dataset.value ?? null; basicsStep = null; render(); break;
-        case 'basics-step': basicsStep = target.dataset.value ?? null; render(); break;
+        case 'basics-step': {
+          basicsStep = target.dataset.value ?? null; render();
+          // Длинный список шагов: карточка выбранного шага не должна остаться за краем экрана.
+          const card = regions.basics.querySelector<HTMLElement>('.ls-focus');
+          const top = card?.getBoundingClientRect().top ?? 0;
+          if (card && (top < 0 || top > window.innerHeight - 120)) card.scrollIntoView({ block: 'start' });
+          break;
+        }
         case 'search-concept': setBasicsView('knowledge'); basicsLevel = target.dataset.level ?? null; basicsStep = target.dataset.value ?? null; searchInput.value = ''; renderSearch(); render(); container.querySelector<HTMLElement>('.ls-focus h2')?.scrollIntoView?.({ block: 'nearest' }); break;
       }
     } catch (failure) { toast(failure instanceof Error ? failure.message : String(failure)); }

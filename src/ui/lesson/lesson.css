@@ -266,7 +266,7 @@
 }
 @media (max-width: 900px) {
   .lesson-view .ls-today-grid, .lesson-view .ls-basics-grid, .lesson-view .ls-lib-body { grid-template-columns: minmax(0, 1fr); }
-  .lesson-view .ls-basics-grid { grid-template-areas: "levels" "focus" "steps"; }
+  .lesson-view .ls-basics-grid { grid-template-areas: "levels" "steps" "focus"; }
   .lesson-view .ls-cats { position: static; flex-direction: row; flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) { .lesson-view .ls-step.is-new { animation: none; } .lesson-view .ls-toast { transition: none; } }

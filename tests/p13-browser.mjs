@@ -1020,6 +1020,21 @@ check('basics-knowledge-levels-in-one-row-one-line-per-concept-and-step-card-bes
     assert.ok(!step.text.includes(group.title), `плитка «${step.text}» не повторяет название понятия «${group.title}»`);
   }
   assert.doesNotMatch(await home(page).locator('.ls-focus .ls-chip-concept').innerText(), /·/, 'чип карточки шага называет только вид шага');
+  // Доступное имя плитки заменяет видимый текст: оно называет вид шага, название и материал упражнения.
+  const names = await grid.locator('.ls-st-btn').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')));
+  assert.ok(names.every(name => /^(понятие|упражнение|проверка): ./.test(name)), 'у каждой плитки есть имя с видом шага');
+  assert.ok(names.some(name => /^упражнение: .+, .+/.test(name)), 'у упражнения в имени есть материал');
+  // Проверка ступеней (tracked) показывает своё название, «Вопрос карточки» — нет.
+  await home(page).locator('[data-act="level"][data-value="1"]').click();
+  const fifth = home(page).locator('[data-act="basics-step"][data-value="1:fifth:check"]');
+  assert.match(await fifth.innerText(), /Ступени/, 'проверка ступеней называет себя на плитке');
+  assert.match(await fifth.getAttribute('aria-label'), /^проверка: Ступени/);
+  // Узкая ширина: порядок на экране совпадает с порядком в документе (уровни → шаги → карточка), а выбор шага не оставляет карточку за краем.
+  await page.setViewportSize({ width: 860, height: 900 });
+  const order = await grid.evaluate(el => ['.ls-path', '.ls-level', '.ls-focus'].map(selector => Math.round(el.querySelector(selector).getBoundingClientRect().y)));
+  assert.ok(order[0] < order[1] && order[1] < order[2], `на узкой ширине порядок на экране = порядок в документе: ${order}`);
+  await grid.locator('.ls-st-btn').last().click();
+  await page.waitForFunction(() => document.querySelector('.ls-focus').getBoundingClientRect().top < window.innerHeight - 100, null, { timeout: 3000 });
   return { groups: groups.length };
 });
 
@@ -1857,16 +1872,24 @@ check('progress-without-history-explains-first-and-keeps-program-collapsed-until
   await progress.locator('.pg-empty').waitFor();
   const program = progress.locator('.pg-program-all');
   assert.equal(await program.evaluate(details => details.open), false, 'без истории программа свёрнута');
-  assert.match(await progress.locator('summary.pg-program-sum').innerText(), /Программа обучения\s+4 этапа · \d+ шагов/);
+  assert.match(await progress.locator('summary.pg-program-sum').innerText(), /Программа обучения\s+4 этапа · \d+ шаг/);
   assert.equal(await progress.locator('.pg-pline:visible').count(), 0, 'линии свёрнутой программы не видны');
   assert.equal(await progress.evaluate(el => Boolean(el.querySelector('.pg-empty').compareDocumentPosition(el.querySelector('.pg-program')) & Node.DOCUMENT_POSITION_FOLLOWING)), true, 'пояснение стоит раньше программы в порядке документа');
   assert.equal(await progress.locator('[data-note]').isVisible(), false, 'заметка «Записей пока нет» не повторяет карточку');
   await progress.locator('summary.pg-program-sum').click();
   assert.equal(await program.evaluate(details => details.open), true);
   assert.equal(await progress.locator('.pg-stage').count(), 4);
+  assert.equal(await progress.locator('summary.pg-program-sum').evaluate(summary => getComputedStyle(summary, '::before').content), '"▸"', 'у сводки программы есть свой маркер раскрытия');
   await page.locator('.site-header [data-app-module="lesson"]').click();
   await page.locator('.site-header [data-app-module="progress"]').click();
   assert.equal(await program.evaluate(details => details.open), true, 'выбор ученика переживает уход и возврат');
+  // Низкое и узкое окно: программа не налезает на пояснение (панель без истории не сжимается).
+  await program.evaluate(details => { details.open = false; });
+  for (const [width, height] of [[800, 700], [1060, 666]]) {
+    await page.setViewportSize({ width, height });
+    const gap = await progress.evaluate(el => el.querySelector('.pg-program').getBoundingClientRect().top - el.querySelector('[data-panel="exercises"]').getBoundingClientRect().bottom);
+    assert.ok(gap >= -1, `${width}×${height}: программа не налезает на пояснение (зазор ${gap})`);
+  }
   return { collapsedByDefault: true };
 });
 
