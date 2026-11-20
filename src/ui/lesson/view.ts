@@ -414,27 +414,33 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
     const firstRun = current.firstRun && !levels.some(item => item.doneCount > 0);
     const levelItem = (item: BasicsLevel) => {
       const sub = item.status === 'done' ? 'освоено' : item.status === 'current' ? (firstRun ? 'начни отсюда' : item.doneCount ? `${item.doneCount} из ${item.total} · в работе` : 'в работе') : item.doneCount ? `${item.doneCount} из ${item.total}` : 'можно открыть';
-      return `<li class="ls-lvl is-${item.status}"><span class="ls-node" aria-hidden="true">${item.status === 'done' ? '✓' : e(item.mark)}</span>
-        <button type="button" class="ls-lvl-btn" data-act="level" data-value="${e(item.key)}" data-key="lvl:${e(item.key)}" aria-pressed="${item.key === level.key}"><b>${e(item.title)}</b><span>${e(sub)}</span>${item.status === 'current' && item.doneCount && item.lane === 'main' ? `<span class="ls-meter" aria-hidden="true"><i style="width:${Math.round(item.doneCount / item.total * 100)}%"></i></span>` : ''}</button></li>`;
+      const meter = item.status === 'current' && item.doneCount && item.lane === 'main' ? `<span class="ls-meter" aria-hidden="true"><i style="width:${Math.round(item.doneCount / item.total * 100)}%"></i></span>` : '';
+      return `<li class="ls-lvl is-${item.status}"><button type="button" class="ls-lvl-btn" data-act="level" data-value="${e(item.key)}" data-key="lvl:${e(item.key)}" aria-pressed="${item.key === level.key}"><span class="ls-node" aria-hidden="true">${item.status === 'done' ? '✓' : e(item.mark)}</span><span class="ls-lvl-text"><b>${e(item.title)}</b><small>${e(sub)}</small>${meter}</span></button></li>`;
     };
-    const strip = level.steps.map(item => {
+    const stepItem = (item: BasicsStep) => {
       const canAdd = item.content !== null;
       const on = canAdd && inPlan(item.content!);
+      // Название понятия стоит в заголовке группы, поэтому у понятия и проверки плитка называет только вид шага; полное название — в aria-label.
       return `<li class="ls-st k-${item.kind}${item.done ? ' is-done' : ''}${item.key === step.key ? ' is-current' : ''}${canAdd ? ' can-add' : ''}">
-        <button type="button" class="ls-st-btn" data-act="basics-step" data-value="${e(item.key)}" data-key="st:${e(item.key)}" aria-current="${item.key === step.key ? 'step' : 'false'}"><small>${KIND_LABEL[item.kind]}${item.done ? ' ✓' : ''}</small><span>${e(item.title)}</span>${item.kind === 'exercise' && item.content ? `<em class="ls-st-mat">${e(stepMaterial(item.content))}</em>` : ''}</button>
+        <button type="button" class="ls-st-btn" data-act="basics-step" data-value="${e(item.key)}" data-key="st:${e(item.key)}" aria-current="${item.key === step.key ? 'step' : 'false'}" aria-label="${e(`${KIND_LABEL[item.kind]}: ${item.title}`)}"><small>${KIND_LABEL[item.kind]}${item.done ? ' ✓' : ''}</small>${item.kind === 'exercise' ? `<span>${e(item.title)}</span>${item.content ? `<em class="ls-st-mat">${e(stepMaterial(item.content))}</em>` : ''}` : ''}</button>
         ${canAdd ? `<button type="button" class="ls-mini ls-st-add" data-act="toggle-plan" data-ref="${ref(item.content!)}" data-key="st-add:${e(item.key)}" aria-pressed="${on}" aria-label="${e(`${on ? 'Убрать из плана' : 'Добавить в план'}: ${item.title}`)}" title="${on ? 'В плане «Сегодня» — нажми, чтобы убрать' : `В план «Сегодня» · ${contentMinutes(item.content!)} мин`}">${on ? '✓' : '+'}</button>` : ''}</li>`;
-    }).join('');
+    };
+    // Шаги одного понятия идут подряд: одна строка на понятие вместо трёх плиток с повтором названия.
+    const groups: { readonly conceptId: BasicsStep['conceptId']; readonly steps: BasicsStep[] }[] = [];
+    for (const item of level.steps) {
+      const last = groups[groups.length - 1];
+      if (last && last.conceptId === item.conceptId) last.steps.push(item); else groups.push({ conceptId: item.conceptId, steps: [item] });
+    }
+    const strip = groups.map(group => `<li class="ls-grp"><span class="ls-grp-title">${e(getConcept(group.conceptId)?.title ?? group.steps[0].title)}</span><ol class="ls-grp-steps">${group.steps.map(stepItem).join('')}</ol></li>`).join('');
     regions.basics.innerHTML = `${basicsToggle('knowledge')}<div class="ls-basics-grid">
         <section class="ls-card ls-path" aria-label="Путь уровней">
-          <div class="ls-lanes"><div><div class="ls-lane-title">Гриф и теория</div><ol class="ls-lane">${levels.filter(item => item.lane === 'main').map(levelItem).join('')}</ol></div>
-            <div class="ls-side"><div class="ls-lane-title">Параллельно</div><ol class="ls-lane is-side">${levels.filter(item => item.lane === 'side').map(levelItem).join('')}</ol></div></div>
+          <div class="ls-lanes"><div class="ls-lane-group"><div class="ls-lane-title">Гриф и теория</div><ol class="ls-lane">${levels.filter(item => item.lane === 'main').map(levelItem).join('')}</ol></div>
+            <div class="ls-lane-group is-side"><div class="ls-lane-title">Параллельно</div><ol class="ls-lane is-side">${levels.filter(item => item.lane === 'side').map(levelItem).join('')}</ol></div></div>
           <p class="ls-path-note">Любой уровень можно открыть в любой момент. Отметки «Чисто / С ошибками / Не успевал» ставишь ты — приложение игру не оценивает.</p>
         </section>
-        <div class="ls-basics-right">
-          <section class="ls-card ls-level" aria-label="Шаги уровня"><div class="ls-level-head"><h2>${level.lane === 'main' ? `Уровень ${e(level.mark)} · ` : 'Параллельно · '}${e(level.title)}</h2><span class="ls-sub">${level.status === 'done' ? 'освоено' : firstRun ? `${e(level.total)} ${plural(level.total, 'шаг', 'шага', 'шагов')}` : `${e(level.doneCount)} из ${e(level.total)} шагов`}</span></div>
-            <ol class="ls-strip">${strip}</ol></section>
-          <section class="ls-card ls-focus feature-panel" aria-label="Текущий шаг">${focusMarkup(level, step, firstRun)}</section>
-        </div>
+        <section class="ls-card ls-level" aria-label="Шаги уровня"><div class="ls-level-head"><h2>${level.lane === 'main' ? `Уровень ${e(level.mark)} · ` : 'Параллельно · '}${e(level.title)}</h2><span class="ls-sub">${level.status === 'done' ? 'освоено' : firstRun ? `${e(level.total)} ${plural(level.total, 'шаг', 'шага', 'шагов')}` : `${e(level.doneCount)} из ${e(level.total)} шагов`}</span></div>
+          <ol class="ls-strip">${strip}</ol></section>
+        <section class="ls-card ls-focus feature-panel" aria-label="Текущий шаг">${focusMarkup(level, step, firstRun)}</section>
       </div>`;
   }
 
@@ -456,7 +462,7 @@ export function mountLesson(container: HTMLElement, options: LessonOptions) {
       `<button type="button" class="secondary-button button-compact" data-act="concept" data-concept="${e(concept.id)}" data-key="focus-concept">Открыть карточку</button>`,
     ].join('');
     const source = conceptBoard(concept);
-    return `<div class="ls-focus-top"><span class="ls-eyebrow">${isCurrent ? (firstRun ? 'Первый шаг' : 'Твой текущий шаг') : 'Выбранный шаг'} · ${level.lane === 'main' ? `уровень ${e(level.mark)}` : e(level.title.toLowerCase())} · ${e(basicsStepPosition(level, step))}</span><span class="ls-chip ls-chip-concept">${e(KIND_LABEL[step.kind])} · ${e(concept.title)}</span></div>
+    return `<div class="ls-focus-top"><span class="ls-eyebrow">${isCurrent ? (firstRun ? 'Первый шаг' : 'Твой текущий шаг') : 'Выбранный шаг'} · ${e(basicsStepPosition(level, step))}</span><span class="ls-chip ls-chip-concept">${e(KIND_LABEL[step.kind])}</span></div>
       <h2>${e(concept.title)}</h2>
       <div class="ls-concept"><p>${conceptText(card.name)}</p><p class="ls-why"><b>Зачем басисту.</b> ${conceptText(card.why)}</p></div>
       <div class="ls-actions">${primary}${secondary}</div>

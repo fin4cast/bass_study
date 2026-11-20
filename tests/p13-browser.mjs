@@ -996,6 +996,33 @@ async function openBasicsCheck(page, level, step) {
   await page.locator('[data-lesson-screen="check"]:not([hidden]) [data-ck-title]').waitFor();
 }
 
+/** P20-02: «Знания» — уровни одной строкой, одна строка на понятие без повторов названия, карточка шага рядом со списком. */
+check('basics-knowledge-levels-in-one-row-one-line-per-concept-and-step-card-beside-the-list', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await basicsLevels(page);
+  const grid = home(page).locator('.ls-basics-grid');
+  await grid.waitFor();
+  const boxes = await grid.evaluate(el => {
+    const rect = selector => { const box = el.querySelector(selector).getBoundingClientRect(); return { x: box.x, y: box.y, width: box.width, height: box.height }; };
+    const buttons = [...el.querySelectorAll('.ls-lvl-btn')].map(button => Math.round(button.getBoundingClientRect().y));
+    return { levels: rect('.ls-path'), steps: rect('.ls-level'), focus: rect('.ls-focus'), buttonRows: new Set(buttons).size, viewport: window.innerHeight };
+  });
+  assert.equal(boxes.buttonRows, 1, 'уровни идут одной строкой кнопок');
+  assert.ok(boxes.focus.x > boxes.steps.x + boxes.steps.width - 1, 'карточка шага стоит справа от списка шагов');
+  assert.ok(boxes.focus.y < boxes.viewport, 'карточка шага видна без прокрутки списка шагов');
+  const groups = await grid.locator('.ls-grp').evaluateAll(items => items.map(item => ({
+    title: item.querySelector('.ls-grp-title').textContent.trim(),
+    steps: [...item.querySelectorAll('.ls-st')].map(step => ({ kind: [...step.classList].find(name => name.startsWith('k-')), text: step.querySelector('.ls-st-btn').innerText.replace(/\s+/g, ' ').trim() })),
+  })));
+  assert.ok(groups.length > 1 && groups.length < await grid.locator('.ls-st').count(), 'шаги собраны в строки по понятиям');
+  assert.equal(new Set(groups.map(group => group.title)).size, groups.length, 'название понятия стоит в строке один раз');
+  for (const group of groups) for (const step of group.steps.filter(item => item.kind !== 'k-exercise')) {
+    assert.ok(!step.text.includes(group.title), `плитка «${step.text}» не повторяет название понятия «${group.title}»`);
+  }
+  assert.doesNotMatch(await home(page).locator('.ls-focus .ls-chip-concept').innerText(), /·/, 'чип карточки шага называет только вид шага');
+  return { groups: groups.length };
+});
+
 check('check-cards-answer-hidden-then-error-correction-reveal-skip-and-summary-saved', 'ui', async ({ page, origin }) => {
   await openApp(page, origin);
   await openBasicsCheck(page, '1', '1:fifth:check');
