@@ -40,6 +40,12 @@
   color: var(--disabled-text);
 }
 
+/* Выключенная кнопка без класса вида читается выключенной целиком: фон и рамка, не только текст. */
+.music-bank button:not(:where(.primary-button,.secondary-button,.text-button)):disabled {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
 .music-bank button:not(:where(.primary-button,.secondary-button,.text-button)) {
   border: 1px solid var(--border);
   border-radius: var(--radius-m);
@@ -242,6 +248,17 @@
   white-space: nowrap;
   cursor: pointer;
   margin: 0;
+}
+
+/* Подпись выключенного «Повтора» не выглядит нажимаемой; её цвет не меняем: подписи остаются читаемыми (R-023). */
+.music-bank .mb-check:has(input:disabled) {
+  cursor: default;
+}
+
+/* Пока партитуры нет (файл не выбран, нужен исходник или сбой движка), органы управления, ждущие файла, приглушены (P20-04).
+   Приглушаются сами элементы, а не подписи рядом с ними. */
+.music-bank:is([data-music-bank-state="empty"], [data-music-bank-state="missing"], [data-music-bank-state="error"]) :is(.studio-playback, .studio-timeline input, .mb-range :is(input, button)) {
+  opacity: .55;
 }
 
 .music-bank .mb-current-bar {

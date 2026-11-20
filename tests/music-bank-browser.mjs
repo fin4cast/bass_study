@@ -97,6 +97,34 @@ check('product-files-render-independent-track-controls-and-reject-unsupported-in
   return { files: results, productHiddenTestApi: false };
 });
 
+/** P20-04: до выбора файла проигрывание и выбор фрагмента выглядят выключенными целиком, а не только текстом. */
+check('product-songs-without-file-dim-range-and-playback-until-a-score-loads', 'ui', async ({ page }) => {
+  await enter(page);
+  const look = () => page.evaluate(() => {
+    const root = document.querySelector('#music-bank-mount');
+    const style = (selector, ...props) => { const css = getComputedStyle(root.querySelector(selector)); return Object.fromEntries(props.map(prop => [prop, css[prop]])); };
+    return {
+      state: root.dataset.musicBankState,
+      apply: style('[data-mb="apply-range"]', 'backgroundColor', 'borderTopColor', 'color'),
+      range: style('[data-mb="from"]', 'opacity'),
+      playback: style('.studio-playback', 'opacity'),
+      seek: style('[data-mb="seek"]', 'opacity'),
+      loop: style('label.mb-check:has([data-mb="loop"])', 'color', 'cursor'),
+      position: style('[data-mb="position"]', 'color'),
+    };
+  });
+  const empty = await look();
+  assert.equal(empty.state, 'empty');
+  for (const name of ['apply-range', 'loop', 'seek', 'play', 'from', 'to']) assert.equal(await field(page, name).isDisabled(), true, `${name} выключен без файла`);
+  await load(page, 'sample-08');
+  const loaded = await look();
+  assert.notEqual(loaded.state, 'empty', 'после загрузки состояние уже не «empty»');
+  assert.ok(Number(empty.range.opacity) < 1 && Number(empty.playback.opacity) < 1 && Number(empty.seek.opacity) < 1, 'без файла поля фрагмента, позиция и кнопки проигрывания приглушены');
+  assert.deepEqual([loaded.range.opacity, loaded.playback.opacity, loaded.seek.opacity], ['1', '1', '1'], 'с файлом ничего не приглушено');
+  assert.equal(empty.loop.cursor, 'default', '«Повтор» без файла не выглядит нажимаемым');
+  return { empty: empty.apply, loaded: loaded.apply };
+});
+
 check('product-independent-drums-live-volume-mute-solo-and-four-notation-states', 'ui', async ({ page }) => {
   await observe(page); await enter(page); await load(page, 'sample-05');
   await row(page, 1).locator('[data-control=solo]').check();
