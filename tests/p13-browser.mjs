@@ -638,8 +638,21 @@ check('play-sound-panel-chromatic-reference-metronome-count-in-rhythm-applied-an
   await playScene(page).locator('button[data-view="board"]').click();
   assert.equal(await playScene(page).locator('[data-area="board"] [data-tab]').count(), 0, 'В виде «Гриф» TAB нет');
   const degree = playScene(page).locator('button[data-label="degree"]');
-  assert.equal(await degree.isDisabled(), true);
+  // P20-03: недоступная подпись не зачёркнута и не выключена (остаётся в Tab); причина видна текстом при нажатии и читается через aria-describedby.
+  assert.equal(await degree.getAttribute('aria-disabled'), 'true');
+  assert.equal(await degree.evaluate(button => button.disabled), false, 'недоступная подпись достижима с клавиатуры (не disabled)');
+  assert.equal(await degree.evaluate(button => getComputedStyle(button).textDecorationLine), 'none', 'недоступная подпись не зачёркнута');
   assert.match(await degree.getAttribute('title'), /нет тоники/);
+  const note = playScene(page).locator('[data-labels-note]');
+  assert.equal(await note.isVisible(), false, 'пока подпись не нажата, строки причины нет');
+  assert.match(await playScene(page).locator(`#${await degree.getAttribute('aria-describedby')}`).textContent(), /нет тоники/);
+  const before = await playScene(page).locator('button[data-label][aria-pressed="true"]').getAttribute('data-label');
+  await degree.focus(); await page.keyboard.press('Enter');
+  assert.match(await note.innerText(), /нет тоники/);
+  assert.equal(await playScene(page).locator('button[data-label][aria-pressed="true"]').getAttribute('data-label'), before, 'нажатие на недоступную подпись режим не меняет');
+  await playScene(page).locator('button[data-view="tab"]').click();
+  assert.equal(await note.isVisible(), false, 'в виде «Таб» подписей и строки причины нет');
+  await playScene(page).locator('button[data-view="board"]').click();
   await focusPlayTitle(page);
   await page.keyboard.press('KeyM');
   const panel = playScene(page).getByRole('group', { name: 'Звук и ритм' });
@@ -735,7 +748,7 @@ check('play-right-hand-echo-and-shuffle-groove-on-string-crossing-and-memory-pul
   await page.locator('[data-lesson-screen="play"]:not([hidden]) .pl-scene').waitFor();
   await playScene(page).locator('button[data-view="board"]').click();
   const pluck = playScene(page).locator('button[data-label="pluck"]');
-  assert.equal(await pluck.isDisabled(), false);
+  assert.equal(await pluck.getAttribute('aria-disabled'), null, 'у доступной подписи нет aria-disabled');
   await pluck.click();
   const labels = await playScene(page).locator('[data-board="board"] .pl-note-label').allTextContents();
   assert.ok(labels.length && labels.every(label => label === 'i' || label === 'm'), `Подписи правой руки: ${labels}`);
@@ -762,6 +775,7 @@ check('play-chords-panel-disabled-without-chords-and-remembered-with-progression
   await playScene(page).locator('[data-panel-toggle]').click();
   const panel = playScene(page).getByRole('group', { name: 'Звук и ритм' });
   assert.equal(await panel.locator('[data-accompaniment="hold"]').isDisabled(), true);
+  assert.equal(await panel.locator('[data-accompaniment="hold"]').evaluate(button => getComputedStyle(button).textDecorationLine), 'none', 'недоступный вариант не зачёркнут');
   assert.match(await panel.locator('[data-accompaniment-note]').innerText(), /Нет аккордов по тактам/);
   assert.equal(await panel.locator('[data-volume="chords"]').isDisabled(), true);
   await playScene(page).locator('[data-back]').click();

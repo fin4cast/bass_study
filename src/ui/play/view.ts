@@ -133,6 +133,14 @@ const ASSESSMENTS: readonly { readonly id: Assessment; readonly label: string; r
 const ACTIVE = new Set<PlayState['status']>(['counting', 'playing']);
 const BARS_PER_PAGE = 2;
 
+/** Причина, по которой подпись на грифе недоступна: видна текстом при нажатии и читается скринридером (P20-03). */
+const LABEL_REASONS: Readonly<Record<Exclude<BoardLabelMode, 'none' | 'name'>, string>> = {
+  degree: 'У этого упражнения нет тоники — ступеней нет',
+  finger: 'Аппликатура этого упражнения зависит от контекста — пальцы не подписаны',
+  pluck: 'Правая рука подписана только в упражнениях на переход между струнами',
+};
+let playMounts = 0;
+
 const segButtons = <T extends string | number>(name: string, items: readonly { id: T; label: string }[]) =>
   items.map(item => `<button type="button" data-${name}="${escapeHtml(item.id)}" aria-pressed="false">${escapeHtml(item.label)}</button>`).join('');
 
@@ -157,6 +165,7 @@ const TEMPLATE = `
     <div class="pl-head-tools">
       <button type="button" class="text-button pl-listen" data-listen aria-pressed="false" title="Эталон звучит до игры: один проход без отсчёта; пробел или Esc — остановить">♪ Сначала услышь</button>
       <div class="pl-seg" role="group" aria-label="Подписи на грифе" data-labels>${LABEL_MODES.map(mode => `<button type="button" data-label="${escapeHtml(mode.id)}" aria-pressed="false">${escapeHtml(mode.label)}</button>`).join('')}</div>
+      <p class="pl-labels-note" data-labels-note role="status" hidden></p>
     </div>
   </header>
   <div class="pl-views"><span class="pl-views-caption">Вид · от подсказки к памяти</span><div class="pl-seg pl-seg-views" role="group" aria-label="Вид экрана игры">${PLAY_VIEWS.map((view, index) => `<button type="button" data-view="${escapeHtml(view.id)}" aria-pressed="false" aria-keyshortcuts="${index + 1}" title="${escapeHtml(view.hint)}"><i>${index + 1}</i>${escapeHtml(view.label)}</button>`).join('')}</div></div>
@@ -243,6 +252,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   const { signal } = controller;
   container.innerHTML = TEMPLATE;
   const scene = container.querySelector<HTMLElement>('.pl-scene')!;
+  const labelsId = `pl-lr-${++playMounts}`;
   const at = <T extends Element = HTMLElement>(selector: string) => scene.querySelector<T>(selector)!;
   const all = <T extends Element = HTMLElement>(selector: string) => [...scene.querySelectorAll<T>(selector)];
 
@@ -492,6 +502,7 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
     scene.dataset.view = view;
     all<HTMLButtonElement>('button[data-view]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === view)));
     at('[data-labels]').hidden = !(view === 'board' || view === 'both');
+    hideLabelsNote();
     placeBlocks();
     applyVolumes();
     sceneKey = '';
@@ -502,17 +513,38 @@ export function mountPlay(container: HTMLElement, options: MountPlayOptions = {}
   }
 
   function renderLabels() {
+    hideLabelsNote();
     all<HTMLButtonElement>('button[data-label]').forEach(button => {
       const mode = button.dataset.label as Exclude<BoardLabelMode, 'none'>;
       const available = labelAvailable(mode);
-      button.disabled = !available;
-      button.title = available ? (mode === 'pluck' ? 'Пальцы правой руки: i — указательный, m — средний' : '') : mode === 'degree' ? 'У этого упражнения нет тоники — ступеней нет'
-        : mode === 'pluck' ? 'Правая рука подписана только в упражнениях на переход между струнами' : 'Аппликатура этого упражнения зависит от контекста — пальцы не подписаны';
+      // Недоступная подпись остаётся в порядке Tab (aria-disabled, не disabled): причина видна и читается, а не только в подсказке.
+      if (available) button.removeAttribute('aria-disabled'); else button.setAttribute('aria-disabled', 'true');
+      const reason = mode === 'name' ? '' : LABEL_REASONS[mode];
+      const describedBy = `${labelsId}-${mode}`;
+      let hint = scene.querySelector<HTMLElement>(`#${describedBy}`);
+      if (!available && !hint) {
+        hint = document.createElement('span');
+        hint.id = describedBy; hint.hidden = true; hint.textContent = reason;
+        at('[data-labels]').append(hint);
+      }
+      if (available) { hint?.remove(); button.removeAttribute('aria-describedby'); } else button.setAttribute('aria-describedby', describedBy);
+      button.title = available ? (mode === 'pluck' ? 'Пальцы правой руки: i — указательный, m — средний' : '') : reason;
       button.setAttribute('aria-pressed', String(mode === effectiveLabels()));
     });
   }
+  function hideLabelsNote() {
+    const note = at('[data-labels-note]');
+    note.hidden = true;
+    note.textContent = '';
+  }
   function setLabels(mode: Exclude<BoardLabelMode, 'none'>) {
-    if (!labelAvailable(mode)) return;
+    if (!labelAvailable(mode)) {
+      // Режим не меняется; причина показывается текстом рядом с подписями, а не только в подсказке.
+      const note = at('[data-labels-note]');
+      note.hidden = false;
+      note.textContent = mode === 'name' ? '' : LABEL_REASONS[mode];
+      return;
+    }
     labels = mode;
     renderLabels();
     sceneKey = '';
