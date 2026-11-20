@@ -1789,6 +1789,9 @@ check('progress-shows-program-status-after-a-lesson-pass-and-reload', 'ui', asyn
   const row = progress.locator('.pg-pstep[data-step-id="t1-pulse.quarters"]');
   await row.waitFor();
   assert.match(await progress.locator('.pg-stage-head').first().innerText(), /Этап 1 · Пульс и опора\s+пройдено 0 из 29/);
+  // P20-01: с историей программа стоит сверху и раскрыта.
+  assert.equal(await progress.locator('.pg-program-all').evaluate(details => details.open), true, 'с историей программа раскрыта');
+  assert.equal(await progress.evaluate(el => Boolean(el.querySelector('.pg-program').compareDocumentPosition(el.querySelector('.pg-grid-a')) & Node.DOCUMENT_POSITION_FOLLOWING)), true, 'с историей программа идёт перед списком упражнений');
   assert.equal(await row.locator('.pg-pstatus').innerText(), 'в работе');
   assert.match(await row.innerText(), /сыграно 1 из 4 · лучший чистый темп 200/);
   assert.equal(await progress.locator('.pg-pstep[data-step-id="h1-roots.eighths"] .pg-pstatus').innerText(), 'не начат');
@@ -1801,6 +1804,8 @@ check('progress-program-line-collapsed-by-user-stays-collapsed-after-leaving-and
   await openApp(page, origin);
   await page.locator('.site-header [data-app-module="progress"]').click();
   const progress = page.locator('[data-page-frame="progress"]');
+  // Без истории программа свёрнута (P20-01): раскрываем её сами, выбор запоминается.
+  await progress.locator('summary.pg-program-sum').click();
   const line = progress.locator('.pg-pline').first();
   await line.waitFor();
   await line.locator('summary').click();
@@ -1816,6 +1821,26 @@ check('progress-program-line-collapsed-by-user-stays-collapsed-after-leaving-and
   assert.equal(await progress.locator('.pg-pline').first().evaluate(details => details.open), false, 'свёрнутая линия не раскрылась при обновлении');
   assert.equal(await progress.locator('.pg-pline').nth(1).evaluate(details => details.open), true, 'остальные линии остались открытыми');
   return { collapsedKept: true };
+});
+
+check('progress-without-history-explains-first-and-keeps-program-collapsed-until-opened', 'ui', async ({ page, origin }) => {
+  await openApp(page, origin);
+  await page.locator('.site-header [data-app-module="progress"]').click();
+  const progress = page.locator('[data-page-frame="progress"]');
+  await progress.locator('.pg-empty').waitFor();
+  const program = progress.locator('.pg-program-all');
+  assert.equal(await program.evaluate(details => details.open), false, 'без истории программа свёрнута');
+  assert.match(await progress.locator('summary.pg-program-sum').innerText(), /Программа обучения\s+4 этапа · \d+ шагов/);
+  assert.equal(await progress.locator('.pg-pline:visible').count(), 0, 'линии свёрнутой программы не видны');
+  assert.equal(await progress.evaluate(el => Boolean(el.querySelector('.pg-empty').compareDocumentPosition(el.querySelector('.pg-program')) & Node.DOCUMENT_POSITION_FOLLOWING)), true, 'пояснение стоит раньше программы в порядке документа');
+  assert.equal(await progress.locator('[data-note]').isVisible(), false, 'заметка «Записей пока нет» не повторяет карточку');
+  await progress.locator('summary.pg-program-sum').click();
+  assert.equal(await program.evaluate(details => details.open), true);
+  assert.equal(await progress.locator('.pg-stage').count(), 4);
+  await page.locator('.site-header [data-app-module="lesson"]').click();
+  await page.locator('.site-header [data-app-module="progress"]').click();
+  assert.equal(await program.evaluate(details => details.open), true, 'выбор ученика переживает уход и возврат');
+  return { collapsedByDefault: true };
 });
 
 markFullOnly(checks, ['basics-path-two-variants-pass-the-step-and-two-days-master-it', 'today-next-day-offers-next-variant-and-keeps-manual-steps-and-long-break-recalls',

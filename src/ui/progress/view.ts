@@ -70,6 +70,8 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
     drafts: [...(options.drafts ?? [])] as DraftView[],
     review: (options.review ?? null) as FretboardReviewView | null,
     program: [...(options.program ?? [])] as ProgramStageRow[],
+    /** Раскрытие программы: `null` — по умолчанию (есть история или начатые шаги), иначе выбор самого ученика. */
+    programOpen: null as boolean | null,
     planned: new Set<string>(options.plan ?? []),
     today: isDateKey(options.today) ? options.today : localDateKey(),
     fixedToday: isDateKey(options.today),
@@ -161,9 +163,12 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
 
   function renderNote() {
     const note = $('[data-note]')!;
+    // Без истории объяснение — карточка «Здесь появится…» вверху; строка-заметка её повторяла бы.
+    note.hidden = !hasHistory();
+    container.classList.toggle('is-empty', !hasHistory());
     note.innerHTML = hasHistory()
       ? '<span>Темп и отметку «Чисто / С ошибками / Не успевал» ставишь ты после прохода; ответы «Проверь себя» записывает экран.</span><span>Время — активное, без пауз.</span>'
-      : '<span><b>Записей пока нет.</b> Здесь будут твои отметки после прохода и ответы «Проверь себя».</span>';
+      : '';
     $('[data-source-ctl]')!.hidden = !hasHistory();
     $$('[data-source]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.source === state.source)));
   }
@@ -182,7 +187,7 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
     const review = state.review && state.review.count > 0 && showsFretboardReview(state.source) ? state.review : null;
     const reviewItem = review ? `<li class="is-check is-board"><span class="pg-src is-check">Гриф · экранные задания</span><button type="button" class="secondary-button button-compact pg-plan" data-repeat-errors aria-label="${escapeHtml(`Повторить в «Проверь себя»: ${review.title}`)}">Повторить</button><b>${escapeHtml(review.title)}</b><p>${escapeHtml(review.detail)}${review.reasons ? `. ${escapeHtml(review.reasons)}` : ''}</p></li>` : '';
     const html = !hasHistory() && !review
-      ? '<p class="pg-quiet">Сюда попадут места с отметками «С ошибками» и «Не успевал», а также ошибки в «Проверь себя» и в заданиях на грифе. Каждое можно повторить одной кнопкой.</p>'
+      ? '<p class="pg-quiet">Сюда попадут отметки «С ошибками» и «Не успевал» и ошибки в «Проверь себя» — с повтором одной кнопкой.</p>'
       : !views.length && !review ? '<p class="pg-quiet">Для этого источника трудных мест нет.</p>'
       : `<ul class="pg-hard">${reviewItem}${views.map(view => `<li class="is-${view.source}">${sourceTag(view.source)}<b>${escapeHtml(view.title)}</b><p>${escapeHtml(view.detail)}</p>${planButton(view.id, 'Повторить', view.title)}</li>`).join('')}</ul>`;
     for (const box of $$('[data-hard]')) box.innerHTML = html;
@@ -524,7 +529,7 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
     const box = $('[data-best]')!;
     const onlyCheck = state.source === 'check';
     const head = `<h2 class="pg-h2">${onlyCheck ? 'Проверь себя: лучший результат' : 'Лучший темп'} <small>${onlyCheck ? 'самостоятельно' : 'BPM ♩ · «Чисто»'}</small></h2>`;
-    if (!hasHistory()) { box.innerHTML = `${head}<p class="pg-quiet">Появится, когда отметишь первый проход «Чисто». Темп выбираешь ты — от удобного, без спешки.</p>`; return; }
+    if (!hasHistory()) { box.innerHTML = `${head}<p class="pg-quiet">Появится после первого прохода «Чисто».</p>`; return; }
     const list = rows();
     box.innerHTML = `${head}<p class="pg-hint">Нажми упражнение — дни с ним отметятся в календаре.</p><ul class="pg-bestlist">${list.map(row => {
       const value = row.kind === 'check' ? `${row.best.self} из ${row.best.total}<small>сам.</small>` : row.bestCleanBpm !== null ? `${row.bestCleanBpm}<small>было ${row.firstBpm}</small>` : '—<small>нет «Чисто»</small>';
@@ -532,17 +537,30 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
     }).join('')}</ul>`;
   }
 
-  /** Программа сверху: этапы и линии со счётчиками, у шага — статус, сыгранные варианты и лучший чистый темп. */
+  /** Без истории программа уходит под карточку «Здесь появится…» (порядок в DOM, а не только вид: фокус идёт как читается). */
+  function placeProgram(box: HTMLElement) {
+    const calendar = $('[data-panel="calendar"]')!;
+    const atBottom = calendar.nextElementSibling === box;
+    if (!hasHistory() && !atBottom) calendar.after(box);
+    else if (hasHistory() && atBottom) $('[data-panel="exercises"]')!.before(box);
+  }
+  const programStarted = () => state.program.some(stage => stage.lines.some(line => line.steps.some(step => step.state !== 'new')));
+
+  /** Программа: этапы и линии со счётчиками, у шага — статус, сыгранные варианты и лучший чистый темп. Без истории и начатых шагов свёрнута. */
   function renderProgram() {
     const box = $('[data-program]')!;
     box.hidden = state.program.length === 0;
+    placeProgram(box);
     // Свёрнутые учеником линии остаются свёрнутыми при любом обновлении экрана.
     const collapsed = new Set([...box.querySelectorAll<HTMLElement>('details.pg-pline:not([open])')].map(details => details.dataset.line));
-    box.innerHTML = state.program.map(stage => `<div class="pg-stage"><div class="pg-stage-head"><h2>Этап ${escapeHtml(stage.number)} · ${escapeHtml(stage.title)}</h2><span class="pg-sub">${escapeHtml(stage.counts)}</span></div>
+    const open = state.programOpen ?? (hasHistory() || programStarted());
+    const stepCount = state.program.reduce((sum, stage) => sum + stage.lines.reduce((lines, line) => lines + line.steps.length, 0), 0);
+    const stages = state.program.map(stage => `<div class="pg-stage"><div class="pg-stage-head"><h2>Этап ${escapeHtml(stage.number)} · ${escapeHtml(stage.title)}</h2><span class="pg-sub">${escapeHtml(stage.counts)}</span></div>
       ${stage.lines.map(line => `<details class="pg-pline" data-line="${escapeHtml(stage.number)}:${escapeHtml(line.id)}"${collapsed.has(`${stage.number}:${line.id}`) ? '' : ' open'}><summary><b>${escapeHtml(line.title)}</b> <span class="pg-sub">${escapeHtml(line.counts)}</span></summary>
         <ul class="pg-psteps">${line.steps.map(step => `<li class="pg-pstep is-${escapeHtml(step.state)}" data-step-id="${escapeHtml(step.id)}"><span class="pg-pstep-title">${escapeHtml(step.title)}</span>
           <span class="pg-pstatus" data-status="${escapeHtml(step.state)}">${escapeHtml(step.label)}</span>${step.review ? '<span class="pg-preview">пора повторить</span>' : ''}
           <span class="pg-sub">${escapeHtml(step.played)}${step.bestBpm ? ` · лучший чистый темп ${escapeHtml(step.bestBpm)}` : ''}</span></li>`).join('')}</ul></details>`).join('')}</div>`).join('');
+    box.innerHTML = state.program.length === 0 ? '' : `<details class="pg-program-all"${open ? ' open' : ''}><summary class="pg-program-sum"><b>Программа обучения</b> <span class="pg-sub">${escapeHtml(countWord(state.program.length, 'этап', 'этапа', 'этапов'))} · ${escapeHtml(countWord(stepCount, 'шаг', 'шага', 'шагов'))}</span></summary><div class="pg-program-body">${stages}</div></details>`;
   }
 
   function renderAll() {
@@ -556,6 +574,9 @@ export function mountProgress(container: HTMLElement, options: ProgressOptions =
     target?.focus();
   }
   function onClick(event: MouseEvent) {
+    // Выбор «раскрыто / свёрнуто» у программы запоминается: перерисовка не должна его сбросить.
+    const summary = (event.target as Element).closest<HTMLElement>('summary.pg-program-sum');
+    if (summary && container.contains(summary)) state.programOpen = !(summary.parentElement as HTMLDetailsElement).open;
     const target = (event.target as Element).closest<HTMLElement>('button');
     if (!target || !container.contains(target) || (target as HTMLButtonElement).disabled) return;
     if (target.dataset.tab) { selectTab(target.dataset.tab as ProgressTab); return; }

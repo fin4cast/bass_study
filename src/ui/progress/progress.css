@@ -1,6 +1,13 @@
 /* Программа обучения (R-028) */
 .p13-progress .pg-program { display: flex; flex: none; flex-direction: column; gap: 12px; }
 .p13-progress .pg-program[hidden] { display: none; }
+.p13-progress .pg-note[hidden] { display: none; }
+/* Без истории список не растягивается на весь экран: программа стоит сразу под пояснением. */
+.p13-progress.is-empty .pg-grid-a { flex: none; }
+.p13-progress .pg-program-all { border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--surface-raised); }
+.p13-progress .pg-program-sum { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 10px 14px; font-size: var(--text-l); }
+.p13-progress .pg-program-sum b { font-weight: var(--weight-heading); }
+.p13-progress .pg-program-body { display: flex; flex-direction: column; gap: 12px; padding: 0 12px 12px; }
 .p13-progress .pg-stage { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--border); border-radius: var(--radius-l); padding: 12px 14px; background: var(--surface); }
 .p13-progress .pg-stage-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
 .p13-progress .pg-stage-head h2 { font-size: var(--text-l); font-weight: var(--weight-heading); }
